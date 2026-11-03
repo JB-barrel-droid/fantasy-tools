@@ -10,6 +10,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
   pages: write
   id-token: write
 
@@ -28,9 +29,31 @@ env:
   DDF_GITHUB_REPOSITORY: ${{ vars.DDF_GITHUB_REPOSITORY }}
 
 jobs:
+  classify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      mode: ${{ steps.classify.outputs.mode }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+      - id: classify
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 pipelines/pages_change_gate.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pages-change-receipt-${{ github.sha }}-${{ github.run_attempt }}
+          path: pages-change-receipt.json
+          if-no-files-found: error
+
   # JEG-1170: validate-base and the exhaustive test-core matrix together run
   # exactly make validate. Only this job builds the artifact that is published.
   build:
+    needs: classify
+    if: needs.classify.outputs.mode == 'full'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     outputs:
@@ -114,6 +137,8 @@ jobs:
   # Each runner builds its own test inputs, as preview.yml does. Shard output
   # never replaces the built and rendered artifact uploaded above.
   validate-shard:
+    needs: classify
+    if: needs.classify.outputs.mode == 'full'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
@@ -151,8 +176,8 @@ jobs:
       - run: make test-core-shard-${{ matrix.shard }}
 
   deploy:
-    needs: [build, validate-shard]
-    if: always()
+    needs: [classify, build, validate-shard]
+    if: always() && needs.classify.outputs.mode == 'full'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment:
@@ -162,11 +187,12 @@ jobs:
       # A skipped, cancelled or failed build/matrix must never publish.
       - name: Every build and shard job passed
         env:
+          CLASSIFY_RESULT: ${{ needs.classify.result }}
           BUILD_RESULT: ${{ needs.build.result }}
           SHARD_RESULT: ${{ needs.validate-shard.result }}
         run: |
           echo "build: $BUILD_RESULT, validate-shard: $SHARD_RESULT"
-          [ "$BUILD_RESULT" = "success" ] && [ "$SHARD_RESULT" = "success" ]
+          [ "$CLASSIFY_RESULT" = "success" ] && [ "$BUILD_RESULT" = "success" ] && [ "$SHARD_RESULT" = "success" ]
       - id: deployment
         uses: actions/deploy-pages@v4
         with:

@@ -2,6 +2,18 @@
 
 The merge checks the lead ran on every PR merged on 2026-10-22 (PRs #795 to #821), restated as a runbook. It adds to `heavy-suites-and-hot-files.md` (hot files, one engine PR at a time) and `AGENTS.md` "Merge protocol". Owner ticket: JEG-874.
 
+## Release ownership preflight (JEG-1484)
+
+Use [release-batches.md](release-batches.md). Before **every** authorized ordinary
+merge run `python3 pipelines/release_batch.py --pr <PR> --main <current-main-SHA>`.
+An active reservation blocks individual merges, including unrelated ones that
+would invalidate its pinned main. Only the combined integration preflight may
+release its members; keep coding on unrelated branches while it runs. Registry
+reservation/acceptance PRs use the same command and verified transition path.
+Do not run a monitoring/no-merge job as the release owner. Existing approvals,
+independent review and all checks below remain required. This is executable
+preflight plus operating policy, not a GitHub branch-protection change.
+
 ## Before merging
 
 1. **The bot report matches the head.** The `preview.yml` run posts one "Preview build for `<sha>` (validate passed)" comment on the PR with the build tag, the dist manifest root, the artifact link and the rendered gate result. The `<sha>` must be the PR's current head (`gh pr view <n> --json headRefOid`). A report for an older head proves nothing about the commit you merge.

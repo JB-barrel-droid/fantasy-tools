@@ -1,13 +1,9 @@
-"""Guard: Pages runs exhaustive validation and rendered gates on every push.
+"""Pages keeps exhaustive validation and rendered gates on every publication.
 
-A deploy gate that no unrelated commit can bypass must run on EVERY push to main,
-regardless of which files the last commit touched. This test verifies:
-  (a) the validate step has no `if:` clause
-  (b) the rendered-gate step exists and has no `if:` clause
-  (c) no step reintroduces `paths-ignore` or `steps.*.outputs.*` gating
-
-This test FAILS on the base commit (5df093c9b199) where path-dependent gating
-was still present and the rendered gate was missing, and PASSES after the fix.
+Only the verified status-only, no-publication route may skip expensive jobs.
+Every full route still requires the exact build, exhaustive matrix and rendered
+artifact. Negative tests reject conditional checks, failed/skipped dependencies,
+and artifact bypasses; test_pages_change_gate covers classification/range mutations.
 """
 import os
 import re
@@ -19,6 +15,7 @@ from tests.test_preview_workflow_matches_pages import (
     WORKFLOW_GUARDS, build_steps, job, setting, shard_problems,
 )
 from tests.test_validate_shards import matrix_problems
+from tests.test_pages_change_gate import workflow_problems
 
 ROOT = Path(__file__).resolve().parent.parent
 PAGES = (ROOT / ".github/workflows/pages.yml").read_text(encoding="utf-8")
@@ -60,17 +57,19 @@ def has_if_clause(step_block):
 
 
 ARTIFACT_NAME = "github-pages-${{ github.sha }}-${{ github.run_attempt }}"
-SUCCESS_GUARD = '[ "$BUILD_RESULT" = "success" ] && [ "$SHARD_RESULT" = "success" ]'
+SUCCESS_GUARD = '[ "$CLASSIFY_RESULT" = "success" ] && [ "$BUILD_RESULT" = "success" ] && [ "$SHARD_RESULT" = "success" ]'
 
 
 def pages_problems(text):
     """Fail closed across the build, exhaustive matrix, and publication boundary."""
-    problems = []
+    problems = workflow_problems(text)
     build, shard, deploy = (job(text, n) for n in ("build", "validate-shard", "deploy"))
     if not all((build, shard, deploy)):
         return ["Pages requires build, validate-shard and deploy jobs"]
     for name, body in (("build", build), ("validate-shard", shard)):
-        if re.search(r"^    (if|needs|continue-on-error):", body, re.M):
+        if (re.findall(r"^    needs: (.*)$", body, re.M) != ['classify']
+                or re.findall(r"^    if: (.*)$", body, re.M) != ["needs.classify.outputs.mode == 'full'"]
+                or re.search(r"^    continue-on-error:", body, re.M)):
             problems.append(f"{name} must start unconditionally and block on failure")
         if setting(body, "ref") != "${{ github.sha }}":
             problems.append(f"{name} must check out the exact run SHA")
@@ -111,9 +110,9 @@ def pages_problems(text):
         problems.append("only build may upload the publication artifact")
     if text.count("uses: actions/deploy-pages@") != 1:
         problems.append("only deploy may publish")
-    if setting(deploy, "needs") != "[build, validate-shard]":
+    if setting(deploy, "needs") != "[classify, build, validate-shard]":
         problems.append("deploy must need build and the full shard matrix")
-    if setting(deploy, "if") != "always()":
+    if setting(deploy, "if") != "always() && needs.classify.outputs.mode == 'full'":
         problems.append("deploy must check failed, cancelled and skipped dependencies")
     if "continue-on-error" in deploy:
         problems.append("deploy must block on any failed check")
@@ -122,7 +121,7 @@ def pages_problems(text):
         problems.append("deploy must check success first and then publish without rebuilding")
     else:
         guard, publish = deploy_blocks
-        for binding in ("BUILD_RESULT: ${{ needs.build.result }}",
+        for binding in ("CLASSIFY_RESULT: ${{ needs.classify.result }}", "BUILD_RESULT: ${{ needs.build.result }}",
                         "SHARD_RESULT: ${{ needs.validate-shard.result }}"):
             if binding not in guard:
                 problems.append("deploy must check the actual build and matrix results")
@@ -187,8 +186,8 @@ class PagesParallelValidationTest(unittest.TestCase):
         self.assertCaught(PAGES.replace("      - run: make reference\n", ""), "commands must be")
 
     def test_dependency_and_success_guard_bypasses_are_caught(self):
-        for old, new, fragment in (("needs: [build, validate-shard]", "needs: [build]", "full shard matrix"),
-                                   ("if: always()", "if: success()", "skipped dependencies"),
+        for old, new, fragment in (("needs: [classify, build, validate-shard]", "needs: [build]", "full shard matrix"),
+                                   ("if: always() && needs.classify.outputs.mode == 'full'", "if: success()", "skipped dependencies"),
                                    (SUCCESS_GUARD, "true", "check success first"),
                                    ("SHARD_RESULT: ${{ needs.validate-shard.result }}", "SHARD_RESULT: success", "actual build and matrix"),
                                    ("        uses: actions/deploy-pages@v4", "        if: always()\n        uses: actions/deploy-pages@v4", "bypass the success guard")):
@@ -202,7 +201,7 @@ class PagesParallelValidationTest(unittest.TestCase):
             for shard in ("success", "failure", "cancelled", "skipped"):
                 with self.subTest(build=build, shard=shard):
                     result = subprocess.run(["bash", "-e", "-c", script], capture_output=True,
-                                            env={**os.environ, "BUILD_RESULT": build, "SHARD_RESULT": shard})
+                                            env={**os.environ, "CLASSIFY_RESULT": "success", "BUILD_RESULT": build, "SHARD_RESULT": shard})
                     self.assertEqual(result.returncode == 0, build == shard == "success")
 
     def test_artifact_must_come_from_the_rendered_build(self):
@@ -227,7 +226,7 @@ class PagesParallelValidationTest(unittest.TestCase):
 
 
 class DeployGateUnconditionalTest(unittest.TestCase):
-    """Verify deploy gates run unconditionally on every push to main."""
+    """Verify full-route deploy gate steps remain unconditional and blocking."""
 
     def test_validate_step_has_no_if_clause(self):
         """(a) the validate step has no `if:` clause."""
@@ -264,7 +263,7 @@ class DeployGateUnconditionalTest(unittest.TestCase):
             r"if:.*needs\.",
         ]
         for pattern in output_gating_patterns:
-            matches = re.findall(pattern, PAGES)
+            matches = re.findall(pattern, "\n".join(steps(job(PAGES, "build")) + steps(job(PAGES, "validate-shard"))))
             self.assertEqual(
                 [], matches,
                 f"pages.yml must not gate on step outputs (found: {matches})")
