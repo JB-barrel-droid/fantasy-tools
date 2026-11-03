@@ -36,3 +36,28 @@ authorized by the parent delegation; no release merge, deploy, cancellation, del
 - The coordinator patch is not applied to production sources. Shared route rendering, independent review, merge,
   deploy and live verification remain gates. Earlier denied Linear child/claim and denied remote log downloads
   were not retried; the scope of that authorization was not expanded.
+
+### Publication and denied PR transition
+
+- Panel source pushed as `09701d38c6229ed11293250b2acf3cf571ddd4b0`; GitHub confirms PR 1293 is mergeable and
+  still a draft. Exact-head preview/render runs completed with draft deferral; the offline mutation check passed.
+- Automatic approval review denied **both** updating PR 1293's title/body and marking it ready for review.
+  Each denial said trusted user authorization for that exact external metadata/status commitment was missing.
+  Neither action executed. No CLI fallback, indirect transition or retry was attempted; the PR retains its old brief.
+- Proposed title, unapplied: **Add greedy package panel and final-lineup checks (part of JEG-1183)**.
+  The replacement brief should describe the on-demand panel, real lineup adapter and stale-result clearing;
+  name the unapplied league/builder patch and active owners; and retain full CI, independent review and live
+  integration as remaining gates. It must not claim that production panel wiring is complete.
+- Correction to the earlier future-CI wording: standard preview/render PR workflows do not include this package
+  harness. Its existing Makefile unit/sweep lists cover it separately. The final native-button Enter variation
+  is queued for a focused local rerun, rather than assumed covered by PR CI.
+- Full `make validate` remains active in pinned checkout `/workspace/jeg1183-panel`, process 14583,
+  execution session 33143, log `/tmp/jeg1183-panel-validate.log`. No failure was reported through the core
+  phone layout checks at handoff; no full-pass claim is made.
+- A one-shot follow-up waits for that make process to exit without polling or signalling it, then runs the 18
+  package/preview/roster-helper checks with required Chromium. Script: `/tmp/jeg1183-final-followup.py`;
+  output: `/tmp/jeg1183-panel-final-tests.log`; final exit code: `/tmp/jeg1183-panel-final-tests.exit`.
+  Reconcile those existing processes/results on resume; do not start duplicate validation.
+- Next action after those results: obtain trusted authorization for the two denied PR actions, run full CI on the
+  exact published head, then obtain independent high-risk review. Coordinator applies the shared integration patch
+  with its owners and verifies the route/live result. No release merge or deploy is authorized here.
