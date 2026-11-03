@@ -79,7 +79,7 @@ After the finder owner releases `finder.js` / PR #1174 and ordering is resolved:
 
 This handoff does not claim user-facing completion or independent review.
 
-## Delivery blocker
+## Delivery
 
 Implementation commit `8cfcd9346c63466da5e6d9741c6a58490bdf6730` was pushed
 and verified on remote branch `codex/JEG-1322-pair-discovery-filters`.
@@ -87,8 +87,16 @@ Automatic approval review rejected `github_create_pull_request` targeting
 `datadrivenfootball/fantasy-tools`, head this branch, base `main`, draft true.
 Its reason: opening even a draft PR is an external repository commitment,
 and the supplied authorization for parallel implementation did not explicitly
-authorize PR creation. The action was denied; no PR was created. It was not
-retried through another tool. Opening the draft needs explicit approval.
+authorize PR creation. The action was denied; no PR was created at that time.
+It was not retried through another tool.
+
+The coordinator then supplied Jeremy's explicit authorization for DDF ticket
+branch pushes and draft PR creation/updates. Before retrying, the remote head
+was confirmed as `c87639275bb3fc06de10a219888b17848959a3c6` and the branch's
+all-state PR list was empty. One retry of the same creation succeeded:
+[draft PR #1300](https://github.com/datadrivenfootball/fantasy-tools/pull/1300).
+The approval blocker is resolved. This follow-up changes only the handoff;
+the implementation and test results above remain unchanged.
 
 The remaining integration is deliberately deferred under this lane's scope,
 not an execution failure. The implementation and focused tests are available
