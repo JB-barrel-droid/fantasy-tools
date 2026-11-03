@@ -14,8 +14,11 @@ position. Each fringe player's first projection source with a value is moved
 by -1 and +1 PPG, the whole pipeline is rerun with the allocation free, and
 every other player's blended DDF Value is compared with the base run.
 
-test_hard_rule_fails_the_bound is the mutation: the same check at sigma 0
-(today's rule on main) breaks the bound on the Charlotte shape.
+test_hard_rule_fails_the_bound is the negative control: a synthetic Charlotte
+shape puts RB31 just above WR28 at the flex cutoff. Moving only RB31's ESPN
+projection by -1 PPG transfers a whole flex seat under sigma 0 and breaks the
+same bound. The fractional rule must smooth that exact crossing too. These
+controls do not depend on which players happen to be near today's cutoffs.
 
 Heavy (about two minutes on four cores, live inputs); runs in test-core (shard 2).
 """
@@ -117,6 +120,43 @@ def worst_move(name: str, sigma: float) -> tuple[float, str, int]:
         VR.SEAT_SIGMA = saved
 
 
+def _boundary_crossing(sigma):
+    """Fixed inputs, before/after a -1 PPG ESPN change to synthetic RB31.
+
+    Each position has 80 players, declining 0.3 PPG per rank to a 0.1 floor.
+    RB31 (key 231)
+    starts at 14.0 mean PPG, just above WR28 (key 328) at 13.9. One source
+    dropping by 1.0 moves RB31's three-source mean to 13 2/3, transferring
+    a flex seat from RB to WR under the hard rule. The chart stays fixed.
+    """
+    pos_of, points = {}, {}
+    tops = {"QB": 26, "RB": 23, "WR": 22, "TE": 18}
+    for j, p in enumerate(VR.POSITIONS, 1):
+        for rank in range(80):
+            key = j * 100 + rank + 1
+            pos_of[key] = p
+            points[key] = max(0.1, tops[p] - 0.3 * rank)
+    lg = LEAGUES["charlotte"]
+    league = VR.League(teams=lg["teams"], slots=dict(lg["slots"]),
+                       flex=lg["flex"], bench=lg["bench"])
+    lineup = VR.resolve_lineup(VR.load_lineup_config())
+    runs = []
+    for delta in (0.0, -PPG_STEP):
+        sources = {s: VR.SourceInput(s, "projection", dict(points)) for s in VR.PROJECTIONS}
+        sources["espn"].values[231] += delta
+        sources["cbs"] = VR.SourceInput("cbs", "chart", {i: 3 * v for i, v in points.items()})
+        runs.append(VR.run_pipeline(league, sources, pos_of, list(sources),
+                                    lineup=lineup, seat_sigma=sigma))
+    return runs
+
+
+def _other_player_moves(before, after):
+    return {i: abs(after["rows"][i]["ddf"]["blended"]["value"] - row["ddf"]["blended"]["value"])
+            for i, row in before["rows"].items() if i != 231
+            and row["ddf"]["blended"]["value"] is not None
+            and after["rows"][i]["ddf"]["blended"]["value"] is not None}
+
+
 class FractionalSeatStability(unittest.TestCase):
     def test_no_other_player_moves_more_than_one(self):
         workers = max(1, min(len(SETTINGS), os.cpu_count() or 1))
@@ -129,8 +169,23 @@ class FractionalSeatStability(unittest.TestCase):
                                   f"{BOUND} DDF Value: {bad}")
 
     def test_hard_rule_fails_the_bound(self):
-        worst, why, _ = worst_move("charlotte", 0.0)
-        self.assertGreater(worst, BOUND, f"the hard rule should break the bound on Charlotte (worst {worst})")
+        before, after = _boundary_crossing(0.0)
+        self.assertGreater(before["mean_ppg"][231], before["mean_ppg"][328])
+        self.assertLess(after["mean_ppg"][231], after["mean_ppg"][328])
+        self.assertEqual([r["allocation"]["RB"]["flex"] for r in (before, after)], [7, 6])
+        self.assertEqual([r["allocation"]["WR"]["flex"] for r in (before, after)], [3, 4])
+        moves = _other_player_moves(before, after)
+        self.assertEqual(len(moves), 319, "the control must price every unchanged player")
+        self.assertGreater(max(moves.values()), BOUND,
+                           "the hard rule should break the bound at the fixed flex crossing")
+
+    def test_fractional_rule_smooths_known_crossing(self):
+        before, after = _boundary_crossing(VR.SEAT_SIGMA)
+        moves = _other_player_moves(before, after)
+        self.assertEqual(len(moves), 319, "the control must price every unchanged player")
+        self.assertGreater(max(moves.values()), 0.0, "the perturbation must affect other players")
+        self.assertLessEqual(max(moves.values()), BOUND,
+                             "fractional seats must smooth the same crossing that breaks the hard rule")
 
 
 if __name__ == "__main__":
