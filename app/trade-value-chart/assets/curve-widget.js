@@ -1522,9 +1522,27 @@
     return {status: "resolved", player_key: key};
   }
 
-  function prepareSearchSelection({inputs = [], overrideAdds = [], ownership = {}} = {}) {
+  function prepareSearchSelection(options = {}) {
     const resolved = new Set();
     const pending = [];
+    const shapeError = (field, reason) => pending.push({status: "pending", boundary: "request_shape", field, reason});
+    const isObject = value => value !== null && typeof value === "object" && !Array.isArray(value);
+    const supplied = (object, field) => Object.prototype.hasOwnProperty.call(object, field);
+    const request = isObject(options) ? options : {};
+    if (!isObject(options)) shapeError("options", "Expected a selection options object");
+    const list = (object, field, path = field) => {
+      if (!supplied(object, field)) return []; // Optional omission is distinct from malformed supplied data.
+      if (Array.isArray(object[field])) return object[field];
+      shapeError(path, "Expected an array of identity references");
+      return [];
+    };
+    const inputs = list(request, "inputs"), overrideAdds = list(request, "overrideAdds");
+    let ownership = supplied(request, "ownership") ? request.ownership : {};
+    if (!isObject(ownership)) {
+      shapeError("ownership", "Expected an ownership object");
+      ownership = {};
+    }
+    const mine = list(ownership, "mine", "ownership.mine"), others = list(ownership, "others", "ownership.others");
     const describe = reference => ({namespace: typeof reference?.namespace === "string" ? reference.namespace : null,
       id: ["string", "number"].includes(typeof reference?.id) ? reference.id : null});
     let duplicates = 0;
@@ -1537,8 +1555,10 @@
     const owned = new Set();
     const ownRoster = new Set();
     const otherRosters = new Set();
-    let ownershipReady = ownership.complete === true;
-    const collectOwnership = (references, mine) => references.forEach(reference => {
+    let ownershipReady = ownership.complete === true
+      && !pending.some(issue => issue.boundary === "request_shape"
+        && (issue.field === "options" || issue.field.startsWith("ownership")));
+    const collectOwnership = (references, mine) => { for (const reference of references) {
       const result = resolveSearchIdentity(reference);
       if (result.status !== "resolved") {
         ownershipReady = false;
@@ -1548,9 +1568,9 @@
         if (mine) ownRoster.add(result.player_key);
         else otherRosters.add(result.player_key);
       }
-    });
-    collectOwnership(ownership.mine || [], true);
-    collectOwnership(ownership.others || [], false);
+    }};
+    collectOwnership(mine, true);
+    collectOwnership(others, false);
     const ownershipConflictKeys = [...ownRoster].filter(key => otherRosters.has(key));
     ownershipConflictKeys.forEach(key => pending.push({status: "pending", player_key: key,
       reason: "Identity is claimed by own and other rosters", boundary: "ownership_conflict"}));

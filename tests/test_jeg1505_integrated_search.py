@@ -70,6 +70,9 @@ if(input.action==='invariance') {
   result={hits:context.controls.searchPlayers(input.query,{limit:5000}),one:context.controls.getPlayer(input.key)};
 } else if(input.action==='resolve') result=input.references.map(r=>context.controls.resolveSearchIdentity(r));
 else if(input.action==='prepare') result=context.controls.prepareSearchSelection(input.options);
+else if(input.action==='prepareBatch') result=input.cases.map(options=>context.controls.prepareSearchSelection(options));
+else if(input.action==='prepareSparse') result=context.controls.prepareSearchSelection({...input.options,
+  ownership:{...input.options.ownership,mine:Array(1)}});
 else if(input.action==='reject') result={accepted:context.installSearchIdentities(input.badSelection)};
 else if(input.action==='readout') {
   const text=fs.readFileSync(path.join(root,'app/v2/v2.js'),'utf8');
@@ -255,6 +258,66 @@ class IntegratedSearchTest(unittest.TestCase):
         self.assertEqual(out["result"]["wireKeys"], [101])
         self.assertTrue(out["canonicalUnchanged"] and out["computedUnchanged"])
         self.assertFalse(widget("prepare", mode="worked", ready=False, options=options)["result"]["readyForPricing"])
+
+    def test_reported_nine_malformed_lists_hold_instead_of_becoming_ready(self):
+        candidate = {"namespace": "canonical", "id": 101}
+        cases = []
+        for field in ("mine", "others"):
+            for value in (False, 0, "", None):
+                ownership = {"complete": True, "mine": [], "others": [], field: value}
+                cases.append({"inputs": [candidate], "ownership": ownership})
+        cases.append({"inputs": [candidate], "overrideAdds": "",
+                      "ownership": {"complete": True, "mine": [], "others": []}})
+        out = widget("prepareBatch", mode="worked", cases=cases)
+        for options, result in zip(cases, out["result"]):
+            with self.subTest(options=options):
+                self.assertFalse(result["readyForPricing"])
+                self.assertEqual(result["wireKeys"], [])
+                self.assertTrue(any(p.get("boundary") == "request_shape" for p in result["pending"]))
+        self.assertTrue(out["inputUnchanged"] and out["canonicalUnchanged"] and out["computedUnchanged"])
+
+    def test_present_non_array_candidates_overrides_and_ownership_hold(self):
+        candidate = {"namespace": "canonical", "id": 101}
+        cases = []
+        for field in ("inputs", "overrideAdds", "ownership.mine", "ownership.others"):
+            for value in (None, False, True, 0, "", "101", {}, {"0": candidate}):
+                options = {"inputs": [candidate], "ownership": {"complete": True, "mine": [], "others": []}}
+                if field.startswith("ownership."):
+                    options["ownership"][field.split(".")[1]] = value
+                else:
+                    options[field] = value
+                cases.append(options)
+        for value in (None, False, True, 0, "", "ownership", [], [candidate]):
+            cases.append({"inputs": [candidate], "ownership": value})
+            cases.append(value)
+        out = widget("prepareBatch", mode="worked", cases=cases)
+        for options, result in zip(cases, out["result"]):
+            with self.subTest(options=options):
+                self.assertFalse(result["readyForPricing"])
+                self.assertEqual(result["wireKeys"], [])
+                self.assertTrue(any(p.get("boundary") == "request_shape" for p in result["pending"]))
+        self.assertTrue(out["inputUnchanged"] and out["canonicalUnchanged"] and out["computedUnchanged"])
+
+    def test_optional_omitted_lists_and_explicit_empty_arrays_remain_valid(self):
+        candidate = {"namespace": "canonical", "id": 101}
+        cases = [{"inputs": [candidate], "ownership": {"complete": True}},
+                 {"overrideAdds": [candidate], "ownership": {"complete": True}},
+                 {"inputs": [candidate], "overrideAdds": [], "ownership": {"complete": True, "mine": [], "others": []}}]
+        out = widget("prepareBatch", mode="worked", cases=cases)
+        for result in out["result"]:
+            self.assertTrue(result["readyForPricing"])
+            self.assertEqual(result["wireKeys"], [101])
+            self.assertEqual(result["pending"], [])
+        self.assertTrue(out["inputUnchanged"] and out["computedUnchanged"])
+
+    def test_sparse_ownership_array_does_not_silently_skip_unknown_entry(self):
+        options = {"inputs": [{"namespace": "canonical", "id": 101}],
+                   "ownership": {"complete": True, "mine": [], "others": []}}
+        out = widget("prepareSparse", mode="worked", options=options)
+        self.assertFalse(out["result"]["readyForPricing"])
+        self.assertEqual(out["result"]["wireKeys"], [])
+        self.assertEqual(out["result"]["pending"][0]["boundary"], "ownership")
+        self.assertTrue(out["inputUnchanged"] and out["canonicalUnchanged"] and out["computedUnchanged"])
 
     def test_own_roster_unpriced_identity_blocks_priced_candidate(self):
         for reference in ({"namespace": "canonical", "id": 568}, {"namespace": "sleeper", "id": "6803"}):
