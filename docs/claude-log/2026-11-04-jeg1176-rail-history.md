@@ -150,3 +150,36 @@ receipt. The previous invocation does not clear the integrated head.
 - Preserve the four supplemental render-shard baseline failures without waiver.
   Release merge, deployment, protection changes, Supabase actions, deletion and
   approving reviews are outside this lane. Fresh chain/live acceptance remains.
+
+## Qualification after the subsequent player-status input update
+
+- Exact head `501504378aed25ba11fc61f077e8c8fa6fb04d39` completed its full
+  required-browser `make validate` with exit 0 (started 13:04:12 UTC; finished
+  by 14:02:56 UTC). It actually ran the final-wired preload case inside core:
+  28,599 minority-newest and 49,368 all-newest values agree. Strict comparison
+  agrees on 1,234,507 values, max absolute difference 6.394884621840902e-14;
+  integration checks pass. Its subsequent contract module passed all six tests
+  in 452.847s. These are true receipts for that head, not for a newer base.
+- During that qualification, main gained `2d335471` (JEG-1363), changing
+  `data/inputs/player_status.json` and its history output. The input advances
+  Nov 3 to Nov 4: 81 injury-status changes, three team changes, and three added
+  Sleeper records (874 to 877). The history report writes 947 rather than 948
+  resolved rows. These are substantive data changes, so no status-only exception
+  is used and the completed `50150437` results do not clear the newer base.
+- Preserved all 22 tracked generated outputs from that completed run in stash
+  `475cd30a9c3fc76dc001ad4a8e8e0f9aa459da38` and a binary patch at
+  `/tmp/jeg1176-generated-50150437.patch`. Untracked generated outputs remain
+  untouched. No stash was dropped and no files or work were deleted.
+- Refetched latest main `fae7776412699ce31c23a61022644454a81aef97` and normally
+  integrated it into this same ticket branch without conflicts. Its five newer
+  commits contain the player-status input and operational status updates only.
+  Makefile and widget are unchanged from the main base used in the #1292
+  compatibility analysis, so the textual ordering finding remains applicable;
+  it still does not establish combined-feature behavioral validation.
+- The next qualification commit includes this note before another single full
+  validation invocation. That invocation and its sequential contract check must
+  produce their own exact-head receipts. No earlier result, registry change or
+  assertion waiver may substitute for them. Public-tree inventory still precedes
+  any push. At 14:04:12 UTC all eight ready slots were occupied; admission and
+  explicit permission remain required before full CI. No #1292 import, ready
+  promotion, workflow cancellation, protection change or release action occurred.
