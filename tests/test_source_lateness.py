@@ -161,7 +161,22 @@ class ServedWeeksTest(unittest.TestCase):
     def test_published_history_wins_over_the_last_chain_run(self):
         history = {"served": {"cbs": {"week": 7}}}
         status = {"source_weeks": {"cbs": {"served_week": 8}, "espn": {"served_week": 8}}}
-        self.assertEqual(sl.served_weeks(history, status), {"cbs": 7, "espn": 8})
+        # A missing published source is unknown; an attempt cannot fill it in.
+        self.assertEqual(sl.served_weeks(history, status), {"cbs": 7})
+
+    def test_candidate_status_is_not_a_publication_receipt(self):
+        # Even a green rebuild may fail to publish. Failed Week 9 candidates
+        # actually recorded these "current" section-label weeks while Week 8
+        # remained published (JEG-1485).
+        for success in (False, True, None):
+            status = {"success": success, "source_weeks": {
+                s: {"served_week": 9, "state": "current", "basis": "section_label"}
+                for s, rule in sl.RULES.items() if rule.on_site}}
+            for history in ({}, {"served": {}}, {"served": {"cbs": {"week": 8}}}):
+                with self.subTest(success=success, history=history):
+                    got = sl.served_weeks(history, status)
+                    expected = {"cbs": 8} if history.get("served", {}).get("cbs") else {}
+                    self.assertEqual(got, expected)
 
     def test_unknown_published_week_does_not_fall_back_to_a_chain_attempt(self):
         status = {"source_weeks": {"cbs": {"served_week": 8}}}
@@ -330,6 +345,43 @@ class MainTest(unittest.TestCase):
                     self.assertIn("::error title=source lateness::not checked", buf.getvalue())
                     self.assertNotIn("every source on time", buf.getvalue())
                     gh.assert_not_called()
+
+    def test_failed_week_nine_candidate_cannot_resolve_alert_without_published_history(self):
+        now = datetime(2026, 11, 4, 18, 1, tzinfo=UTC)  # Wednesday 12:01 CST
+        nfl_week.set_clock(now)
+        state = {s: fresh(now, week=9) for s in sl.RULES}
+        on_site = {s for s, rule in sl.RULES.items() if rule.on_site}
+        failed_candidate = {
+            "success": False, "outcome": "failed", "failed": ["post_rebuild_validation"],
+            "source_weeks": {s: {"served_week": 9, "state": "current", "basis": "section_label"}
+                             for s in on_site},
+        }
+        with tempfile.TemporaryDirectory() as td:
+            history = Path(td) / "history.json"
+            status = Path(td) / "status.json"
+            status.write_text(json.dumps(failed_candidate))
+            out = Path(td) / "report.json"
+            # First genuinely missing, then present but empty: both used to
+            # close a real existing alert using the failed candidate's labels.
+            for contents in (None, "{}"):
+                with self.subTest(history=contents):
+                    if contents is not None:
+                        history.write_text(contents)
+                    gh = FakeGitHub([{"number": 7, "title": sl.TITLE, "labels": []}])
+                    with mock.patch.object(sl, "load_state", return_value=state), \
+                            mock.patch.object(sl, "_call", side_effect=gh), \
+                            mock.patch.dict(os.environ, {"GITHUB_REPOSITORY": "o/r", "GITHUB_TOKEN": "fake"}), \
+                            contextlib.redirect_stdout(io.StringIO()) as buf:
+                        rc = sl.main(["--history", str(history), "--status", str(status),
+                                      "--out", str(out), "--alert"])
+                    self.assertEqual(rc, 1)
+                    rep = json.loads(out.read_text())
+                    self.assertEqual(rep["late"], [])
+                    self.assertEqual(set(rep["unknown_served_weeks"]), on_site)
+                    self.assertTrue(all(rep["sources"][s]["served_week"] is None for s in on_site))
+                    self.assertIn("existing alerts left unchanged", buf.getvalue())
+                    self.assertNotIn("every source on time", buf.getvalue())
+                    self.assertEqual(gh.calls, [])
 
 
 if __name__ == "__main__":
