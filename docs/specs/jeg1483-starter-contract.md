@@ -245,3 +245,77 @@ match the prepared decisions. Evidence: jeg1483-performance-receipt.json. This
 is measured kernel latency in this executor, not a promise for the full private UI.
 The candidate harness additionally compares every proposal in its bounded trade
 and Pickup cases against the independent full readout path (60 assertions).
+
+## Native Compare pricing provider (November4)
+
+The league-roster handoff requires these files from the same head:
+`app/v2/trade-context.js`, `app/v2/v2.js`, `app/v2/league.js`.
+This is a logic-only integration patch; keep the consumer's presentation changes.
+The earlier three canonical search/readout files remain required dependencies.
+
+```js
+const TC = TradeValueTradeContext;
+const keys = TC.pricingKeys({mine: mine.entries, theirs: theirs.entries, deal});
+const prices = TC.comparePricing(engine, {workspace: ws, transfer, keys});
+// transfer may be absent for manual Compare. Its requested level wins over
+// this device's league-roster toggle. Missing requested levels yield a hold.
+const arrived = TC.receive(transfer, {
+  route: "compare", common, pricing: prices.pricing, ws
+});
+// Release the UI hold only if both prices.status and arrived.status are "ok".
+const readout = TradeValueReadout.build(TradeValueReadout.inputFromContext(
+  arrived.context,
+  {rowsByKey: prices.rowsByKey, shape, chartKeys, sourceInfo, calculationSettings},
+  {context: TC}
+));
+```
+
+`TC.pricingProvider(engine, {mode:"league", rostered, reserve, keys})` is the
+lower-level provider for a Find context that already passed the completeness
+check. It returns status/reasons, rows/rowsByKey, pricing, levels and zonesFor.
+`TC.leagueCheck(engine, ws, now?)` reuses the prior league completeness and
+provenance rules; coverage_unproven remains a nonblocking disclosure. Partial,
+stale, duplicate-owner or unknown/unmatched offensive rosters do not infer a
+complete league. Manual Compare selects league pricing only with that gate
+and no explicit leagueRosters:false; otherwise it retains modeled pricing.
+
+Both league identities hash their own raw engine rows, allocation and bench
+readout. The combined rows retain DDF values/versions/projections and DDF tiers
+from the DDF run. Individual chart, adjusted-chart and chart-VORP series and
+ancestry use the market run. Chart tier boundaries use the market allocation;
+projection boundaries use the DDF allocation. No source weighting, values,
+thresholds or canonical predicates change. The provider writes no workspace.
+
+Native Compare exposes the same object as
+`TradeValueV2.compare().pricingProvider` (and its identity as `.pricing`).
+Its carried validation, roster lookup, package totals, waterfall, tier scopes
+and samples use this provider. Edited links refresh identity coverage to include
+new off-roster package players. Manual league-priced links carry both levels;
+reload, Swap and Back preserve them. A missing/different level is held, never
+silently repriced as modeled. Existing override-size holds remain.
+
+Verification: `tests/node/jeg1483_compare_pricing_check.cjs` checks58 assertions
+on complete USO and Charlotte frozen league inputs through the original engine,
+including Find/search/Compare canonical parity and changed/missing-level holds.
+It is included in `tests.test_jeg1483_starter_contract` and its existing CI step.
+The legacy league-site journey now requires actual dual-level parity/reload,
+replacing its superseded blanket hold expectation. Its focused built-page
+journey passes (1 test,40.410s):3948 standard-bench and3685 league-bench trades,
+with exact values, dual identity, reload and preserved workspace.
+
+For a read-only native browser check against an existing coherent build:
+
+```sh
+python tools/jeg1483/check_native_compare.py --site-root /path/to/native-bundle --width 390
+python tools/jeg1483/check_native_compare.py --site-root /path/to/native-bundle --width 1280
+```
+
+The bundle must contain full/index.html and genuine engine input assets. The
+probe serves them locally, overrides only requested JS responses with this
+checkout, blocks external requests and preserves the baseline bytes. Author
+runs passed at both widths on preserved67b08e30:741 rows, equal package values
+and both identities, reload, Swap, sample rotation, edited links, Back, missing
+level hold/recovery, manual league pricing and explicit modeled opt-out; no page
+errors or saved-roster writes. This is native integration evidence, not a
+certification of the coordinator's newer full/Simple UI. Its published hold
+stays until it adopts and verifies this exact contract head.

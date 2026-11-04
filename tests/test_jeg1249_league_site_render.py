@@ -12,7 +12,7 @@ The USO rosters from tests/fixtures/league_levels/uso.json (12 teams, Yahoo, pul
   test_league_to_compare_journey: with the standard bench (one team's bench left out), JSN's trades are on the
     table, an equal and an unequal trade open in Compare a trade with the same players and the same DDF Value for every
     player, and the saved league is byte-identical after the round trip. A team with an unpriced player and a kicker
-    renders without errors. With pasted rosters setting the bench, the handoff is held and says so.
+    renders without errors. With pasted rosters setting the bench, both pricing levels survive the handoff.
   test_league_rosters_switch: "Use league rosters" is grayed out with one team, on by default once the league
     qualifies, switches to the standard bench (and Compare links) when turned off, and keeps that choice after a reload.
 
@@ -372,18 +372,27 @@ class LeagueSiteTest(unittest.TestCase):
                         self.open_compare(page, href, core)
                         self.assertEqual(page.evaluate(SAVED), saved)
 
-            # With the league's rosters setting the bench, the handoff is held, and says why.
+            # JEG-1483: a complete league now opens with both level identities and the exact same prices.
             page.goto(base + "#find-league", wait_until="networkidle")
             settle(page)
             got = self.seed(page, PASTED)
             self.assertTrue(got["note"].startswith("Priced with your league's rosters"), got["note"])
             lv = page.evaluate(ROWS, jsn)
             print(f"[journey] league rosters: {lv['count']} trades, {lv['jsn']} send JSN")
-            first = page.evaluate("() => window.TradeValueLeague.ui.result.rows[0].id")
-            hand = self.handoff(page, first)
-            self.assertIsNone(hand.get("href"), "a league-priced trade still links to Compare's standard bench")
-            self.assertIn("prices with the standard bench", hand.get("held") or "")
-            self.assertEqual(page.evaluate("() => document.querySelectorAll('a[href^=\"#compare-trade\"]').length"), 0)
+            trade = lv["equal"]
+            self.assertIsNotNone(trade)
+            saved = page.evaluate(SAVED)
+            hand = self.handoff(page, trade["id"])
+            self.assertIsNone(hand.get("held"))
+            self.assertTrue(hand.get("href"))
+            self.open_compare(page, hand["href"], trade)
+            self.assertEqual(page.evaluate("() => window.TradeValueV2.compare().pricing.mode"), "league")
+            self.assertEqual(page.evaluate("() => Object.keys(window.TradeValueV2.compare().pricing.levels)"), ["ddf", "market"])
+            self.assertEqual(page.evaluate(SAVED), saved)
+            page.reload(wait_until="networkidle")
+            self.open_compare(page, hand["href"], trade)
+            self.assertEqual(page.evaluate("() => window.TradeValueV2.compare().pricing.mode"), "league")
+            self.assertEqual(page.evaluate(SAVED), saved)
         self.assertEqual(self.problems, [])
 
 

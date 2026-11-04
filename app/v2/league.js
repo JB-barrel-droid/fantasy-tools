@@ -79,7 +79,7 @@
   //   DDF Value and the bench-share weights: the DDF level, one run (replacement is the league's best available player).
   //   Trade chart values (the other side's acceptance) and expected roster depth: the market level, one run (the league's
   //     active rostered depth; IR and taxi players are held but are not depth).
-  // Only this page reads the levels. Compare and the pair finder keep the modeled bench, and the note says so.
+  // Compare reproduces these same two levels through TradeContext; the pair finder retains its existing path.
   // The league must pass ValueModel.leagueCompleteness (every team loaded, matched, no player on two teams, no partial roster,
   // rosters read from a source within a week) and DDFRosterProvenance.inferenceBlockers (JEG-1249: every team's roster was
   // observed from a source, its unmatched count is known and zero, and no page left its bench out). Any reason keeps the
@@ -87,51 +87,15 @@
   // reason remains. A paste is read as the team's whole roster (Jeremy, 2026-10-29: "This hasn't been an issue on prior
   // pastes. The rosters have all filled up and the page is set up for manual checks and errors."), so coverage_unproven
   // doesn't block; the levels note says the pastes are read as whole rosters.
-  const NON_BLOCKING = ["coverage_unproven"];
-  const STARTING_SLOT_KEYS = ["QB", "RB", "WR", "TE", "FLEX", "SUPERFLEX"];
-  function leagueCheck(C, ws) {
-    const V = root.ValueModel;
-    if (!V || !V.leagueCompleteness || !C.getState || !ws || ws.teams.length < 2) return null;
-    const shape = C.getRosterShape ? C.getRosterShape() : {};
-    const check = V.leagueCompleteness({teamsExpected: C.getState().teams, now: Date.now(),
-      startingSlotsPerTeam: STARTING_SLOT_KEYS.reduce((n, k) => n + (Number(shape[k]) || 0), 0),
-      teams: ws.teams.map(t => ({id: t.id, unresolved: t.provenance.unresolved, loadedAt: PV.freshnessTime(t.provenance),
-        players: t.entries.filter(e => !F.isNotEvaluated(e)).map(e => ({key: e.key, slot: e.slot}))}))});
-    const reasons = PV.inferenceBlockers({teams: ws.teams.map(t => ({id: t.id, provenance: t.provenance})), existingReasons: check.reasons})
-      .filter(r => !NON_BLOCKING.includes(r));
-    return {...check, ok: !reasons.length, reasons};
-  }
-  let levelMemo = null;
-  if (typeof root.addEventListener === "function") root.addEventListener("trade-value-rows-change", () => { levelMemo = null; });
-  // null: no league to check (fewer than two teams). {check, levels: null}: the league failed the check, or (off: true) the
-  // reader switched league rosters off (Jeremy, 2026-10-29: "default to not using league specifics unless the rosters are
-  // filled in, and give the user visibility to that a toggle with a grayed out use of league specifics until criteria are
-  // met"). {check, levels}.
+  function leagueCheck(C, ws) { return root.TradeValueTradeContext.leagueCheck(C, ws); }
   function leagueLevels(C) {
     if (!C.getLeagueLevel) return null;
-    const ws = store.get();
-    const check = leagueCheck(C, ws);
+    const ws = store.get(), check = leagueCheck(C, ws);
     if (!check) return null;
     if (!check.ok) return {check, levels: null};
     if (ws.ui.leagueRosters === false) return {check, levels: null, off: true};
-    const sig = `${check.rostered.join(",")}|${check.reserve.join(",")}`;
-    if (levelMemo && levelMemo.sig === sig) return {check, levels: levelMemo.levels};
-    const args = {rostered: check.rostered, reserve: check.reserve};
-    const ddf = C.getLeagueLevel({...args, level: "ddf"});
-    const market = C.getLeagueLevel({...args, level: "market"});
-    if (!ddf || !market || !ddf.rows.length || !market.rows.length) return {check, levels: null};
-    const marketByKey = new Map(market.rows.map(r => [String(r.player_key), r]));
-    const rows = ddf.rows.map(r => {
-      const m = marketByKey.get(String(r.player_key));
-      if (!m) return r;
-      const values = {...r.values};
-      F.CHART_KEYS.forEach(key => { values[key] = m.values[key]; });
-      return {...r, values};
-    });
-    const levels = {rows, ddf: new Map(ddf.rows.map(r => [String(r.player_key), r])), market: marketByKey,
-      marketAllocation: market.allocation, ddfCounts: ddf.counts, marketCounts: market.counts, ddfReadout: ddf.readout};
-    levelMemo = {sig, levels};
-    return {check, levels};
+    const provider = root.TradeValueTradeContext.pricingProvider(C, {mode: "league", rostered: check.rostered, reserve: check.reserve});
+    return {check, levels: provider.status === "ok" ? provider.levels : null};
   }
   // His players worth more to the market than to him (JEG-1188): DDF Value at the DDF level against DDF Value at the market
   // level, gap first. Empty without a full league.
@@ -169,16 +133,10 @@
       leagueOff: Boolean(league && league.off)};
   }
   const rowsOfTeam = (team, ctx) => team.entries.map(e => ctx.rowsByKey.get(e.key)).filter(Boolean);
-  // JEG-1249: Compare a trade prices with the standard bench (C.getAllRows). With the league's own rosters setting the bench
-  // here, opening the trade there would change its values and gains, so the handoff is held, and says so, until Compare can
-  // carry this page's pricing (JEG-1229). With the standard bench on both pages the link opens the same trade at the same
-  // values.
+  // Compare reconstructs the selected pricing and validates both level identities before opening the package.
   function compareLink(r, ctx) {
-    if (ctx && ctx.levels) return el("span", {class: "v2-meta v2-lg-compare-held", "data-hold": "league-pricing",
-      text: "Not opened in Compare a trade: it prices with the standard bench, not your league's rosters, so this trade's values would change there. Switch off Use league rosters to open it."});
     const link = el("a", {class: "v2-link", href: `#compare-trade?give=${r.give.map(p => encodeURIComponent(p.player_key)).join(",")}&get=${r.receive.map(p => encodeURIComponent(p.player_key)).join(",")}`, text: "Open in Compare a trade"});
-    // JEG-1403: Compare already receives TradeContext; carry the selected opponent and the exact modeled pricing so
-    // reload and another device keep the same rosters, values and lineup gains instead of choosing a default team.
+    // Carry the selected opponent and exact pricing; reload must preserve both levels.
     const TC = root.TradeValueTradeContext, C = engine(), ws = store.get(), ov = root.DDFOverrides;
     const shared = ov.shareLink(link.getAttribute("href") + "&" + leagueQuery());
     if (shared.dropped) return el("span", {class: "v2-meta v2-lg-compare-held", "data-hold": "value-context-size",
@@ -189,8 +147,10 @@
     // Match shareLink's canonical engine basis, including default-equivalent custom blends.
     const common = TC.commonFromPage({leagueQuery: leagueQuery(), valueContext: {...ov.snapshotContext(), basis: C.getBasis()},
       sources: TC.sourcesFromEngine(C.getSourceInfo())});
+    const provider = TC.pricingProvider(C, ctx?.levels ? {mode: "league", rostered: ctx.leagueCheck.rostered, reserve: ctx.leagueCheck.reserve, keys} : {mode: "modeled", keys});
+    if (provider.status !== "ok") return el("span", {class: "v2-meta v2-lg-compare-held", "data-hold": "league-pricing", text: "This trade's pricing could not be rebuilt."});
     const context = TC.createContext({route: "league", workspaceId: ws.id, common, mine, opponents: [theirs], deal,
-      pricing: TC.modeledPricing(C, keys)});
+      pricing: provider.pricing});
     link.setAttribute("href", shared.hash + "&tc=" + TC.encodeTransfer(TC.toTransfer(context)));
     return link;
   }

@@ -9,6 +9,14 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class StarterContract(unittest.TestCase):
+    def test_complete_league_compare_pricing(self):
+        run = subprocess.run(["node", "tests/node/jeg1483_compare_pricing_check.cjs"], cwd=ROOT,
+                             text=True, capture_output=True, check=True)
+        receipt = json.loads(run.stdout)
+        self.assertTrue(receipt["passed"])
+        self.assertGreaterEqual(receipt["checks"], 58)
+        self.assertEqual(receipt["leagues"], ["uso", "charlotte"])
+
     def test_unfiltered_authoritative_candidate_pipeline(self):
         run = subprocess.run(["node", "tests/node/jeg1483_candidate_check.cjs"], cwd=ROOT, text=True, capture_output=True, check=True)
         receipt = json.loads(run.stdout)
