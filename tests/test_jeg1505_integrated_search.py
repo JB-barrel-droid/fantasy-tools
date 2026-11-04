@@ -237,6 +237,27 @@ class IntegratedSearchTest(unittest.TestCase):
         self.assertEqual(result["wireKeys"], [101])
         self.assertEqual(result["unresolvedOwnKeys"], [])
 
+    def test_conflicting_own_and_other_claims_are_detected_before_flattening(self):
+        options = {"inputs": [{"namespace": "canonical", "id": 102}],
+                   "ownership": {"complete": True, "mine": [{"namespace": "canonical", "id": 101}],
+                                 "others": [{"namespace": "canonical", "id": "0101"}]}}
+        result = widget("prepare", mode="worked", options=options)["result"]
+        self.assertFalse(result["ownershipReady"])
+        self.assertFalse(result["readyForPricing"])
+        self.assertEqual(result["wireKeys"], [])
+        self.assertEqual(result["ownershipConflictKeys"], [101])
+        self.assertEqual(result["pending"], [{"status": "pending", "player_key": 101,
+                    "reason": "Identity is claimed by own and other rosters", "boundary": "ownership_conflict"}])
+
+    def test_repeated_other_claims_do_not_create_a_false_own_other_conflict(self):
+        other = {"namespace": "canonical", "id": 101}
+        options = {"inputs": [{"namespace": "canonical", "id": 102}],
+                   "ownership": {"complete": True, "others": [other, other]}}
+        result = widget("prepare", mode="worked", options=options)["result"]
+        self.assertTrue(result["readyForPricing"])
+        self.assertEqual(result["wireKeys"], [102])
+        self.assertEqual(result["ownershipConflictKeys"], [])
+
     def test_override_select_opens_retained_identity_by_canonical_key(self):
         out = widget("override", query="Eric Tomlinson")
         self.assertEqual(out["result"]["selected"], "33")

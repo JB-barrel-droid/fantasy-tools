@@ -1532,6 +1532,7 @@
     });
     const owned = new Set();
     const ownRoster = new Set();
+    const otherRosters = new Set();
     let ownershipReady = ownership.complete === true;
     const collectOwnership = (references, mine) => references.forEach(reference => {
       const result = resolveSearchIdentity(reference);
@@ -1541,10 +1542,15 @@
       } else {
         owned.add(result.player_key);
         if (mine) ownRoster.add(result.player_key);
+        else otherRosters.add(result.player_key);
       }
     });
     collectOwnership(ownership.mine || [], true);
     collectOwnership(ownership.others || [], false);
+    const ownershipConflictKeys = [...ownRoster].filter(key => otherRosters.has(key));
+    ownershipConflictKeys.forEach(key => pending.push({status: "pending", player_key: key,
+      reason: "Identity is claimed by own and other rosters", boundary: "ownership_conflict"}));
+    if (ownershipConflictKeys.length) ownershipReady = false;
     const excludedOwnership = [...resolved].filter(key => owned.has(key));
     const requestedKeys = [...resolved].filter(key => !owned.has(key));
     const computed = new Set(universe.map(row => row.player_key));
@@ -1555,7 +1561,7 @@
     const unresolvedKeys = requestedKeys.filter(key => !computed.has(key));
     const readyForPricing = engineReady && ownershipReady && pending.length === 0 && unresolvedKeys.length === 0 && pricedKeys.length > 0;
     return {resolvedKeys: [...resolved], duplicates, excludedOwnership, requestedKeys,
-      pricedKeys, unresolvedKeys, unresolvedOwnKeys, pending, ownershipReady, readyForPricing,
+      pricedKeys, unresolvedKeys, unresolvedOwnKeys, ownershipConflictKeys, pending, ownershipReady, readyForPricing,
       wireKeys: readyForPricing ? [...pricedKeys] : []};
   }
 
