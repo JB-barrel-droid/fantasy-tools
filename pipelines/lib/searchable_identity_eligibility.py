@@ -13,6 +13,7 @@ lifecycle events. Events use player_key, kind (retired/returned), ISO date,
 and a source URL. No lifecycle dataset is supplied or inferred. Dates are
 effective dates; as_of is explicit so replay is deterministic. A later return
 restores the same key. All history, including future evidence, is preserved.
+Source URLs receive syntax checks only; provenance is the caller's responsibility.
 
 priced_player_keys=None means pricing coverage is unknown; an explicit key
 set distinguishes available/unavailable coverage. This adapter computes no
@@ -68,11 +69,15 @@ def _history(events, known_keys):
             raise ValueError("lifecycle date must be YYYY-MM-DD")
         if date.fromisoformat(on).isoformat() != on:
             raise ValueError("lifecycle date must be YYYY-MM-DD")
-        if not isinstance(source, str):
+        # urlsplit silently removes some raw controls, so reject them first.
+        if not isinstance(source, str) or any(
+            char.isspace() or ord(char) < 32 or ord(char) == 127 for char in source
+        ):
             raise ValueError("lifecycle evidence requires a source URL")
         url = urlsplit(source)
-        if url.scheme not in {"http", "https"} or not url.netloc or source != source.strip():
+        if url.scheme not in {"http", "https"} or not url.hostname:
             raise ValueError("lifecycle evidence requires a source URL")
+        _ = url.port  # Validate explicit port syntax/range without fetching.
         day_kinds[key, on].add(kind)
         if len(day_kinds[key, on]) > 1:
             raise ValueError(f"conflicting lifecycle evidence for player_key {key} on {on}")

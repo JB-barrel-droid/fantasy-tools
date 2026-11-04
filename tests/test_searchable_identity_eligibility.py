@@ -124,6 +124,36 @@ class SearchableIdentityEligibilityTest(unittest.TestCase):
             with self.subTest(changes=changes), self.assertRaises(ValueError):
                 select([player()], events=[event("retired", "2024-05-01", **changes)])
 
+    def test_adversarial_malformed_source_urls_are_rejected(self):
+        sources = ["https://:443/retirement", "https://@/retirement",
+                   "https:// /retirement", "https://exa mple.invalid/retirement",
+                   "https://example.invalid\n/retirement"]
+        for source in sources:
+            with self.subTest(source=source), self.assertRaises(ValueError):
+                select([player()], events=[event("retired", "2024-05-01", source=source)])
+
+    def test_source_urls_reject_raw_controls_and_malformed_ports(self):
+        sources = [f"https://example.invalid/retire{char}ment"
+                   for char in ("\t", "\r", "\x00", "\x1f", "\x7f", "\u00a0")]
+        sources += ["https://example.invalid:not-a-port/retirement",
+                    "https://example.invalid:65536/retirement"]
+        for source in sources:
+            with self.subTest(source=source), self.assertRaises(ValueError):
+                select([player()], events=[event("retired", "2024-05-01", source=source)])
+
+    def test_well_formed_source_urls_are_preserved_without_fetching_or_trust_claims(self):
+        # Syntax controls only; none is a real retirement record or fetched.
+        sources = ["https://example.invalid/retirement", "http://example.invalid/retirement",
+                   "https://example.invalid:443/retirement?record=1#notice",
+                   "https://[2001:db8::1]:443/retirement",
+                   "https://example.invalid/retirement%20notice"]
+        for source in sources:
+            with self.subTest(source=source):
+                supplied = event("retired", "2024-05-01", source=source)
+                result = select([player()], events=[supplied])
+                self.assertEqual(result["eligible_player_keys"], [])
+                self.assertEqual(result["identities"][0]["lifecycle_history"], [supplied])
+
     def test_same_day_contradictory_evidence_is_rejected(self):
         with self.assertRaisesRegex(ValueError, "conflicting lifecycle"):
             select([player()], events=[event("retired", "2024-05-01"),
