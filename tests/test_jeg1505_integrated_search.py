@@ -9,11 +9,15 @@ from copy import deepcopy
 from datetime import date
 import json
 from pathlib import Path
+import ast
 import shutil
 import subprocess
+import sys
+import tempfile
 import unittest
+from unittest import mock
 
-from pipelines.build_jeg1505_search_identities import build
+from pipelines.build_jeg1505_search_identities import build, write_snapshot
 from pipelines.lib.searchable_identity_eligibility import build_searchable_identities
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -41,6 +45,8 @@ const universe = beforeResult ? Object.entries(beforeResult.rows).map(([k,r])=>(
   ddfByVersion:r.ddfByVersion})) : [];
 const beforeUniverse = JSON.stringify(universe), beforeCanonical = JSON.stringify([...canonicalByKey]);
 const context={canonicalByKey,universe,searchIdentityByKey:new Map(),engineReady:input.ready!==false,
+  searchIdentityRevision:0,position:input.position||'ALL',scoring:'ppr',teams:12,viewMode:'indexed',
+  VIEW_MODE_DEFS:{},lockOrder:null,benchShare:0.15,activeSourceKeys:()=>[],
   POSITION_ORDER:['QB','RB','WR','TE'],visibleSourceKeys:()=>['espn','fantasycalc'],
   COMPOSITE_VERSION_KEYS:['ddf_value','ddf_value_charts','ddf_value_projections'],
   buildRow:()=>{throw new Error('legacy materializer must not be called by additional identity tests');}};
@@ -49,7 +55,7 @@ vm.runInContext(section('  const rowCopy = row =>','  // One player\'s row from 
 vm.runInContext(section('  let pipelinePlayersCache = null;','  // A source\'s natives this week'),context);
 vm.runInContext(section('  // JEG-1505 search-only boundary.','  function rebuildDomain()'),context);
 // Copy real public accessor expressions instead of imitating their behavior.
-const names=['getAllRows','getPlayer','searchPlayers','resolveSearchIdentity','prepareSearchSelection'];
+const names=['getAllRows','getPlayer','searchPlayers','resolveSearchIdentity','prepareSearchSelection','getSearchIdentityRevision','isReady','getState'];
 const lines=names.map(name=>source.split('\n').find(line=>line.trim().startsWith(name+':')));
 if(lines.some(line=>!line))throw new Error('missing actual public interface');
 vm.runInContext('globalThis.controls={'+lines.join('\n')+'};',context);
@@ -65,6 +71,43 @@ if(input.action==='invariance') {
 } else if(input.action==='resolve') result=input.references.map(r=>context.controls.resolveSearchIdentity(r));
 else if(input.action==='prepare') result=context.controls.prepareSearchSelection(input.options);
 else if(input.action==='reject') result={accepted:context.installSearchIdentities(input.badSelection)};
+else if(input.action==='readout') {
+  const text=fs.readFileSync(path.join(root,'app/v2/v2.js'),'utf8');
+  const NS=require(path.join(root,'app/v2/namesearch.js'));
+  const node=tag=>({tag,children:[],dataset:{},hidden:false,textContent:'',className:'',value:'',
+    append(...v){this.children.push(...v);},appendChild(v){this.children.push(v);return v;},
+    replaceChildren(...v){this.children=v;},setAttribute(k,v){this[k]=v;},addEventListener(){}});
+  const boxes={};['v2Unpriced','v2TUnpriced','v2RUnpriced','giveInput','giveResults','receiveInput','receiveResults']
+    .forEach(id=>boxes[id]=node('section'));
+  boxes.giveInput.value=input.query;boxes.receiveInput.value=input.query;
+  const listeners=new Map(),events=[];
+  const bus={TradeValueNameSearch:NS,addEventListener:(type,fn)=>listeners.set(type,fn),
+    dispatchEvent:event=>{events.push(event.type);listeners.get(event.type)?.(event);}};
+  const ui={C:context.controls,window:bus,document:{createElement:node,createTextNode:value=>({...node('text'),textContent:value})},
+    $:id=>boxes[id]||null,DDF_KEY:'ddf_value',state:{search:input.query},T:{search:input.query},R:{search:input.query},
+    currentView:()=>input.compare?'compare':'values',SIDE_IDS:{give:{search:'giveInput',results:'giveResults'},receive:{search:'receiveInput',results:'receiveResults'}},
+    compareView:{},TR:{give:[],receive:[]},compareRosterContext:()=>({ready:false}),searchMatches:()=>[]};
+  vm.createContext(ui);
+  const start=text.indexOf('  const UNPRICED_REASON ='),stop=text.indexOf('  // GAP-025:',start);
+  vm.runInContext(text.slice(start,stop),ui);
+  const a=text.indexOf('  function renderSearch(side)'),b=text.indexOf('  // "A, B and C"',a);
+  vm.runInContext(text.slice(a,b),ui);
+  const registration=text.split('\n').find(line=>line.includes('addEventListener("trade-value-search-identities-change"'));
+  if(!registration)throw new Error('missing actual identity event registration');
+  vm.runInContext(registration,ui);
+  let before=[];
+  if(input.lazy){
+    context.searchIdentityByKey=new Map();
+    before=JSON.parse(vm.runInContext('JSON.stringify(unpricedMatches(state.search))',ui));
+  }
+  context.window=bus;context.CustomEvent=class {constructor(type){this.type=type;}};
+  context.installSearchIdentities(input.selection);
+  const found=ui.renderUnpriced('v2Unpriced',input.query);
+  const addable=input.compare?ui.renderSearch('give'):[];
+  result={before,keys:found.map(r=>r.player_key),box:boxes.v2Unpriced,compare:boxes.giveResults,
+    addable,events,legacyValue:vm.runInContext('unpricedValue({universe_only:true})',ui),
+    legacyNameKey:vm.runInContext('window.TradeValueNameSearch.key(state.search)',ui)};
+}
 else if(input.action==='override' || input.action==='overrideSearch') {
   const text=fs.readFileSync(path.join(root,'app/v2/overrides.js'),'utf8');
   const engine={...context.controls}; if(input.noGetPlayer)delete engine.getPlayer;
@@ -110,6 +153,15 @@ def widget(action, **data):
 
 
 class IntegratedSearchTest(unittest.TestCase):
+    def copy_inputs(self, destination):
+        for name in ("players_identity_snapshot.json", "sleeper_identity_base.json", "player_platform_spellings.json", "player_aliases.json"):
+            target = destination / "data/inputs" / name
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(ROOT / "data/inputs" / name, target)
+        target = destination / "data/fixtures/current/players.json"
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(ROOT / "data/fixtures/current/players.json", target)
+
     def test_build_is_reproducible_unknown_and_does_not_mutate_source_inputs(self):
         files = [ROOT / p for p in ("data/inputs/players_identity_snapshot.json",
                  "data/inputs/player_platform_spellings.json", "data/fixtures/current/players.json")]
@@ -322,6 +374,75 @@ Promise.all([P.getSearchIdentitySelection(),P.getSearchIdentitySelection()]).the
             data = json.loads(out.stdout)
             self.assertEqual(data["calls"], ["assets/jeg1505-search-identities.json"])
             self.assertEqual(data["results"], [None, None] if fail else [payload["selection"]] * 2)
+
+    def test_main_readout_shows_retained_identity_as_unavailable_not_zero(self):
+        out = widget("readout", mode="worked", query="Eric Tomlinson")
+        self.assertEqual(out["result"]["keys"], [33])
+        head, listing = out["result"]["box"]["children"]
+        self.assertNotIn("worth 0.0", head["textContent"])
+        values = [part["textContent"] for part in listing["children"][0]["children"]]
+        self.assertIn("DDF Value unavailable (pending)", values)
+        self.assertEqual(out["result"]["legacyValue"], "0.0")
+        self.assertTrue(out["computedUnchanged"] and out["canonicalUnchanged"])
+
+    def test_late_identity_load_invalidates_empty_query_cache_and_refreshes_sections(self):
+        out = widget("readout", mode="worked", query="Eric Tomlinson", lazy=True)
+        self.assertEqual(out["result"]["before"], [])
+        self.assertEqual(out["result"]["keys"], [33])
+        self.assertEqual(out["result"]["events"], ["trade-value-search-identities-change"])
+        self.assertTrue(out["computedUnchanged"])
+
+    def test_compare_retained_hit_stays_disabled_and_is_not_an_addable_trade(self):
+        out = widget("readout", mode="worked", query="Eric Tomlinson", compare=True)
+        self.assertEqual(out["result"]["addable"], [])
+        button = out["result"]["compare"]["children"][0]["children"][0]
+        self.assertTrue(button["disabled"])
+        self.assertEqual(button["aria-disabled"], "true")
+        self.assertIn("unavailable (pending)", button["children"][1]["textContent"])
+
+    def test_unknown_readout_respects_position_filter(self):
+        out = widget("readout", mode="worked", query="Eric Tomlinson", position="QB")
+        self.assertEqual(out["result"]["keys"], [])
+        self.assertTrue(out["result"]["box"]["hidden"])
+
+    def test_snapshot_writer_is_deterministic_checkable_and_fail_closed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.copy_inputs(root)
+            out = root / "assets/search.json"
+            write_snapshot(root=root, out=out)
+            initial = out.read_bytes()
+            write_snapshot(root=root, out=out, check=True)
+            write_snapshot(root=root, out=out)
+            self.assertEqual(out.read_bytes(), initial)
+            out.write_text("stale")
+            with self.assertRaisesRegex(ValueError, "missing or stale"):
+                write_snapshot(root=root, out=out, check=True)
+            self.assertEqual(out.read_text(), "stale")
+            snapshot = root / "data/inputs/players_identity_snapshot.json"
+            rows = json.loads(snapshot.read_text())
+            rows.append(deepcopy(rows[0]))
+            snapshot.write_text(json.dumps(rows))
+            with self.assertRaisesRegex(ValueError, "duplicate canonical"):
+                write_snapshot(root=root, out=out)
+            self.assertEqual(out.read_text(), "stale")
+
+    def test_sync_path_generates_search_asset_before_copy_without_running_full_sync(self):
+        with mock.patch.object(sys, "path", [str(ROOT / "pipelines"), *sys.path]):
+            import sync_dashboard_artifacts as sync
+        tree = ast.parse((ROOT / "pipelines/sync_dashboard_artifacts.py").read_text())
+        main = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == "main")
+        calls = [n for n in ast.walk(main) if isinstance(n, ast.Call) and isinstance(n.func, ast.Name)]
+        refresh_line = next(n.lineno for n in calls if n.func.id == "sync_search_identity_asset")
+        copy_line = next(n.lineno for n in calls if n.func.id == "copy_tree")
+        self.assertLess(refresh_line, copy_line)
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.copy_inputs(root)
+            app = root / "app/trade-value-chart"
+            with mock.patch.object(sync, "ROOT", root), mock.patch.object(sync, "APP", app), mock.patch.object(sys, "path", [str(ROOT / "pipelines"), *sys.path]):
+                sync.sync_search_identity_asset()
+            self.assertEqual(json.loads((app / "assets/jeg1505-search-identities.json").read_text()), build(root))
 
 
 if __name__ == "__main__":

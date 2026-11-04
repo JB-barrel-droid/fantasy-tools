@@ -482,7 +482,7 @@
     const q = String(query || "").trim();
     if (!q || !C || typeof C.searchPlayers !== "function") return [];
     const position = C.getState().position;
-    const cacheKey = `${q.toLowerCase()}|${position}`;
+    const cacheKey = `${C.getSearchIdentityRevision?.() || 0}|${q.toLowerCase()}|${position}`;
     if (unpricedCache.has(cacheKey)) return unpricedCache.get(cacheKey);
     const fits = pos => !position || position === "ALL" ? true
       : position === "FLEX" ? ["RB", "WR", "TE"].includes(pos) : pos === position;
@@ -494,13 +494,13 @@
     NS.tokens(q).forEach(word => {
       C.searchPlayers(word.slice(0, 2), {limit: 5000}).forEach(row => { if (row && !pool.has(row.player_key)) pool.set(row.player_key, row); });
     });
-    const rows = NS.filter([...pool.values()], q).filter(row => row.universe_only && fits(row.pos));
+    const rows = NS.filter([...pool.values()], q).filter(row => (row.universe_only || row.search_identity_only) && fits(row.pos));
     if (unpricedCache.size > 50) unpricedCache.clear();
     unpricedCache.set(cacheKey, rows);
     return rows;
   }
   // GL-20: no source prices him, so he is worth 0.0 (the engine leaves DDF Value null for these rows since JEG-508).
-  const unpricedValue = () => "0.0";
+  const unpricedValue = row => row.search_identity_only ? "unavailable (pending)" : "0.0";
   const unpricedReason = row => row.unpriced_reason || UNPRICED_REASON;
   function renderUnpriced(id, query) {
     const box = $(id);
@@ -510,7 +510,7 @@
     if (!rows.length) return rows;
     const head = document.createElement("p");
     head.className = "v2-unpriced-head";
-    head.textContent = `○ Not valued · ${rows.length} player${rows.length === 1 ? "" : "s"} matching “${String(query).trim()}”: worth 0.0`;
+    head.textContent = `○ Not valued · ${rows.length} player${rows.length === 1 ? "" : "s"} matching “${String(query).trim()}”${rows.some(row => row.search_identity_only) ? "" : ": worth 0.0"}`;
     const list = document.createElement("ul");
     list.className = "v2-unpriced-list";
     rows.slice(0, UNPRICED_SHOWN).forEach(row => {
@@ -540,6 +540,16 @@
       box.appendChild(more);
     }
     return rows;
+  }
+
+  function refreshRetainedSearchPresentation() {
+    unpricedCache.clear();
+    if (!C || !C.isReady()) return;
+    [["v2Unpriced", state.search], ["v2TUnpriced", T.search], ["v2RUnpriced", R.search]]
+      .forEach(([id, query]) => { if ($(id)) renderUnpriced(id, query); });
+    if (currentView() === "compare") ["give", "receive"].forEach(side => {
+      if ($(SIDE_IDS[side].search)?.value) renderSearch(side);
+    });
   }
 
   // GAP-025: a label + symbol badge for players ESPN projects at 0
@@ -7899,6 +7909,7 @@
     bindTargets();
     bindCompare();
     window.addEventListener("trade-value-shared-change", () => { if (C) refresh(); });
+    window.addEventListener("trade-value-search-identities-change", refreshRetainedSearchPresentation);
     // New rows (league, weights, sources): every prior-week recompute is stale.
     window.addEventListener("trade-value-rows-change", () => {
       unpricedCache.clear();

@@ -777,6 +777,9 @@ test-core:
 	python3 -m unittest tests.test_view_switch_hidden_defaults
 	python3 -m unittest tests.test_row_missing_reasons
 	python3 -m unittest tests.test_search_players_universe
+	python3 -m unittest tests.test_searchable_identity_eligibility
+	python3 -m unittest tests.test_jeg1505_search_only_consumer_contract
+	python3 -m unittest tests.test_jeg1505_integrated_search
 	python3 -m unittest tests.test_source_scale_agreement_retired
 	python3 -m unittest tests.test_week_calendar
 	# JEG-1177: shared defaultWeek vectors (JS + Python) and the New York clock.
@@ -939,6 +942,9 @@ test-core-shard-5:
 	python3 -m unittest tests.test_missing_section_render
 	python3 -m unittest tests.test_lineup_content_week_advance
 	python3 -m unittest tests.test_search_players_universe
+	python3 -m unittest tests.test_searchable_identity_eligibility
+	python3 -m unittest tests.test_jeg1505_search_only_consumer_contract
+	python3 -m unittest tests.test_jeg1505_integrated_search
 	python3 -m unittest tests.test_published_league_settings_engine
 	python3 -m unittest tests.test_player_tags
 

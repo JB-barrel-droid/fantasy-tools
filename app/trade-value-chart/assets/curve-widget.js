@@ -282,6 +282,7 @@
   let data = null;
   let canonicalByKey = new Map();
   let searchIdentityByKey = new Map(); // JEG-1505: never passed to pipelinePlayers.
+  let searchIdentityRevision = 0;
   let sourceMaps = new Map();
   let nativeSourceMaps = new Map();
   // As-published sources sort the lock order by their native published values,
@@ -1480,6 +1481,9 @@
         search_identity_only: true, pricing_status: "unknown"});
     }
     searchIdentityByKey = next;
+    searchIdentityRevision += 1;
+    if (typeof window !== "undefined" && typeof window.dispatchEvent === "function")
+      window.dispatchEvent(new CustomEvent("trade-value-search-identities-change"));
     return true;
   }
 
@@ -3373,6 +3377,7 @@
     getPlayer: playerKey => playerRow(playerKey),
     resolveSearchIdentity: reference => resolveSearchIdentity(reference),
     prepareSearchSelection: options => prepareSearchSelection(options),
+    getSearchIdentityRevision: () => searchIdentityRevision,
     // JEG-482 (read-only): the player's rank on the publisher's own chart at
     // the active scoring ("#3 on FantasyCalc"); null when the chart does not
     // price him or the source is not a published chart. getNativeRanks(source)

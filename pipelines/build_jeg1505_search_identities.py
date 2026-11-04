@@ -11,8 +11,10 @@ from collections import defaultdict
 from datetime import date
 from hashlib import sha256
 import json
+import os
 from pathlib import Path
 import re
+import tempfile
 
 if __package__:
     from .lib.searchable_identity_eligibility import build_searchable_identities
@@ -87,10 +89,49 @@ def build(root=ROOT, lifecycle_events=()):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out", type=Path, default=OUTPUT)
+    parser.add_argument("--check", action="store_true", help="reject missing/stale output without writing")
     args = parser.parse_args()
-    payload = build()
-    args.out.write_text(json.dumps(payload, ensure_ascii=False, separators=(",", ":")) + "\n")
-    print(f"Wrote search-only snapshot: {len(payload['identities'])} identities; lifecycle unknown; {args.out}")
+    payload = write_snapshot(out=args.out, check=args.check)
+    print(f"{'Checked' if args.check else 'Wrote'} search-only snapshot: {len(payload['identities'])} identities; lifecycle unknown; {args.out}")
+
+
+def write_snapshot(root=ROOT, out=None, check=False):
+    """Validate/serialize completely, then atomically replace this owned asset."""
+    out = Path(out) if out is not None else root / "app/trade-value-chart/assets/jeg1505-search-identities.json"
+    payload = build(root)
+    identities = payload.get("identities")
+    if payload.get("schema") != "jeg1505-search-identities/1" or not identities:
+        raise ValueError("search identity snapshot must contain canonical identities")
+    keys = set()
+    for row in identities:
+        key = row.get("player_key")
+        if (type(key) is not int or key <= 0 or key in keys
+                or not isinstance(row.get("name"), str) or not row["name"].strip()
+                or row.get("pos") not in {"QB", "RB", "WR", "TE"}
+                or type(row.get("selectable")) is not bool
+                or row.get("eligibility_status") not in {"unknown", "retired", "returned"}
+                or row.get("pricing_status") != "unknown"
+                or not isinstance(row.get("lifecycle_history"), list)
+                or {"values", "value", "espn_ros", "blend_ros"} & row.keys()):
+            raise ValueError("invalid search-only identity row")
+        keys.add(key)
+    text = json.dumps(payload, ensure_ascii=False, separators=(",", ":"), allow_nan=False) + "\n"
+    if check:
+        if not out.exists() or out.read_text(encoding="utf-8") != text:
+            raise ValueError("search identity artifact is missing or stale")
+    else:
+        out.parent.mkdir(parents=True, exist_ok=True)
+        temporary = None
+        try:
+            with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=out.parent, delete=False) as stream:
+                temporary = Path(stream.name)
+                stream.write(text)
+            os.chmod(temporary, out.stat().st_mode & 0o777 if out.exists() else 0o644)
+            os.replace(temporary, out)
+        finally:
+            if temporary is not None:
+                temporary.unlink(missing_ok=True)
+    return payload
 
 
 if __name__ == "__main__":
