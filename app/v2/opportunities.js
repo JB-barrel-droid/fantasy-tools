@@ -187,6 +187,17 @@
   // ---------- all pairings: cached, chunked ----------
   function createCache() { return new Map(); }
   const nextFrame = () => new Promise(resolve => (root.requestAnimationFrame ? root.requestAnimationFrame(() => resolve()) : setTimeout(resolve, 0)));
+  // Canonical computation must not wait for a display frame (background tabs
+  // can throttle rAF). Yield a real task; painting/cancellation remain possible.
+  const nextCanonicalTask = () => {
+    if (root.scheduler && typeof root.scheduler.yield === "function") return root.scheduler.yield();
+    if (root.document && typeof root.MessageChannel === "function") return new Promise(resolve => {
+      const channel = new root.MessageChannel();
+      channel.port1.onmessage = () => { channel.port1.close(); channel.port2.close(); resolve(); };
+      channel.port2.postMessage(null);
+    });
+    return new Promise(resolve => setTimeout(resolve, 0));
+  };
   // mine: {id, name, entries}; opponents: [{id, name, entries}]. Options: {cache, onProgress({index, total, name}), yieldFn, isCancelled(), budgetMs}.
   // Resolves {rows (ranked), perOpponent, capped, computed, reused, cancelled}.
   async function runAll(mine, opponents, ctx, options) {
@@ -300,7 +311,7 @@
       while (lo < hi) { const mid = (lo + hi) >> 1; if (canonicalCompare(row, kept[mid]) < 0) hi = mid; else lo = mid + 1; }
       if (lo < retain) { kept.splice(lo, 0, row); if (kept.length > retain) kept.pop(); }
     };
-    const yieldFn = o.yieldFn || nextFrame, budget = o.budgetMs === undefined ? 12 : o.budgetMs;
+    const yieldFn = o.yieldFn || nextCanonicalTask, budget = o.budgetMs === undefined ? 12 : o.budgetMs;
     const clock = () => root.performance?.now ? root.performance.now() : Date.now(); let last = clock();
     const cancel = () => { result.cancelled = true; result.status = "cancelled"; result.rows = []; return result; };
     for (let index = 0; index < plans.length; index++) {
@@ -311,12 +322,13 @@
       result.perOpponent.push(detail);
       const base = {shape, sourceInfo, chartKeys: charts, calculationSettings: settings, partnerKind: waivers ? "waivers" : "team",
         mine: {id: owner.id, rows: mineRows, entries: owner.entries}, theirs: {id: partner.id, rows: theirs, entries: partner.entries}};
+      const evaluator = R.createEvaluator(base);
       const progress = phase => o.onProgress?.({phase, index, total: plans.length, name: partner.name, evaluated: result.evaluated, totalPackages: result.totalPackages});
       progress("running");
       for (const candidate of plan) {
         if (o.isCancelled?.()) return cancel();
         const give = candidate.give.map(r => String(r.player_key)).sort(), get = candidate.receive.map(r => String(r.player_key)).sort();
-        const input = {...base, give, receive: get}, evidence = R.build(input), record = evidence.decision;
+        const input = {...base, give, receive: get}, record = evaluator.evaluate({give, receive: get});
         const overall = record.natural ? "natural" : record.partnerKind === "waivers" && record.passes ? "pickup" : record.label === "Not judged" ? "unknown" : "other";
         const edge = record.supporting.mine.ddf.package.value, size = give.length + get.length;
         const row = {id: `${partner.id}|${give}|${get}`, opponentId: partner.id, opponent: partner.name || String(partner.id),

@@ -220,3 +220,28 @@ before publishing the page, so a superseding selection cannot leak an old result
 Pinned real candidate verification also enumerates all1260 Flowers-constrained
 Jeremy/Nic size2 subset pairs and finds the documented Taylor/Tuten package,
 with exact search-to-Review record equality. Full UI testing stays with its owner.
+
+## Canonical search performance (November4)
+
+The public runCanonical/canonicalReadout signatures are unchanged. Each run
+uses a private pair evaluator whose caches are scoped to the captured snapshots.
+It reuses immutable before-lineups, source conversions and row indexes; computes
+every exact after-lineup; uses the same factored noise formula and roster test;
+and defers non-decision roster-count rendering to the selected full readout.
+No package, threshold, eligibility filter, price or ranking is changed.
+
+Canonical computation yields through scheduler.yield/MessageChannel tasks rather
+than waiting for a display rAF. Cancellation and real progress remain available;
+the legacy runner's scheduling is unchanged. A background frame cannot throttle
+canonical computation. Progress callbacks should update/coalesce counters, not
+rebuild charts/rosters per callback. Their own UI cost is outside the kernel
+benchmark. Inspect totalPackages and perOpponent totals when supplied virtual
+partners enlarge the bounded workload.
+
+Author browser comparison on the identical full four-team fixture:24,675
+packages, no pool/opponent cap,5.666s before and1.346s after. Counts are identical
+(1269 Natural,23406 Other), top ten IDs identical and selected full Review records
+match the prepared decisions. Evidence: jeg1483-performance-receipt.json. This
+is measured kernel latency in this executor, not a promise for the full private UI.
+The candidate harness additionally compares every proposal in its bounded trade
+and Pickup cases against the independent full readout path (60 assertions).

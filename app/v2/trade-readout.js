@@ -79,7 +79,7 @@
       const sourceKeys = id === "market" ? meta.chartKeys || [] : [view?.valueKey || (id === "ddf" ? out.ourKey : F.PROJECTIONS_KEY)];
       const coverage = id === "market" ? meta.coverage : {available: known ? 1 : 0, total: 1, required: 1, text: `${known ? 1 : 0} of 1`};
       const team = inputs[id]?.[who];
-      const tau = known && team ? F.teamFit(team, {shape: out.shape, chartKeys: meta.chartKeys || inputs.chartKeys}, view.valueKey).tau : null;
+      const tau = known && team ? F.fitTolerance(team.leaving.concat(team.arriving), view.valueKey, meta.chartKeys || inputs.chartKeys) : null;
       let threshold = 0, operator = who === "mine" ? ">" : ">=";
       if (minimum.tier === "noise") { threshold = who === "mine" ? tau : tau === null ? null : -tau; }
       if (minimum.tier === "gain") operator = ">";
@@ -91,7 +91,7 @@
         id: rosterId === "our-roster" ? "our-starters" : "their-starters", label: who === "mine" ? "Our starter value" : "Their market starter value",
         tolerance: tau, threshold, operator, tier: minimum.tier, pass,
         reason: known ? null : out.reason || meta.reason || "This roster has unresolved or missing values."});
-      const construction = known && team ? F.rosterConstructionOk(team, out.shape, view.valueKey) : null;
+      const construction = known && team ? F.rosterConstructionOk(team, out.shape, view.valueKey, view.impact) : null;
       const roster = quantity(who, "roster", basis, construction?.ok ?? null, Boolean(construction), sourceKeys, coverage, "existing rosterConstructionOk", {
         id: rosterId, label: who === "mine" ? "Our roster construction" : "Their roster construction", pass: construction?.ok ?? null,
         issues: construction?.issues || [], reason: construction ? null : "Roster construction cannot be judged with unresolved or missing roster values."});
@@ -196,8 +196,8 @@
   }
 
   // One team, one view: the exact rosterImpact result plus what is missing from it. Nothing is recomputed.
-  function sideReadout(F, roster, leaving, arriving, shape, valueKey, notEvaluated, unresolved) {
-    const impact = F.rosterImpact(roster, leaving, arriving, shape, valueKey);
+  function sideReadout(F, roster, leaving, arriving, shape, valueKey, notEvaluated, unresolved, options) {
+    const impact = F.rosterImpact(roster, leaving, arriving, shape, valueKey, options?.before);
     const priced = row => Boolean(row.values) && finite(row.values[valueKey]);
     const unpriced = rows => rows.filter(row => !priced(row) && !F.isNotEvaluated(row)).map(keyOf);
     const newlyEmpty = {};
@@ -215,7 +215,7 @@
       emptyBefore: {...impact.before.empty}, emptyAfter: {...impact.after.empty}, newlyEmpty,
       needLine: F.needLine(impact),
       tradedUnpriced, rosterUnpriced, missing, notEvaluated: notEvaluated.slice(), unresolved: unresolved.slice(),
-      depth: {before: benchDepth(F, impact.before, valueKey), after: benchDepth(F, impact.after, valueKey)},
+      depth: options?.decisionOnly ? null : {before: benchDepth(F, impact.before, valueKey), after: benchDepth(F, impact.after, valueKey)},
       lowConfidence: valueKey === F.OUR_KEY ? roster.concat(arriving).filter(row => row.ddfLowConfidence && priced(row)).map(keyOf) : [],
       complete: !missing.length && !unresolved.length
     };
@@ -226,6 +226,17 @@
   // league.js rule). give leaves mine for theirs; receive leaves theirs for mine. Inputs are never modified.
   function build(input, deps) {
     const F = finder(deps);
+    const memo = deps?._memo;
+    const indexOf = rows => {
+      let indexed = memo?.indexes.get(rows);
+      if (!indexed) { indexed = new Map(rows.map(row => [keyOf(row), row])); memo?.indexes.set(rows, indexed); }
+      return indexed;
+    };
+    const sideOf = side => {
+      let found = memo?.sides.get(side);
+      if (!found) { found = sideRoster(side, F); if (side) memo?.sides.set(side, found); }
+      return found;
+    };
     if (!F || !F.rosterImpact) throw new Error("TradeValueFinder is required");
     const calculations = input.calculationSettings ? calculationSettings(input.calculationSettings) : null;
     const shape = input.shape || null;
@@ -233,17 +244,19 @@
     const ourKey = calculations ? F.OUR_KEY : input.ourKey || F.OUR_KEY;
     const give = (input.give || []).map(String);
     const receive = (input.receive || []).map(String);
-    const mine = sideRoster(input.mine, F);
-    const theirs = sideRoster(input.theirs, F);
-    const mineByKey = new Map(mine.rows.map(row => [keyOf(row), row]));
-    const theirByKey = new Map(theirs.rows.map(row => [keyOf(row), row]));
+    const mine = sideOf(input.mine);
+    const theirs = sideOf(input.theirs);
+    const mineByKey = indexOf(mine.rows);
+    const theirByKey = indexOf(theirs.rows);
     const outside = {give: give.filter(key => !mineByKey.has(key)), receive: receive.filter(key => !theirByKey.has(key))};
     const charts = (input.chartKeys || []).slice();
     const allRows = mine.rows.concat(theirs.rows);
     const allowedCharts = charts.filter(k => !(input.sourceInfo || []).some(s => s.key === k && (!s.available || s.paused || HELD(s))));
     const waiver = calculations && input.partnerKind === "waivers";
     const marketRows = waiver ? mine.rows.concat(receive.map(k => theirByKey.get(k)).filter(Boolean)) : allRows;
-    const plan = calculations ? marketPlan(marketRows, calculations, allowedCharts, F) : null;
+    const planKey = waiver ? receive.slice().sort().join(",") : "team";
+    let plan = memo?.plans.get(planKey);
+    if (!plan) { plan = calculations ? marketPlan(marketRows, calculations, allowedCharts, F) : null; if (plan) memo?.plans.set(planKey, plan); }
     const market = calculations ? plan.fitAvailable ? plan.chartKeys : null : charts.length >= F.MIN_CHARTS ? charts : null;
     const projectionSources = sourceStatus(input.sourceInfo, F.PROJECTION_KEYS);
     const chartSources = sourceStatus(input.sourceInfo, F.CHART_KEYS);
@@ -283,32 +296,51 @@
       if (calculations) out.decision = starterDecision(out, calculations, {chartKeys: charts}, F, input.partnerKind);
       return out;
     }
-    out.roster = rosterReadout(F, {mine, theirs}, give, receive, shape, reserveRule(deps));
-    if (waiver) out.roster.theirs = null; // No manager, roster limit, or starting lineup belongs to Waivers.
+    if (!deps?._decisionOnly) {
+      out.roster = rosterReadout(F, {mine, theirs}, give, receive, shape, reserveRule(deps));
+      if (waiver) out.roster.theirs = null; // No manager, roster limit, or starting lineup belongs to Waivers.
+    }
     // Each view reads the same rows; the market view reads them with the chart average added (finder lineupContext).
     const rowsFor = id => {
       if (id !== "market") return {mine: mine.rows, theirs: theirs.rows};
-      return {mine: F.withChartAverage(mine.rows, market), theirs: F.withChartAverage(theirs.rows, market)};
+      const key = market.join(","); let found = memo?.marketRows.get(key);
+      if (!found) { found = {mine: F.withChartAverage(mine.rows, market), theirs: F.withChartAverage(theirs.rows, market)}; memo?.marketRows.set(key, found); }
+      return found;
     };
     const decisionInputs = {chartKeys: plan?.chartKeys || charts};
     VIEWS.forEach(({id}) => {
       const view = views[id];
       if (view.status !== "available") { out.sides.mine[id] = null; out.sides.theirs[id] = null; return; }
       const rows = rowsFor(id);
-      const pickMine = new Map(rows.mine.map(row => [keyOf(row), row]));
-      const pickTheirs = new Map(rows.theirs.map(row => [keyOf(row), row]));
+      const pickMine = indexOf(rows.mine);
+      const pickTheirs = indexOf(rows.theirs);
       const giveRows = give.map(key => pickMine.get(key));
       const receiveRows = receive.map(key => pickTheirs.get(key));
       decisionInputs[id] = {mine: {roster: rows.mine, leaving: giveRows, arriving: receiveRows}, theirs: {roster: rows.theirs, leaving: receiveRows, arriving: giveRows}};
       // A team whose rows carry no value in this view gets no readout (finder.js hasProjections rule), never zeros.
       const valued = list => list.some(row => row.values && finite(row.values[view.valueKey]));
+      const optionsFor = who => {
+        if (!memo) return null;
+        const key = `${who}:${id}:${view.valueKey}:${id === "market" ? market.join(",") : ""}`;
+        let before = memo.before.get(key);
+        if (!before) { before = F.lineupValue(rows[who], shape, view.valueKey); memo.before.set(key, before); }
+        return {before, decisionOnly: Boolean(deps._decisionOnly)};
+      };
       out.sides.mine[id] = valued(rows.mine.concat(receiveRows))
-        ? sideReadout(F, rows.mine, giveRows, receiveRows, shape, view.valueKey, mine.notEvaluated, mine.unresolved) : null;
+        ? sideReadout(F, rows.mine, giveRows, receiveRows, shape, view.valueKey, mine.notEvaluated, mine.unresolved, optionsFor("mine")) : null;
       out.sides.theirs[id] = !waiver && valued(rows.theirs.concat(giveRows))
-        ? sideReadout(F, rows.theirs, receiveRows, giveRows, shape, view.valueKey, theirs.notEvaluated, theirs.unresolved) : null;
+        ? sideReadout(F, rows.theirs, receiveRows, giveRows, shape, view.valueKey, theirs.notEvaluated, theirs.unresolved, optionsFor("theirs")) : null;
     });
     if (calculations) out.decision = starterDecision(out, calculations, decisionInputs, F, input.partnerKind);
     return out;
+  }
+
+  // One captured pair/settings snapshot only. Cache before-lineups/indexes,
+  // never eligibility or after-lineups; each exact package is still evaluated.
+  function createEvaluator(baseInput, deps) {
+    const base = {...baseInput, calculationSettings: baseInput.calculationSettings || {}};
+    const memo = {sides: new WeakMap(), indexes: new WeakMap(), plans: new Map(), marketRows: new Map(), before: new Map()};
+    return {evaluate: deal => build({...base, give: deal.give || [], receive: deal.receive || deal.get || []}, {...deps, _memo: memo, _decisionOnly: true}).decision};
   }
 
   // A plain-number copy of a readout (golden fixtures and cross-route comparison). No rows, no DOM.
@@ -404,7 +436,7 @@
       contextKey: TC && TC.cacheKey ? TC.cacheKey(ctx, "readout") : null};
   }
 
-  const api = {VERSION, VIEWS, build, summary, renderSide, sourceStatus, inputFromContext, PUBLISHED_CHARTS, calculationSettings, marketQuote};
+  const api = {VERSION, VIEWS, build, summary, renderSide, sourceStatus, inputFromContext, PUBLISHED_CHARTS, calculationSettings, marketQuote, createEvaluator};
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.TradeValueReadout = api;
 })(typeof window !== "undefined" ? window : globalThis);

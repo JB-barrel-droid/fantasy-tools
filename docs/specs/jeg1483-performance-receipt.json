@@ -1,0 +1,72 @@
+{
+  "kind": "non-gating author browser benchmark; not private UI latency certification",
+  "baseline_ref": "5321c5d5b48c36df9cea7fb577b6fd7f8b0fb9a0",
+  "engine_inputs": "preserved v8 coherent Oct31/Week8 build; original fixture-4team; Full PPR12 default modeled basis",
+  "optimized_source_sha256": {
+    "app/v2/finder.js": "4002c1c4785cdf9daeffcfff725e3d31edad02747443f5d3a0f1b18b90a82b6c",
+    "app/v2/trade-readout.js": "172f3003daa6916beb264d62ff6620e4ebecac0f487a35318afa16b993bada8a",
+    "app/v2/opportunities.js": "8761e27d78128efa64ea50d9f049bdb790aac8d2cff3216fb2d1900990c34b22"
+  },
+  "reports": [
+    {
+      "wallMs": 5665.600000000093,
+      "visibility": "visible",
+      "evaluated": 24675,
+      "totalPackages": 24675,
+      "counts": {
+        "natural": 1269,
+        "other": 23406,
+        "unknown": 0,
+        "pickup": 0
+      },
+      "cancelled": false,
+      "bounded": false,
+      "capped": false,
+      "progressEvents": 343,
+      "topIds": [
+        "fixture-1|3871|3993,471",
+        "fixture-1|3871|2606,471",
+        "fixture-1|4561|3993,471",
+        "fixture-1|4581|3993,471",
+        "fixture-1|764|3993,471",
+        "fixture-1|3871|2606,3993",
+        "fixture-1|4561|2606,471",
+        "fixture-1|4581|2606,471",
+        "fixture-1|764|2606,471",
+        "fixture-1|3871|3843,471"
+      ],
+      "fullReadoutParity": true,
+      "variant": "before"
+    },
+    {
+      "wallMs": 1346.1999999997206,
+      "visibility": "visible",
+      "evaluated": 24675,
+      "totalPackages": 24675,
+      "counts": {
+        "natural": 1269,
+        "other": 23406,
+        "unknown": 0,
+        "pickup": 0
+      },
+      "cancelled": false,
+      "bounded": false,
+      "capped": false,
+      "progressEvents": 112,
+      "topIds": [
+        "fixture-1|3871|3993,471",
+        "fixture-1|3871|2606,471",
+        "fixture-1|4561|3993,471",
+        "fixture-1|4581|3993,471",
+        "fixture-1|764|3993,471",
+        "fixture-1|3871|2606,3993",
+        "fixture-1|4561|2606,471",
+        "fixture-1|4581|2606,471",
+        "fixture-1|764|2606,471",
+        "fixture-1|3871|3843,471"
+      ],
+      "fullReadoutParity": true,
+      "variant": "optimized"
+    }
+  ]
+}

@@ -476,10 +476,10 @@
     });
   }
   // A team's roster before and after a trade, in one point of view (valueKey).
-  function rosterImpact(roster, leaving, arriving, shape, valueKey) {
+  function rosterImpact(roster, leaving, arriving, shape, valueKey, knownBefore) {
     const gone = new Set(leaving.map(r => String(r.player_key)));
     const after = roster.filter(r => !gone.has(String(r.player_key))).concat(arriving);
-    const before = lineupValue(roster, shape, valueKey);
+    const before = knownBefore || lineupValue(roster, shape, valueKey);
     const next = lineupValue(after, shape, valueKey);
     return {before, after: next, starterDelta: next.starterValue - before.starterValue, benchDelta: next.benchValue - before.benchValue,
       totalDelta: next.total - before.total, spotsOpened: before.size - next.size};
@@ -741,16 +741,20 @@
     return 0;   // one source (a single chart or projection source): nothing to measure a spread against (JEG-1081 PR 6); the net floor decides
   }
   const benchWeight = (weights, pos) => (weights && finite(weights[pos]) ? weights[pos] : weights && finite(weights.overall) ? weights.overall : 0);
+  function fitTolerance(rows, key, chartKeys, z) {
+    const noise = Math.sqrt(rows.reduce((total, r) => total + Math.pow(valueNoise(r, key, chartKeys), 2), 0));
+    return Math.max(NET_FLOOR, (finite(z) ? z : FIT_Z) * noise);
+  }
   const netOf = (l, key, weights) => l.starterValue + l.bench.reduce((total, r) => total + benchWeight(weights, r.pos) * r.values[key], 0);
   const bandDistance = (have, e) => Math.max(0, e.lo - have, have - (e.hi + 1));
   // Roster construction check (JEG-1108): after the trade, no bench player is promoted to a starting slot, no starter
   // is lost without a starter coming back, and no starting slot is left empty. Uses the same pickStarters logic.
   // Returns {ok, issues: string[]} where ok means all three conditions hold for this team.
-  function rosterConstructionOk(team, shape, key) {
+  function rosterConstructionOk(team, shape, key, lineups) {
     const gone = new Set(team.leaving.map(r => String(r.player_key)));
     const after = team.roster.filter(r => !gone.has(String(r.player_key))).concat(team.arriving);
-    const before = pickStarters(team.roster, shape, key);
-    const next = pickStarters(after, shape, key);
+    const before = lineups?.before || pickStarters(team.roster, shape, key);
+    const next = lineups?.after || pickStarters(after, shape, key);
     const issues = [];
     // No empty starting slot after the trade.
     const emptyAfter = Object.values(next.empty).reduce((a, b) => a + b, 0);
@@ -783,8 +787,7 @@
     // moving player has this view: lineupValue omits unpriced rows, which must not turn a missing trade value into zero.
     const totalDelta = team.leaving.concat(team.arriving).every(r => r.values && finite(r.values[key])) ? next.total - before.total : null;
     const net = netOf(next, key, ctx.weights) - netOf(before, key, ctx.weights);
-    const noise = Math.sqrt(team.leaving.concat(team.arriving).reduce((total, r) => total + Math.pow(valueNoise(r, key, ctx.chartKeys), 2), 0));
-    const tau = Math.max(NET_FLOOR, (finite(ctx.z) ? ctx.z : FIT_Z) * noise);
+    const tau = fitTolerance(team.leaving.concat(team.arriving), key, ctx.chartKeys, ctx.z);
     const balB = rosterBalance(team.roster, ctx.expected, key, ctx.shape);
     const balA = rosterBalance(after, ctx.expected, key, ctx.shape);
     const ready = Boolean(balB && balB.ready);
@@ -1112,7 +1115,7 @@
     return {mineId: has(link.mineId) ? link.mineId : null, theirId: has(link.theirId) ? link.theirId : null};
   }
 
-  const api = {encodeFinderHash, decodeFinderHash, linkTeamsFor, benchBackups, startersAtGivenPositions, givenPositionsLine, viableGroups, viewTip, VIEW_TIPS, fitTip, FIT_TIPS, hasProjections, chipTooltip, deltaLine, fitHeadline, biggestImbalance, teamFit, tradeFit, naturalFit, projectionsHold, PROJ_FLOOR, FIT_VARIANTS, fitText, valueNoise, PROJECTION_KEYS, PROJECTIONS_KEY, tierGroups, tierOrder, benchWeight, FIT_Z, FIT_TIER, expectedDepth, rosterBalance, evalSentence, DEPTH_POS, USABLE_MIN, looksLikePage, isNotEvaluated, NOT_EVALUATED_POS, findTrades, enumeratePackages, packageScore: scoreOf, evaluateCombo, collapseThrowIns, groupTrades, coreOf, pickStarters, lineupValue, rosterImpact, rosterConstructionOk, balanceCounts, viabilityLabel, withChartAverage, needLine, teamSummary, SUMMARY_ROWS, MARKET_KEY, lineupIssues, issueText, rosterGaps, matchNames, normName, parsePasted, subsets, subsetCount, OUR_KEY, CHART_KEYS, MIN_CHARTS, SEARCH_MIN_CHARTS, MAX_SIZE_CHOICES, MAX_SUBSETS, EXTRA_PLAYER_WEIGHT, LIMIT};
+  const api = {encodeFinderHash, decodeFinderHash, linkTeamsFor, benchBackups, startersAtGivenPositions, givenPositionsLine, viableGroups, viewTip, VIEW_TIPS, fitTip, FIT_TIPS, hasProjections, chipTooltip, deltaLine, fitHeadline, biggestImbalance, teamFit, tradeFit, naturalFit, projectionsHold, PROJ_FLOOR, FIT_VARIANTS, fitText, valueNoise, fitTolerance, PROJECTION_KEYS, PROJECTIONS_KEY, tierGroups, tierOrder, benchWeight, FIT_Z, FIT_TIER, expectedDepth, rosterBalance, evalSentence, DEPTH_POS, USABLE_MIN, looksLikePage, isNotEvaluated, NOT_EVALUATED_POS, findTrades, enumeratePackages, packageScore: scoreOf, evaluateCombo, collapseThrowIns, groupTrades, coreOf, pickStarters, lineupValue, rosterImpact, rosterConstructionOk, balanceCounts, viabilityLabel, withChartAverage, needLine, teamSummary, SUMMARY_ROWS, MARKET_KEY, lineupIssues, issueText, rosterGaps, matchNames, normName, parsePasted, subsets, subsetCount, OUR_KEY, CHART_KEYS, MIN_CHARTS, SEARCH_MIN_CHARTS, MAX_SIZE_CHOICES, MAX_SUBSETS, EXTRA_PLAYER_WEIGHT, LIMIT};
   // Stable identity comes from League, never the name (duplicate names are valid).
   function savedTeamChoices(workspace) {
     return workspace.teams.map((team, i) => ({id: team.id,

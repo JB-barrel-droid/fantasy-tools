@@ -16,6 +16,7 @@ async function main(){
  ok(!!recovered&&recovered.record.natural&&recovered.edge<0,'new pipeline recovers true starter fit with negative DDF package total');
  ok(result.evaluated===18&&result.totalPackages===18&&result.total===18,'every bounded subset pairing evaluated before canonical grouping');
  ok(result.rows.every(r=>r.record.questions.length===4),'every offer uses canonical entries, not legacy fit labels');
+ for(const proposal of result.rows){assert.deepEqual(O.canonicalReadout(proposal).decision,proposal.record);checks++;}
  assert.deepEqual(O.canonicalReadout(recovered).decision,recovered.record);checks++;
  ok(JSON.stringify({mine,opp,rows:[...context().rowsByKey]})===before,'search leaves saved inputs unchanged');
  const alias=await O.runAll(mine,[opp],context(),{limit:100,budgetMs:1e6});assert.deepEqual(alias.rows.map(r=>r.id),result.rows.map(r=>r.id));checks++;
@@ -36,6 +37,7 @@ async function main(){
  const mutable=context(),captured=await O.runCanonical(mine,[opp],mutable,{limit:100,budgetMs:1e6});const original=captured.rows[0].record;mutable.rowsByKey.get('101').values.ddf_value=999;assert.deepEqual(O.canonicalReadout(captured.rows[0]).decision,original);checks++;mutable.rowsByKey.get('101').values.ddf_value=10;
  const large=Array.from({length:60},(_,i)=>row(String(1000+i),'RB',60-i,60-i));const bounded=F.enumeratePackages(large,large.map((r,i)=>({...r,player_key:String(2000+i)})),{maxSize:4,requiredGive:['1059']});ok(bounded.bounded&&bounded.mine.rows.some(r=>r.player_key==='1059')&&F.subsetCount(bounded.mine.searched,4)<=F.MAX_SUBSETS,'existing subset bound is disclosed and explicit target survives pool trimming');
  const waiver={id:'waivers',partnerKind:'waivers',name:'Waivers',entries:theirRows.map(entry)};const pickups=await O.runCanonical(mine,[waiver],context(),{limit:100,budgetMs:1e6});ok(pickups.rows.some(r=>!r.give.length&&r.record.label==='Pickup')&&pickups.rows.every(r=>!r.record.natural),'same package pipeline supports explicit partnerKind add-only Pickup, never a fictitious manager fit');
+ for(const proposal of pickups.rows){assert.deepEqual(O.canonicalReadout(proposal).decision,proposal.record);checks++;}
  ok(F.packageScore(10,1)===10&&F.packageScore(10,2)===10,'no invented score bonus for fewer than a one-for-one package');
  console.log(JSON.stringify({checks,passed:true,evaluated:result.evaluated,recovered:{id:recovered.id,record:recovered.record},groups:result.counts},null,2));
 }
