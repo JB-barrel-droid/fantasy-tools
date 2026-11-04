@@ -281,6 +281,7 @@
 
   let data = null;
   let canonicalByKey = new Map();
+  let searchIdentityByKey = new Map(); // JEG-1505: never passed to pipelinePlayers.
   let sourceMaps = new Map();
   let nativeSourceMaps = new Map();
   // As-published sources sort the lock order by their native published values,
@@ -1462,6 +1463,93 @@
     return row;
   }
 
+  // JEG-1505 search-only boundary. No source values enter this separate map.
+  function installSearchIdentities(payload) {
+    if (payload?.schema !== "jeg1505-search-identities/1" || !Array.isArray(payload.identities)) return false;
+    const next = new Map();
+    for (const input of payload.identities) {
+      const key = input.player_key;
+      if (!Number.isSafeInteger(key) || key <= 0 || next.has(key)
+          || typeof input.name !== "string" || !input.name.trim() || !POSITION_ORDER.includes(input.pos)
+          || !["unknown", "retired", "returned"].includes(input.eligibility_status)
+          || typeof input.selectable !== "boolean" || !Array.isArray(input.lifecycle_history)) return false;
+      next.set(key, {player_key: key, name: input.name, pos: input.pos, team: input.team || "—",
+        sleeper_id: input.sleeper_id || null, eligibility_status: input.eligibility_status || "unknown",
+        selectable: input.selectable && input.eligibility_status !== "retired", selection_reason: input.selection_reason || null,
+        lifecycle_history: (input.lifecycle_history || []).map(event => ({...event})),
+        search_identity_only: true, pricing_status: "unknown"});
+    }
+    searchIdentityByKey = next;
+    return true;
+  }
+
+  function searchOnlyRow(identity) {
+    const reason = "No computed pricing is available for this retained identity.";
+    const keys = [...visibleSourceKeys(), ...COMPOSITE_VERSION_KEYS];
+    return {...identity, lifecycle_history: identity.lifecycle_history.map(event => ({...event})),
+      // Keep this out of the legacy universe_only UI, which prints 0.0.
+      universe_only: false, materialized: true, unpriced_reason: reason,
+      values: Object.fromEntries(keys.map(key => [key, null])),
+      missingReasons: Object.fromEntries(keys.map(key => [key, reason])),
+      estimated: {}, meanPpg: null, ddfByVersion: {}, ddfSources: []};
+  }
+
+  function resolveSearchIdentity(reference) {
+    if (!reference || !["canonical", "sleeper"].includes(reference.namespace))
+      return {status: "pending", reason: "Explicit canonical or sleeper namespace required"};
+    if (!(typeof reference.id === "string" || (typeof reference.id === "number" && Number.isSafeInteger(reference.id))))
+      return {status: "pending", reason: "ID must be an explicit string or integer"};
+    const candidates = new Set();
+    if (reference.namespace === "canonical") {
+      const text = String(reference.id ?? "");
+      const key = /^\d+$/.test(text) ? Number(text) : NaN;
+      if (Number.isSafeInteger(key) && key > 0 && (canonicalByKey.has(key) || searchIdentityByKey.has(key))) candidates.add(key);
+    } else if (typeof reference.id === "string" || Number.isSafeInteger(reference.id)) {
+      const sid = String(reference.id);
+      [canonicalByKey, searchIdentityByKey].forEach(map => map.forEach(player => {
+        if (player.sleeper_id && String(player.sleeper_id) === sid) candidates.add(player.player_key);
+      }));
+    }
+    if (candidates.size !== 1) return {status: "pending", reason: candidates.size ? "Ambiguous ID" : "Unknown ID"};
+    const key = [...candidates][0];
+    const identity = searchIdentityByKey.get(key);
+    if (identity && !identity.selectable) return {status: "pending", player_key: key,
+      reason: identity.selection_reason || "Identity is not eligible for default selection"};
+    return {status: "resolved", player_key: key};
+  }
+
+  function prepareSearchSelection({inputs = [], overrideAdds = [], ownership = {}} = {}) {
+    const resolved = new Set();
+    const pending = [];
+    const describe = reference => ({namespace: typeof reference?.namespace === "string" ? reference.namespace : null,
+      id: ["string", "number"].includes(typeof reference?.id) ? reference.id : null});
+    let duplicates = 0;
+    [...inputs, ...overrideAdds].forEach(reference => {
+      const result = resolveSearchIdentity(reference);
+      if (result.status !== "resolved") pending.push({...result, reference: describe(reference)});
+      else if (resolved.has(result.player_key)) duplicates += 1;
+      else resolved.add(result.player_key);
+    });
+    const owned = new Set();
+    let ownershipReady = ownership.complete === true;
+    [...(ownership.mine || []), ...(ownership.others || [])].forEach(reference => {
+      const result = resolveSearchIdentity(reference);
+      if (result.status !== "resolved") {
+        ownershipReady = false;
+        pending.push({...result, reference: describe(reference), boundary: "ownership"});
+      } else owned.add(result.player_key);
+    });
+    const excludedOwnership = [...resolved].filter(key => owned.has(key));
+    const requestedKeys = [...resolved].filter(key => !owned.has(key));
+    const computed = new Set(universe.map(row => row.player_key));
+    const pricedKeys = requestedKeys.filter(key => computed.has(key));
+    const unresolvedKeys = requestedKeys.filter(key => !computed.has(key));
+    const readyForPricing = engineReady && ownershipReady && pending.length === 0 && unresolvedKeys.length === 0 && pricedKeys.length > 0;
+    return {resolvedKeys: [...resolved], duplicates, excludedOwnership, requestedKeys,
+      pricedKeys, unresolvedKeys, pending, ownershipReady, readyForPricing,
+      wireKeys: readyForPricing ? [...pricedKeys] : []};
+  }
+
   // JEG-502 (lazy): a player no source prices (universe_only) is not one of
   // the computed rows. searchPlayers/getPlayer build his row on demand with
   // the same rules (VP-6.2); a computed player's row is a copy of the engine's.
@@ -1470,8 +1558,9 @@
     const computed = universe.find(row => row.player_key === key);
     if (computed) return rowCopy(computed);
     const player = canonicalByKey.get(key);
-    if (!player || !POSITION_ORDER.includes(player.pos)) return null;
-    return {...buildRow(player), materialized: true};
+    if (player && POSITION_ORDER.includes(player.pos)) return {...buildRow(player), materialized: true};
+    const identity = searchIdentityByKey.get(key);
+    return identity ? searchOnlyRow(identity) : null;
   }
   const searchKey = text => String(text || "").normalize("NFD").replace(/[̀-ͯ]/g, "")
     .toLowerCase().replace(/[.'’]/g, "").replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
@@ -1482,13 +1571,19 @@
     const needle = searchKey(query);
     if (!needle) return [];
     const hits = [];
-    canonicalByKey.forEach((player, playerKey) => {
+    const searchCatalog = new Map(canonicalByKey);
+    searchIdentityByKey.forEach((player, key) => { if (!searchCatalog.has(key)) searchCatalog.set(key, player); });
+    searchCatalog.forEach((player, playerKey) => {
       if (!POSITION_ORDER.includes(player.pos)) return;
+      const identity = searchIdentityByKey.get(playerKey);
+      // Optional provider conflicts do not hide an existing canonical identity.
+      // Preflight still holds conflicted selections; explicit retirement hides default search.
+      if (identity && (identity.eligibility_status === "retired" || (!canonicalByKey.has(playerKey) && !identity.selectable))) return;
       const name = searchKey(player.name);
       const at = name.indexOf(needle);
       if (at < 0) return;
       const rank = name === needle ? 0 : at === 0 ? 1 : name.includes(` ${needle}`) ? 2 : 3;
-      hits.push({playerKey, rank, unpriced: player.universe_only ? 1 : 0, name: player.name});
+      hits.push({playerKey, rank, unpriced: player.universe_only || player.search_identity_only ? 1 : 0, name: player.name});
     });
     hits.sort((a, b) => a.rank - b.rank || a.unpriced - b.unpriced || a.name.localeCompare(b.name) || a.playerKey - b.playerKey);
     return hits.slice(0, Math.max(0, Number(limit) || 0)).map(hit => playerRow(hit.playerKey)).filter(Boolean);
@@ -3257,8 +3352,12 @@
     // universe_only: true) with values 0 where a chart is fully loaded, null
     // with missingReasons[key] elsewhere, and roster_status / roster_status_label
     // / unpriced_reason. He never enters getAllRows, the curves or the pies.
+    // JEG-1505 adds retained search_identity_only rows with unknown/null prices;
+    // these stay outside computed membership and the legacy 0.0 readout.
     searchPlayers: (query, options) => searchPlayers(query, options),
     getPlayer: playerKey => playerRow(playerKey),
+    resolveSearchIdentity: reference => resolveSearchIdentity(reference),
+    prepareSearchSelection: options => prepareSearchSelection(options),
     // JEG-482 (read-only): the player's rank on the publisher's own chart at
     // the active scoring ("#3 on FantasyCalc"); null when the chart does not
     // price him or the source is not a published chart. getNativeRanks(source)
@@ -4221,6 +4320,9 @@
       userDeselectedSources = new Set();
       canonicalByKey = buildCanonicalMap();
       if (!canonicalByKey.size) throw new Error("Canonical player records are unavailable.");
+      // Optional identity coverage loads independently of pricing/preload readiness.
+      window.TradeValueProductData?.getSearchIdentitySelection?.()
+        .then(payload => { if (payload) installSearchIdentities(payload); }).catch(() => {});
       // VP-1.6: no source is required. A source that failed validation is
       // left out of the included set (eligibilityReason), never fatal.
       if (isLockKey(window.TradeValueLockOrder)) lockOrder = window.TradeValueLockOrder;
