@@ -173,6 +173,23 @@ class SearchableIdentityEligibilityTest(unittest.TestCase):
         self.assertEqual(result["eligible_player_keys"], [])
         self.assertEqual(len(result["issues"]), 2)
 
+    def test_provider_only_shared_gsis_preserves_both_identities_but_rejects_selection(self):
+        rows = [player(1, "First Player", sleeper_id="100"),
+                player(2, "Second Player", sleeper_id="200")]
+        snapshot = base(**{"100": {"pos": "WR", "gsis_id": "00-shared"},
+                           "200": {"pos": "WR", "gsis_id": "00-shared"}})
+        result = select(rows, snapshot)
+        self.assertEqual(result["eligible_player_keys"], [])
+        self.assertEqual([r["player_key"] for r in result["identities"]], [1, 2])
+        self.assertEqual(result["issues"], [
+            {"player_key": 1, "reason": "multiple Sleeper ids share one GSIS id"},
+            {"player_key": 2, "reason": "multiple Sleeper ids share one GSIS id"},
+        ])
+        for row in result["identities"]:
+            self.assertFalse(row["selectable"])
+            self.assertIsNone(row["sleeper_id"])
+            self.assertIsNone(row["gsis_id"])
+
     def test_inputs_and_priced_rows_unchanged_and_output_detached(self):
         rows = [player(sleeper_id="6803")]
         rows[0]["espn_ros"] = {"ppr": 17.25}

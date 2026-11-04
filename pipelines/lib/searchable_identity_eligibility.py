@@ -148,6 +148,8 @@ def build_searchable_identities(
         record = provider.get(matched)
         if record is not None:
             provider_gsis = _id(record.get("gsis_id"))
+            if provider_gsis and len(by_gsis[provider_gsis]) > 1:
+                rejected[key] = "multiple Sleeper ids share one GSIS id"
             if gsis and provider_gsis and gsis != provider_gsis:
                 rejected[key] = "canonical and Sleeper GSIS ids disagree"
             if (record.get("pos") or "").upper() != (row.get("position") or "").upper():
