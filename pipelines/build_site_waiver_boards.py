@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import gzip
+import io
 import json
 import shutil
 import subprocess
@@ -22,6 +23,14 @@ import nfl_week
 
 ROOT = Path(__file__).resolve().parents[1]
 SETTINGS = tuple((s, t, sf) for s in schema.SCORINGS for t in (8, 10, 12, 14) for sf in (0, 1))
+
+
+def _deterministic_gzip(payload: bytes) -> bytes:
+    """Gzip with a fixed timestamp and platform-neutral OS header byte."""
+    stream = io.BytesIO()
+    with gzip.GzipFile(fileobj=stream, mode='wb', mtime=0) as archive:
+        archive.write(payload)
+    return stream.getvalue()
 
 
 def publish(root: Path, dist: Path, tag: str, as_of: str) -> dict:
@@ -78,7 +87,7 @@ def publish(root: Path, dist: Path, tag: str, as_of: str) -> dict:
     names = [e['file'] for e in entries] + [f'waiver-boards-wk{week}.json']
     archive = {name: (target / name).read_text(encoding='utf-8') for name in names}
     (source / f'waiver-boards-wk{week}.json.gz').write_bytes(
-        gzip.compress(board.dumps(archive).encode('utf-8'), mtime=0))
+        _deterministic_gzip(board.dumps(archive).encode('utf-8')))
     return manifest
 
 

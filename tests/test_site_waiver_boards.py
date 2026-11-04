@@ -46,6 +46,8 @@ class SiteBoards(unittest.TestCase):
                 self.assertFalse(doc['sources']['points']['enabled'])
                 self.assertTrue(doc['sources']['points']['disabled_reason'])
             archive_bytes = (archive / 'waiver-boards-wk8.json.gz').read_bytes()
+            self.assertEqual(int.from_bytes(archive_bytes[4:8], 'little'), 0)
+            self.assertEqual(archive_bytes[9], 255, 'gzip OS header must be platform-neutral')
             before = {p.name: p.read_bytes() for p in target.glob('*.json')}
             publish(*args)
             self.assertEqual(archive_bytes, (archive / 'waiver-boards-wk8.json.gz').read_bytes())
