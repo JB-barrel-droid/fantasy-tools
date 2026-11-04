@@ -134,6 +134,12 @@ class TransitionHistoryPreload(unittest.TestCase):
             section.pop("validationHold", None)
             section.pop("promotionHold", None)
             section["week_designated"] = section["content_vintage"] = "Week 9"
+        # These synthetic candidate charts differ from their saved inputs;
+        # unmatched provenance must not simply rename an unchanged saved week.
+        for key in ("cbs", "usatoday", "fantasycalc", "fantasypros"):
+            for combo in fixture["sources"][key]["combos"].values():
+                if isinstance(combo.get("native"), dict):
+                    combo["native"] = {k: v * 1.05 for k, v in combo["native"].items()}
         body = json.dumps(fixture).encode()
         settings = [{"scoring": "standard", "teams": 8, "superflex": 0}]
         today = date(2026, 11, 4)
@@ -160,6 +166,8 @@ class TransitionHistoryPreload(unittest.TestCase):
                     reference = vc.run_reference(settings, today,
                         fixture=path / "fixture.json", history=path / "history")
                     report = vc.compare(engine["settings"], reference)
+                    print(f"\n[JEG-1176 transition history] known_newest={len(known)}/7 "
+                          f"values_compared={report['values_compared']} verdict={report['verdict']}")
                     bad = {k: a["examples"][:1] for k, a in report["series"].items() if a["mismatches"]}
                     self.assertEqual(bad, {})
                     self.assertEqual(report["verdict"], "agree")

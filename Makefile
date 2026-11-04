@@ -762,6 +762,7 @@ test-core:
 	python3 -m unittest tests.test_launch_front_door
 	python3 -m unittest tests.test_launch_copy_guard
 	python3 -m unittest tests.test_week_history
+	python3 -m unittest tests.test_value_check.TransitionHistoryPreload
 	python3 -m unittest tests.test_asset_load_retry
 	python3 -m unittest tests.test_espn_listed_rows
 	python3 -m unittest tests.test_page_load_no_404
@@ -826,6 +827,7 @@ test-core-shard-1:
 	python3 -m unittest tests.test_v2_phone_context_row_render
 	python3 -m unittest tests.test_v2_phone_trade_rows_render
 	python3 -m unittest tests.test_week_history
+	python3 -m unittest tests.test_value_check.TransitionHistoryPreload
 
 test-core-shard-2:
 	python3 -m unittest tests.test_spec_reference_value_pipeline

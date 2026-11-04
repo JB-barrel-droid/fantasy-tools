@@ -1011,23 +1011,19 @@ SCORING_PREFIX = {"ppr": "full", "half_ppr": "half", "standard": "standard"}
 
 
 def newest_week(exclude=("cbs", "usatoday")):
-    """The newest week the built dist/ serves, over the charts not in
-    `exclude`. Committed data and a chain rebuild differ here (on 2026-10-28
-    the chain built Week 8 while the committed dist/ served Week 7), so the
-    transition replay is set relative to it, not to a fixed week."""
-    index = json.loads((DIST / "assets" / "history" / "index.json").read_text(encoding="utf-8"))
-    return max(v["week"] for k, v in index["served"].items()
-               if k not in exclude and isinstance(v.get("week"), int))
+    """The replay's recorded newest week, independent of live source drift.
+
+    Week 7/8 has saved inputs for all seven sources. `exclude` is retained
+    for callers that choose which sources lag; it does not select live data.
+    """
+    return 8
 
 
 def transition_overrides(lagging=("cbs", "usatoday"), week=None, corrupt=None):
-    """JEG-1177 sentinel: replay a week transition from committed data. The
-    `lagging` charts serve their saved Week `week` (default: the week before
-    newest_week(); the served fixture carries exactly those natives and the
-    index says so) while every other source serves the newer week, as on
-    2026-10-27 (USA Today and CBS on Week 7, the rest on Week 8). Any hold on
-    a lagging chart is cleared: the replay serves its saved week, and a red
-    hold would hide it from the view lists (a test that wants one adds it).
+    """Replay the recorded Week 7/8 transition with every source's saved
+    inputs, including projection PPG. Live held/unmatched/candidate inputs
+    must not change the intended majority (or a caller's minority) scenario.
+    Holds are cleared in this replay; a held-source test adds its own hold.
     corrupt: a source whose served file has one player's value changed, so it
     no longer equals its own saved week."""
     if week is None:
@@ -1037,26 +1033,104 @@ def transition_overrides(lagging=("cbs", "usatoday"), week=None, corrupt=None):
     slug_of = {}
     for slug, key in sorted((fixture.get("player_keys") or {}).items()):
         slug_of.setdefault(int(key), slug)
-    saved = _week(week)
-    for src in lagging:
-        entry = saved["sources"][src]
-        index["served"][src] = {"week": week, "version": "snapshot", "fingerprint": entry["fingerprint"],
-                                "label_week": week}
+    saved = {w: _week(w) for w in (week, week + 1)}
+    players = json.loads((ROOT / "data/fixtures/current/players.json").read_text())
+    overlay = {str(p["player_key"]): {} for p in players["players"]}
+    for src in (*H.PUBLISHED, *H.PROJECTION_FIELDS):
+        served_week = week if src in lagging else week + 1
+        entry = saved[served_week]["sources"][src]
+        index["served"][src] = {"week": served_week, "version": "snapshot", "fingerprint": entry["fingerprint"],
+                                "label_week": served_week}
         section = fixture["sources"][src]
-        section["week_designated"] = section["content_vintage"] = f"Week {week}"
+        section["week_designated"] = section["content_vintage"] = f"Week {served_week}"
         for field in ("validationHold", "promotionHold"):
             section.pop(field, None)
+        if src in H.PROJECTION_FIELDS:
+            field = H.PROJECTION_FIELDS[src]
+            players["meta"][H.PLAYERS_META_DATE[src]] = entry["snapshot_date"]
+            for player in players["players"]:
+                values = entry["ppg"].get(str(player["player_key"]))
+                cell = dict(zip(H.SCORINGS, values)) if values is not None else None
+                player[field] = cell
+                overlay[str(player["player_key"])][field] = cell
+                if src == "espn":
+                    zero = values is not None and all(v == 0 for v in values)
+                    player["espn_status"] = "ineligible" if zero else "active" if values is not None else "absent"
+                    player["espn_projects_zero"] = zero
+                    overlay[str(player["player_key"])]["espn_projects_zero"] = zero
+            continue
+        section["published"] = True  # the recorded complete chart is published
         for scoring, prefix in SCORING_PREFIX.items():
             natives = {slug_of[int(k)]: v for k, v in entry["natives"][scoring].items() if int(k) in slug_of}
             if src == corrupt:
                 slug = slug_of.get(BIJAN) or sorted(natives)[0]
                 natives[slug] = natives[slug] * 1.07
-            combos = [k for k in section["combos"] if k.startswith(f"{prefix}_12")]
-            assert combos, f"{src} has no {prefix} 12-team combo"
+            combos = [k for k in section["combos"] if k.startswith(f"{prefix}_")]
+            assert combos, f"{src} has no {prefix} combo"
             for combo in combos:
                 section["combos"][combo]["native"] = dict(natives)
+    product_data = (DIST / "assets/product-data.js").read_text()
+    product_data += "\n(() => { const api = window.TradeValueProductData; const ppg = " + json.dumps(overlay) + ";\n"
+    product_data += "window.TradeValueProductData = {...api, getPlayers: () => api.getPlayers().map(p => ({...p, ...ppg[p.player_key]}))}; })();\n"
     return {"assets/history/index.json": json.dumps(index),
-            FIXTURE_ASSET: json.dumps(fixture, separators=(",", ":"))}
+            FIXTURE_ASSET: json.dumps(fixture, separators=(",", ":")),
+            "assets/product-data.js": product_data,
+            "assets/transition-players.json": json.dumps(players)}
+
+
+class TransitionReplayFixtureTest(unittest.TestCase):
+    def test_live_unmatched_weeks_do_not_change_the_replay(self):
+        from unittest.mock import patch
+        index_path = DIST / "assets/history/index.json"
+        index = json.loads(index_path.read_text())
+        for src, rec in index["served"].items():
+            rec["week"] = 9 if src in H.PROJECTION_FIELDS else None
+        fixture_path = DIST / FIXTURE_ASSET
+        fixture = json.loads(fixture_path.read_text())
+        for src, section in fixture["sources"].items():
+            section["validationHold"] = {"reason": "live state must not leak into replay", "hold_level": "red"}
+            if src in H.PUBLISHED:
+                section["published"] = False
+        read_text = Path.read_text
+
+        def drift(path, *args, **kwargs):
+            if path == index_path:
+                return json.dumps(index)
+            if path == fixture_path:
+                return json.dumps(fixture)
+            return read_text(path, *args, **kwargs)
+
+        with patch.object(Path, "read_text", drift):
+            overrides = transition_overrides()
+        replay = json.loads(overrides["assets/history/index.json"])
+        self.assertEqual({src: rec["week"] for src, rec in replay["served"].items()},
+                         {src: 7 if src in ("cbs", "usatoday") else 8
+                          for src in (*H.PUBLISHED, *H.PROJECTION_FIELDS)})
+        fixture = json.loads(overrides[FIXTURE_ASSET])
+        players = json.loads(overrides["assets/transition-players.json"])
+        for src, field in H.PROJECTION_FIELDS.items():
+            saved = _week(8)["sources"][src]["ppg"]
+            for player in players["players"]:
+                values = saved.get(str(player["player_key"]))
+                self.assertEqual(player[field], dict(zip(H.SCORINGS, values)) if values is not None else None)
+        for src, scorings in H.served_published_natives(fixture).items():
+            saved = _week(replay["served"][src]["week"])["sources"][src]["natives"]
+            for scoring, cells in scorings.items():
+                self.assertEqual(cells, {k: v for k, v in saved[scoring].items()
+                                         if int(k) in set(fixture["player_keys"].values())})
+
+    def test_a_minority_newest_replay_keeps_the_saved_numeric_inputs(self):
+        lagging = tuple(H.PUBLISHED)
+        overrides = transition_overrides(lagging=lagging)
+        served = json.loads(overrides["assets/history/index.json"])["served"]
+        self.assertEqual({k for k, v in served.items() if v["week"] == 8}, set(H.PROJECTION_FIELDS))
+        self.assertEqual({k for k, v in served.items() if v["week"] == 7}, set(lagging))
+        fixture = json.loads(overrides[FIXTURE_ASSET])
+        universe = set(fixture["player_keys"].values())
+        for src, scorings in H.served_published_natives(fixture).items():
+            saved = _week(7)["sources"][src]["natives"]
+            for scoring, cells in scorings.items():
+                self.assertEqual(cells, {k: v for k, v in saved[scoring].items() if int(k) in universe})
 
 
 class WeekTransitionSentinelTest(unittest.TestCase):
@@ -1105,7 +1179,7 @@ class WeekTransitionSentinelTest(unittest.TestCase):
         settings = [{"scoring": "ppr", "teams": 12, "superflex": 0},
                     {"scoring": "half_ppr", "teams": 10, "superflex": 1},
                     {"scoring": "standard", "teams": 12, "superflex": 0}]
-        today = _date.fromisoformat(_fixture_today())
+        today = _date.fromisoformat(_fixture_today(json.loads(overrides[FIXTURE_ASSET])))
         engine = vc.run_engine(settings, today, overrides={k: v.encode("utf-8") for k, v in overrides.items()})
         with tempfile.TemporaryDirectory() as tmp:
             hist = Path(tmp) / "history"
@@ -1113,10 +1187,12 @@ class WeekTransitionSentinelTest(unittest.TestCase):
             (hist / "index.json").write_text(overrides["assets/history/index.json"], encoding="utf-8")
             fixture = Path(tmp) / "fixture.json"
             fixture.write_text(overrides[FIXTURE_ASSET], encoding="utf-8")
-            reference = vc.run_reference(settings, today, fixture=fixture, history=hist)
+            players = Path(tmp) / "players.json"
+            players.write_text(overrides["assets/transition-players.json"], encoding="utf-8")
+            reference = vc.run_reference(settings, today, fixture=fixture, players=players, history=hist)
             import value_reference as R
             lag = newest_week() - 1
-            lagged = R.Setting(R.Inputs.load(fixture), "ppr", 12, hist=R.History(hist), week=lag)
+            lagged = R.Setting(R.Inputs.load(fixture, players), "ppr", 12, hist=R.History(hist), week=lag)
             self.assertEqual(lagged.week_view()["week"], lag)
             self.assertIn("cbs", lagged.state()["included"])
             self.assertEqual(lagged.state()["current_week"], lag)
