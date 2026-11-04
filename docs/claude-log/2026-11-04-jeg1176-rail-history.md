@@ -95,3 +95,58 @@ candidate and live before/after acceptance belong to the parent release lane.
   deployment and a fresh candidate chain/live acceptance remain pending.
   A passing replay does not establish that the live rail has recovered or that
   the whole date-gated JEG-1176 ticket is complete.
+
+## Current-main qualification checkpoint
+
+The parent explicitly resumed this same sole-writer lane for ordinary
+ticket-branch integration and a true final-integrated-head full validation
+receipt. The previous invocation does not clear the integrated head.
+
+### Verified before the qualification commit
+
+- Reconciled JEG-1176 and JEG-1348 ticket comments, current PR branches and own
+  checkout. Parent confirms #1292 owner `01a1a1a3-e9de-75fd-8be1-6733381420d3`
+  is doing read-only compatibility work, with no writes. Repair-first ordering
+  stays with this #1304 lane; parent remains the sole release owner.
+- Normally merged main `83e57734d04516dd26f2144d431f1267afbe24c8` into the
+  existing `codex/JEG-1176-rail-history` branch, from repaired `bf64c4ea`.
+  Git found no conflicts. Nine inherited main paths include substantive ESPN
+  Week 9 projection changes and operational status artifacts. For example,
+  player 171's projection becomes zero; the CSV grows 4,608 to 4,609 rows.
+  This is not covered by the status-only exception. No source from #1292 was
+  merged or copied into #1304.
+- Independently inspected #1292 head `932ec24c8c82fed9d93e921079097e8cf511533c`
+  in the two overlapping files. Its `benchShareReadout` hunk adds display-only
+  `weeksLeft`, `byesLeft`, `byeTeams` from the existing resolved window/bye map,
+  around line 2457. #1304 changes `preloadCompositeHistory`, around line 3028.
+  Its Makefile hunk adds the feature test command to core and shard 4; #1304
+  adds the preload regression to core and shard 1.
+- `git apply --check` accepts those two #1292 hunks against the integrated
+  working tree. Applying them only to a scratch copy preserves both commands;
+  combined `shard_problems` and `validate_problems` report no errors, combined
+  widget `node --check` passes, and #1304's loader remains byte-identical.
+  This is bounded compatibility evidence, not an approving or high-risk review.
+- Feature semantics to preserve on later #1292 integration: count from the
+  actual resolved model window, including an empty window; unavailable byes
+  stay unavailable, distinct from zero. Keep the fixed historical O3 cohort
+  context separate from a forecast. Its owner must run feature tests and the
+  unchanged bench/reference, transition and contract checks on the combined
+  head, then obtain the required independent review and wording approval.
+
+### Gates at commit time
+
+- Commit the integration and this note before starting one sequential full
+  `python3 -m pipelines.baseline_reds --context local -- make validate`, followed
+  by `tests.test_v2_contract_render`, with required Chromium and repository
+  identity. Both receipts must identify this exact integrated head and be
+  recorded on #1304 and JEG-1176; no later implementation edits may reuse them.
+- Inventory all tracked/public-tree content after the build and before any
+  branch publication. Preserve existing untracked outputs and unrelated work.
+  A publication denial stops that action without an alternate route.
+- Keep #1304 draft. Parent last reported ready capacity 8/8. Admission and
+  permission are required before full exact-head CI; draft finalizer failures
+  do not constitute green required CI. High-risk independent review follows
+  green full CI and remains a separate gate.
+- Preserve the four supplemental render-shard baseline failures without waiver.
+  Release merge, deployment, protection changes, Supabase actions, deletion and
+  approving reviews are outside this lane. Fresh chain/live acceptance remains.
