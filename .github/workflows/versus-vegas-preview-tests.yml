@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - 'app/versus-vegas/**'
+      - 'app/v2/v2.css'
+      - 'app/v2/fonts/**'
       - 'pipelines/build_versus_vegas.py'
       - 'pipelines/build_weekly_inputs.py'
       - 'pipelines/lib/weekly_inputs_contract.py'
@@ -33,9 +35,12 @@ jobs:
         env:
           RENDER_TESTS_REQUIRED: '1'
           VERSUS_SCREENSHOT_PATH: versus-vegas-mobile.png
+          VERSUS_SCREENSHOT_DIR: versus-vegas-review
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: versus-vegas-mobile
-          path: versus-vegas-mobile.png
+          path: |
+            versus-vegas-mobile.png
+            versus-vegas-review/
           if-no-files-found: ignore

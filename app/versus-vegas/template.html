@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-design="fieldnotes" data-theme="light">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -7,14 +7,20 @@
   <title>Versus Vegas · DDF</title>
   <style>/* VERSUS_STYLE */</style>
 </head>
-<body>
-<main>
-  <header><p class="eyebrow">DDF / Weekly notebook</p><p class="preview">Offline preview · saved inputs</p>
+<body class="v2-app versus-vegas" data-layout="__VERSUS_LAYOUT__">
+<div class="vv-shell"><div class="vv-shell-inner">
+  <span class="vv-brand">DDF</span>
+  <nav aria-label="Navigation context, not connected in this standalone draft">
+    <span>Home</span><span>Build a Trade</span><span>Trade Recommendations</span><span>Values</span><span aria-current="page">More</span>
+  </nav>
+</div></div>
+<main id="weekly-comparison">
+  <header class="vv-heading"><p class="eyebrow">DDF / Weekly notebook</p><p class="preview">__VERSUS_REVIEW_NOTE__</p>
     <h1>Versus Vegas<span>.</span></h1>
     <p class="intro">Where weekly ECR and the props market see a different week.</p>
     <p id="week" class="muted"></p>
   </header>
-  <section aria-labelledby="health-title"><h2 id="health-title">The inputs</h2>
+  <section class="vv-sources" aria-labelledby="health-title"><h2 id="health-title">The inputs</h2>
     <div id="health" class="health"></div>
     <p id="warnings" class="muted"></p>
   </section>
@@ -24,7 +30,7 @@
     <label>Coverage<select id="coverage" name="coverage"><option value="all">All coverage</option><option value="both">Both values</option><option value="partial">One value</option><option value="missing">Neither value</option><option value="comparable">Comparable points</option></select></label>
     <label>Sort<select id="sort" name="sort"><option value="name">Player name</option><option value="difference">Largest point difference</option></select></label>
   </form>
-  <section aria-labelledby="players-title"><h2 id="players-title">All weekly players</h2>
+  <section class="vv-players" aria-labelledby="players-title"><h2 id="players-title">All weekly players</h2>
     <p id="summary" role="status" aria-live="polite"></p>
     <p class="muted">Difference = Vegas − ECR, in fantasy points. Partial inputs stay visible without a direction. Ranks retain their source units.</p>
     <div class="table-wrap" tabindex="0" aria-label="Weekly comparison table"><table>
@@ -32,8 +38,8 @@
       <tbody id="players"></tbody>
     </table></div><p id="empty" hidden>No players match these filters.</p>
   </section>
-  <section aria-labelledby="plays-title"><h2 id="plays-title">Verified plays</h2><p id="plays"></p></section>
-  <details><summary>Source provenance</summary><p id="provenance" class="muted"></p><pre id="metadata"></pre></details>
+  <section class="vv-plays" aria-labelledby="plays-title"><h2 id="plays-title">Verified plays</h2><p id="plays"></p></section>
+  <details class="vv-provenance ddf-fn-disclosure"><summary>Source provenance</summary><p id="provenance" class="muted"></p><pre id="metadata"></pre></details>
   <footer>Weekly inputs only. Saved content vintage is shown above; this page does not refresh itself.</footer>
 </main>
 <script id="versus-data" type="application/json">__VERSUS_DATA__</script>

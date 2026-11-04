@@ -145,6 +145,29 @@ class VersusVegas(unittest.TestCase):
         self.assertNotIn('</script><img', html)
         self.assertIn('\\u003c/script>', html)
 
+    def test_design_alternatives_preserve_the_exact_comparison_payload(self):
+        view = build_view(partial_fixture())
+        original = copy.deepcopy(view)
+        for layout in ("compact", "analysis"):
+            rendered = render_html(view, layout, '<img src=x>')
+            payload = re.search(r'<script id="versus-data" type="application/json">(.*?)</script>',
+                                rendered, flags=re.DOTALL)
+            self.assertEqual(json.loads(payload.group(1)), view)
+            self.assertIn(f'data-layout="{layout}"', rendered)
+            self.assertIn('&lt;img src=x&gt;', rendered)
+        self.assertEqual(view, original)
+        with self.assertRaises(ValueError):
+            render_html(view, 'unrecognized-layout')
+
+    def test_standalone_design_reuses_the_shared_foundation_offline(self):
+        rendered = render_html(build_view(weekly_fixture()))
+        self.assertEqual(rendered.count('@font-face'), 1)
+        self.assertIn('data:font/woff2;base64,', rendered)
+        self.assertNotIn('url("fonts/fraunces.woff2")', rendered)
+        self.assertIn('--ddf-content-max: 1184px', rendered)
+        self.assertIn('SIL OPEN FONT LICENSE', rendered)
+        self.assertIn('ddf-fn-disclosure', rendered)
+
     def test_player_identity_provenance_is_preserved(self):
         doc = weekly_fixture()
         result = build_view(doc)["players"][0]

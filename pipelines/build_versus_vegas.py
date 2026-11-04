@@ -8,10 +8,13 @@ adapter exposes only weekly ECR and PropLine; other legs never supply a fill.
 from __future__ import annotations
 
 import argparse
+import base64
 from dataclasses import asdict
 import hashlib
+import html
 import json
 from pathlib import Path
+import re
 
 if __package__:
     from .lib.weekly_inputs_contract import SCORINGS, errors, validate
@@ -99,12 +102,33 @@ def build_view(doc: dict) -> dict:
             "plays": [], "plays_reason": "Verified plays await the shared weekly comparison and play gate."}
 
 
-def render_html(view: dict) -> str:
+def fieldnotes_styles() -> str:
+    """Read the existing foundation; never fork its tokens, font or components."""
+    css = (ROOT / "app/v2/v2.css").read_text()
+    start = css.index("/* JEG-1137: Fieldnotes foundation")
+    end = css.index("/* JEG-1137 slice 2a:", start)
+    foundation = css[start:end]
+    spacing = re.findall(r"--ddf-space-[1-6]:\s*[^;]+;", css[:start])
+    if len(spacing) != 6 or foundation.count('@font-face') != 1:
+        raise ValueError("Shared Fieldnotes foundation changed; inspect before rebuilding")
+    font = base64.b64encode((ROOT / "app/v2/fonts/fraunces.woff2").read_bytes()).decode()
+    foundation = foundation.replace('url("fonts/fraunces.woff2")',
+                                    f'url("data:font/woff2;base64,{font}")')
+    license_text = (ROOT / "app/v2/fonts/FONT-LICENSE.txt").read_text().replace("*/", "* /")
+    return ("/* " + license_text + " */\n:root[data-design=\"fieldnotes\"] {" +
+            " ".join(spacing) + "}\n" + foundation)
+
+
+def render_html(view: dict, layout: str = "compact", review_note: str | None = None) -> str:
+    if layout not in ("compact", "analysis"):
+        raise ValueError("Unknown isolated design layout")
     # Input strings cannot break out of the application/json script element.
     payload = json.dumps(view, ensure_ascii=True, allow_nan=False).replace("<", "\\u003c")
     return (ASSETS / "template.html").read_text().replace(
-        "/* VERSUS_STYLE */", (ASSETS / "style.css").read_text()).replace(
+        "/* VERSUS_STYLE */", fieldnotes_styles() + (ASSETS / "style.css").read_text()).replace(
         "/* VERSUS_SCRIPT */", (ASSETS / "view.js").read_text()).replace(
+        "__VERSUS_LAYOUT__", layout).replace(
+        "__VERSUS_REVIEW_NOTE__", html.escape(review_note or "Offline preview · saved inputs")).replace(
         "__VERSUS_DATA__", payload)
 
 
@@ -112,6 +136,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("input", type=Path, help="Stored weekly-inputs JSON; no network reads")
     parser.add_argument("--out", type=Path, required=True, help="Local preview HTML (outside dist)")
+    parser.add_argument("--layout", choices=("compact", "analysis"), default="compact")
     args = parser.parse_args()
     if args.out.resolve().is_relative_to((ROOT / "dist").resolve()):
         parser.error("Use a local preview path outside dist; live publication is not wired")
@@ -121,7 +146,7 @@ def main() -> int:
         raw = args.input.read_bytes()
         view = build_view(json.loads(raw))
         view["input_sha256"] = hashlib.sha256(raw).hexdigest()
-        rendered = render_html(view)
+        rendered = render_html(view, layout=args.layout)
     except (ValueError, OSError) as exc:
         parser.error(str(exc))
     args.out.parent.mkdir(parents=True, exist_ok=True)

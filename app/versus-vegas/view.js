@@ -73,7 +73,7 @@
         const name = node('td', '');
         name.append(node('span', row.name, 'player-name'), node('span', row.position + ' · ' + (row.team || 'Team unknown'), 'player-meta'));
         if (row.unresolved_reason) name.append(node('span', row.unresolved_reason, 'cell-reason'));
-        const identity = node('details', '', 'identity');
+        const identity = node('details', '', 'identity ddf-fn-disclosure');
         identity.append(node('summary', 'Player identity'));
         identity.append(node('p', 'Player key: ' + (row.player_key === null ? 'Unresolved' : row.player_key)));
         identity.append(node('p', 'Resolved by: ' + (row.resolved_by || 'Not supplied')));
@@ -82,6 +82,7 @@
         tr.append(name);
         ['ecr', 'vegas'].forEach(side => {
           const source = cell[side], td = node('td', cellText(source));
+          td.dataset.label = side === 'ecr' ? 'ECR (weekly)' : 'Vegas (props-implied)';
           if (source.reason) td.append(node('span', source.reason, 'cell-reason'));
           tr.append(td);
         });
@@ -89,7 +90,11 @@
         const difference = cell.difference;
         const text = difference === null ? '—' : difference === 0 ? '0.0 pts' :
           (difference > 0 ? '+' : '−') + (Math.abs(difference) < 0.05 ? '<0.1' : Math.abs(difference).toFixed(1)) + ' pts';
-        tr.append(node('td', text), node('td', cell.direction || cell.reason, cell.direction ? 'direction' : ''));
+        const delta = node('td', text);
+        delta.dataset.label = 'Difference';
+        const read = node('td', cell.direction || cell.reason, cell.direction ? 'direction' : '');
+        read.dataset.label = 'Read / coverage';
+        tr.append(delta, read);
         byId('players').append(tr);
       });
       byId('empty').hidden = rows.length !== 0;

@@ -12,6 +12,27 @@ the page keeps every player visible and explains missing coverage. The output
 is self-contained and makes no network requests. Nothing is wired to `make sync`,
 the dashboard shell, `dist`, runtime writers or publication.
 
+The page consumes the shared Fieldnotes foundation from `app/v2/v2.css` at
+render time, including its single Fraunces declaration and existing tokens/native
+components. The existing font and license are embedded for an entirely offline
+export. Shared shell/token/font files are read-only. The header's final navigation
+labels are context for design review; no production routes are connected.
+
+Two isolated design alternatives use the same payload: `--layout compact`
+(source-health band, default) and `--layout analysis` (desktop source side panel).
+Both use compact ruled rows with a readable stacked layout on phones. Native
+identity/provenance disclosures and all source values remain available.
+
+```sh
+python3 app/versus-vegas/build_review.py --out /tmp/versus-vegas-review
+# Or preserve an actual stored artifact's values and provenance:
+python3 app/versus-vegas/build_review.py --input /path/to/weekly-inputs.json --out /tmp/versus-vegas-review
+```
+
+The default review export is explicitly labeled synthetic and uses the existing
+frozen comparison fixture. It does not claim active ECR/PropLine data. Canonical
+reference inspection and the current shell/nav decision are in `DESIGN.md`.
+
 The adapter uses the existing weekly-input validator, then selects only
 `experts.ecr_weekly` (`fantasypros_ecr` from the producer, or `fantasypros`
 from the shared contract fixtures) and `vegas` (`propline`). ESPN and other

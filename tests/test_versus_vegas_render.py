@@ -31,7 +31,10 @@ class VersusVegasRender(unittest.TestCase):
         cls.directory = tempfile.TemporaryDirectory()
         doc = partial_fixture()
         doc["players"][0]["name"] = '<img src=x onerror="alert(1)">'
-        (Path(cls.directory.name) / "index.html").write_text(render_html(build_view(doc)))
+        view = build_view(doc)
+        for layout, filename in (("compact", "index.html"), ("analysis", "analysis.html")):
+            (Path(cls.directory.name) / filename).write_text(render_html(
+                view, layout, "Synthetic fixture · layout review only"))
         class Quiet(http.server.SimpleHTTPRequestHandler):
             def log_message(self, *_args):
                 pass
@@ -80,21 +83,47 @@ class VersusVegasRender(unittest.TestCase):
         self.assertTrue(all(url.startswith(self.url.rsplit('/', 1)[0] + '/') for url in requests), requests)
 
     def test_mobile_layout_and_all_rows_default(self):
-        page = self.browser.new_page(viewport={"width": 390, "height": 844})
+        page = self.browser.new_page()
         self.addCleanup(page.close)
-        page.goto(self.url)
-        self.assertEqual(page.locator('#players tr').count(), 4)
-        self.assertIn('4 players shown', page.locator('#summary').inner_text())
-        self.assertIn('3 comparable', page.locator('#summary').inner_text())
-        self.assertEqual(page.locator('.direction').count(), 3)
-        self.assertEqual(page.evaluate('document.documentElement.scrollWidth <= innerWidth'), True)
-        screenshot = os.environ.get('VERSUS_SCREENSHOT_PATH')
-        if screenshot:
-            page.screenshot(path=screenshot, full_page=True)
-        for selector in ('#scoring', '#position', '#coverage', '#sort'):
-            self.assertGreaterEqual(page.locator(selector).bounding_box()["height"], 44)
-        page.select_option('#coverage', 'comparable')
-        self.assertEqual(page.locator('#players tr').count(), 3)
+        for layout in ('compact', 'analysis'):
+            for width in (390, 1280):
+                with self.subTest(layout=layout, width=width):
+                    page.set_viewport_size({"width": width, "height": 844 if width == 390 else 900})
+                    page.goto(self.url if layout == 'compact' else self.url.replace('index.html', 'analysis.html'))
+                    page.evaluate('document.fonts.ready')
+                    self.assertEqual(page.locator('#players tr').count(), 4)
+                    self.assertIn('4 players shown', page.locator('#summary').inner_text())
+                    self.assertIn('3 comparable', page.locator('#summary').inner_text())
+                    self.assertEqual(page.locator('.direction').count(), 3)
+                    self.assertEqual(page.evaluate('document.documentElement.scrollWidth <= innerWidth'), True)
+                    self.assertEqual(page.locator('nav span').all_text_contents(),
+                        ['Home', 'Build a Trade', 'Trade Recommendations', 'Values', 'More'])
+                    self.assertEqual(page.locator('nav a').count(), 0)
+                    self.assertEqual(page.locator('#players tr').nth(3).locator('td').nth(1).inner_text(), '0 pts')
+                    self.assertLess(page.locator('#players tr').first.bounding_box()['y'], page.viewport_size['height'])
+                    styles = page.evaluate('''() => ({
+                        width: document.querySelector('main').getBoundingClientRect().width,
+                        gutter: getComputedStyle(document.querySelector('main')).paddingLeft,
+                        card: getComputedStyle(document.querySelector('.health article')).borderRadius,
+                        control: getComputedStyle(document.querySelector('select')).borderRadius,
+                        face: getComputedStyle(document.querySelector('h1')).fontFamily
+                    })''')
+                    self.assertLessEqual(styles['width'], 1184)
+                    self.assertEqual(styles['gutter'], '16px' if width == 390 else '32px')
+                    self.assertEqual(styles['card'], '16px')
+                    self.assertEqual(styles['control'], '9px')
+                    self.assertIn('Fraunces', styles['face'])
+                    for selector in ('#scoring', '#position', '#coverage', '#sort'):
+                        self.assertGreaterEqual(page.locator(selector).bounding_box()["height"], 44)
+                    screenshot_dir = os.environ.get('VERSUS_SCREENSHOT_DIR')
+                    if screenshot_dir:
+                        Path(screenshot_dir).mkdir(parents=True, exist_ok=True)
+                        page.screenshot(path=str(Path(screenshot_dir) / f'{layout}-{width}.png'), full_page=True)
+                    screenshot = os.environ.get('VERSUS_SCREENSHOT_PATH')
+                    if screenshot and layout == 'compact' and width == 390:
+                        page.screenshot(path=screenshot, full_page=True)
+                    page.select_option('#coverage', 'comparable')
+                    self.assertEqual(page.locator('#players tr').count(), 3)
 
 
 if __name__ == '__main__':
