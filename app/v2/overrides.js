@@ -202,6 +202,10 @@
   const rowOf = key => {
     const hit = rows().find(r => String(r.player_key) === String(key));
     if (hit) return hit;
+    if (S.engine && typeof S.engine.getPlayer === "function") {
+      const retained = S.engine.getPlayer(key);
+      if (retained && String(retained.player_key) === String(key)) return retained;
+    }
     const found = S.engine && S.engine.searchPlayers ? S.engine.searchPlayers(S.names[key] || "", {limit: 20}) : [];
     return found.find(r => String(r.player_key) === String(key)) || null;
   };
@@ -777,9 +781,11 @@
       hits.forEach(row => {
         const v = row.values.ddf_value;
         list.append(el("li", {role: "option"}, [el("button", {type: "button", class: "v2-ov-hit",
-          onclick: () => { select(row.player_key, row.name); }}, [
+          disabled: row.search_identity_only === true,
+          title: row.search_identity_only ? "Pending: retained identity has no computed pricing; override editing is unavailable." : null,
+          onclick: () => { if (!row.search_identity_only) select(row.player_key, row.name); }}, [
           el("span", {class: "v2-ov-hit-name", text: row.name}),
-          el("span", {class: "v2-ov-hit-meta", text: `${row.pos}${row.team ? " · " + row.team : ""} · DDF ${fmt(v)}${S.values[row.player_key] !== undefined ? " (yours)" : ""}`})])]));
+          el("span", {class: "v2-ov-hit-meta", text: `${row.pos}${row.team ? " · " + row.team : ""} · DDF ${fmt(v)}${row.search_identity_only ? " · Pending pricing" : S.values[row.player_key] !== undefined ? " (yours)" : ""}`})])]));
       });
     };
     input.addEventListener("input", fill);
@@ -793,6 +799,7 @@
   }
   function select(key, name) {
     S.selected = String(key);
+    if (typeof name === "string" && name.trim()) S.names[S.selected] = name;
     S.draft = null;
     S.draftType = "absolute";   // JEG-1058: a new player opens on an absolute value
     S.draftDelta = null;

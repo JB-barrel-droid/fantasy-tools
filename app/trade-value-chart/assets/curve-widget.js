@@ -1531,22 +1531,31 @@
       else resolved.add(result.player_key);
     });
     const owned = new Set();
+    const ownRoster = new Set();
     let ownershipReady = ownership.complete === true;
-    [...(ownership.mine || []), ...(ownership.others || [])].forEach(reference => {
+    const collectOwnership = (references, mine) => references.forEach(reference => {
       const result = resolveSearchIdentity(reference);
       if (result.status !== "resolved") {
         ownershipReady = false;
         pending.push({...result, reference: describe(reference), boundary: "ownership"});
-      } else owned.add(result.player_key);
+      } else {
+        owned.add(result.player_key);
+        if (mine) ownRoster.add(result.player_key);
+      }
     });
+    collectOwnership(ownership.mine || [], true);
+    collectOwnership(ownership.others || [], false);
     const excludedOwnership = [...resolved].filter(key => owned.has(key));
     const requestedKeys = [...resolved].filter(key => !owned.has(key));
     const computed = new Set(universe.map(row => row.player_key));
+    const unresolvedOwnKeys = [...ownRoster].filter(key => !computed.has(key));
+    unresolvedOwnKeys.forEach(key => pending.push({status: "pending", player_key: key,
+      reason: "Own-roster identity has no computed pricing", boundary: "own_roster_pricing"}));
     const pricedKeys = requestedKeys.filter(key => computed.has(key));
     const unresolvedKeys = requestedKeys.filter(key => !computed.has(key));
     const readyForPricing = engineReady && ownershipReady && pending.length === 0 && unresolvedKeys.length === 0 && pricedKeys.length > 0;
     return {resolvedKeys: [...resolved], duplicates, excludedOwnership, requestedKeys,
-      pricedKeys, unresolvedKeys, pending, ownershipReady, readyForPricing,
+      pricedKeys, unresolvedKeys, unresolvedOwnKeys, pending, ownershipReady, readyForPricing,
       wireKeys: readyForPricing ? [...pricedKeys] : []};
   }
 

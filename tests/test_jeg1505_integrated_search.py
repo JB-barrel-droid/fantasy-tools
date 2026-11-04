@@ -65,6 +65,34 @@ if(input.action==='invariance') {
 } else if(input.action==='resolve') result=input.references.map(r=>context.controls.resolveSearchIdentity(r));
 else if(input.action==='prepare') result=context.controls.prepareSearchSelection(input.options);
 else if(input.action==='reject') result={accepted:context.installSearchIdentities(input.badSelection)};
+else if(input.action==='override' || input.action==='overrideSearch') {
+  const text=fs.readFileSync(path.join(root,'app/v2/overrides.js'),'utf8');
+  const engine={...context.controls}; if(input.noGetPlayer)delete engine.getPlayer;
+  const state={engine,names:{},values:{},selected:null,draft:null,query:input.query||''};
+  let editorRow=null;
+  const el=(tag,attrs,kids)=>({tag,attrs,children:kids||[],value:attrs?.value||'',
+    replaceChildren(...nodes){this.children=nodes;},append(...nodes){this.children.push(...nodes);},addEventListener(){}});
+  const editor={S:state,$:()=>null,el,fmt:v=>v===null?'—':String(v),render:()=>{editorRow=vm.runInContext('rowOf(S.selected)',editor);}};
+  vm.createContext(editor);
+  const a=text.indexOf('  const rows = () =>'),b=text.indexOf('  // The model\'s DDF Value',a);
+  vm.runInContext(text.slice(a,b),editor);
+  const c=text.indexOf(input.action==='overrideSearch'?'  function renderSearch(box)':'  function select(key, name)'),d=text.indexOf('  // ---------- editor:',c);
+  vm.runInContext(text.slice(c,d),editor);
+  const hit=context.controls.searchPlayers(input.query,{limit:8})[0];
+  if(!hit)throw new Error('missing actual override search hit');
+  if(input.action==='overrideSearch') {
+    const box=el('section',{},[]); editor.renderSearch(box);
+    const flatten=node=>[node,...(node.children||[]).flatMap(flatten)];
+    const button=flatten(box).find(node=>node.attrs?.class==='v2-ov-hit');
+    if(!button)throw new Error('actual renderSearch produced no hit');
+    button.attrs.onclick();
+    result={disabled:button.attrs.disabled===true,title:button.attrs.title,selected:state.selected,
+      editorRow,metadata:button.children[1].attrs.text};
+  } else {
+    editor.select(hit.player_key,hit.name);
+    result={hit,editorRow,selected:state.selected,selectedName:state.names[state.selected]||null};
+  }
+}
 const afterUniverse=JSON.stringify(universe), afterCanonical=JSON.stringify([...canonicalByKey]);
 console.log(JSON.stringify({installed,result,computedUnchanged:beforeUniverse===afterUniverse,
   canonicalUnchanged:beforeCanonical===afterCanonical,computedCount:universe.length,
@@ -175,6 +203,65 @@ class IntegratedSearchTest(unittest.TestCase):
         self.assertEqual(out["result"]["wireKeys"], [101])
         self.assertTrue(out["canonicalUnchanged"] and out["computedUnchanged"])
         self.assertFalse(widget("prepare", mode="worked", ready=False, options=options)["result"]["readyForPricing"])
+
+    def test_own_roster_unpriced_identity_blocks_priced_candidate(self):
+        for reference in ({"namespace": "canonical", "id": 568}, {"namespace": "sleeper", "id": "6803"}):
+            with self.subTest(reference=reference):
+                options = {"inputs": [{"namespace": "canonical", "id": 101}],
+                           "ownership": {"complete": True, "mine": [reference]}}
+                result = widget("prepare", mode="worked", options=options)["result"]
+                self.assertFalse(result["readyForPricing"])
+                self.assertEqual(result["wireKeys"], [])
+                self.assertEqual(result["unresolvedOwnKeys"], [568])
+                self.assertEqual(result["pricedKeys"], [101])
+                self.assertTrue(result["ownershipReady"])
+                self.assertEqual(result["pending"], [{"status": "pending", "player_key": 568,
+                    "reason": "Own-roster identity has no computed pricing", "boundary": "own_roster_pricing"}])
+
+    def test_other_team_unpriced_identity_is_filtered_without_blocking_priced_candidate(self):
+        options = {"inputs": [{"namespace": "canonical", "id": 101}],
+                   "overrideAdds": [{"namespace": "sleeper", "id": "6803"}],
+                   "ownership": {"complete": True, "others": [{"namespace": "canonical", "id": 568}]}}
+        result = widget("prepare", mode="worked", options=options)["result"]
+        self.assertTrue(result["readyForPricing"])
+        self.assertEqual(result["wireKeys"], [101])
+        self.assertEqual(result["excludedOwnership"], [568])
+        self.assertEqual(result["unresolvedOwnKeys"], [])
+        self.assertEqual(result["pending"], [])
+
+    def test_priced_own_roster_control_does_not_block_priced_candidate(self):
+        options = {"inputs": [{"namespace": "canonical", "id": 101}],
+                   "ownership": {"complete": True, "mine": [{"namespace": "canonical", "id": 102}]}}
+        result = widget("prepare", mode="worked", options=options)["result"]
+        self.assertTrue(result["readyForPricing"])
+        self.assertEqual(result["wireKeys"], [101])
+        self.assertEqual(result["unresolvedOwnKeys"], [])
+
+    def test_override_select_opens_retained_identity_by_canonical_key(self):
+        out = widget("override", query="Eric Tomlinson")
+        self.assertEqual(out["result"]["selected"], "33")
+        self.assertIsNotNone(out["result"]["editorRow"])
+        self.assertEqual(out["result"]["editorRow"]["player_key"], 33)
+        self.assertEqual(out["result"]["selectedName"], "Eric Tomlinson")
+        self.assertTrue(out["computedUnchanged"] and out["canonicalUnchanged"])
+
+    def test_override_lookup_preserves_computed_row_and_name_fallback(self):
+        computed = widget("override", mode="worked", query="QB Alpha")
+        self.assertEqual(computed["result"]["editorRow"], computed["result"]["hit"])
+        self.assertTrue(computed["computedUnchanged"])
+        retained = widget("override", query="Eric Tomlinson", noGetPlayer=True)
+        self.assertEqual(retained["result"]["editorRow"]["player_key"], 33)
+
+    def test_override_unknown_hit_is_explicitly_pending_and_cannot_trigger_editing(self):
+        pending = widget("overrideSearch", query="Eric Tomlinson")["result"]
+        self.assertTrue(pending["disabled"])
+        self.assertIn("Pending", pending["title"])
+        self.assertIn("Pending pricing", pending["metadata"])
+        self.assertIsNone(pending["selected"])
+        priced = widget("overrideSearch", mode="worked", query="QB Alpha")["result"]
+        self.assertFalse(priced["disabled"])
+        self.assertEqual(priced["selected"], "101")
+        self.assertEqual(priced["editorRow"]["player_key"], 101)
 
     def test_retirement_and_return_preserve_lookup_key_and_history(self):
         canonical = [{"player_key": 900001, "full_name": "Synthetic Returning Identity", "position": "WR"}]
