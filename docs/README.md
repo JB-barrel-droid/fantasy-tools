@@ -85,6 +85,10 @@ The durable docs live here as Markdown in GitHub (JEG-596 decision, Jeremy, 2026
 
 ## Operations, process and agents
 
+The [efficiency scorecard](efficiency-scorecard/README.md) (JEG-1464) documents
+the model-free daily collector, counting method, disk floor and coordinator
+run step; [first readout](efficiency-scorecard/first-readout.md) covers Oct 30–31.
+
 | Doc | Status | Owner | Verified | What it is |
 |---|---|---|---|---|
 | [cutover-runbook.md](cutover-runbook.md) | Proposal | JEG-1445 | 2026-10-31 | PSpice/Muse full coordinator takeover checklist, installed Mac bridge/digest entry, recovery state, decision 11 merge gate and Claude/Duet gap inventory; dry run pending review. |
