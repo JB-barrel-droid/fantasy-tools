@@ -109,11 +109,25 @@ class HistoryError(Exception):
 # ---------------------------------------------------------------- week rules
 
 def week_of_day(value) -> int | None:
-    """Content week of an ISO date/timestamp (Tuesday flip), or None."""
+    """Content week of an ISO date/timestamp (Tuesday flip), or None.
+
+    A timestamp with a UTC offset is read on the New York calendar, the same
+    clock the content week flips on (nfl_week.today_ny) and the one the
+    publisher writers label rows with. Slicing its UTC date instead put a
+    Monday-evening ET pull (2026-11-03T03:05Z = Nov 2 22:05 ET, labelled week
+    8) in week 9, and the capture failed closed every run (JEG-1479)."""
     if not value:
         return None
+    text = str(value).strip()
+    if len(text) > 10:
+        try:
+            moment = datetime.fromisoformat(text.replace("Z", "+00:00"))
+        except ValueError:
+            moment = None
+        if moment is not None and moment.tzinfo is not None:
+            return current_nfl_week(today_ny(moment))
     try:
-        day = date.fromisoformat(str(value)[:10])
+        day = date.fromisoformat(text[:10])
     except ValueError:
         return None
     return current_nfl_week(day)
