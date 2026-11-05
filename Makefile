@@ -333,6 +333,8 @@ test-unit-modules:
 	python3 -m unittest tests.test_vorp_translation_unified
 	python3 -m unittest tests.test_two_qb_direction
 	python3 -m unittest tests.test_short_chart_waiver
+	# JEG-1511: non-blocking until the ES-parts fix lands (moved out of test-core).
+	python3 -m unittest tests.test_waiver_band_line.OnePlayerPerturbationTest
 	python3 -m unittest tests.test_published_league_settings_engine
 	python3 -m unittest tests.test_published_league_settings_render
 	python3 -m unittest tests.test_value_reference_worked_example
@@ -797,7 +799,10 @@ test-core:
 	# (tests.test_value_pipeline_engine is wired into test-core by #914 / JEG-1057.)
 	python3 -m unittest tests.test_razzball_outlier_guard
 	# JEG-1047: projection waiver line is the 7-player band (one fringe player can't reprice a position).
-	python3 -m unittest tests.test_waiver_band_line
+	# JEG-1511 (Jeremy, 2026-11-05: "Just don't let this test block us at all"): the
+	# one-player perturbation tests run in test-unit (reported, not blocking) until
+	# JEG-1511 fixes the ES-parts coupling; band math and end-to-end stay in the gate.
+	python3 -m unittest tests.test_waiver_band_line.BandMathTest tests.test_waiver_band_line.EndToEndTest
 
 # JEG-1170: test-core split into parallel shards for preview.yml and pages.yml. Their union
 # is exactly test-core: a line added to test-core must also go into one shard, or
@@ -927,7 +932,10 @@ test-core-shard-4:
 	python3 -m unittest tests.test_two_qb_direction
 	python3 -m unittest tests.test_short_chart_waiver
 	python3 -m unittest tests.test_roster_convention_parity
-	python3 -m unittest tests.test_waiver_band_line
+	# JEG-1511 (Jeremy, 2026-11-05: "Just don't let this test block us at all"): the
+	# one-player perturbation tests run in test-unit (reported, not blocking) until
+	# JEG-1511 fixes the ES-parts coupling; band math and end-to-end stay in the gate.
+	python3 -m unittest tests.test_waiver_band_line.BandMathTest tests.test_waiver_band_line.EndToEndTest
 
 # JEG-1335: split from shard 1, which passed its 30-minute job limit once the seat mix
 # made the engine-heavy suites (seeded hold build, desktop menu, view invariants) slower.
