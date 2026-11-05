@@ -149,3 +149,31 @@ inside a member path, mixed review labels, unrelated low-risk paths, missing mem
 paths and renamed hot files. Existing manual full runs on the prior candidate
 remain running unchanged; their results cannot be relabeled as checks of this
 corrective head. No duplicate broad run or metadata retry is part of this fix.
+
+## Bounded draft full-CI grant adoption
+
+Adopted only the exact-head draft grant from unmerged PR #1262, source
+`a4e20cd58283a72f2fc6fd23317b10135d05edba`, into #1303. Its Mac Codex owner
+and branch remain untouched; bridge-comment markers are not native task IDs.
+Normal merge `91fed00df05f7a95a56a0a0390af03f46e48416c` integrates main
+`b6b3983a27e919f6bb03cea3a471b198219f056c`; the net main delta is four
+operational JSON files. No freshness exception or promotion implementation was
+adopted, and neither bot exception was enabled.
+
+The existing live PR state gate now accepts a draft only when its labels contain
+`full-ci:<exact lowercase 40-character head SHA>`. The same gate is already
+rechecked before expensive jobs and by the required finalizers. It does not
+change permissions, required checks, review, freshness, promotion or deployment.
+The source's six regression tests failed before adoption; they now run in both
+cheap workflow guard steps, with an additional invalid-SHA regression.
+The final focused run passed 126 tests across the grant, draft workflows,
+preview parity, CI speedup, baseline attribution, Pages classifier and batches.
+
+For the final commit, attach its exact grant before pushing the ticket branch,
+then use one ordinary required preview/v2 pair while keeping it draft. A label
+alone starts nothing. A moved head, removed grant, stale event or closed PR
+cannot pass; a generic label or event-only label cannot authorize work. Manual
+runs retain their distinct names and cannot substitute for required PR checks.
+Fresh independent delta review and strict current-main freshness are still
+required. Prior-head manual runs 41952123242 and 41953860061 both succeeded on
+`cdb803131c7808f264fff1159e6d7e12b8a95b44`; neither qualifies this new head.
