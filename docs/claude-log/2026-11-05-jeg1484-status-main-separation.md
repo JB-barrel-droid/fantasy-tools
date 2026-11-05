@@ -128,3 +128,24 @@ coordinated follow-up scope and live acceptance. #1303 reduces Pages work and
 incidental ownership-CI invalidation; **it does not yet stop operational writers
 from advancing main**. Do not close the durable-separation outcome on that claim.
 The release lead's separately approved 15-minute pause test remains separate.
+
+
+## Combined-head risk correction
+
+A review finding showed that preflight classified only the source members;
+a standard docs member plus an integration-only hot file could therefore bypass
+the deterministic combined risk floor. Preflight now applies the real risk floor
+to the integration PR, requires its risk label to match the batch, includes both
+names of renames, and constrains the integration file inventory to the member
+union plus the integration manifest. Missing member paths also block. Content
+inside permitted files still requires independent exact-head combined review;
+no patch-equivalence or branch-protection enforcement is claimed.
+
+Six new tests use the real risk classifier for both source and combined diffs,
+with only already-satisfied CI/review/ancestry evidence stubbed. Before correction
+they produced eight failure subcases. After correction, the 187-test focused suite
+passed. Cases include an integration-only hot/config/value file, weakened tests
+inside a member path, mixed review labels, unrelated low-risk paths, missing member
+paths and renamed hot files. Existing manual full runs on the prior candidate
+remain running unchanged; their results cannot be relabeled as checks of this
+corrective head. No duplicate broad run or metadata retry is part of this fix.

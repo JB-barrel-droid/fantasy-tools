@@ -73,7 +73,14 @@ Do not run an ordinary merge loop alongside a batch: that abandoned train #1196.
    commit without a self-referential SHA in that commit. All members and main
    must be ancestors of the combined head. Bring a changed main in normally,
    update the manifest and get new exact-head CI/delta review.
-5. Get the combined PR's actual full preview and v2-render workflows green.
+5. The combined PR's complete changed-file inventory is risk-checked too,
+   including old and new names of renames and any weakened tests. Its coordinator
+   risk label must match the member batch risk. Its files must account for the
+   member file union, with only `.github/release-batch.json` allowed additionally;
+   unrelated integration work or dropped member paths block preflight. This is
+   a file-inventory boundary, not proof of patch-content equivalence. Independent
+   combined-head review still checks content within those authorized paths.
+   Get the combined PR's actual full preview and v2-render workflows green.
    Preflight requires the build, all five core shards, all three render lanes,
    aggregate checks and the nonexpired `preview-dist-<combined-head>` artifact.
    It also rejects other failed/pending check runs. A draft deferral, skipped

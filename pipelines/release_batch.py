@@ -117,12 +117,16 @@ def risk_floor(pr, declared, get=api):
     logic = next(ast.literal_eval(n.value) for n in tree.body if isinstance(n, ast.Assign)
                  and any(isinstance(t, ast.Name) and t.id == 'LOGIC_FILES' for t in n.targets))
     hot = {'app/v2/v2.js', 'config/roster.json', 'config/lineup_parameters.json', 'pipelines/bake_players.py', *logic}
-    high = False
+    high, paths = False, set()
     for file in changed:
-        name, patch = file['filename'], file.get('patch')
-        if name in hot or name.startswith(('tests/fixtures/', 'config/', 'supabase/', 'sql/')):
+        names = [file['filename']]
+        if file.get('previous_filename'):
+            names.append(file['previous_filename'])
+        paths.update(names)
+        patch = file.get('patch')
+        if any(name in hot or name.startswith(('tests/fixtures/', 'config/', 'supabase/', 'sql/')) for name in names):
             high = True
-        if name.startswith('tests/'):
+        if any(name.startswith('tests/') for name in names):
             # Missing/truncated test diffs cannot establish a lower risk floor.
             if patch is None or any((line.startswith('-') and not line.startswith('---')
                                     and re.search(r'assert|expect|should|check', line, re.I))
@@ -130,6 +134,7 @@ def risk_floor(pr, declared, get=api):
                                    for line in (patch or '').splitlines()):
                 high = True
     require(not high or declared == 'review-high-risk', 'deterministic high-risk work must ship isolated')
+    return frozenset(paths)
 
 
 def check_ci(pr, head, get=api):
@@ -213,17 +218,24 @@ def preflight(doc, manifest, main, head, get=api, run_git=git):
         acceptance(previous[-1], get)
     run_git('merge-base', '--is-ancestor', main, head)
     owners = {active['owner'], *(m['owner'] for m in active['members'])}
+    member_paths = set()
     for m in active['members']:
         pr = get(f"pulls/{m['pr']}")
         require(pr['state'] == 'open' and not pr['merged'] and pr['head']['sha'] == m['head'], 'stale/merged member head')
         require(pr['base']['ref'] == 'main', 'member base must be main')
-        risk_floor(pr, m['risk'], get)
+        member_paths.update(risk_floor(pr, m['risk'], get))
         run_git('merge-base', '--is-ancestor', m['head'], head)
         check_ci(m['pr'], m['head'], get)
         review(m['pr'], m['head'], {m['owner']}, m['risk'], get)
     pr = get(f"pulls/{active['integration_pr']}")
     require(pr['state'] == 'open' and not pr['draft'] and pr['head']['sha'] == head
             and pr['base']['ref'] == 'main' and pr['mergeable'] is True, 'stale/draft/conflicted integration head')
+    # Member classification cannot authorize extra combined-head work. Inspect
+    # the complete integration diff under the same risk tier before its gates.
+    combined_paths = risk_floor(pr, active['members'][0]['risk'], get)
+    require(not (combined_paths - member_paths - {MANIFEST}),
+            'integration changes outside member union and allowed manifest')
+    require(not (member_paths - combined_paths), 'member changes missing from integration diff')
     check_ci(active['integration_pr'], head, get)
     review(active['integration_pr'], head, owners, active['members'][0]['risk'], get)
 

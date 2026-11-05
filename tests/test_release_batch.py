@@ -21,7 +21,7 @@ class BatchTest(unittest.TestCase):
         self.doc = sample()
         self.manifest = {'batch_id': 'train-1', 'main_sha': A, 'members': copy.deepcopy(self.doc['batches'][0]['members'])}
         self.ci = patch.object(gate, 'check_ci'); self.review = patch.object(gate, 'review')
-        risk = patch.object(gate, 'risk_floor'); risk.start(); self.addCleanup(risk.stop)
+        risk = patch.object(gate, 'risk_floor', return_value=frozenset()); risk.start(); self.addCleanup(risk.stop)
         self.mock_ci = self.ci.start(); self.mock_review = self.review.start()
         self.addCleanup(self.ci.stop); self.addCleanup(self.review.stop)
         self.prs = {'pulls/10': {'state': 'open', 'merged': False, 'head': {'sha': B}, 'base': {'ref': 'main'}},
@@ -202,6 +202,77 @@ class BatchTest(unittest.TestCase):
                 result, _, errors = self.ownership_cli(merge_mode=True, **fields)
                 self.assertEqual(result, 1)
                 self.assertIn('main advanced', errors)
+
+
+class CombinedRiskScopeTest(unittest.TestCase):
+    """Keep the real risk floor active for both member and integration diffs."""
+    def setUp(self):
+        self.doc = sample()
+        self.manifest = {'batch_id': 'train-1', 'main_sha': A, 'members': copy.deepcopy(self.doc['batches'][0]['members'])}
+        self.member_files = [{'filename': 'docs/member.md', 'patch': '+member change'}]
+        self.combined_files = copy.deepcopy(self.member_files) + [{'filename': gate.MANIFEST, 'patch': '+manifest'}]
+        self.member = {'number': 10, 'state': 'open', 'merged': False, 'head': {'sha': B},
+                       'base': {'ref': 'main'}, 'labels': [{'name': 'review-standard'}]}
+        self.combined = {'number': 20, 'state': 'open', 'draft': False, 'head': {'sha': C},
+                         'base': {'ref': 'main'}, 'mergeable': True, 'labels': [{'name': 'review-standard'}]}
+        self.requests = []
+        ci = patch.object(gate, 'check_ci'); review = patch.object(gate, 'review')
+        self.ci = ci.start(); self.review = review.start()
+        self.addCleanup(ci.stop); self.addCleanup(review.stop)
+
+    def get(self, path):
+        self.requests.append(path)
+        if path == 'pulls/10': return dict(self.member, changed_files=len(self.member_files))
+        if path == 'pulls/20': return dict(self.combined, changed_files=len(self.combined_files))
+        if path.startswith('pulls/10/files?'): return copy.deepcopy(self.member_files)
+        if path.startswith('pulls/20/files?'): return copy.deepcopy(self.combined_files)
+        raise AssertionError(path)
+
+    def preflight(self):
+        gate.preflight(self.doc, self.manifest, A, C, self.get, lambda *args: '')
+
+    def test_member_union_and_manifest_pass_with_real_combined_risk_floor(self):
+        self.preflight()
+        self.assertTrue(any(p.startswith('pulls/20/files?') for p in self.requests))
+        self.ci.assert_called_with(20, C, self.get)
+        self.assertEqual(self.review.call_args.args[3], 'review-standard')
+
+    def test_combined_only_hot_or_config_files_cannot_evade_highrisk(self):
+        for name in ('app/v2/v2.js', 'config/unrequested.json', 'pipelines/value_reference.py'):
+            with self.subTest(name=name):
+                self.combined_files = copy.deepcopy(self.member_files) + [
+                    {'filename': name, 'patch': '+combined-only change'},
+                    {'filename': gate.MANIFEST, 'patch': '+manifest'}]
+                with self.assertRaisesRegex(ValueError, 'high-risk'):
+                    self.preflight()
+
+    def test_weakened_test_inside_member_path_still_forces_highrisk(self):
+        self.member_files = [{'filename': 'tests/test_member.py', 'patch': '+self.assertTrue(result)'}]
+        self.combined_files = [{'filename': 'tests/test_member.py', 'patch': '-self.assertTrue(result)\n+self.assertTrue(True)'},
+                               {'filename': gate.MANIFEST, 'patch': '+manifest'}]
+        with self.assertRaisesRegex(ValueError, 'high-risk'):
+            self.preflight()
+
+    def test_combined_review_label_must_match_member_batch_risk(self):
+        self.combined['labels'] = [{'name': 'review-high-risk'}]
+        with self.assertRaisesRegex(ValueError, 'risk must match'):
+            self.preflight()
+
+    def test_unrequested_lowrisk_path_and_dropped_member_changes_block(self):
+        self.combined_files.append({'filename': 'docs/unrequested.md', 'patch': '+unrequested'})
+        with self.assertRaisesRegex(ValueError, 'outside member'):
+            self.preflight()
+        self.combined_files = [{'filename': gate.MANIFEST, 'patch': '+manifest'}]
+        with self.assertRaisesRegex(ValueError, 'member changes missing'):
+            self.preflight()
+
+    def test_renamed_hot_path_cannot_hide_behind_a_lowrisk_new_name(self):
+        for files in (self.member_files, self.combined_files):
+            with self.subTest(combined=files is self.combined_files):
+                files[0]['previous_filename'] = 'app/trade-value-chart/assets/value-model.js'
+                with self.assertRaisesRegex(ValueError, 'high-risk'):
+                    self.preflight()
+                files[0].pop('previous_filename')
 
 
 class EvidenceTest(unittest.TestCase):
