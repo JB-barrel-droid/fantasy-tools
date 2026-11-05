@@ -628,6 +628,58 @@ class CumulativeRetentionTest(unittest.TestCase):
             self.refresh(as_of=date(2026, 11, 4))
         self.assertEqual(self.out.read_bytes(), before)
 
+    def test_equivalent_lifecycle_key_forms_deduplicate_before_first_write_and_check(self):
+        original = {"player_key": 900001, "kind": "retired", "date": "2026-11-03", "source": "https://example.invalid/synthetic-mixed-key"}
+        feed = [dict(original, player_key=key) for key in (900001, "900001", "0900001", "000900001")]
+        saved_feed = deepcopy(feed)
+        first = self.refresh(lifecycle_events=feed)
+        self.assertEqual(self.player(first)["lifecycle_history"], [original])
+        self.assertEqual(self.player(first)["eligibility_status"], "retired")
+        first_bytes = self.out.read_bytes()
+        self.refresh(check=True)
+        self.refresh()
+        self.assertEqual(self.out.read_bytes(), first_bytes)
+        self.refresh(lifecycle_events=list(reversed(feed)))
+        self.refresh(check=True, lifecycle_events=feed)
+        self.assertEqual(self.out.read_bytes(), first_bytes)
+        self.assertEqual(feed, saved_feed)
+
+    def test_lifecycle_deduplication_keeps_distinct_sources_and_rejects_conflicting_kinds(self):
+        event = {"player_key": 900001, "kind": "retired", "date": "2026-11-03", "source": "https://example.invalid/synthetic-source-one"}
+        other_source = dict(event, player_key="0900001", source="https://example.invalid/synthetic-source-two")
+        first = self.refresh(lifecycle_events=[event, other_source, dict(event, player_key="900001")])
+        history = self.player(first)["lifecycle_history"]
+        self.assertEqual(len(history), 2)
+        self.assertEqual({row["player_key"] for row in history}, {900001})
+        self.assertEqual({row["source"] for row in history}, {event["source"], other_source["source"]})
+        saved = self.out.read_bytes()
+        self.refresh(check=True)
+        self.refresh()
+        self.assertEqual(self.out.read_bytes(), saved)
+        contradiction = [dict(other_source, kind="returned")]
+        before = deepcopy(contradiction)
+        with self.assertRaisesRegex(ValueError, "conflicting lifecycle evidence"):
+            self.refresh(lifecycle_events=contradiction)
+        self.assertEqual(contradiction, before)
+        self.assertEqual(self.out.read_bytes(), saved) # Atomic refresh hold; no evidence chosen/dropped.
+
+    def test_lifecycle_normalization_deduplicates_emitted_fields_and_prior_mixed_forms(self):
+        event = {"player_key": 900001, "kind": "retired", "date": "2026-11-03", "source": "https://example.invalid/synthetic-normalized"}
+        feed = [dict(event, caller_note="one"), dict(event, player_key="900001", caller_note="two")]
+        first = self.refresh(lifecycle_events=feed)
+        self.assertEqual(self.player(first)["lifecycle_history"], [event])
+        self.refresh(check=True)
+        # Existing malformed duplicate history is normalized once on refresh;
+        # distinct recognized evidence remains intact in the preceding control.
+        self.player(first)["lifecycle_history"].append(dict(event, player_key="0900001"))
+        self.out.write_text(json.dumps(first))
+        fixed = self.refresh()
+        self.assertEqual(self.player(fixed)["lifecycle_history"], [event])
+        saved = self.out.read_bytes()
+        self.refresh(check=True)
+        self.refresh()
+        self.assertEqual(self.out.read_bytes(), saved)
+
     def test_empty_later_export_and_provider_feed_do_not_erase_known_identities(self):
         self.canonical = []
         self.fixture = {"players": []}

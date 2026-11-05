@@ -18,10 +18,10 @@ import tempfile
 
 if __package__:
     from .lib.searchable_identity_eligibility import build_searchable_identities, _id
-    from .lib.jeg1505_cumulative_identities import accumulate, selection_inputs, _unique
+    from .lib.jeg1505_cumulative_identities import accumulate, canonical_lifecycle_events, selection_inputs, _unique
 else:
     from lib.searchable_identity_eligibility import build_searchable_identities, _id
-    from lib.jeg1505_cumulative_identities import accumulate, selection_inputs, _unique
+    from lib.jeg1505_cumulative_identities import accumulate, canonical_lifecycle_events, selection_inputs, _unique
 
 ROOT = Path(__file__).resolve().parents[1]
 OUTPUT = ROOT / "app/trade-value-chart/assets/jeg1505-search-identities.json"
@@ -60,7 +60,7 @@ def build(root=ROOT, lifecycle_events=(), *, prior_snapshot=_AUTO_PRIOR, as_of=N
         raise ValueError("cumulative lifecycle replay date cannot move backwards")
     if not isinstance(lifecycle_events, (list, tuple)):
         raise ValueError("lifecycle events must be an array")
-    events = _unique([*prior_events, *lifecycle_events])
+    events = canonical_lifecycle_events([*prior_events, *lifecycle_events], records)
 
     def claim(key, sid, path):
         sid = _id(sid)

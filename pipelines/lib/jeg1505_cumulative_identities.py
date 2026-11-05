@@ -10,7 +10,7 @@ from hashlib import sha256
 import json
 import re
 
-from .searchable_identity_eligibility import _id, _key
+from .searchable_identity_eligibility import _history, _id, _key
 
 POSITIONS = {"QB", "RB", "WR", "TE"}
 CANONICAL_PATH = "data/inputs/players_identity_snapshot.json"
@@ -24,6 +24,16 @@ def _digest(value):
 
 def _unique(rows):
     return [json.loads(text) for text in sorted({json.dumps(row, sort_keys=True) for row in rows})]
+
+
+def canonical_lifecycle_events(events, known_keys):
+    """Validate/normalize emitted event fields before comparing evidence.
+
+    Keep distinct sources and kinds. The existing lifecycle validator rejects
+    same-date contradictions, holding the refresh without choosing an event.
+    """
+    histories = _history(events, known_keys)
+    return _unique([event for history in histories.values() for event in history])
 
 
 def accumulate(canonical, previous, source_hashes):
@@ -166,7 +176,7 @@ def accumulate(canonical, previous, source_hashes):
             evidence["holds"].append({"reason": "Canonical export no longer supplies a skill position", "source_sha256": digest})
     for key, record in records.items():
         record["evidence"]["present_in_canonical_export"] = key in current
-    return records, _unique(events), _unique(redirects), sources
+    return records, canonical_lifecycle_events(events, records), _unique(redirects), sources
 
 
 def selection_inputs(records):
