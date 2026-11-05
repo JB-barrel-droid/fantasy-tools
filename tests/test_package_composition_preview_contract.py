@@ -403,6 +403,17 @@ class GreedyPackageSearchTest(unittest.TestCase):
                 result = self.check_case(name)
                 self.assertEqual(result.returncode, 0, result.stderr)
 
+    def test_lifecycle_and_captured_pricing_compatibility(self):
+        result = subprocess.run(
+            ["node", "--test", str(REPO / "tests/node/jeg1183_lifecycle_check.cjs")],
+            capture_output=True, text=True, timeout=30,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        # Lifecycle adoption does not activate the production package adapter.
+        league = (REPO / "app/v2/league.js").read_text(encoding="utf-8")
+        self.assertNotIn("function renderPackage()", league)
+        self.assertNotIn("result.packageSnapshot =", league)
+
     def test_missing_selector_fails_before(self):
         result = self.check_case("three", MODULE)  # The pre-change preview has no selector.
         self.assertNotEqual(result.returncode, 0)
@@ -410,7 +421,8 @@ class GreedyPackageSearchTest(unittest.TestCase):
 
     def test_coordinator_patch_applies_and_builds_the_panel_assets(self):
         """Apply only to temporary copies; shared owners retain their source files."""
-        patch = REPO / "docs" / "integration" / "jeg1183-package-panel.patch"
+        # The original handoff stays intact; lifecycle adoption changes the scheduling hunks.
+        patch = REPO / "docs" / "integration" / "jeg1183-package-panel-lifecycle.patch"
         with tempfile.TemporaryDirectory() as tmp:
             target = Path(tmp)
             for name in ("app/v2/league.js", "pipelines/build_v2_page.py"):
