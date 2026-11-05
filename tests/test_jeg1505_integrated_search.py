@@ -10,12 +10,14 @@ from datetime import date
 import json
 from pathlib import Path
 import ast
+import re
 import shutil
 import subprocess
 import sys
 import tempfile
 import unittest
 from unittest import mock
+from urllib.parse import urljoin
 
 from pipelines.build_jeg1505_search_identities import build, write_snapshot
 from pipelines.lib.searchable_identity_eligibility import build_searchable_identities
@@ -164,6 +166,11 @@ class IntegratedSearchTest(unittest.TestCase):
         target = destination / "data/fixtures/current/players.json"
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(ROOT / "data/fixtures/current/players.json", target)
+        # The checked-in owned artifact is cumulative refresh input, not a
+        # disposable output. New catalogs must bootstrap explicitly.
+        target = destination / "app/trade-value-chart/assets/jeg1505-search-identities.json"
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(ASSET, target)
 
     def test_build_is_reproducible_unknown_and_does_not_mutate_source_inputs(self):
         files = [ROOT / p for p in ("data/inputs/players_identity_snapshot.json",
@@ -506,6 +513,320 @@ Promise.all([P.getSearchIdentitySelection(),P.getSearchIdentitySelection()]).the
             with mock.patch.object(sync, "ROOT", root), mock.patch.object(sync, "APP", app), mock.patch.object(sys, "path", [str(ROOT / "pipelines"), *sys.path]):
                 sync.sync_search_identity_asset()
             self.assertEqual(json.loads((app / "assets/jeg1505-search-identities.json").read_text()), build(root))
+
+
+class CumulativeRetentionTest(unittest.TestCase):
+    """Synthetic canonical refreshes, never an invented NFL lifecycle ledger."""
+
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        self.root = Path(temporary.name)
+        self.out = self.root / "app/trade-value-chart/assets/jeg1505-search-identities.json"
+        self.canonical = [
+            {"player_key": 900001, "full_name": "Synthetic Retained Player", "position": "WR", "gsis_id": "00-900001"},
+            {"player_key": 900002, "full_name": "Synthetic Control", "position": "TE", "gsis_id": "00-900002"}]
+        self.base = {"meta": {"pulled_at": "2026-11-03T00:00:00+00:00"}, "by_sleeper_id": {
+            "900011": {"gsis_id": "00-900001", "pos": "WR", "team": "SF", "status": "Active"},
+            "900012": {"gsis_id": "00-900002", "pos": "TE", "team": "SEA", "status": "Injured Reserve"}}}
+        self.fixture = {"players": [{"player_key": row["player_key"], "name": row["full_name"],
+            "pos": row["position"], "sleeper_id": str(900011 + index)} for index, row in enumerate(self.canonical)]}
+        self.save_inputs()
+        write_snapshot(root=self.root, prior_snapshot=None)
+
+    def save(self, path, value):
+        target = self.root / path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(json.dumps(value, sort_keys=True) + "\n")
+
+    def save_inputs(self):
+        self.save("data/inputs/players_identity_snapshot.json", self.canonical)
+        self.save("data/inputs/sleeper_identity_base.json", self.base)
+        self.save("data/fixtures/current/players.json", self.fixture)
+        self.save("data/inputs/player_platform_spellings.json", {"rows": []})
+        self.save("data/inputs/player_aliases.json", {"aliases": []})
+
+    def omit_player(self):
+        self.canonical = [row for row in self.canonical if row["player_key"] != 900001]
+        self.fixture["players"] = [row for row in self.fixture["players"] if row["player_key"] != 900001]
+        self.base["by_sleeper_id"].pop("900011", None)
+        self.save_inputs()
+
+    def refresh(self, **kwargs):
+        return write_snapshot(root=self.root, **kwargs)
+
+    def player(self, payload, key=900001):
+        return next(row for row in payload["identities"] if row["player_key"] == key)
+
+    def test_disappearance_retains_identity_without_invented_current_status_or_zero_price(self):
+        old = self.player(json.loads(self.out.read_text()))
+        self.omit_player()
+        payload = self.refresh()
+        self.assertEqual([p["player_key"] for p in payload["identities"]], [900001, 900002])
+        row = self.player(payload)
+        self.assertTrue(row["selectable"])
+        self.assertFalse(row["retention"]["present_in_canonical_export"])
+        self.assertEqual(row["retention"]["canonical_observations"], old["retention"]["canonical_observations"])
+        self.assertEqual(row["sleeper_id"], "900011")
+        self.assertEqual(row["eligibility_status"], "unknown")
+        self.assertEqual(row["pricing_status"], "unknown")
+        for field in ("team", "roster_status", "injury_status"):
+            self.assertIsNone(row[field])
+        self.assertFalse({"value", "values", "espn_ros", "blend_ros"} & row.keys())
+        out = widget("search", mode="worked", selection=payload, query=row["name"], key=900001)
+        self.assertEqual(len(out["result"]["hits"]), 1)
+        self.assertTrue(all(value is None for value in out["result"]["one"]["values"].values()))
+        self.assertTrue(out["computedUnchanged"] and out["canonicalUnchanged"])
+
+    def test_disappears_and_returns_to_same_key_once_with_evidence_intact(self):
+        first = json.loads(self.out.read_text())
+        original = deepcopy(self.canonical[0])
+        self.omit_player()
+        missing = self.refresh()
+        self.canonical.append(original)
+        self.base["meta"]["pulled_at"] = "2026-11-05T00:00:00+00:00"
+        self.base["by_sleeper_id"]["900011"] = {"gsis_id": "00-900001", "pos": "WR", "team": "LAR", "status": "Practice Squad"}
+        self.save_inputs()
+        returned = self.refresh()
+        row = self.player(returned)
+        self.assertEqual(sum(p["player_key"] == 900001 for p in returned["identities"]), 1)
+        self.assertTrue(row["retention"]["present_in_canonical_export"] and row["selectable"])
+        self.assertEqual(row["eligibility_status"], "unknown") # A roster status is not a sourced return event.
+        self.assertEqual(row["lifecycle_history"], [])
+        old_evidence = self.player(first)["retention"]["canonical_observations"]
+        self.assertTrue(all(e in row["retention"]["canonical_observations"] for e in old_evidence))
+        self.assertEqual(self.player(missing)["player_key"], row["player_key"])
+        self.assertEqual(row["team"], "LAR")
+
+    def test_sourced_retirement_and_return_survive_export_and_event_feed_omission(self):
+        retired = {"player_key": 900001, "kind": "retired", "date": "2026-11-03", "source": "https://example.invalid/synthetic-retirement"}
+        returned = {"player_key": 900001, "kind": "returned", "date": "2026-11-04", "source": "https://example.invalid/synthetic-return"}
+        before = self.refresh(lifecycle_events=[retired])
+        self.assertFalse(self.player(before)["selectable"])
+        self.omit_player()
+        after = self.refresh()
+        self.assertEqual(self.player(after)["eligibility_status"], "retired")
+        self.assertEqual(self.player(after)["lifecycle_history"], [retired])
+        self.assertEqual(widget("search", mode="worked", selection=after, query="Synthetic Retained Player", key=900001)["result"]["hits"], [])
+        active = self.refresh(lifecycle_events=[returned], as_of=date(2026, 11, 4))
+        self.assertTrue(self.player(active)["selectable"])
+        self.assertEqual(self.player(active)["eligibility_status"], "returned")
+        self.assertEqual(self.player(active)["lifecycle_history"], [retired, returned])
+        repeated = self.refresh()
+        self.assertEqual(self.player(repeated), self.player(active))
+        self.assertEqual(repeated["meta"]["lifecycle_as_of"], "2026-11-04")
+
+    def test_future_lifecycle_evidence_is_retained_and_replay_cannot_regress(self):
+        event = {"player_key": 900001, "kind": "retired", "date": "2026-11-05", "source": "https://example.invalid/synthetic-future"}
+        future = self.refresh(lifecycle_events=[event])
+        self.assertEqual(self.player(future)["eligibility_status"], "unknown")
+        self.assertEqual(self.player(future)["lifecycle_history"], [event])
+        effective = self.refresh(as_of=date(2026, 11, 5))
+        self.assertEqual(self.player(effective)["eligibility_status"], "retired")
+        before = self.out.read_bytes()
+        with self.assertRaisesRegex(ValueError, "cannot move backwards"):
+            self.refresh(as_of=date(2026, 11, 4))
+        self.assertEqual(self.out.read_bytes(), before)
+
+    def test_empty_later_export_and_provider_feed_do_not_erase_known_identities(self):
+        self.canonical = []
+        self.fixture = {"players": []}
+        self.base["by_sleeper_id"] = {}
+        self.save_inputs()
+        payload = self.refresh()
+        self.assertEqual(payload["eligible_player_keys"], [900001, 900002])
+        self.assertTrue(all(row["eligibility_status"] == "unknown" and row["team"] is None
+                            and not row["retention"]["present_in_canonical_export"] for row in payload["identities"]))
+
+    def test_sourced_return_does_not_clear_unresolved_identity_mapping(self):
+        self.base["by_sleeper_id"]["900011"]["pos"] = "TE"
+        self.save_inputs()
+        self.refresh()
+        events = [{"player_key": 900001, "kind": kind, "date": day,
+                   "source": "https://example.invalid/synthetic-" + kind}
+                  for kind, day in (("retired", "2026-11-03"), ("returned", "2026-11-04"))]
+        row = self.player(self.refresh(lifecycle_events=events, as_of=date(2026, 11, 4)))
+        self.assertEqual(row["eligibility_status"], "returned")
+        self.assertEqual(row["lifecycle_history"], events)
+        self.assertFalse(row["selectable"])
+        self.assertIn("positions disagree", row["selection_reason"])
+
+    def test_reused_id_collides_with_retained_absent_identity_and_holds_both(self):
+        self.omit_player()
+        self.canonical.append({"player_key": 900003, "full_name": "Synthetic ID Collision", "position": "WR", "gsis_id": "00-900001"})
+        self.fixture["players"].append({"player_key": 900003, "sleeper_id": "900011"})
+        self.save_inputs()
+        payload = self.refresh()
+        for key in (900001, 900003):
+            row = self.player(payload, key)
+            self.assertFalse(row["selectable"])
+            self.assertIsNone(row["sleeper_id"])
+            self.assertIn("historical", row["selection_reason"])
+        self.assertTrue(self.player(payload, 900002)["selectable"])
+
+    def test_suppressed_conflicting_ids_remain_in_future_ambiguity_detection(self):
+        self.canonical[0]["gsis_id"] = "00-900099"
+        self.fixture["players"][0]["sleeper_id"] = "900099"
+        self.base["by_sleeper_id"]["900099"] = {"gsis_id": "00-900099", "pos": "WR"}
+        self.save_inputs()
+        held = self.refresh()
+        self.assertFalse(self.player(held)["selectable"])
+        self.assertIsNone(self.player(held)["sleeper_id"])
+        self.omit_player()
+        self.canonical.append({"player_key": 900003, "full_name": "Synthetic Reused Held ID", "position": "WR", "gsis_id": "00-900001"})
+        self.fixture["players"].append({"player_key": 900003, "sleeper_id": "900011"})
+        self.save_inputs()
+        payload = self.refresh()
+        self.assertFalse(self.player(payload)["selectable"])
+        self.assertFalse(self.player(payload, 900003)["selectable"])
+        self.assertEqual(len(self.player(payload)["retention"]["sleeper_claims"]), 2)
+
+    def test_pending_redirect_hold_survives_alias_and_export_omission(self):
+        self.save("data/inputs/player_aliases.json", {"aliases": [{"player_key": 900002, "verified": "Row 900001 is a duplicate; confirmation pending"}]})
+        first = self.refresh()
+        self.assertFalse(self.player(first)["selectable"])
+        self.omit_player()
+        payload = self.refresh()
+        self.assertFalse(self.player(payload)["selectable"])
+        self.assertEqual(payload["redirect_claims"], first["redirect_claims"])
+        self.assertEqual(payload["redirect_claims"][0]["status"], "pending_current_registry_confirmation")
+
+    def test_legacy_held_identity_without_reconstructable_claims_stays_held(self):
+        legacy = json.loads(self.out.read_text())
+        for row in legacy["identities"]:
+            row.pop("retention")
+        legacy["meta"].pop("retention_version")
+        legacy["meta"].pop("retention_sources")
+        row = self.player(legacy)
+        row.update(selectable=False, sleeper_id=None, gsis_id=None, selection_reason="Synthetic unresolved prior mapping")
+        self.out.write_text(json.dumps(legacy))
+        self.omit_player()
+        payload = self.refresh()
+        self.assertFalse(self.player(payload)["selectable"])
+        self.assertIn("unresolved prior mapping", self.player(payload)["selection_reason"])
+
+    def test_position_reclassification_holds_identity_instead_of_deleting_it(self):
+        self.canonical[0]["position"] = "CB"
+        self.save_inputs()
+        row = self.player(self.refresh())
+        self.assertEqual(row["pos"], "WR")
+        self.assertFalse(row["selectable"])
+        self.assertEqual(row["eligibility_status"], "unknown")
+
+    def test_provider_position_conflict_does_not_resolve_by_source_omission(self):
+        self.base["by_sleeper_id"]["900011"]["pos"] = "TE"
+        self.save_inputs()
+        first = self.refresh()
+        self.assertFalse(self.player(first)["selectable"])
+        self.omit_player()
+        after = self.refresh()
+        self.assertFalse(self.player(after)["selectable"])
+        self.assertIn("positions disagree", self.player(after)["selection_reason"])
+
+    def test_gsis_resolved_provider_id_survives_later_provider_omission(self):
+        new_root = self.root / "gsis-only"
+        shutil.copytree(self.root / "data", new_root / "data")
+        fixture = new_root / "data/fixtures/current/players.json"
+        fixture.write_text(json.dumps({"players": []}))
+        first = write_snapshot(root=new_root, prior_snapshot=None)
+        self.assertEqual(self.player(first)["sleeper_id"], "900011")
+        self.assertTrue(self.player(first)["retention"]["sleeper_claims"])
+        (new_root / "data/inputs/players_identity_snapshot.json").write_text(json.dumps([self.canonical[1]]))
+        base = deepcopy(self.base)
+        base["by_sleeper_id"].pop("900011")
+        (new_root / "data/inputs/sleeper_identity_base.json").write_text(json.dumps(base))
+        after = write_snapshot(root=new_root)
+        self.assertEqual(self.player(after)["sleeper_id"], "900011")
+        self.assertIsNone(self.player(after)["team"])
+        self.assertTrue(self.player(after)["selectable"])
+
+    def test_refresh_and_check_are_fixed_points_and_preserve_source_inputs(self):
+        self.omit_player()
+        before = {p: p.read_bytes() for p in (self.root / "data").rglob("*.json")}
+        self.refresh()
+        first = self.out.read_bytes()
+        self.refresh()
+        self.refresh(check=True)
+        self.assertEqual(self.out.read_bytes(), first)
+        self.assertEqual({p: p.read_bytes() for p in before}, before)
+
+    def test_identical_multi_refresh_sequences_produce_identical_artifacts(self):
+        second = self.root / "replayed"
+        shutil.copytree(self.root / "data", second / "data")
+        write_snapshot(root=second, prior_snapshot=None)
+        other = second / "app/trade-value-chart/assets/jeg1505-search-identities.json"
+        self.assertEqual(self.out.read_bytes(), other.read_bytes())
+        self.omit_player()
+        shutil.copytree(self.root / "data", second / "data", dirs_exist_ok=True)
+        self.refresh()
+        write_snapshot(root=second)
+        self.assertEqual(self.out.read_bytes(), other.read_bytes())
+        event = {"player_key": 900001, "kind": "retired", "date": "2026-11-04", "source": "https://example.invalid/synthetic-replay"}
+        self.refresh(lifecycle_events=[event], as_of=date(2026, 11, 4))
+        write_snapshot(root=second, lifecycle_events=[event], as_of=date(2026, 11, 4))
+        self.assertEqual(self.out.read_bytes(), other.read_bytes())
+
+    def test_omitted_identity_readout_and_actual_root_v2_templates_share_asset_path(self):
+        from pipelines.build_v2_page import build_v2_html
+        self.omit_player()
+        payload = self.refresh()
+        out = widget("readout", mode="worked", selection=payload, query="Synthetic Retained Player", lazy=True, compare=True)
+        self.assertEqual(out["result"]["keys"], [900001])
+        self.assertEqual(out["result"]["addable"], [])
+        self.assertTrue(out["result"]["compare"]["children"][0]["children"][0]["disabled"])
+        displayed = json.dumps(out["result"]["box"])
+        self.assertIn("DDF Value unavailable (pending)", displayed)
+        self.assertTrue(out["computedUnchanged"] and out["canonicalUnchanged"])
+        reader = (ROOT / "app/trade-value-chart/assets/product-data.js").read_text()
+        asset = re.search(r'searchIdentities: "([^"]+)"', reader).group(1)
+        # Execute the actual HTML builder without full sync, a browser, a bind,
+        # generated-dist writes or a claim about live asset delivery.
+        for at_root, page_url in ((True, "https://example.invalid/"), (False, "https://example.invalid/v2/")):
+            page = build_v2_html((ROOT / "app/trade-value-chart/index.html").read_text(),
+                                 (ROOT / "app/v2/shell.html").read_text(), at_root=at_root, posts=[])
+            base = re.search(r'<base href="([^"]+)"', page)
+            resolved = urljoin(urljoin(page_url, base.group(1)) if base else page_url, asset)
+            self.assertEqual(resolved, "https://example.invalid/assets/jeg1505-search-identities.json")
+            for script in ("assets/product-data.js", "assets/curve-widget.js", "v2/v2.js"):
+                self.assertIn(script, page)
+            self.assertIn('id="v2Unpriced"', page)
+
+    def test_missing_prior_requires_explicit_bootstrap_and_existing_history_cannot_reset(self):
+        before = self.out.read_bytes()
+        with self.assertRaisesRegex(ValueError, "cannot be replaced"):
+            self.refresh(prior_snapshot=None)
+        other = self.root / "older.json"
+        other.write_bytes(before)
+        with self.assertRaisesRegex(ValueError, "cannot be replaced"):
+            self.refresh(prior_snapshot=other)
+        self.assertEqual(self.out.read_bytes(), before)
+        # Simulate an absent catalog in a separate new destination; never remove
+        # the existing artifact or an identity to exercise this guard.
+        new_root = self.root / "new-catalog"
+        shutil.copytree(self.root / "data", new_root / "data")
+        with self.assertRaisesRegex(ValueError, "prior.*required"):
+            write_snapshot(root=new_root)
+        explicit = write_snapshot(root=new_root, prior_snapshot=None)
+        self.assertEqual(len(explicit["identities"]), 2)
+
+    def test_malformed_prior_and_unsourced_events_fail_before_replacing_history(self):
+        initial = json.loads(self.out.read_text())
+        for mutation in ("duplicate", "unknown_source", "price", "retention_price", "unsourced_retirement"):
+            bad = deepcopy(initial)
+            if mutation == "duplicate": bad["identities"].append(deepcopy(bad["identities"][0]))
+            elif mutation == "unknown_source": bad["identities"][0]["retention"]["canonical_observations"][0]["source_sha256"] = "0" * 64
+            elif mutation == "price": bad["identities"][0]["retention"]["sleeper_claims"][0]["value"] = 0
+            elif mutation == "retention_price": bad["identities"][0]["retention"]["values"] = {"ddf_value": 0}
+            else: bad["identities"][0]["eligibility_status"] = "retired"
+            self.out.write_text(json.dumps(bad))
+            before = self.out.read_bytes()
+            with self.subTest(mutation=mutation), self.assertRaises(ValueError): self.refresh()
+            self.assertEqual(self.out.read_bytes(), before)
+        self.out.write_text(json.dumps(initial))
+        before = self.out.read_bytes()
+        with self.assertRaises(ValueError):
+            self.refresh(lifecycle_events=[{"player_key": 900001, "kind": "retired", "date": "2026-11-03", "source": ""}])
+        self.assertEqual(self.out.read_bytes(), before)
 
 
 if __name__ == "__main__":
