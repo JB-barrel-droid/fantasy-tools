@@ -32,6 +32,27 @@ complete the ticket.
   it retains the page HTML and embedded container for replay and explicitly
   records `publishable=false`. No comparison chain stage consumes it.
 - No DDF, value-model, blend, chart fixture or source recipe code is changed.
+- `CHROMIUM_PATH=/usr/bin/chromium make validate`: PASS, including the full
+  core/render and integration suites. The strict engine/Python comparison
+  agreed on 1,234,507 values with zero source mismatches. The first attempt
+  stopped because Playwright's bundled browser was absent; the installed
+  system Chromium resolved that environment issue.
+- Generated build changes were preserved in
+  `/tmp/jeg1506-generated-backup` and restored out of the worktree; only the
+  authored intake, identity, tests, Makefile entry and this log are in the PR.
+- Read-only integration trace: `curve-widget.js::seriesValuesFrom` currently
+  requires a pipeline source, while `COMPOSITE_INPUT_KEYS`,
+  `PIPELINE_SOURCE_KEYS` and `COMPOSITE_CHART_INPUTS` name the DDF input
+  sources. The new comparison-only source must not be added to those input
+  lists. `product-data.js::getPlayerValues` currently calls `Number(rawValue)`;
+  explicit nulls must not reach that coercion (`Number(null)` is zero).
+  The future adapter must retain nulls in the source snapshot/counts while
+  preserving missing cells through comparison publication and rendering.
+- Draft PR #1311 at `1cd13f79`: `security-contracts`, `settings-render`,
+  `waivers-mutation-offline` and both `pr-state` checks passed.
+  `preview`/`v2-render` are red because the draft skips full verification;
+  the workflow summaries deliberately fail when verification is deferred.
+  Checked through `gh pr checks 1311`, the job API, and the workflow code.
 
 ### Claimed, not confirmed
 
