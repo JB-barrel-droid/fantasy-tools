@@ -72,6 +72,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "pipelines"))
 from nfl_week import content_week_start, current_nfl_week, today_ny  # noqa: E402
+from lib.timestamps import parse_iso_timestamp  # noqa: E402
 
 sys.path.insert(0, str(ROOT / "pipelines" / "lib"))
 from games_remaining import PPG_DECIMALS  # noqa: E402  (bake_players' per-game precision)
@@ -119,6 +120,21 @@ def week_of_day(value) -> int | None:
     return current_nfl_week(day)
 
 
+def pulled_week_ny(value) -> int | None:
+    """Content week of a timestamp with a UTC offset on the New York calendar
+    (nfl_week.today_ny), or None when it has no offset or does not parse."""
+    text = str(value or "").strip()
+    if len(text) <= 10:
+        return None
+    try:
+        moment = parse_iso_timestamp(text)
+    except ValueError:
+        return None
+    if moment.tzinfo is None:
+        return None
+    return current_nfl_week(today_ny(moment))
+
+
 def evidence_week(entry: dict) -> int:
     """The content week an entry's own evidence proves. Raises when the
     evidence is missing or contradicts itself (fail closed, never relabel)."""
@@ -141,6 +157,13 @@ def evidence_week(entry: dict) -> int:
     if rule == "week_column_pull":  # FantasyCalc: live value, the pull IS the content
         week = int(ev.get("week_column") or 0)
         pulled = week_of_day(ev.get("pulled_at"))
+        # JEG-1479: a pull on Monday evening ET is already Tuesday in UTC. The
+        # FantasyCalc writer has labelled such pulls on both clocks (Oct 27
+        # 01:05Z -> 8, UTC; Nov 3 03:05Z -> 8, New York), so a label that
+        # matches either calendar is the pull's week. Anything else still
+        # fails closed.
+        if week >= 1 and pulled != week and pulled_week_ny(ev.get("pulled_at")) == week:
+            return week
         if week < 1 or pulled != week:
             raise HistoryError(f"{entry.get('source')}: week column {week} but pulled in week {pulled}")
         return week
