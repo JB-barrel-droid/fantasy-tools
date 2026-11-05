@@ -27,7 +27,11 @@
     return {before: side(before), after: side(after), missing: [...new Set(missing)]};
   }
 
+  const mounts = new WeakMap();
+  const beforeMounts = new WeakMap();
   function mount(container) {
+    const mounted = mounts.get(container);
+    if (mounted) return mounted;
     const {P, S, V} = deps();
     const el = (tag, text, cls) => {
       const n = document.createElement(tag);
@@ -46,9 +50,11 @@
     const result = el("div", "", "package-panel-result");
     container.replaceChildren(heading, note, status, build, result);
     let snapshot = null;
+    let active = true;
+    const isCurrent = () => active && mounts.get(container) === api;
     const clear = () => { result.replaceChildren(); delete container.dataset.packageSize; };
     const update = next => {
-      if (next === snapshot) return;
+      if (!isCurrent() || next === snapshot) return;
       snapshot = next;
       clear();
       const ready = Boolean(next && next.status === "ready");
@@ -58,8 +64,8 @@
         : next && next.status === "pending" ? "Finding trades… The previous package has been cleared."
         : "Add your team and an included opponent to find trade opportunities.";
     };
-    build.addEventListener("click", () => {
-      if (!snapshot || snapshot.status !== "ready") return;
+    const onBuild = () => {
+      if (!isCurrent() || !snapshot || snapshot.status !== "ready") return;
       clear();
       let selected;
       try { selected = S.selectPackage(snapshot.league, snapshot.candidates, snapshot.ctx); }
@@ -81,15 +87,34 @@
       result.append(box);
       V.render(box, V.viewModel({league: snapshot.league, trades: selected.trades, package: P,
         lineup: {lineups: (a, b) => lineups(a, b, snapshot.ctx)}}));
-    });
+    };
+    const destroy = () => {
+      if (!isCurrent()) return;
+      active = false;
+      snapshot = null;
+      build.removeEventListener("click", onBuild);
+      clear();
+      build.disabled = true;
+      container.dataset.state = "empty";
+      status.textContent = "";
+      mounts.delete(container);
+    };
+    const api = {update, destroy};
+    mounts.set(container, api);
+    build.addEventListener("click", onBuild);
     update({status: "empty"});
-    return {update};
+    return api;
   }
   function mountBefore(target) {
-    const box = document.createElement("section");
+    const previous = beforeMounts.get(target);
+    const box = previous ? previous.element : document.createElement("section");
     box.id = "v2LgPackage";
-    target.before(box);
-    return {element: box, ...mount(box)};
+    if (box.nextSibling !== target) target.before(box);
+    const owner = mount(box);
+    if (previous && previous.owner === owner) return previous.handle;
+    const handle = {element: box, ...owner};
+    beforeMounts.set(target, {element: box, owner, handle});
+    return handle;
   }
   const api = {lineups, mount, mountBefore};
   if (node) { module.exports = api; return; }

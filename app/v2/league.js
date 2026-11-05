@@ -43,7 +43,7 @@
 
   // ---------- state that is not saved ----------
   const UI = {collapsed: new Map(), renaming: null, confirmRemove: null, confirmLoad: null, undo: null, comps: new Map(), oppsShown: PAGE, expanded: new Set(), expandedCores: new Set(), result: null,
-    running: false, runId: 0, timer: null, cache: O.createCache(), notice: "", justAdded: null, ready: false, firstPaint: true};
+    running: false, runId: 0, timer: null, searchError: false, cache: O.createCache(), notice: "", justAdded: null, ready: false, firstPaint: true};
 
   function announce(text) { const live = $("v2LgLive"); if (live) { live.textContent = ""; live.textContent = text; } }
   function notice(text) { UI.notice = text; const n = $("v2LgNotice"); if (n) n.textContent = text; }
@@ -1395,6 +1395,12 @@
     if (!others.length) return status("Add at least one other team to find trade opportunities.");
     if (!searchedOpponents(ws, ctx).some(t => rowsOfTeam(t, ctx).length)) return status("No opponent with a roster is included, so no trades can be found. Tick a team under Opponents to include.");
     if (!ctx.charts.length) return status("No trade chart is available this week, so acceptance cannot be judged.");
+    if (UI.searchError && !UI.running && !UI.timer) {
+      body.replaceChildren(
+        el("p", {class: "v2-meta", id: "v2LgOppsMsg", role: "status", text: "Trade search failed. Try again."}),
+        button("Try again", {class: "v2-btn", id: "v2LgOppsRetry"}, () => { scheduleOpps(); renderOpps(); }));
+      return;
+    }
     const res = UI.result;
     if (!res) return status(UI.running ? "Finding trades…" : "Finding trades…");
     const summary = summaryData();
@@ -1548,33 +1554,61 @@
 
   // The finder runs for my team against every other team: debounced, one pairing at a time, cached by roster and values.
   function scheduleOpps() {
+    UI.searchError = false;
     if (UI.timer) clearTimeout(UI.timer);
     UI.runId += 1;
     const id = UI.runId;
     UI.timer = setTimeout(() => runOpps(id), OPP_DEBOUNCE_MS);
   }
   async function runOpps(id) {
+    if (id !== UI.runId) return;
+    UI.searchError = false;
     UI.timer = null;
     const ws = store.get();
     const ctx = mathContext();
     const mine = ws && teamById(ws, ws.myTeamId);
     const live = $("v2LgOppsStatus");
-    if (!ctx || !mine || !ctx.charts.length) { UI.result = null; renderOpps(); return; }
+    const body = $("v2LgOppsBody");
+    if (!ctx || !mine || !ctx.charts.length) {
+      UI.result = null;
+      UI.running = false;
+      if (body) body.removeAttribute("aria-busy");
+      if (live) live.textContent = "";
+      renderOpps();
+      return;
+    }
     const opponents = searchedOpponents(ws, ctx);
     const maxSize = ws.ui.maxSize || 2;
     const heavy = (maxSize === 3 && opponents.length > 10) || (maxSize === 4 && opponents.length > 5);
     UI.running = true;
-    const body = $("v2LgOppsBody");
     if (body) body.setAttribute("aria-busy", "true");
     const started = Date.now();
-    const result = await O.runAll({id: mine.id, name: mine.name, entries: mine.entries}, opponents.map(t => ({id: t.id, name: t.name, entries: t.entries})),
-      {rowsByKey: ctx.rowsByKey, shape: ctx.shape, expected: ctx.expected, weights: ctx.weights, charts: ctx.charts, market: ctx.market, maxSize, keepMine: true, keepTheirs: true},
-      {cache: UI.cache, isCancelled: () => id !== UI.runId,
-        onProgress: p => { if (live && (Date.now() - started > 500 || heavy)) live.textContent = `Finding trades… ${p.name} (${p.index + 1} of ${p.total}).${heavy ? " This may take several seconds." : ""}`; }});
-    if (result.cancelled || id !== UI.runId) return;
+    let result;
+    try {
+      result = await O.runAll({id: mine.id, name: mine.name, entries: mine.entries}, opponents.map(t => ({id: t.id, name: t.name, entries: t.entries})),
+        {rowsByKey: ctx.rowsByKey, shape: ctx.shape, expected: ctx.expected, weights: ctx.weights, charts: ctx.charts, market: ctx.market, maxSize, keepMine: true, keepTheirs: true},
+        {cache: UI.cache, isCancelled: () => id !== UI.runId,
+          onProgress: p => {
+            if (id !== UI.runId || !UI.running) return;
+            if (live && (Date.now() - started > 500 || heavy)) live.textContent = `Finding trades… ${p.name} (${p.index + 1} of ${p.total}).${heavy ? " This may take several seconds." : ""}`; }});
+    } catch {
+      if (id !== UI.runId) return;
+      UI.searchError = true;
+      UI.result = null;
+      UI.running = false;
+      if (body) body.removeAttribute("aria-busy");
+      if (live) live.textContent = "";
+      renderOpps();
+      return;
+    }
+    if (id !== UI.runId) return;
     UI.running = false;
     if (body) body.removeAttribute("aria-busy");
     if (live) live.textContent = "";
+    if (result.cancelled) { UI.result = null; renderOpps(); return; }
+    // Keep the exact pricing snapshot with the search result. Manager draft curves must use the same league bench,
+    // scoring, team count and roster settings as these opportunities, including while a new search is pending.
+    result.pricingRows = Array.from(ctx.rowsByKey.values());
     UI.result = result;
     renderOpps();
     announce(`${plural(result.rows.length, "trade opportunity", "trade opportunities")} found across ${plural(result.perOpponent.length, "opponent")}.`);
