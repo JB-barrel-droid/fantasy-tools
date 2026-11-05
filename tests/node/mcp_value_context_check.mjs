@@ -301,4 +301,81 @@ for (const bad of ["basis=notasource", `ov=${key}%3Agarbage`]) {
   assert.doesNotMatch(text(r), /value \d/, `${bad}: no values`);
 }
 
+// Malformed delimiters must reach strict validation, not be trimmed into a different context.
+const malformed = [":", `${key}:58,`, "%3A", `${key}%3A58%2C`];
+for (const ov of malformed) {
+  const direct = await requestValuesWith(toHandler, "https://fn.test/functions/v1/get-values",
+    "ppr", 12, 0, undefined, null, null, { basis: null, ov: decodeURIComponent(ov) });
+  assert.equal(direct.status, 400, `direct get-values refuses ${ov}`);
+  assert.equal((await direct.json()).code, "value_context_unreadable");
+  const state = `${ORIGIN}/#compare-trade?give=${key}&${LEAGUE}&valuecontext=1&amp;ov=${ov}`;
+  r = await call("get_player_value", { names: [top.name], state }, real, undefined);
+  assert.equal(r.result.isError, true, `MCP must refuse the same malformed override: ${ov}`);
+  assert.match(text(r), /^This link's own values can't be priced here:/);
+  assert.doesNotMatch(text(r), /value \d/);
+  assert.equal(r.result.structuredContent, undefined, "a refusal carries no prices or repaired return link");
+  assert.equal(linkValueContext(state).ov, decodeURIComponent(ov), "preserve the rejected text");
+}
+
+// Exercise the deployed MCP handler and its actual cache, with get-values still served locally.
+const siteFetch = globalThis.fetch;
+const downstream = [];
+let mcpHandler;
+globalThis.Deno = { env: { get: (name) => ({ DDF_SITE_ORIGIN: ORIGIN,
+  DDF_API_URL: "https://fn.test/functions/v1/get-values" })[name] }, serve: (h) => { mcpHandler = h; } };
+globalThis.fetch = async (input, init) => {
+  if (new URL(String(input)).pathname === "/functions/v1/get-values") {
+    const res = await toHandler(input, init);
+    downstream.push({ body: init?.body ? JSON.parse(init.body) : null, status: res.status });
+    return res;
+  }
+  return siteFetch(input, init);
+};
+await import("../../supabase/functions/mcp/index.ts?malformed-context");
+const cachedCall = async (state) => {
+  const res = await mcpHandler(new Request("https://fn.test/functions/v1/mcp", {
+    method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call",
+      params: { name: "get_player_value", arguments: { names: [top.name], ...(state ? { state } : {}) } } }),
+  }));
+  assert.equal(res.status, 200);
+  return res.json();
+};
+const validLink = `${ORIGIN}/#compare-trade?give=${key}&${LEAGUE}&valuecontext=1&ov=${key}%3A58`;
+const defaultAnswer = await cachedCall();
+const overrideAnswer = await cachedCall(validLink);
+assert.ok(!overrideAnswer.result.isError, text(overrideAnswer));
+assert.equal(queryOf(overrideAnswer.result.structuredContent.site_url).get("ov"), `${key}:58`);
+const warmCount = downstream.length;
+assert.deepEqual(await cachedCall(validLink), overrideAnswer);
+assert.equal(downstream.length, warmCount, "the real MCP custom-value cache is warm");
+for (const ov of malformed) {
+  r = await cachedCall(`${validLink.slice(0, validLink.indexOf("&ov="))}&ov=${ov}`);
+  assert.equal(r.result.isError, true, `${ov}: no default/custom cache fallback`);
+  assert.equal(downstream.at(-1).status, 400);
+  assert.equal(downstream.at(-1).body.ov, decodeURIComponent(ov));
+  assert.equal(r.result.structuredContent, undefined);
+  assert.doesNotMatch(text(r), /value \d/);
+}
+// Sentence punctuation and wrappers still work, as do encoded absolute/adjustment and packed values.
+for (const state of [`See ${validLink}.`, `[open](${validLink}),`, `<${validLink}|open>`]) {
+  r = await cachedCall(state);
+  assert.deepEqual(r, overrideAnswer, "prose and wrappers retain both prices and the exact return context");
+}
+const packedMap = { [key]: 58, ...Object.fromEntries(Array.from({ length: 7 }, (_, i) => [15000000 + i, 40])) };
+const packedAbsolute = ValueLink.formatOvParam(packedMap);
+const packedAdjustment = ValueLink.formatOvParam({ ...packedMap, [key]: { type: "adjustment", delta: 5 } });
+assert.match(packedAbsolute, /^z:/);
+assert.match(packedAdjustment, /^z2:/);
+for (const ov of [`${key}:+5`, `${key}%3A%2B5`, packedAbsolute, packedAdjustment]) {
+  const state = `${validLink.slice(0, validLink.indexOf("&ov="))}&ov=${ov}`;
+  r = await cachedCall(state);
+  assert.ok(!r.result.isError, text(r));
+  assert.equal(queryOf(r.result.structuredContent.site_url).get("ov"), decodeURIComponent(ov));
+}
+const afterErrors = downstream.length;
+assert.deepEqual(await cachedCall(), defaultAnswer, "refusals do not poison the default cache");
+assert.deepEqual(await cachedCall(validLink), overrideAnswer, "refusals do not poison a valid override cache");
+assert.equal(downstream.length, afterErrors);
+
 console.log("ok");

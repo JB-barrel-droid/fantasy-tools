@@ -39,8 +39,9 @@ export function linkValueContext(text: unknown): (ValueContextText & { complete:
   // A value stops at the brackets, pipes and quotes a link is pasted in (markdown [text](url), [url](url), Slack
   // <url|text>); none of them is in a basis or ov value (sources, numbers, ":+-,._", base64url).
   for (const m of src.matchAll(/[?#&]((?:[A-Za-z0-9_]+=[^\s&#\[\]()<>|"']*&?)+)/g)) {
-    // A sentence's punctuation after the link ("...ov=1%3A58.").
-    const query = m[1].replace(/[.,;:!?]+$/, "");
+    // Strip prose punctuation ("...ov=1%3A58."), but keep override delimiters. Removing
+    // ':' or ',' would repair malformed ov=: / ov=1:58, before get-values can reject it.
+    const query = m[1].replace(/[.;!?]+$/, "");
     let params: URLSearchParams;
     try {
       params = new URLSearchParams(query);
