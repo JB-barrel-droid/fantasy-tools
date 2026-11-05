@@ -439,7 +439,7 @@ class RosterAndSlate(ProducerCase):
         self.assertEqual(doc["schema_version"], "1.1.0")
         self.assertEqual(bwi.SCHEMA_VERSION, "1.1.0")
         for leg in ("roster", "slate"):
-            self.assertEqual(doc["legs"][leg]["availability"], "unavailable")
+            self.assertNotIn(leg, doc["legs"])
 
     def test_committed_fixtures_build_both_legs(self):
         doc = self.build(espn_roster=FX / "espn_roster.json", slate=FX / "slate.json")
@@ -520,18 +520,13 @@ class RosterAndSlate(ProducerCase):
                          "2026-11-01T17:00:00Z")
         self.assertEqual(bwi.validate(doc), [])
 
-    def test_missing_inputs_leave_both_legs_unavailable_and_null(self):
+    def test_unsupplied_optional_inputs_leave_their_legs_absent(self):
         doc = self.build()
         for leg in ("roster", "slate"):
-            meta = doc["legs"][leg]
-            self.assertEqual((meta["availability"], meta["freshness"], meta["label"]),
-                             ("unavailable", None, "unavailable"))
-            self.assertEqual(meta["missing_reason"], "input not supplied")
+            self.assertNotIn(leg, doc["legs"])
         for r in doc["players"]:
-            self.assertEqual(r["legs"]["roster"], {"provenance": "missing", "values": {
-                "rostered_pct": None, "adds_trend": None}})
-            self.assertEqual(r["legs"]["slate"], {"provenance": "missing",
-                                                  "values": {"kickoff_at": None}})
+            self.assertNotIn("roster", r["legs"])
+            self.assertNotIn("slate", r["legs"])
         self.assertEqual(bwi.validate(doc), [])
 
     def test_empty_files_are_unavailable_not_invented(self):

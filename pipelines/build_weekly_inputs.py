@@ -486,16 +486,20 @@ def read_roster(path: Path, season: int, week: int, as_of: datetime, ident: Iden
                              "weekly inputs never take ROS data")
         raw = data.get("rows")
         file_season, file_week, captured_raw = data.get("season"), data.get("week"), data.get("captured_at")
-    elif isinstance(data, list):
-        raw, file_season, file_week, captured_raw = data, None, None, None
     else:
+        report["bad_row"] += len(data) if isinstance(data, list) else 1
         return meta, {}
     if not isinstance(raw, list):
+        report["bad_row"] += 1
         return meta, {}
-    if file_season is not None and _int(file_season) != season:
+    # The file grain is required; row dates cannot establish or override it.
+    if _int(file_season) is None or _int(file_week) is None:
+        report["bad_row"] += len(raw)
+        return meta, {}
+    if _int(file_season) != season:
         report["wrong_season"] += len(raw)
         return meta, {}
-    if file_week is not None and _int(file_week) != week:
+    if _int(file_week) != week:
         report["wrong_week"] += len(raw)
         return meta, {}
     captured, usable = _capture_stamp(captured_raw, as_of, report, len(raw))
@@ -504,7 +508,7 @@ def read_roster(path: Path, season: int, week: int, as_of: datetime, ident: Iden
     if captured is not None and (content_week_or_none(_ny_day(captured)) or 0) > week:
         report["later_content_week"] += len(raw)
         return meta, {}
-    rows = {}
+    rows, conflicts, value_conflicts = {}, set(), set()
     for r in raw:
         report["read"] += 1
         if not isinstance(r, dict):
@@ -513,6 +517,17 @@ def read_roster(path: Path, season: int, week: int, as_of: datetime, ident: Iden
         if str(r.get("horizon") or "week").lower() != "week":
             raise InputError(f"{path.name}: horizon {r.get('horizon')!r}; "
                              "weekly inputs never take ROS data")
+        invalid_grain = False
+        for field, expected, counter in (("season", season, "wrong_season"),
+                                         ("week", week, "wrong_week")):
+            if field not in r:
+                continue  # rows inherit the required file grain
+            actual = _int(r[field])
+            if actual != expected:
+                report["bad_row" if actual is None else counter] += 1
+                invalid_grain = True
+        if invalid_grain:
+            continue
         key = _int(r.get("player_key"))
         if key is None:
             report["bad_row"] += 1
@@ -535,16 +550,30 @@ def read_roster(path: Path, season: int, week: int, as_of: datetime, ident: Iden
                     reasons[field] = "invalid in the ESPN roster file"
         cell = _cell(values, "not set in the ESPN roster file", reasons)
         entry = ident.entry(key)
-        info = {"position": entry.get("position"), "team": r.get("team") or entry.get("team"),
+        team = r.get("team") or entry.get("team")
+        team = (str(team).strip().upper() or None) if team else None
+        info = {"position": entry.get("position"), "team": team,
                 "name": entry.get("full_name"), "source_ids": {"espn_player_key": key},
                 "resolved_by": "espn_roster.player_key", "unresolved_reason": None}
         rid = _row_id(key, info)
         if rid in rows:
             report["duplicate"] += 1
-            if rows[rid][2]["values"] != values:
-                report["conflict"] += 1
-                rows[rid] = (key, info, _cell(_null_values(ROSTER_FIELDS),
-                                              "conflicting duplicate rows in the ESPN roster file"))
+            prior_info, prior_cell = rows[rid][1:]
+            team_conflict = prior_info["team"] != team
+            value_conflict = rid in value_conflicts or prior_cell["values"] != values
+            if team_conflict or value_conflict:
+                if rid not in conflicts:
+                    report["conflict"] += 1
+                    conflicts.add(rid)
+                # Never choose a team (and therefore kickoff) by row order.
+                # Once conflicting, a later duplicate cannot restore a value.
+                info = {**prior_info, "team": None} if team_conflict else prior_info
+                cell = prior_cell  # agreed percentages, including real zero, remain usable
+                if value_conflict:
+                    value_conflicts.add(rid)
+                    cell = _cell(_null_values(ROSTER_FIELDS),
+                                 "conflicting duplicate rows in the ESPN roster file")
+                rows[rid] = (key, info, cell)
             continue
         rows[rid] = (key, info, cell)
     if not rows:
@@ -647,8 +676,6 @@ def build(args) -> dict:
                            "no Vegas producer yet (JEG-1195 slice S3)"),
         "status": _leg_meta("status", "sleeper", "status", None, "input not supplied"),
         "bye": _leg_meta("bye", "nfl_byes", "bye_week", None, "input not supplied"),
-        "roster": _leg_meta("roster", "espn", "roster", None, "input not supplied"),
-        "slate": _leg_meta("slate", "nfl_schedule", "kickoff", None, "input not supplied"),
     }
     per_leg: dict[str, dict] = {}
     if args.espn_weekly:
@@ -706,7 +733,9 @@ def build(args) -> dict:
                        if i.get("unresolved_reason")]
             out["unresolved_reason"] = "; ".join(reasons)
         cells = {}
-        for leg in LEG_IDS:
+        # Optional 1.1 legs are declared only when their input flag is used.
+        # This preserves flag-free artifacts for existing 1.0 consumers.
+        for leg in sorted(legs):
             keys = _leg_keys(legs[leg])
             if leg in row["cells"]:
                 cells[leg] = row["cells"][leg]
