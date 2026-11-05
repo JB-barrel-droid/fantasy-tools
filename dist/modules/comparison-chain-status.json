@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-11-05T20:20:32.274300+00:00",
+  "run_at": "2026-11-05T21:43:48.341250+00:00",
   "nfl_week": 9,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -14,6 +14,7 @@
   "success": true,
   "outcome": "published_with_holds",
   "held": [
+    "cbsros",
     "espn",
     "razzball",
     "usatoday"
@@ -46,8 +47,21 @@
       "hold_severity": "red",
       "week": 9
     },
+    "cbsros": {
+      "reason": "fidelity: publisher_vs_stored",
+      "held_series": [
+        "cbsros",
+        "cbsros_vorp"
+      ],
+      "sections": [
+        "cbsros"
+      ],
+      "detail": "1095/1095 values match exactly across 3 columns; 1 publisher names do not resolve to a canonical player; 4 players at the page's last listed value swapped in or out (ties at the row cap: Carter Runyon, Dallen Bentley, Eli Stowers, Grant Calcaterra); parse notes: RB: 1 players listed with another pos",
+      "hold_severity": "amber",
+      "week": 9
+    },
     "razzball": {
-      "reason": "fidelity: scrape_validity",
+      "reason": "fidelity: stored_vs_chart",
       "held_series": [
         "razzball",
         "razzball_vorp"
@@ -55,7 +69,7 @@
       "sections": [
         "razzball"
       ],
-      "detail": "player count dropped vs week 8: stored QB 101->88 (the publisher's own list dropped too (89)), stored TE 141->130, chart QB 101->84 (the publisher's own list dropped too (89)), chart RB 149->137, chart WR 206->176, chart TE 141->128",
+      "detail": "1459/1581 chart values equal stored snapshot 2026-11-05 (per game, 1 decimals); 31 stored players are left off the chart by its own rule (missed-games guard, JEG-555): Alec Pierce, Bam Knight, Bryce Lance, Chris Bell, Christian Kirk, Demarcus Robinson, Devin Singletary, Dohnte Meyers, Elic Ayomanor,",
       "hold_severity": "red",
       "week": 9
     }
@@ -256,6 +270,7 @@
   "fidelity_holds": {
     "usatoday": "fidelity: publisher_vs_stored",
     "espn": "fidelity: scrape_validity",
-    "razzball": "fidelity: scrape_validity"
+    "cbsros": "fidelity: publisher_vs_stored",
+    "razzball": "fidelity: stored_vs_chart"
   }
 }

@@ -1,6 +1,6 @@
 {
  "schema": "value-check/2",
- "generated_at": "2026-11-05T21:33:16.212423+00:00",
+ "generated_at": "2026-11-05T22:56:03.284298+00:00",
  "reference_version": "value-reference-002/2",
  "pipeline_version": "value-pipeline/2",
  "tolerance": 0.05,
@@ -950,6 +950,15 @@
   "ppr/12/sf0/cw9+regular"
  ],
  "held_sections": {
+  "cbsros": {
+   "reason": "fidelity: publisher_vs_stored",
+   "week": 9,
+   "root": "cbsros",
+   "stage": "publisher_vs_stored",
+   "identity": "2026-11-05@2026-11-05T19:26:02.517850Z",
+   "since": "2026-11-05T21:40:19.149808Z",
+   "hold_level": "amber"
+  },
   "espn": {
    "reason": "fidelity: scrape_validity",
    "week": 9,
@@ -960,12 +969,12 @@
    "hold_level": "red"
   },
   "razzball": {
-   "reason": "fidelity: scrape_validity",
+   "reason": "fidelity: stored_vs_chart",
    "week": 9,
    "root": "razzball",
-   "stage": "scrape_validity",
-   "identity": "2026-11-05@2026-11-05T15:26:05.118039Z",
-   "since": "2026-11-05T18:40:20.332326Z",
+   "stage": "stored_vs_chart",
+   "identity": "2026-11-05@2026-11-05T19:25:46.986054Z",
+   "since": "2026-11-05T21:40:19.149808Z",
    "hold_level": "red"
   },
   "usatoday": {
