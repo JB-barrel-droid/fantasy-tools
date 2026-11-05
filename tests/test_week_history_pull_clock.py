@@ -1,11 +1,14 @@
-"""JEG-1479: week history reads pull timestamps on the New York clock.
+"""JEG-1479: a FantasyCalc pull on Monday evening ET is accepted on either clock.
 
-The FantasyCalc writer labels a pull with the content week on the New York
-calendar. build_week_history.week_of_day sliced the UTC date off the
-timestamp instead, so the pull saved 2026-11-03T03:05:25Z (Monday Nov 2,
-22:05 ET, week column 8) read as week 9. evidence_week failed closed
-("fantasycalc: week column 8 but pulled in week 9") and the chain's week
-history capture failed on every run from the Week 8 -> 9 flip on.
+A pull on Monday evening ET is already Tuesday in UTC, the day the content
+week flips. The FantasyCalc writer has labelled such pulls on both clocks:
+2026-10-27T01:05Z (Mon Oct 26 21:05 ET) as week 8, which is the UTC week, and
+2026-11-03T03:05Z (Mon Nov 2 22:05 ET) as week 8, which is the New York week.
+build_week_history.evidence_week checked only the UTC week, raised
+"fantasycalc: week column 8 but pulled in week 9", and the chain's week
+history capture failed on every run after the Week 8 -> 9 flip. Without
+Week 9 history the engine and the Python reference disagreed on all seven
+sources, every source was held, and the board stayed on Week 8.
 """
 from __future__ import annotations
 
@@ -19,34 +22,39 @@ sys.path.insert(0, str(ROOT / "pipelines"))
 import build_week_history as H  # noqa: E402
 
 
-class PullClockTest(unittest.TestCase):
-    def test_monday_evening_et_pull_is_the_old_week(self):
-        # The exact production row (Supabase source_trade_values,
-        # bake fcwk8_2026-10-30... series, pulled_at as PostgREST returns it).
-        for stamp in ("2026-11-03T03:05:25+00:00", "2026-11-03 03:05:25+00",
+def _fc(week, pulled_at):
+    return {"source": "fantasycalc", "week_evidence": {
+        "rule": "week_column_pull", "week_column": week, "pulled_at": pulled_at}}
+
+
+class FantasyCalcPullClockTest(unittest.TestCase):
+    def test_new_york_labelled_monday_night_pull(self):
+        # The production row that blocked Week 9 (bake fcwk8_2026-11-03t0305_v1),
+        # in the shapes PostgREST and the snapshot files carry.
+        for stamp in ("2026-11-03 03:05:25+00", "2026-11-03T03:05:25+00:00",
                       "2026-11-03T03:05:25Z"):
             with self.subTest(stamp=stamp):
-                self.assertEqual(H.week_of_day(stamp), 8)
+                self.assertEqual(H.evidence_week(_fc(8, stamp)), 8)
 
-    def test_fantasycalc_week_8_pull_after_utc_midnight_is_accepted(self):
-        entry = {"source": "fantasycalc", "week_evidence": {
-            "rule": "week_column_pull", "week_column": 8,
-            "pulled_at": "2026-11-03 03:05:25+00"}}
-        self.assertEqual(H.evidence_week(entry), 8)
+    def test_utc_labelled_monday_night_pull_still_accepted(self):
+        # bake fcwk8_2026-10-27t0105_v1: labelled on the UTC calendar.
+        self.assertEqual(H.evidence_week(_fc(8, "2026-10-27 01:05:23+00")), 8)
 
-    def test_tuesday_et_pull_is_the_new_week(self):
-        self.assertEqual(H.week_of_day("2026-11-03T10:05:34+00:00"), 9)
-        entry = {"source": "fantasycalc", "week_evidence": {
-            "rule": "week_column_pull", "week_column": 8,
-            "pulled_at": "2026-11-03T10:05:34+00:00"}}
-        with self.assertRaises(H.HistoryError):
-            H.evidence_week(entry)  # still fails closed on a real mislabel
+    def test_ordinary_pulls_unchanged(self):
+        self.assertEqual(H.evidence_week(_fc(9, "2026-11-03 10:05:34+00")), 9)
+        self.assertEqual(H.evidence_week(_fc(8, "2026-11-02 13:17:28+00")), 8)
 
-    def test_plain_dates_unchanged(self):
+    def test_real_mislabels_still_fail_closed(self):
+        for week, stamp in ((8, "2026-11-03 10:05:34+00"),   # Tuesday morning ET, labelled 8
+                            (9, "2026-11-02 13:17:28+00"),   # Monday midday, labelled 9
+                            (7, "2026-11-03 03:05:25+00"),   # neither clock says 7
+                            (0, "2026-11-03 03:05:25+00")):
+            with self.subTest(week=week, stamp=stamp), self.assertRaises(H.HistoryError):
+                H.evidence_week(_fc(week, stamp))
+
+    def test_other_rules_keep_the_utc_date(self):
+        self.assertEqual(H.week_of_day("2026-11-03 03:05:25+00"), 9)
         self.assertEqual(H.week_of_day("2026-11-02"), 8)
-        self.assertEqual(H.week_of_day("2026-11-03"), 9)
-        self.assertIsNone(H.week_of_day(""))
-        self.assertIsNone(H.week_of_day("not a date"))
 
 
 if __name__ == "__main__":

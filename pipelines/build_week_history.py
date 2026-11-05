@@ -109,28 +109,29 @@ class HistoryError(Exception):
 # ---------------------------------------------------------------- week rules
 
 def week_of_day(value) -> int | None:
-    """Content week of an ISO date/timestamp (Tuesday flip), or None.
-
-    A timestamp with a UTC offset is read on the New York calendar, the same
-    clock the content week flips on (nfl_week.today_ny) and the one the
-    publisher writers label rows with. Slicing its UTC date instead put a
-    Monday-evening ET pull (2026-11-03T03:05Z = Nov 2 22:05 ET, labelled week
-    8) in week 9, and the capture failed closed every run (JEG-1479)."""
+    """Content week of an ISO date/timestamp (Tuesday flip), or None."""
     if not value:
         return None
-    text = str(value).strip()
-    if len(text) > 10:
-        try:
-            moment = datetime.fromisoformat(text.replace("Z", "+00:00"))
-        except ValueError:
-            moment = None
-        if moment is not None and moment.tzinfo is not None:
-            return current_nfl_week(today_ny(moment))
     try:
-        day = date.fromisoformat(text[:10])
+        day = date.fromisoformat(str(value)[:10])
     except ValueError:
         return None
     return current_nfl_week(day)
+
+
+def pulled_week_ny(value) -> int | None:
+    """Content week of a timestamp with a UTC offset on the New York calendar
+    (nfl_week.today_ny), or None when it has no offset or does not parse."""
+    text = str(value or "").strip()
+    if len(text) <= 10:
+        return None
+    try:
+        moment = datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if moment.tzinfo is None:
+        return None
+    return current_nfl_week(today_ny(moment))
 
 
 def evidence_week(entry: dict) -> int:
@@ -155,6 +156,13 @@ def evidence_week(entry: dict) -> int:
     if rule == "week_column_pull":  # FantasyCalc: live value, the pull IS the content
         week = int(ev.get("week_column") or 0)
         pulled = week_of_day(ev.get("pulled_at"))
+        # JEG-1479: a pull on Monday evening ET is already Tuesday in UTC. The
+        # FantasyCalc writer has labelled such pulls on both clocks (Oct 27
+        # 01:05Z -> 8, UTC; Nov 3 03:05Z -> 8, New York), so a label that
+        # matches either calendar is the pull's week. Anything else still
+        # fails closed.
+        if week >= 1 and pulled != week and pulled_week_ny(ev.get("pulled_at")) == week:
+            return week
         if week < 1 or pulled != week:
             raise HistoryError(f"{entry.get('source')}: week column {week} but pulled in week {pulled}")
         return week

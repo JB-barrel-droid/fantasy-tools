@@ -3,7 +3,7 @@
 Contract: unblock Week 9 publication. The chain's week history capture failed
 on every run since the Week 8 -> 9 flip, and with no Week 9 history the engine
 and Python reference disagreed on all seven sources, which held every source
-and left `make validate` red. Fix the capture's clock; no value math touched.
+and left `make validate` red. Fix the capture's FantasyCalc pull-week rule; no value math touched.
 
 ### Verified (check named)
 - Root cause of the capture failure: run 41952295990 "Capture week history"
@@ -19,8 +19,15 @@ and left `make validate` red. Fix the capture's clock; no value math touched.
   0 rows priced) is a consequence of the all-source hold, not a separate
   defect: locally, adding `validationHold` to all 7 sections of the committed
   fixture reproduces "0 not greater than 100"; removing it passes.
-- `tests/test_week_history_pull_clock.py`: 3 failures + 1 error without the
-  fix, 4/4 pass with it. `tests.test_week_history` WeekSnapshotRule,
+- First fix (read every pull on the NY clock) failed the branch dispatch
+  (run 41958750296): `fantasycalc: week column 8 but pulled in week 7` on bake
+  `fcwk8_2026-10-27t0105_v1` (Mon Oct 26 21:05 ET, labelled on the UTC
+  calendar). The writer has labelled Monday-night pulls on both clocks, so the
+  shipped rule accepts a `week_column_pull` label matching the pull's week on
+  either the UTC or the New York calendar; any other label still fails closed.
+  Other evidence rules are unchanged.
+- `tests/test_week_history_pull_clock.py`: 3 errors without the fix, 5/5 pass
+  with it (covers both production rows, ordinary pulls and real mislabels). `tests.test_week_history` WeekSnapshotRule,
   WeekTransitionSentinel and AppendOnly suites pass (19 tests).
 
 ### Claimed, not confirmed
