@@ -679,7 +679,50 @@ class CumulativeRetentionTest(unittest.TestCase):
         payload = self.refresh()
         self.assertFalse(self.player(payload)["selectable"])
         self.assertFalse(self.player(payload, 900003)["selectable"])
-        self.assertEqual(len(self.player(payload)["retention"]["sleeper_claims"]), 2)
+        # One ID can have several source observations; count distinct claims.
+        self.assertEqual({c["id"] for c in self.player(payload)["retention"]["sleeper_claims"]}, {"900011", "900099"})
+
+    def test_ambiguous_gsis_only_candidates_survive_later_provider_id_reuse(self):
+        self.base["by_sleeper_id"]["900099"] = {"gsis_id": "00-900001", "pos": "WR"}
+        self.save_inputs()
+        first = self.refresh()
+        self.assertFalse(self.player(first)["selectable"])
+        self.assertIsNone(self.player(first)["sleeper_id"])
+        self.omit_player()
+        self.canonical.append({"player_key": 900003, "full_name": "Synthetic Reused Ambiguous ID", "position": "WR", "gsis_id": "00-900099"})
+        self.fixture["players"].append({"player_key": 900003, "sleeper_id": "900099"})
+        self.base["by_sleeper_id"]["900099"] = {"gsis_id": "00-900099", "pos": "WR"}
+        self.save_inputs()
+        after = self.refresh()
+        self.assertFalse(self.player(after, 900003)["selectable"])
+        self.assertIn("historical sleeper_id", self.player(after, 900003)["selection_reason"])
+
+    def test_provider_only_gsis_ambiguity_survives_new_sleeper_id_after_omission(self):
+        self.root = self.root / "provider-only"
+        self.out = self.root / "app/trade-value-chart/assets/jeg1505-search-identities.json"
+        self.canonical[0]["gsis_id"] = None
+        self.base["by_sleeper_id"]["900099"] = {"gsis_id": "00-900001", "pos": "WR"}
+        self.save_inputs()
+        first = write_snapshot(root=self.root, prior_snapshot=None)
+        self.assertFalse(self.player(first)["selectable"])
+        self.omit_player()
+        self.base["by_sleeper_id"].pop("900099")
+        self.canonical.append({"player_key": 900003, "full_name": "Synthetic Historical GSIS Collision", "position": "WR", "gsis_id": "00-900001"})
+        self.fixture["players"].append({"player_key": 900003, "sleeper_id": "900033"})
+        self.base["by_sleeper_id"]["900033"] = {"gsis_id": "00-900001", "pos": "WR"}
+        self.save_inputs()
+        after = self.refresh()
+        self.assertFalse(self.player(after, 900003)["selectable"])
+        self.assertIn("historical gsis_id", self.player(after, 900003)["selection_reason"])
+
+    def test_historical_hold_does_not_publish_one_candidate_current_status(self):
+        self.fixture["players"][0]["sleeper_id"] = "900099"
+        self.base["by_sleeper_id"]["900099"] = {"gsis_id": "00-900099", "pos": "WR", "team": "LAR", "status": "Active"}
+        self.save_inputs()
+        row = self.player(self.refresh())
+        self.assertFalse(row["selectable"])
+        for field in ("sleeper_id", "gsis_id", "team", "roster_status", "injury_status"):
+            self.assertIsNone(row[field])
 
     def test_pending_redirect_hold_survives_alias_and_export_omission(self):
         self.save("data/inputs/player_aliases.json", {"aliases": [{"player_key": 900002, "verified": "Row 900001 is a duplicate; confirmation pending"}]})
@@ -704,6 +747,20 @@ class CumulativeRetentionTest(unittest.TestCase):
         payload = self.refresh()
         self.assertFalse(self.player(payload)["selectable"])
         self.assertIn("unresolved prior mapping", self.player(payload)["selection_reason"])
+
+    def test_version_one_retention_migrates_without_reset_when_export_omits_player(self):
+        prior = json.loads(self.out.read_text())
+        prior["meta"]["retention_version"] = 1
+        for row in prior["identities"]:
+            row["retention"].pop("gsis_claims")
+        self.out.write_text(json.dumps(prior))
+        self.omit_player()
+        payload = self.refresh()
+        self.assertEqual(payload["meta"]["retention_version"], 2)
+        self.assertEqual(payload["eligible_player_keys"], [900001, 900002])
+        self.assertEqual(self.player(payload)["sleeper_id"], "900011")
+        self.assertEqual(self.player(payload)["eligibility_status"], "unknown")
+        self.assertIsNone(self.player(payload)["team"])
 
     def test_position_reclassification_holds_identity_instead_of_deleting_it(self):
         self.canonical[0]["position"] = "CB"

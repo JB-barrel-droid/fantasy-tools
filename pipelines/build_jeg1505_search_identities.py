@@ -77,6 +77,27 @@ def build(root=ROOT, lifecycle_events=(), *, prior_snapshot=_AUTO_PRIOR, as_of=N
                 and p["canonical_full_name"] == target["full_name"]
                 and p["position"] == target["position"]):
             claim(p["player_key"], p["source_player_id"], "data/inputs/player_platform_spellings.json")
+    # Record candidate IDs even when ambiguity prevents a resolved output ID.
+    # A later provider refresh must not erase the claims that caused a hold.
+    provider = base.get("by_sleeper_id") or {}
+    provider_by_gsis = {}
+    for sid, record in provider.items():
+        gid = _id(record.get("gsis_id"))
+        if gid is not None:
+            provider_by_gsis.setdefault(gid, set()).add(_id(sid))
+    for key, record in records.items():
+        evidence = record["evidence"]
+        gsis = {_id(c.get("gsis_id")) for c in evidence["canonical_observations"]} - {None}
+        gsis.update(c["id"] for c in evidence["gsis_claims"])
+        for sid in {c["id"] for c in evidence["sleeper_claims"]}:
+            gid = _id((provider.get(sid) or {}).get("gsis_id"))
+            if gid is not None:
+                gsis.add(gid)
+        for gid in sorted(gsis):
+            if gid in provider_by_gsis:
+                evidence["gsis_claims"].append({"id": gid, "source_sha256": sources["data/inputs/sleeper_identity_base.json"]})
+                for sid in sorted(provider_by_gsis[gid]):
+                    claim(key, sid, "data/inputs/sleeper_identity_base.json")
     for alias in aliases["aliases"]:
         evidence = alias.get("verified", "")
         match = re.search(r"Row (\d+).*duplicate", evidence)
@@ -103,6 +124,7 @@ def build(root=ROOT, lifecycle_events=(), *, prior_snapshot=_AUTO_PRIOR, as_of=N
         row["retention"] = deepcopy(records[key]["evidence"])
         if rejected[key]:
             row.update(selectable=False, sleeper_id=None, gsis_id=None,
+                       team=None, roster_status=None, injury_status=None,
                        selection_reason="; ".join(sorted(rejected[key])))
             for reason in sorted(rejected[key]):
                 result["issues"].append({"player_key": key, "reason": reason})
@@ -111,7 +133,7 @@ def build(root=ROOT, lifecycle_events=(), *, prior_snapshot=_AUTO_PRIOR, as_of=N
     result.update({"schema": "jeg1505-search-identities/1", "meta": {
         "coverage": "cumulative observed canonical identities; historical completeness unverified",
         "registry_freshness": "unverified", "lifecycle_input": "sourced history supplied or retained" if events else "absent; unknown",
-        "lifecycle_as_of": as_of.isoformat(), "retention_version": 1,
+        "lifecycle_as_of": as_of.isoformat(), "retention_version": 2,
         "retention_sources": {digest: sorted(paths) for digest, paths in sorted(retained_sources.items())},
         "identity_base_pulled_at": base["meta"]["pulled_at"], "source_sha256": sources,
         "pricing_membership": "not supplied; runtime getAllRows is authoritative for computed membership"},

@@ -79,13 +79,15 @@ def accumulate(canonical, previous, source_hashes):
             if row["eligibility_status"] != "unknown" and not row["lifecycle_history"]:
                 raise ValueError("prior lifecycle status requires sourced history")
             retained = deepcopy(row.get("retention"))
-            if retained is not None and meta.get("retention_version") != 1:
+            if retained is not None and meta.get("retention_version") not in {1, 2}:
                 raise ValueError("unsupported cumulative retention version")
+            if retained is not None and meta.get("retention_version") == 1:
+                retained.setdefault("gsis_claims", [])
             if retained is None:
                 sources.setdefault(legacy_digest, set()).add("legacy-search-artifact:canonical-json-sha256")
                 retained = {"canonical_observations": [{"full_name": row["name"], "position": row["pos"],
                     "gsis_id": _id(row.get("gsis_id")), "source_sha256": old_hashes[CANONICAL_PATH]}],
-                    "sleeper_claims": [], "holds": [], "label_source_sha256": old_hashes[CANONICAL_PATH],
+                    "sleeper_claims": [], "gsis_claims": [], "holds": [], "label_source_sha256": old_hashes[CANONICAL_PATH],
                     "present_in_canonical_export": key in current}
                 if row.get("sleeper_id"):
                     retained["sleeper_claims"].append({"id": _id(row["sleeper_id"]), "source_sha256": legacy_digest})
@@ -95,11 +97,11 @@ def accumulate(canonical, previous, source_hashes):
                 if not row["selectable"] and reason != "sourced retirement":
                     retained["holds"].append({"reason": reason, "source_sha256": legacy_digest})
             if (not isinstance(retained, dict)
-                    or set(retained) != {"canonical_observations", "sleeper_claims", "holds",
+                    or set(retained) != {"canonical_observations", "sleeper_claims", "gsis_claims", "holds",
                                          "label_source_sha256", "present_in_canonical_export"}
                     or type(retained["present_in_canonical_export"]) is not bool):
                 raise ValueError("invalid retained identity evidence")
-            for field in ("canonical_observations", "sleeper_claims", "holds"):
+            for field in ("canonical_observations", "sleeper_claims", "gsis_claims", "holds"):
                 if not isinstance(retained.get(field), list):
                     raise ValueError("invalid retained identity evidence lists")
                 for evidence in retained[field]:
@@ -113,9 +115,9 @@ def accumulate(canonical, previous, source_hashes):
                         or not isinstance(observation.get("position"), str) or not observation["position"]):
                     raise ValueError("invalid retained canonical observation")
                 _id(observation.get("gsis_id"))
-            for claim in retained["sleeper_claims"]:
+            for claim in [*retained["sleeper_claims"], *retained["gsis_claims"]]:
                 if set(claim) != {"id", "source_sha256"} or _id(claim.get("id")) is None:
-                    raise ValueError("invalid retained Sleeper claim")
+                    raise ValueError("invalid retained provider claim")
             if any(set(hold) != {"reason", "source_sha256"} or not isinstance(hold.get("reason"), str)
                    or not hold["reason"].strip() for hold in retained["holds"]):
                 raise ValueError("invalid retained identity hold")
@@ -153,7 +155,7 @@ def accumulate(canonical, previous, source_hashes):
             raise ValueError("canonical identity requires full_name")
         if not isinstance(row.get("position"), str) or not row["position"]:
             raise ValueError("canonical identity requires a position observation")
-        record = records.setdefault(key, {"evidence": {"canonical_observations": [], "sleeper_claims": [], "holds": []}})
+        record = records.setdefault(key, {"evidence": {"canonical_observations": [], "sleeper_claims": [], "gsis_claims": [], "holds": []}})
         evidence = record["evidence"]
         evidence["canonical_observations"].append({"full_name": row["full_name"], "position": row["position"],
             "gsis_id": _id(row.get("gsis_id")), "source_sha256": digest})
@@ -173,15 +175,16 @@ def selection_inputs(records):
     rejected, inputs = defaultdict(set), []
     for key, record in sorted(records.items()):
         evidence = record["evidence"]
-        for field in ("canonical_observations", "sleeper_claims", "holds"):
+        for field in ("canonical_observations", "sleeper_claims", "gsis_claims", "holds"):
             evidence[field] = _unique(evidence[field])
         sids = {_id(c["id"]) for c in evidence["sleeper_claims"]}
-        gsis = {_id(c.get("gsis_id")) for c in evidence["canonical_observations"]} - {None}
+        canonical_gsis = {_id(c.get("gsis_id")) for c in evidence["canonical_observations"]} - {None}
+        gsis = canonical_gsis | {_id(c["id"]) for c in evidence["gsis_claims"]}
         positions = {c["position"] for c in evidence["canonical_observations"]}
         if len(sids) > 1:
             rejected[key].add("Conflicting source Sleeper IDs")
         if len(gsis) > 1:
-            rejected[key].add("Conflicting historical canonical GSIS IDs")
+            rejected[key].add("Conflicting historical GSIS claims")
         if len(positions) > 1:
             rejected[key].add("Conflicting historical canonical positions")
         rejected[key].update(hold["reason"] for hold in evidence["holds"])
@@ -191,7 +194,7 @@ def selection_inputs(records):
             owners["gsis_id"][gid].add(key)
         inputs.append({"player_key": key, "full_name": record["full_name"], "position": record["position"],
                        "metadata": {"sleeper_id": next(iter(sids)) if len(sids) == 1 else None,
-                                    "gsis_id": next(iter(gsis)) if len(gsis) == 1 else None}})
+                                    "gsis_id": next(iter(canonical_gsis)) if len(canonical_gsis) == 1 else None}})
     for field, values in owners.items():
         for keys in values.values():
             if len(keys) > 1:
