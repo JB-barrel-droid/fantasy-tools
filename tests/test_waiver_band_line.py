@@ -49,24 +49,51 @@ from lib.roster_convention import (  # noqa: E402
 )
 
 TOLERANCE = 1.0
-# JEG-1511 (Jeremy, 2026-11-05): three known over-bar cases on the Week 9
-# build, all the same mechanism. The band itself moves 1/7 of the
-# perturbation, as designed; the breach comes from the ES expected-start
-# parts repricing when the perturbed player crosses the waiver band
-# (Kyler Murray, razzball QB: the QB starter rate falls and Josh Allen
-# moves ~1.07 with his own projection unchanged; Kyle Pitts and Dalton
-# Kincaid are the TE equivalents in thin 8-team pools, worst moves 1.72
-# and 1.22; full evidence on JEG-1511). Jeremy ruled this is not enough
-# to stop a week from publishing and the real fix comes after, so exactly
-# these cases — (scoring, teams, source, position, player key, delta) —
-# are exempted in the two perturbation tests below and printed whenever
-# the exemption is used. Every other case still fails the bar. Remove
-# these entries when JEG-1511 lands.
-KNOWN_OVER_BAR_CASES = {
-    ("standard", 10, "razzball", "QB", 370, -1.0),
-    ("standard", 8, "razzball", "TE", 1970, -1.0),
-    ("half_ppr", 8, "razzball", "TE", 3279, 1.0),
-}
+# JEG-1511 mechanism exemption (Jeremy, 2026-11-05). The diagnosed breach:
+# perturbing the waiver-line player propagates through the position's
+# shared pricing structure — the waiver band line (which moves 1/7 of the
+# perturbation when he sits in the window, as designed), the starter line
+# and the ES band edges in _expected_start_parts — and reprices other
+# players at the position past the 1.0 bar with their own projections
+# unchanged and the league's slots exactly as they were. Verified on the
+# Week 9 build: Kyler Murray (razzball QB, standard/10, -1.0) moves the
+# band line by exactly 1/7 and the band's membership set does not change,
+# yet another QB moves 1.03 — the amplification lives in the ES parts'
+# response to the shared lines, not in a band-crossing jump. Observed
+# instances, all this one mechanism: Kyler Murray (razzball QB, 10
+# teams, -1.0) at 1.07 standard / 1.04 half-PPR / 1.01 PPR, Kyle Pitts
+# (razzball TE, 8 teams, -1.0) at 1.72, Dalton Kincaid (razzball TE,
+# 8 teams, +1.0) at 1.22 — and the set wobbles bake to bake (the standard
+# instance breached in the local Week 9 bake, the half-PPR/PPR instances
+# in the CI bake), so enumerating cases cannot hold the line. Jeremy
+# ruled 2026-11-05, first for three enumerated cases and then, after the
+# CI bake surfaced the same case in the other two scorings: "Broader
+# exemption for this mechanism" — the rule this test pins is changed by
+# that ruling, not relaxed for convenience.
+#
+# The two perturbation tests already isolate this mechanism by
+# construction: the first replays the league's allocations (slots and
+# seat mix frozen), the second counts only cases where the free
+# allocation came out unchanged — so an over-bar case in either test is
+# the line/ES propagation and nothing else. Within that channel an
+# over-bar case is exempt only when BOTH hold:
+#   * the position is QB or TE (every observed instance; the propagation
+#     concentrates in the thin starter pools);
+#   * the worst move is at most MECHANISM_EXEMPT_MAX_EFFECT (observed
+#     worst 1.72; anything larger is a different failure and fails).
+# Exempted cases print loudly in both tests, and a test fails outright
+# if more than MECHANISM_EXEMPT_CAP cases are exempted in it, so a
+# blow-up cannot hide inside the exemption. Any over-bar case outside
+# this signature still fails the bar and goes back to Jeremy. Remove
+# this exemption when the JEG-1511 ES-parts fix lands.
+MECHANISM_EXEMPT_POSITIONS = {"QB", "TE"}
+MECHANISM_EXEMPT_MAX_EFFECT = 2.0
+MECHANISM_EXEMPT_CAP = 12
+
+
+def _mechanism_exempt(pos: str, worst: float) -> bool:
+    return (pos in MECHANISM_EXEMPT_POSITIONS
+            and worst <= MECHANISM_EXEMPT_MAX_EFFECT)
 PROJECTIONS = ("espn", "cbsros", "razzball")
 # JEG-1244: the full grid the research and the tolerance name (3 scorings x
 # 4 team counts, default roster). The mutation check keeps the default
@@ -453,13 +480,17 @@ class OnePlayerPerturbationTest(unittest.TestCase):
         cases = self._cases()
         self.assertGreaterEqual(len(cases), 20, "expected a waiver line at most source/position cells")
         failures = []
+        exempted = 0
         jobs = [(*c, d) for c in cases for d in (-1.0, 1.0)]
-        for (scoring, teams, src, pos, key, delta), (worst, _) in zip(jobs, self._map_worst(jobs)):
+        for (scoring, teams, src, pos, key, delta), (worst, _flipped) in zip(jobs, self._map_worst(jobs)):
             if worst > TOLERANCE:
-                if (scoring, teams, src, pos, key, delta) in KNOWN_OVER_BAR_CASES:
-                    print(f"known over-bar case (JEG-1511): {scoring}/{teams} {src} {pos} {key} {delta:+}: {worst:.3f}")
+                if _mechanism_exempt(pos, worst):
+                    exempted += 1
+                    print(f"mechanism-exempt over-bar case (JEG-1511): {scoring}/{teams} {src} {pos} {key} {delta:+}: {worst:.3f}")
                     continue
                 failures.append(f"{scoring}/{teams} {src} {pos} {key} {delta:+}: {worst:.3f}")
+        if exempted > MECHANISM_EXEMPT_CAP:
+            failures.append(f"mechanism exemption used {exempted} times in one test (cap {MECHANISM_EXEMPT_CAP}) — not the JEG-1511 signature")
         self.assertEqual(failures, [], "one fringe player repriced the position:\n" + "\n".join(failures))
 
     def test_only_slot_flips_break_the_bar_with_slots_free(self):
@@ -467,13 +498,17 @@ class OnePlayerPerturbationTest(unittest.TestCase):
         perturbation changed the league's slots or bench seats (the separate
         flex-flip ticket), never the waiver line alone."""
         bad = []
+        exempted = 0
         jobs = [(*c, d) for c in self._cases() for d in (-1.0, 1.0)]
         for (scoring, teams, src, pos, key, delta), (worst, flipped) in zip(jobs, self._map_worst(jobs, False)):
             if worst > TOLERANCE and not flipped:
-                if (scoring, teams, src, pos, key, delta) in KNOWN_OVER_BAR_CASES:
-                    print(f"known over-bar case (JEG-1511): {scoring}/{teams} {src} {pos} {key} {delta:+}: {worst:.3f}")
+                if _mechanism_exempt(pos, worst):
+                    exempted += 1
+                    print(f"mechanism-exempt over-bar case (JEG-1511): {scoring}/{teams} {src} {pos} {key} {delta:+}: {worst:.3f}")
                     continue
                 bad.append(f"{scoring}/{teams} {src} {pos} {key} {delta:+}: {worst:.3f}")
+        if exempted > MECHANISM_EXEMPT_CAP:
+            bad.append(f"mechanism exemption used {exempted} times in one test (cap {MECHANISM_EXEMPT_CAP}) — not the JEG-1511 signature")
         self.assertEqual(bad, [], "over the bar with the slots unchanged:\n" + "\n".join(bad))
 
     def test_band_beats_one_player_rule(self):
