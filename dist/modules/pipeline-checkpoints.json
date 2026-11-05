@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-11-05T12:50:46.303608+00:00",
+  "generated_at": "2026-11-05T18:51:33.343248+00:00",
   "schema": "pipeline-checkpoints-v1",
   "nfl_week": 9,
   "checkpoints": [
@@ -59,9 +59,9 @@
       "label": "ESPN",
       "checkpoints": {
         "c1_publication": {
-          "timestamp": "2026-11-04",
+          "timestamp": "2026-11-05",
           "status": "ok",
-          "reason": "Publisher released 2026-11-04 (1.5d ago)."
+          "reason": "Publisher released 2026-11-05 (0.8d ago)."
         },
         "c2_collection": {
           "timestamp": "2026-11-03T18:42:51.286299+00:00",
@@ -71,22 +71,22 @@
         "c3_supabase": {
           "timestamp": "2026-11-03T18:42:51.286299+00:00",
           "status": "ok",
-          "reason": "599 rows landed in public.espn_season_projections 1.8d ago."
+          "reason": "599 rows landed in public.espn_season_projections 2.0d ago."
         },
         "c4_snapshot": {
-          "timestamp": "2026-11-05T12:50:26.572741+00:00",
+          "timestamp": "2026-11-05T18:50:35.052241+00:00",
           "status": "ok",
-          "reason": "Snapshot stamped 0.0d ago (data/raw/sources/espn/2026-11-04/snapshot.json, vintage 2026-11-04)."
+          "reason": "Snapshot stamped 0.0d ago (data/raw/sources/espn/2026-11-05/snapshot.json, vintage 2026-11-05)."
         },
         "c5_health": {
-          "timestamp": "2026-11-05T12:50:28Z",
+          "timestamp": "2026-11-05T18:50:40Z",
           "status": "ok",
           "reason": "Health gate ok (checked 0.0d ago)."
         },
         "c6_candidate": {
-          "timestamp": "2026-11-05T10:49:06.392966+00:00",
+          "timestamp": "2026-11-05T16:37:23.485684+00:00",
           "status": "ok",
-          "reason": "No candidate/review artifacts on disk. Chain reported 'promoted 1/1' at 2026-11-05T10:49:06.392966+00:00."
+          "reason": "No candidate/review artifacts on disk. Chain reported 'promoted 1/1' at 2026-11-05T16:37:23.485684+00:00."
         },
         "c7_promotion": {
           "timestamp": null,
@@ -94,22 +94,22 @@
           "reason": "Direct fixture updates are the intended workflow; no formal promotion artifact required."
         },
         "c8_sync": {
-          "timestamp": "2026-10-31T19:47:05.121144+00:00",
-          "status": "warn",
-          "reason": "Comparison data is 5d old (built 2026-10-31). May be stale."
+          "timestamp": "2026-10-26T15:42:37.663230+00:00",
+          "status": "bad",
+          "reason": "Deployed comparison data is 10d old (built 2026-10-26). dist/ needs sync."
         },
         "c9_deploy": {
-          "timestamp": "2026-11-05T12:41:57Z",
+          "timestamp": "2026-11-05T18:42:46Z",
           "status": "ok",
           "reason": "Deploy in progress; last completed deploy succeeded 0.0d ago."
         },
         "c10_rendered": {
-          "timestamp": "2026-11-05T12:50:47.752311+00:00",
+          "timestamp": "2026-11-05T18:51:34.049809+00:00",
           "status": "bad",
-          "reason": "Production output WRONG: served bytes differ from fixture/ (live e1934e8793cf vs fixture c443a8ff4abf). Live built 2026-10-31T19:47."
+          "reason": "Production output WRONG: served bytes differ from fixture/ (live 97f2d6e9b104 vs fixture 26cb1c8e0ae7). Live built 2026-11-05T16:37."
         }
       },
-      "content_vintage": "2026-10-31",
+      "content_vintage": "2026-11-05",
       "content_vintage_source": "lineage.raw_vintage"
     },
     "cbs": {
@@ -128,22 +128,22 @@
         "c3_supabase": {
           "timestamp": "2026-11-04T00:35:43.165593+00:00",
           "status": "ok",
-          "reason": "341 rows landed in public.cbs_trade_values 1.5d ago."
+          "reason": "341 rows landed in public.cbs_trade_values 1.8d ago."
         },
         "c4_snapshot": {
-          "timestamp": "2026-11-05T12:50:27.091421+00:00",
+          "timestamp": "2026-11-05T18:50:36.396299+00:00",
           "status": "ok",
           "reason": "Snapshot stamped 0.0d ago (data/raw/sources/cbs/week-9/snapshot.json, vintage Week 9)."
         },
         "c5_health": {
-          "timestamp": "2026-11-05T12:50:28Z",
+          "timestamp": "2026-11-05T18:50:40Z",
           "status": "ok",
           "reason": "Health gate ok (checked 0.0d ago)."
         },
         "c6_candidate": {
-          "timestamp": "2026-11-05T10:49:06.392966+00:00",
+          "timestamp": "2026-11-05T16:37:23.485684+00:00",
           "status": "ok",
-          "reason": "No candidate/review artifacts on disk. Chain reported 'promoted 3/3 (WARNING list changed, filled in from other charts: cbs-full-12-section full_12/QB list 15 -> 13: dropped bryce young, lamar jackson; added none | cbs-full-12-section full_12/RB list 44 -> 43: dropped emanuel wilson, jk dobbins, omarion hampton, rj harvey; added devin singletary, mike washington jr, tyler allgeier | cbs-full-12-section full_12/WR list 47 -> 49: dropped jakobi meyers; added caleb douglas, josh downs, ryan flournoy | cbs-full-12-section full_12/TE list 17 -> 16: dropped chig okonkwo, hunter henry; added dalton kincaid | cbs-half-12-section half_12/QB list 15 -> 13: dropped bryce young, lamar jackson; added none | cbs-half-12-section half_12/RB list 44 -> 43: dropped emanuel wilson, jk dobbins, omarion hampton, rj harvey; added devin singletary, mike washington jr, tyler allgeier | cbs-half-12-section half_12/WR list 47 -> 43: dropped germie bernard, jakobi meyers, kc concepcion, keenan allen; added none | cbs-half-12-section half_12/TE list 9 -> 11: dropped none; added dalton kincaid, tj hockenson | cbs-standard-12-section standard_12/QB list 15 -> 13: dropped bryce young, lamar jackson; added none | cbs-standard-12-section standard_12/RB list 44 -> 43: dropped emanuel wilson, jk dobbins, omarion hampton, rj harvey; added devin singletary, mike washington jr, tyler allgeier | cbs-standard-12-section standard_12/WR list 47 -> 43: dropped germie bernard, jakobi meyers, kc concepcion, keenan allen; added none | cbs-standard-12-section standard_12/TE list 9 -> 11: dropped none; added dalton kincaid, tj hockenson)' at 2026-11-05T10:49:06.392966+00:00."
+          "reason": "No candidate/review artifacts on disk. Chain reported 'promoted 3/3 (WARNING list changed, filled in from other charts: cbs-full-12-section full_12/QB list 15 -> 13: dropped bryce young, lamar jackson; added none | cbs-full-12-section full_12/RB list 44 -> 43: dropped emanuel wilson, jk dobbins, omarion hampton, rj harvey; added devin singletary, mike washington jr, tyler allgeier | cbs-full-12-section full_12/WR list 47 -> 49: dropped jakobi meyers; added caleb douglas, josh downs, ryan flournoy | cbs-full-12-section full_12/TE list 17 -> 16: dropped chig okonkwo, hunter henry; added dalton kincaid | cbs-half-12-section half_12/QB list 15 -> 13: dropped bryce young, lamar jackson; added none | cbs-half-12-section half_12/RB list 44 -> 43: dropped emanuel wilson, jk dobbins, omarion hampton, rj harvey; added devin singletary, mike washington jr, tyler allgeier | cbs-half-12-section half_12/WR list 47 -> 43: dropped germie bernard, jakobi meyers, kc concepcion, keenan allen; added none | cbs-half-12-section half_12/TE list 9 -> 11: dropped none; added dalton kincaid, tj hockenson | cbs-standard-12-section standard_12/QB list 15 -> 13: dropped bryce young, lamar jackson; added none | cbs-standard-12-section standard_12/RB list 44 -> 43: dropped emanuel wilson, jk dobbins, omarion hampton, rj harvey; added devin singletary, mike washington jr, tyler allgeier | cbs-standard-12-section standard_12/WR list 47 -> 43: dropped germie bernard, jakobi meyers, kc concepcion, keenan allen; added none | cbs-standard-12-section standard_12/TE list 9 -> 11: dropped none; added dalton kincaid, tj hockenson)' at 2026-11-05T16:37:23.485684+00:00."
         },
         "c7_promotion": {
           "timestamp": null,
@@ -151,56 +151,56 @@
           "reason": "Direct fixture updates are the intended workflow; no formal promotion artifact required."
         },
         "c8_sync": {
-          "timestamp": "2026-10-31T19:47:05.121144+00:00",
-          "status": "warn",
-          "reason": "Comparison data is 5d old (built 2026-10-31). May be stale."
+          "timestamp": "2026-10-26T15:42:37.663230+00:00",
+          "status": "bad",
+          "reason": "Deployed comparison data is 10d old (built 2026-10-26). dist/ needs sync."
         },
         "c9_deploy": {
-          "timestamp": "2026-11-05T12:41:57Z",
+          "timestamp": "2026-11-05T18:42:46Z",
           "status": "ok",
           "reason": "Deploy in progress; last completed deploy succeeded 0.0d ago."
         },
         "c10_rendered": {
-          "timestamp": "2026-11-05T12:50:47.844571+00:00",
+          "timestamp": "2026-11-05T18:51:34.108752+00:00",
           "status": "bad",
-          "reason": "Production output WRONG: served bytes differ from fixture/ (live e1934e8793cf vs fixture c443a8ff4abf). Live built 2026-10-31T19:47."
+          "reason": "Production output WRONG: served bytes differ from fixture/ (live 97f2d6e9b104 vs fixture 26cb1c8e0ae7). Live built 2026-11-05T16:37."
         }
       },
-      "content_vintage": "Week 8",
+      "content_vintage": "Week 9",
       "content_vintage_source": "content_vintage"
     },
     "cbsros": {
       "label": "CBS ROS",
       "checkpoints": {
         "c1_publication": {
-          "timestamp": "2026-11-04",
+          "timestamp": "2026-11-05",
           "status": "ok",
-          "reason": "Publisher released 2026-11-04 (1.5d ago)."
+          "reason": "Publisher released 2026-11-05 (0.8d ago)."
         },
         "c2_collection": {
-          "timestamp": "2026-11-04T23:26:01.885393+00:00",
+          "timestamp": "2026-11-05T15:26:25.186924+00:00",
           "status": "ok",
-          "reason": "Pulled 2026-11-04T23:26:01.885393+00:00 (Supabase landing in public.cbs_ros_projections)."
+          "reason": "Pulled 2026-11-05T15:26:25.186924+00:00 (Supabase landing in public.cbs_ros_projections)."
         },
         "c3_supabase": {
-          "timestamp": "2026-11-04T23:26:01.885393+00:00",
+          "timestamp": "2026-11-05T15:26:25.186924+00:00",
           "status": "ok",
-          "reason": "367 rows landed in public.cbs_ros_projections 0.6d ago."
+          "reason": "367 rows landed in public.cbs_ros_projections 0.1d ago."
         },
         "c4_snapshot": {
-          "timestamp": "2026-11-05T12:50:27.564240+00:00",
+          "timestamp": "2026-11-05T18:50:37.998651+00:00",
           "status": "ok",
-          "reason": "Snapshot stamped 0.0d ago (data/raw/sources/cbsros/2026-11-04/snapshot.json, vintage 2026-11-04)."
+          "reason": "Snapshot stamped 0.0d ago (data/raw/sources/cbsros/2026-11-05/snapshot.json, vintage 2026-11-05)."
         },
         "c5_health": {
-          "timestamp": "2026-11-05T12:50:28Z",
+          "timestamp": "2026-11-05T18:50:40Z",
           "status": "ok",
           "reason": "Health gate ok (checked 0.0d ago)."
         },
         "c6_candidate": {
-          "timestamp": "2026-11-05T10:49:06.392966+00:00",
+          "timestamp": "2026-11-05T16:37:23.485684+00:00",
           "status": "ok",
-          "reason": "No candidate/review artifacts on disk. Chain reported 'promoted 1/1' at 2026-11-05T10:49:06.392966+00:00."
+          "reason": "No candidate/review artifacts on disk. Chain reported 'promoted 1/1' at 2026-11-05T16:37:23.485684+00:00."
         },
         "c7_promotion": {
           "timestamp": null,
@@ -208,36 +208,36 @@
           "reason": "Direct fixture updates are the intended workflow; no formal promotion artifact required."
         },
         "c8_sync": {
-          "timestamp": "2026-10-31T19:47:05.121144+00:00",
-          "status": "warn",
-          "reason": "Comparison data is 5d old (built 2026-10-31). May be stale."
+          "timestamp": "2026-10-26T15:42:37.663230+00:00",
+          "status": "bad",
+          "reason": "Deployed comparison data is 10d old (built 2026-10-26). dist/ needs sync."
         },
         "c9_deploy": {
-          "timestamp": "2026-11-05T12:41:57Z",
+          "timestamp": "2026-11-05T18:42:46Z",
           "status": "ok",
           "reason": "Deploy in progress; last completed deploy succeeded 0.0d ago."
         },
         "c10_rendered": {
-          "timestamp": "2026-11-05T12:50:47.932738+00:00",
+          "timestamp": "2026-11-05T18:51:34.166385+00:00",
           "status": "bad",
-          "reason": "Production output WRONG: served bytes differ from fixture/ (live e1934e8793cf vs fixture c443a8ff4abf). Live built 2026-10-31T19:47."
+          "reason": "Production output WRONG: served bytes differ from fixture/ (live 97f2d6e9b104 vs fixture 26cb1c8e0ae7). Live built 2026-11-05T16:37."
         }
       },
-      "content_vintage": "2026-10-31",
+      "content_vintage": "2026-11-05",
       "content_vintage_source": "vintage"
     },
     "razzball": {
       "label": "Razzball",
       "checkpoints": {
         "c1_publication": {
-          "timestamp": "2026-10-29",
-          "status": "warn",
-          "reason": "Publisher data is 8 days old. Awaiting new release (normal for weekly cadence)."
+          "timestamp": "2026-11-05",
+          "status": "ok",
+          "reason": "Publisher released 2026-11-05 (0.8d ago)."
         },
         "c2_collection": {
-          "timestamp": "2026-10-31T19:47:13Z",
+          "timestamp": "2026-11-05T16:37:19Z",
           "status": "ok",
-          "reason": "Pulled 2026-10-31T19:47:13Z (generated_at of data/ddf-two-tier/ddf-20261029-razzball-ppr-12t-0p15/ddf_leg_razzball.json)."
+          "reason": "Pulled 2026-11-05T16:37:19Z (generated_at of data/ddf-two-tier/ddf-20261105-razzball-ppr-12t-0p15/ddf_leg_razzball.json)."
         },
         "c3_supabase": {
           "timestamp": null,
@@ -245,14 +245,14 @@
           "reason": "N/A by design: file-scraped source, no Supabase landing stage."
         },
         "c4_snapshot": {
-          "timestamp": "2026-11-05T12:50:13.059886+00:00",
+          "timestamp": "2026-11-05T18:50:15.148829+00:00",
           "status": "ok",
-          "reason": "Snapshot stamped 0.0d ago (data/ddf-two-tier/ddf-20261029-razzball-ppr-12t-0p15/ddf_leg_razzball.json, vintage 2026-10-29)."
+          "reason": "Snapshot stamped 0.0d ago (data/ddf-two-tier/ddf-20261105-razzball-ppr-12t-0p15/ddf_leg_razzball.json, vintage 2026-11-05)."
         },
         "c5_health": {
-          "timestamp": "2026-10-29",
-          "status": "bad",
-          "reason": "Razzball snapshot 2026-10-29 is 7.5d old (>6d -- snapshot is stale)."
+          "timestamp": "2026-11-05",
+          "status": "ok",
+          "reason": "Razzball snapshot 2026-11-05 is 0.8d old (within 2d fresh window)."
         },
         "c6_candidate": {
           "timestamp": null,
@@ -265,22 +265,22 @@
           "reason": "Direct fixture updates are the intended workflow; no formal promotion artifact required."
         },
         "c8_sync": {
-          "timestamp": "2026-10-31T19:47:05.121144+00:00",
-          "status": "warn",
-          "reason": "Comparison data is 5d old (built 2026-10-31). May be stale."
+          "timestamp": "2026-10-26T15:42:37.663230+00:00",
+          "status": "bad",
+          "reason": "Deployed comparison data is 10d old (built 2026-10-26). dist/ needs sync."
         },
         "c9_deploy": {
-          "timestamp": "2026-11-05T12:41:57Z",
+          "timestamp": "2026-11-05T18:42:46Z",
           "status": "ok",
           "reason": "Deploy in progress; last completed deploy succeeded 0.0d ago."
         },
         "c10_rendered": {
-          "timestamp": "2026-11-05T12:50:48.321829+00:00",
+          "timestamp": "2026-11-05T18:51:34.586664+00:00",
           "status": "bad",
-          "reason": "Production output WRONG: served bytes differ from fixture/ (live e1934e8793cf vs fixture c443a8ff4abf). Live built 2026-10-31T19:47."
+          "reason": "Production output WRONG: served bytes differ from fixture/ (live 97f2d6e9b104 vs fixture 26cb1c8e0ae7). Live built 2026-11-05T16:37."
         }
       },
-      "content_vintage": "2026-10-29",
+      "content_vintage": "2026-11-05",
       "content_vintage_source": "vintage"
     },
     "fantasycalc": {
@@ -292,29 +292,29 @@
           "reason": "Publisher released Week 9 (0.0d ago)."
         },
         "c2_collection": {
-          "timestamp": "2026-11-05T11:05:34.523989+00:00",
+          "timestamp": "2026-11-05T18:05:36.642813+00:00",
           "status": "ok",
-          "reason": "Pulled 2026-11-05T11:05:34.523989+00:00 (Supabase landing in public.source_trade_values)."
+          "reason": "Pulled 2026-11-05T18:05:36.642813+00:00 (Supabase landing in public.source_trade_values)."
         },
         "c3_supabase": {
-          "timestamp": "2026-11-05T11:05:34.523989+00:00",
+          "timestamp": "2026-11-05T18:05:36.642813+00:00",
           "status": "ok",
-          "reason": "586 rows landed in public.source_trade_values 0.1d ago."
+          "reason": "588 rows landed in public.source_trade_values 0.0d ago."
         },
         "c4_snapshot": {
-          "timestamp": "2026-11-05T12:50:24.335677+00:00",
+          "timestamp": "2026-11-05T18:50:28.952214+00:00",
           "status": "ok",
           "reason": "Snapshot stamped 0.0d ago (data/raw/sources/fantasycalc/week-9/snapshot.json, vintage Week 9)."
         },
         "c5_health": {
-          "timestamp": "2026-11-05T12:50:28Z",
+          "timestamp": "2026-11-05T18:50:40Z",
           "status": "ok",
           "reason": "Health gate ok (checked 0.0d ago)."
         },
         "c6_candidate": {
-          "timestamp": "2026-11-05T10:49:06.392966+00:00",
+          "timestamp": "2026-11-05T16:37:23.485684+00:00",
           "status": "ok",
-          "reason": "No candidate/review artifacts on disk. Chain reported 'promoted 3/3 (WARNING list changed, filled in from other charts: fantasycalc-full-12-qb1-section full_12_qb1/QB list 32 -> 35: dropped lamar jackson; added drew lock, gardner minshew, joe milton iii, shedeur sanders | fantasycalc-full-12-qb1-section full_12_qb1/WR list 74 -> 71: dropped darius cooper, kendrick bourne, rashid shaheed, romeo doubs, travis hunter, tyreek hill; added brandon aiyuk, chris bell, michael pittman | fantasycalc-half-12-qb1-section half_12_qb1/QB list 32 -> 35: dropped lamar jackson; added drew lock, gardner minshew, joe milton iii, shedeur sanders | fantasycalc-half-12-qb1-section half_12_qb1/WR list 74 -> 71: dropped darius cooper, kendrick bourne, rashid shaheed, romeo doubs, travis hunter, tyreek hill; added brandon aiyuk, chris bell, michael pittman | fantasycalc-standard-12-qb1-section standard_12_qb1/QB list 32 -> 35: dropped lamar jackson; added drew lock, gardner minshew, joe milton iii, shedeur sanders | fantasycalc-standard-12-qb1-section standard_12_qb1/WR list 74 -> 71: dropped darius cooper, kendrick bourne, rashid shaheed, romeo doubs, travis hunter, tyreek hill; added brandon aiyuk, chris bell, michael pittman)' at 2026-11-05T10:49:06.392966+00:00."
+          "reason": "No candidate/review artifacts on disk. Chain reported 'promoted 3/3 (WARNING list changed, filled in from other charts: fantasycalc-full-12-qb1-section full_12_qb1/QB list 32 -> 35: dropped lamar jackson; added drew lock, gardner minshew, joe milton iii, shedeur sanders | fantasycalc-half-12-qb1-section half_12_qb1/QB list 32 -> 35: dropped lamar jackson; added drew lock, gardner minshew, joe milton iii, shedeur sanders | fantasycalc-standard-12-qb1-section standard_12_qb1/QB list 32 -> 35: dropped lamar jackson; added drew lock, gardner minshew, joe milton iii, shedeur sanders)' at 2026-11-05T16:37:23.485684+00:00."
         },
         "c7_promotion": {
           "timestamp": null,
@@ -322,22 +322,22 @@
           "reason": "Direct fixture updates are the intended workflow; no formal promotion artifact required."
         },
         "c8_sync": {
-          "timestamp": "2026-10-31T19:47:05.121144+00:00",
-          "status": "warn",
-          "reason": "Comparison data is 5d old (built 2026-10-31). May be stale."
+          "timestamp": "2026-10-26T15:42:37.663230+00:00",
+          "status": "bad",
+          "reason": "Deployed comparison data is 10d old (built 2026-10-26). dist/ needs sync."
         },
         "c9_deploy": {
-          "timestamp": "2026-11-05T12:41:57Z",
+          "timestamp": "2026-11-05T18:42:46Z",
           "status": "ok",
           "reason": "Deploy in progress; last completed deploy succeeded 0.0d ago."
         },
         "c10_rendered": {
-          "timestamp": "2026-11-05T12:50:48.415048+00:00",
+          "timestamp": "2026-11-05T18:51:34.652027+00:00",
           "status": "bad",
-          "reason": "Production output WRONG: served bytes differ from fixture/ (live e1934e8793cf vs fixture c443a8ff4abf). Live built 2026-10-31T19:47."
+          "reason": "Production output WRONG: served bytes differ from fixture/ (live 97f2d6e9b104 vs fixture 26cb1c8e0ae7). Live built 2026-11-05T16:37."
         }
       },
-      "content_vintage": "Week 8",
+      "content_vintage": "Week 9",
       "content_vintage_source": "content_vintage"
     },
     "fantasypros": {
@@ -346,7 +346,7 @@
         "c1_publication": {
           "timestamp": "2026-11-03",
           "status": "ok",
-          "reason": "Publisher released 2026-11-03 (2.5d ago)."
+          "reason": "Publisher released 2026-11-03 (2.8d ago)."
         },
         "c2_collection": {
           "timestamp": "2026-11-05T09:35:38.280157+00:00",
@@ -356,22 +356,22 @@
         "c3_supabase": {
           "timestamp": "2026-11-05T09:35:38.280157+00:00",
           "status": "ok",
-          "reason": "534 rows landed in public.source_trade_values 0.1d ago."
+          "reason": "534 rows landed in public.source_trade_values 0.4d ago."
         },
         "c4_snapshot": {
-          "timestamp": "2026-11-05T12:50:25.887392+00:00",
+          "timestamp": "2026-11-05T18:50:32.720491+00:00",
           "status": "ok",
           "reason": "Snapshot stamped 0.0d ago (data/raw/sources/fantasypros/2026-11-03/snapshot.json, vintage 2026-11-03)."
         },
         "c5_health": {
-          "timestamp": "2026-11-05T12:50:28Z",
+          "timestamp": "2026-11-05T18:50:40Z",
           "status": "ok",
           "reason": "Health gate ok (checked 0.0d ago)."
         },
         "c6_candidate": {
-          "timestamp": "2026-11-05T10:49:06.392966+00:00",
+          "timestamp": "2026-11-05T16:37:23.485684+00:00",
           "status": "ok",
-          "reason": "No candidate/review artifacts on disk. Chain reported 'promoted 3/3 (WARNING list changed, filled in from other charts: fantasypros-full-12-section full_12/QB list 32 -> 32: dropped jacoby brissett, lamar jackson; added fernando mendoza, tyler huntley | fantasypros-full-12-section full_12/RB list 52 -> 52: dropped emanuel wilson, kendre miller; added kenneth gainwell, seth mcgowan | fantasypros-full-12-section full_12/WR list 74 -> 74: dropped jaylin noel, kendrick bourne; added davante adams, malachi fields | fantasypros-full-12-section full_12/TE list 20 -> 20: dropped mark andrews; added pat freiermuth | fantasypros-half-12-section half_12/QB list 32 -> 32: dropped jacoby brissett, lamar jackson; added fernando mendoza, tyler huntley | fantasypros-half-12-section half_12/RB list 52 -> 52: dropped emanuel wilson, kendre miller; added kenneth gainwell, seth mcgowan | fantasypros-half-12-section half_12/WR list 74 -> 74: dropped jaylin noel, kendrick bourne; added davante adams, malachi fields | fantasypros-half-12-section half_12/TE list 20 -> 20: dropped mark andrews; added pat freiermuth | fantasypros-standard-12-section standard_12/QB list 32 -> 32: dropped jacoby brissett, lamar jackson; added fernando mendoza, tyler huntley | fantasypros-standard-12-section standard_12/RB list 52 -> 52: dropped emanuel wilson, kendre miller; added kenneth gainwell, seth mcgowan | fantasypros-standard-12-section standard_12/WR list 74 -> 74: dropped jaylin noel, kendrick bourne; added davante adams, malachi fields | fantasypros-standard-12-section standard_12/TE list 20 -> 20: dropped mark andrews; added pat freiermuth)' at 2026-11-05T10:49:06.392966+00:00."
+          "reason": "No candidate/review artifacts on disk. Chain reported 'promoted 3/3 (WARNING list changed, filled in from other charts: fantasypros-full-12-section full_12/QB list 32 -> 32: dropped jacoby brissett, lamar jackson; added fernando mendoza, tyler huntley | fantasypros-full-12-section full_12/RB list 52 -> 52: dropped emanuel wilson, kendre miller; added kenneth gainwell, seth mcgowan | fantasypros-full-12-section full_12/WR list 74 -> 74: dropped jaylin noel, kendrick bourne; added davante adams, malachi fields | fantasypros-full-12-section full_12/TE list 20 -> 20: dropped mark andrews; added pat freiermuth | fantasypros-half-12-section half_12/QB list 32 -> 32: dropped jacoby brissett, lamar jackson; added fernando mendoza, tyler huntley | fantasypros-half-12-section half_12/RB list 52 -> 52: dropped emanuel wilson, kendre miller; added kenneth gainwell, seth mcgowan | fantasypros-half-12-section half_12/WR list 74 -> 74: dropped jaylin noel, kendrick bourne; added davante adams, malachi fields | fantasypros-half-12-section half_12/TE list 20 -> 20: dropped mark andrews; added pat freiermuth | fantasypros-standard-12-section standard_12/QB list 32 -> 32: dropped jacoby brissett, lamar jackson; added fernando mendoza, tyler huntley | fantasypros-standard-12-section standard_12/RB list 52 -> 52: dropped emanuel wilson, kendre miller; added kenneth gainwell, seth mcgowan | fantasypros-standard-12-section standard_12/WR list 74 -> 74: dropped jaylin noel, kendrick bourne; added davante adams, malachi fields | fantasypros-standard-12-section standard_12/TE list 20 -> 20: dropped mark andrews; added pat freiermuth)' at 2026-11-05T16:37:23.485684+00:00."
         },
         "c7_promotion": {
           "timestamp": null,
@@ -379,22 +379,22 @@
           "reason": "Direct fixture updates are the intended workflow; no formal promotion artifact required."
         },
         "c8_sync": {
-          "timestamp": "2026-10-31T19:47:05.121144+00:00",
-          "status": "warn",
-          "reason": "Comparison data is 5d old (built 2026-10-31). May be stale."
+          "timestamp": "2026-10-26T15:42:37.663230+00:00",
+          "status": "bad",
+          "reason": "Deployed comparison data is 10d old (built 2026-10-26). dist/ needs sync."
         },
         "c9_deploy": {
-          "timestamp": "2026-11-05T12:41:57Z",
+          "timestamp": "2026-11-05T18:42:46Z",
           "status": "ok",
           "reason": "Deploy in progress; last completed deploy succeeded 0.0d ago."
         },
         "c10_rendered": {
-          "timestamp": "2026-11-05T12:50:48.506462+00:00",
+          "timestamp": "2026-11-05T18:51:34.714783+00:00",
           "status": "bad",
-          "reason": "Production output WRONG: served bytes differ from fixture/ (live e1934e8793cf vs fixture c443a8ff4abf). Live built 2026-10-31T19:47."
+          "reason": "Production output WRONG: served bytes differ from fixture/ (live 97f2d6e9b104 vs fixture 26cb1c8e0ae7). Live built 2026-11-05T16:37."
         }
       },
-      "content_vintage": "2026-10-27",
+      "content_vintage": "2026-11-03",
       "content_vintage_source": "content_vintage"
     },
     "usatoday": {
@@ -403,7 +403,7 @@
         "c1_publication": {
           "timestamp": "2026-11-03",
           "status": "ok",
-          "reason": "Publisher released 2026-11-03 (2.5d ago)."
+          "reason": "Publisher released 2026-11-03 (2.8d ago)."
         },
         "c2_collection": {
           "timestamp": "2026-11-04T00:36:10.308852+00:00",
@@ -413,22 +413,22 @@
         "c3_supabase": {
           "timestamp": "2026-11-04T00:36:10.308852+00:00",
           "status": "ok",
-          "reason": "813 rows landed in public.source_trade_values 1.5d ago."
+          "reason": "813 rows landed in public.source_trade_values 1.8d ago."
         },
         "c4_snapshot": {
-          "timestamp": "2026-11-05T12:50:25.012880+00:00",
+          "timestamp": "2026-11-05T18:50:30.547436+00:00",
           "status": "ok",
           "reason": "Snapshot stamped 0.0d ago (data/raw/sources/usatoday/2026-11-03/snapshot.json, vintage 2026-11-03)."
         },
         "c5_health": {
-          "timestamp": "2026-11-05T12:50:28Z",
+          "timestamp": "2026-11-05T18:50:40Z",
           "status": "ok",
           "reason": "Health gate ok (checked 0.0d ago)."
         },
         "c6_candidate": {
-          "timestamp": "2026-11-05T10:49:06.392966+00:00",
+          "timestamp": "2026-11-05T16:37:23.485684+00:00",
           "status": "ok",
-          "reason": "No candidate/review artifacts on disk. Chain reported 'promoted 3/3 (WARNING list changed, filled in from other charts: usatoday-full-12-section full_12/QB list 36 -> 37: dropped lamar jackson; added carson wentz, gardner minshew | usatoday-full-12-section full_12/RB list 86 -> 86: dropped jeremy mcnichols; added isaiah davis | usatoday-full-12-section full_12/WR list 110 -> 109: dropped isaiah bond, jaylin noel, kendrick bourne; added kyle williams, xavier hutchinson | usatoday-full-12-section full_12/TE list 38 -> 38: dropped dawson knox; added michael mayer | usatoday-half-12-section half_12/QB list 36 -> 37: dropped lamar jackson; added carson wentz, gardner minshew | usatoday-half-12-section half_12/RB list 86 -> 86: dropped jeremy mcnichols; added isaiah davis | usatoday-half-12-section half_12/WR list 110 -> 109: dropped isaiah bond, jaylin noel, kendrick bourne; added kyle williams, xavier hutchinson | usatoday-half-12-section half_12/TE list 38 -> 38: dropped dawson knox; added michael mayer | usatoday-standard-12-section standard_12/QB list 36 -> 37: dropped lamar jackson; added carson wentz, gardner minshew | usatoday-standard-12-section standard_12/RB list 86 -> 86: dropped jeremy mcnichols; added isaiah davis | usatoday-standard-12-section standard_12/WR list 110 -> 109: dropped isaiah bond, jaylin noel, kendrick bourne; added kyle williams, xavier hutchinson | usatoday-standard-12-section standard_12/TE list 38 -> 38: dropped dawson knox; added michael mayer)' at 2026-11-05T10:49:06.392966+00:00."
+          "reason": "No candidate/review artifacts on disk. Chain reported 'promoted 3/3 (WARNING list changed, filled in from other charts: usatoday-full-12-section full_12/QB list 36 -> 37: dropped lamar jackson; added carson wentz, gardner minshew | usatoday-full-12-section full_12/RB list 86 -> 86: dropped jeremy mcnichols; added isaiah davis | usatoday-full-12-section full_12/WR list 110 -> 109: dropped isaiah bond, jaylin noel, kendrick bourne; added kyle williams, xavier hutchinson | usatoday-full-12-section full_12/TE list 38 -> 38: dropped dawson knox; added michael mayer | usatoday-half-12-section half_12/QB list 36 -> 37: dropped lamar jackson; added carson wentz, gardner minshew | usatoday-half-12-section half_12/RB list 86 -> 86: dropped jeremy mcnichols; added isaiah davis | usatoday-half-12-section half_12/WR list 110 -> 109: dropped isaiah bond, jaylin noel, kendrick bourne; added kyle williams, xavier hutchinson | usatoday-half-12-section half_12/TE list 38 -> 38: dropped dawson knox; added michael mayer | usatoday-standard-12-section standard_12/QB list 36 -> 37: dropped lamar jackson; added carson wentz, gardner minshew | usatoday-standard-12-section standard_12/RB list 86 -> 86: dropped jeremy mcnichols; added isaiah davis | usatoday-standard-12-section standard_12/WR list 110 -> 109: dropped isaiah bond, jaylin noel, kendrick bourne; added kyle williams, xavier hutchinson | usatoday-standard-12-section standard_12/TE list 38 -> 38: dropped dawson knox; added michael mayer)' at 2026-11-05T16:37:23.485684+00:00."
         },
         "c7_promotion": {
           "timestamp": null,
@@ -436,37 +436,37 @@
           "reason": "Direct fixture updates are the intended workflow; no formal promotion artifact required."
         },
         "c8_sync": {
-          "timestamp": "2026-10-31T19:47:05.121144+00:00",
-          "status": "warn",
-          "reason": "Comparison data is 5d old (built 2026-10-31). May be stale."
+          "timestamp": "2026-10-26T15:42:37.663230+00:00",
+          "status": "bad",
+          "reason": "Deployed comparison data is 10d old (built 2026-10-26). dist/ needs sync."
         },
         "c9_deploy": {
-          "timestamp": "2026-11-05T12:41:57Z",
+          "timestamp": "2026-11-05T18:42:46Z",
           "status": "ok",
           "reason": "Deploy in progress; last completed deploy succeeded 0.0d ago."
         },
         "c10_rendered": {
-          "timestamp": "2026-11-05T12:50:48.595215+00:00",
+          "timestamp": "2026-11-05T18:51:34.786612+00:00",
           "status": "bad",
-          "reason": "Production output WRONG: served bytes differ from fixture/ (live e1934e8793cf vs fixture c443a8ff4abf). Live built 2026-10-31T19:47."
+          "reason": "Production output WRONG: served bytes differ from fixture/ (live 97f2d6e9b104 vs fixture 26cb1c8e0ae7). Live built 2026-11-05T16:37."
         }
       },
-      "content_vintage": "2026-10-27",
+      "content_vintage": "2026-11-03",
       "content_vintage_source": "content_vintage"
     }
   },
   "chain": {
-    "run_at": "2026-11-05T10:49:06.392966+00:00",
+    "run_at": "2026-11-05T16:37:23.485684+00:00",
     "runner": "github-actions",
     "runner_label": "github-actions",
-    "success": false,
-    "run_age_days": 0.08451623018518518,
+    "success": true,
+    "run_age_days": 0.09318635369212963,
     "stale": false
   },
   "methodology_consistency": {
     "label": "Value above waivers / Adj: legacy methodology consistency",
     "what": "Legacy reindex method/anchor consistency; not eight-group value above waivers or shared reweight readiness",
-    "timestamp": "2026-11-05T12:50:48.620328+00:00",
+    "timestamp": "2026-11-05T18:51:34.810714+00:00",
     "status": "ok",
     "reason": "All 12 as-published combos use order_preserving_rescale anchored to espn_leg on the order_preserving_rescale reindex fit (translation step checked separately).",
     "expected_method": "order_preserving_rescale",
@@ -491,7 +491,7 @@
     "label": "Indexed keeps each published chart's own order (rank guard)",
     "status": "ok",
     "reason": "All 12 published chart x combo checks keep the native order.",
-    "timestamp": "2026-10-31T19:47:05.121144+00:00",
+    "timestamp": "2026-11-05T16:37:12.734699+00:00",
     "n_checks": 12,
     "n_failed": 0,
     "inversions": 0
