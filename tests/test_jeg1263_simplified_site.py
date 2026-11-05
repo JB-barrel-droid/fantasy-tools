@@ -20,6 +20,7 @@ MODULES = ["simplified-site.js", "opportunities.js", "finder.js", "league.js", "
            "workspace.js", "roster-provenance-transitions.js", "trade-readout.js", "lineup-comparison.js"]
 
 REQUIRED = [
+    "test_canonical_authority_and_immutable_row_identity", "test_canonical_unknown_coverage_and_pickup", "test_canonical_identity_readout_and_pending_guards",
     "test_name_and_route_are_exact", "test_route_contract", "test_answer_leads_with_the_top_idea", "test_order_is_the_given_ranking",
     "test_values_match_dashboard", "test_context_not_mutated", "test_loading_and_error", "test_empty_without_league_or_team",
     "test_incomplete_withholds", "test_idea_fields_complete_or_withheld", "test_malformed_ideas_withhold", "test_weekly_never_blended", "test_no_qualifying_result", "test_detail_view",
@@ -29,6 +30,12 @@ REQUIRED = [
 
 # (what is broken, old text, new text, the check that must catch it)
 MUTATIONS = [
+    ("canonical quantity replaced by legacy edge", 'gainText: quantityText(q),', 'gainText: opps().fmt(rec.edge),',
+     "test_canonical_authority_and_immutable_row_identity"),
+    ("unknown canonical quantity becomes zero", '? "Unavailable" : q.status', '? "0.0" : q.status',
+     "test_canonical_unknown_coverage_and_pickup"),
+    ("canonical package readout mismatch accepted", 'JSON.stringify(base.readout.decision) !== JSON.stringify(row.record)', 'false',
+     "test_canonical_identity_readout_and_pending_guards"),
     ("weekly basis accepted", 'else if (horizon !== HORIZON)', 'else if (false)', "test_weekly_never_blended"),
     ("weekly idea accepted", '(!rec.horizon || rec.horizon === HORIZON)', 'true', "test_weekly_never_blended"),
     ("ideas re-ranked", 'const recs = c.ideas.recommendations;',

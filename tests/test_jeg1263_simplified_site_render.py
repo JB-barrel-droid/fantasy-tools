@@ -16,6 +16,7 @@ import json
 import os
 import shutil
 import socketserver
+import subprocess
 import tempfile
 import threading
 import unittest
@@ -175,6 +176,38 @@ class SimplifiedSiteRenderTest(unittest.TestCase):
                          "Their trade-chart package −2.2."])
         self.assertEqual(page.locator(".ss-more .ss-rank").all_inner_texts(), ["2.", "3."])
         page.context.close()
+
+    def test_canonical_questions_navigation_and_unknown_at_every_width(self):
+        ctx = json.loads(subprocess.check_output(["node", str(ROOT / "tests/simplified_site_harness.cjs"), str(APP),
+                                                  "--canonical-fixture"], text=True))
+        for width in WIDTHS:
+            with self.subTest(width=width):
+                errors = []
+                page = self.open(ctx, width, errors=errors)
+                self.assert_layout(page, f"canonical@{width}")
+                self.assertEqual(page.inner_text(".ss-gain"), "Our starter value: +2.0 (DDF Projections).")
+                self.assertNotIn("999", page.inner_text("#v2Simplified"), "legacy edge is not canonical starter gain")
+                self.assertEqual(page.locator(".ss-questions li").evaluate_all("ns => ns.map(n => n.dataset.questionId)"),
+                                 ["our-starters", "our-roster", "their-starters", "their-roster"])
+                self.assertIn("not an exhaustive", page.inner_text(".ss-counts"))
+                for _ in range(3):
+                    page.locator("[data-detail-for]").first.click()
+                    page.wait_for_selector("#ssDetailTitle")
+                    self.assertEqual(page.evaluate("document.activeElement.id"), "ssDetailTitle")
+                    self.assertEqual(page.locator(".ss-questions li").count(), 4)
+                    self.assertIn("Canonical decision", page.inner_text(".ss-facts"))
+                    self.assert_layout(page, f"canonical detail@{width}")
+                    page.go_back()
+                    page.wait_for_selector("#v2Simplified[data-view=section]")
+                page.evaluate("""() => {const r=window.__SS_CTX.ideas.recommendations[0];
+                  r.record.questions[2]={...r.record.questions[2],status:'unknown',value:null,pass:null};
+                  r.record.label='Not judged';window.__ssHandle.update(false);}""")
+                self.assertIn("Unavailable", page.inner_text('[data-question-id="their-starters"]'))
+                self.assertIn("Unknown", page.inner_text('[data-question-id="their-starters"]'))
+                self.assertIn("0.0", page.inner_text(".ss-evidence"), "known package zero survives unknown starter result")
+                self.assertEqual(page.evaluate("window.__ssWrites"), [])
+                self.assertEqual(errors, [])
+                page.context.close()
 
     def test_deep_link_open_and_back_with_focus(self):
         first = FIXTURE["ideas"]["recommendations"][0]

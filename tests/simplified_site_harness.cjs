@@ -26,6 +26,30 @@ function eq(a, b, what) { if (JSON.stringify(a) !== JSON.stringify(b)) throw new
 function ok(v, what) { if (!v) throw new Error(what); }
 const withheld = vm => vm.answer === null && vm.more.length === 0 && vm.stretch.length === 0 && vm.detail === null;
 
+// Explicitly synthetic UI contract input, not a second calculator or a live recommendation fixture.
+function canonicalRow() {
+  const q = (id, subject, scope, value, basis) => ({id, subject, scope, value, basis, status: "known", pass: true,
+    label: {"our-starters": "Our starter value", "our-roster": "Our roster construction",
+      "their-starters": "Their market starter value", "their-roster": "Their roster construction"}[id],
+    sources: ["usatoday", "fantasypros"], coverage: {available: 2, total: 3, required: 2, text: "2 of 3"},
+    aggregation: "Supplied canonical method", sign: "positive is better for the subject", tolerance: 0.05,
+    ...(scope === "starters" ? {operator: subject === "mine" ? ">" : ">=", threshold: 0, tier: "any"} : {})});
+  return {id: "them|1|2", opponentId: "them", opponent: "Synthetic partner", give: [{player_key: "1", name: "Synthetic A"}],
+    receive: [{player_key: "2", name: "Synthetic B"}], edge: 999, record: {contract: "JEG-1483/1", label: "Other", natural: false,
+      partnerKind: "team", settings: {basis: "ddf_value_projections", market: "published-average"},
+      participants: {mine: "mine", theirs: "them"}, deal: {give: ["1"], get: ["2"]},
+      questions: [q("our-starters", "mine", "starters", 2, "ddf_value_projections"), q("our-roster", "mine", "roster", true, "ddf_value_projections"),
+        q("their-starters", "theirs", "starters", 0, "published-average"), q("their-roster", "theirs", "roster", true, "published-average")],
+      supporting: {theirs: {market: {package: q("support", "theirs", "package total", 0, "published-average")}}}}};
+}
+const canonicalResult = row => ({status: "ready", rows: [row], evaluated: 40, total: 20, hasMore: true,
+  bounded: true, capped: false, counts: {natural: 3, other: 15, unknown: 2, pickup: 0}});
+const canonicalOptions = {league: {name: "Synthetic canonical league", myTeam: "Synthetic A"},
+  fixture: {kind: "synthetic", label: "Synthetic UI contract, not a live answer."}};
+if (process.argv[3] === "--canonical-fixture") {
+  process.stdout.write(JSON.stringify(S.canonicalContext(canonicalResult(canonicalRow()), canonicalOptions))); process.exit(0);
+}
+
 // Contract tests use the real shared modules with a small, explicitly synthetic engine/roster. No recommendation
 // success is fabricated: the provider is absent, or throws if the pending-search guard calls it.
 function runtime() {
@@ -45,6 +69,63 @@ function runtime() {
 }
 
 const checks = {
+  test_canonical_authority_and_immutable_row_identity() {
+    const row = canonicalRow(); row.rank = 21;
+    const result = freeze(canonicalResult(row)), before = JSON.stringify(result);
+    const c = S.canonicalContext(result, canonicalOptions), v = S.viewModel(c, null);
+    eq(v.state, "answer", "canonical rows need no invented manager likelihood");
+    ok(c.ideas.recommendations[0] === row, "keep producer WeakMap/captured-row identity");
+    eq(v.answer.gainText, "+2.0", "use supplied starter quantity, ignore legacy edge999");
+    eq(v.answer.rank, 21, "canonical page rank is not reset by the presentation");
+    eq(v.answer.fitWord, "Other", "copy canonical label; never rejudge the four true flags");
+    eq(v.answer.evidence, "Their Published-chart average package: 0.0 · 2 of 3.", "known package zero retained");
+    eq(v.answer.questions.map(q => q.id), ["our-starters", "our-roster", "their-starters", "their-roster"], "four visible questions in canonical order");
+    ok(v.counts.includes("Evaluated 40") && v.counts.includes("20 match") && v.counts.includes("not an exhaustive")
+      && v.counts.includes("More results"), "copy producer page/bound disclosures");
+    eq(JSON.stringify(result), before, "canonical result never mutated");
+  },
+  test_canonical_unknown_coverage_and_pickup() {
+    for (const available of [0, 1, 2, 3]) {
+      const row = canonicalRow(), q = row.record.questions[2];
+      q.value = null; q.pass = null; q.status = "unknown"; q.coverage.text = `${available} of 3`;
+      row.record.label = "Not judged";
+      const v = S.viewModel(S.canonicalContext(canonicalResult(row), canonicalOptions), null);
+      eq(v.answer.questions[2].value, "Unavailable", "unknown never becomes zero");
+      eq(v.answer.questions[2].result, "Unknown", "unknown predicate stays unknown");
+      ok(v.answer.questions[2].meta.includes(`${available} of 3`), "source coverage copied, not recalculated");
+      eq(v.answer.fitWord, "Not judged", "source judgment preserved at every supplied coverage");
+      ok(v.answer.evidence.includes("0.0"), "known package evidence survives unknown starter judgment");
+    }
+    const row = canonicalRow(); row.give = []; row.record.deal.give = []; row.opponent = "Waivers";
+    row.record.partnerKind = "waivers"; row.record.label = "Pickup"; row.record.supporting.theirs = null;
+    row.record.questions.slice(2).forEach(q => {q.status = "not_applicable"; q.value = null; q.pass = null; q.reason = "Not applicable: Waivers";});
+    const v = S.viewModel(S.canonicalContext(canonicalResult(row), canonicalOptions), null);
+    eq(v.answer.fitWord, "Pickup", "Pickup label is not Natural fit");
+    eq(v.answer.offer, "Pick up Synthetic B from Waivers.", "add-only package needs no fictional drop");
+    eq(v.answer.evidence, "No other manager: Waivers.", "no fictional manager evidence");
+    eq(v.answer.questions.slice(2).map(q => q.status), ["not_applicable", "not_applicable"], "waiver predicates stay not applicable");
+  },
+  test_canonical_identity_readout_and_pending_guards() {
+    const row = canonicalRow(), result = canonicalResult(row);
+    const detail = S.canonicalContext(result, {...canonicalOptions, detailId: row.id,
+      readoutFor: got => {ok(got === row, "canonicalReadout sees original row"); return {decision: clone(got.record)};}});
+    ok(S.viewModel(detail, {detail: row.id}).readout, "matching shared readout carried to detail");
+    const mismatch = S.canonicalContext(result, {...canonicalOptions, detailId: row.id, readoutFor: () => ({decision: {}})});
+    eq(S.viewModel(mismatch, {detail: row.id}).state, "incomplete", "wrong package readout withheld");
+    for (const edit of [r => {r.record.deal.get = ["other"];}, r => {r.record.participants.theirs = "other";},
+      r => {r.record.questions[0].value = null;}, r => {r.record.questions[0].status = "unknown";}]) {
+      const bad = clone(row); edit(bad);
+      eq(S.viewModel(S.canonicalContext(canonicalResult(bad), canonicalOptions), null).state, "incomplete", "malformed identity/status cannot render");
+    }
+    for (const r of [null, {...result, cancelled: true}, {...result, status: "running"}])
+      eq(S.viewModel(S.canonicalContext(r, canonicalOptions), null).state, "loading", "pending/cancelled result is never shown");
+    eq(S.viewModel(S.canonicalContext({...result,status:'missing-partners',reason:'Choose partners'},canonicalOptions),null).state,
+      "incomplete", "missing partners do not masquerade as no result");
+    const page = S.viewModel(S.canonicalContext({...result, rows: [], total: 20, offset: 20}, canonicalOptions), null);
+    eq(page.heading, "No packages on this page", "empty page does not claim the full search has no results");
+    const r = runtime(); r.TradeValueTradeIdeas = {compute: () => ({recommendations:[row],stretch:[]})};
+    ok(S.liveContext(r).missing.some(x=>x.key==='canonical'), "legacy bridge cannot reprice a canonical package");
+  },
   test_name_and_route_are_exact() {
     eq(S.NAME, "Simplified site", "section name");
     eq(S.ROUTE, "#simplified-site", "route");

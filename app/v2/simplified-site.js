@@ -36,6 +36,68 @@
   const opps = () => (typeof module !== "undefined" && module.exports ? require("./opportunities.js") : root.TradeValueOpportunities);
   const plural = (n, one, many) => `${n} ${n === 1 ? one : (many || `${one}s`)}`;
   const names = list => list.map(p => p.name).join(" + ");
+  const QUESTION_IDS = ["our-starters", "our-roster", "their-starters", "their-roster"];
+  const basisName = key => ({ddf_value: "DDF Value", ddf_value_projections: "DDF Projections",
+    "published-average": "Published-chart average", fantasycalc: "FantasyCalc", usatoday: "USA Today",
+    fantasypros: "FantasyPros", cbs: "CBS"})[key] || String(key || "Unavailable");
+
+  // Consumer schema only: the canonical owner supplies every value, predicate, label and coverage decision.
+  function canonicalUsable(rec) {
+    const d = rec && rec.record;
+    const keys = list => list.map(p => String(p.player_key)).sort().join(",");
+    return Boolean(d && d.contract === "JEG-1483/1" && text(d.label) && d.participants && text(d.participants.mine)
+      && String(d.participants.theirs) === String(rec.opponentId) && text(rec.opponent) && rec.id
+      && Array.isArray(rec.give) && Array.isArray(rec.receive) && rec.receive.length
+      && (rec.give.length || d.partnerKind === "waivers") && rec.give.concat(rec.receive).every(p => p && text(p.name))
+      && d.deal && Array.isArray(d.deal.give) && Array.isArray(d.deal.get)
+      && keys(rec.give) === d.deal.give.map(String).sort().join(",") && keys(rec.receive) === d.deal.get.map(String).sort().join(",")
+      && Array.isArray(d.questions) && d.questions.length === 4 && d.questions.every((q, i) => q && q.id === QUESTION_IDS[i]
+        && text(q.label) && text(q.subject) && text(q.scope) && text(q.basis) && text(q.sign) && text(q.aggregation)
+        && Array.isArray(q.sources) && q.sources.every(text) && q.coverage && text(q.coverage.text) && "tolerance" in q
+        && (q.status === "known" ? typeof q.pass === "boolean" && (q.scope === "roster" ? typeof q.value === "boolean" : finite(q.value))
+          : ["unknown", "not_applicable"].includes(q.status) && q.value === null && q.pass === null)));
+  }
+
+  const quantityText = q => !q || q.status === "unknown" ? "Unavailable" : q.status === "not_applicable" ? q.reason || "Not applicable"
+    : typeof q.value === "boolean" ? q.value ? "Not hindered" : "Hindered" : opps().fmt(q.value);
+
+  function canonicalItem(rec, rank, stretch) {
+    const d = rec.record, q = d.questions[0], p = d.supporting?.theirs?.market?.package;
+    const questions = d.questions.map(q => ({id: q.id, label: q.label, status: q.status, value: quantityText(q),
+      result: q.status === "not_applicable" ? "Not applicable" : q.pass === null ? "Unknown" : q.pass ? "Pass" : "Does not pass",
+      meta: `${q.subject} · ${q.scope} · ${basisName(q.basis)} · ${q.coverage.text} · ${q.sign}`,
+      detail: `${q.aggregation}; sources: ${q.sources.join(", ") || "unavailable"}; tolerance: ${q.tolerance ?? "unavailable"}`
+        + (q.operator ? `; ${q.operator} ${q.threshold ?? "unavailable"} (${q.tier})` : "") + (q.reason ? `; ${q.reason}` : "")}));
+    return {id: rec.id, rank: Number.isInteger(rec.rank) && rec.rank > 0 ? rec.rank : rank, stretch,
+      href: routeFor(rec.id), opponent: rec.opponent, partnerKind: d.partnerKind,
+      give: names(rec.give) || "No drop", receive: names(rec.receive), gainText: quantityText(q),
+      gainLine: `${q.label}: ${quantityText(q)} (${basisName(q.basis)}).`, fitWord: d.label, canonical: true, questions,
+      evidence: d.partnerKind === "waivers" ? "No other manager: Waivers." : `Their ${basisName(p?.basis)} package: ${quantityText(p)}${p?.coverage?.text ? ` · ${p.coverage.text}` : ""}.`,
+      health: [], offer: d.partnerKind === "waivers" ? `Pick up ${names(rec.receive)} from ${rec.opponent}.`
+        : `Offer ${names(rec.give)} to ${rec.opponent} for ${names(rec.receive)}.`,
+      why: d.label, whyAll: [d.label], sources: [...new Set(d.questions.flatMap(q => q.sources))], fallback: null};
+  }
+
+  // Controller boundary for runCanonical's page. Preserve row identity/order so canonicalReadout(row) keeps its captured
+  // inputs. The caller owns generation, invalidation, pagination and shared settings; this function never runs a search.
+  function canonicalContext(result, options) {
+    const o = options || {}, base = {league: o.league || null, fixture: o.fixture, basis: o.basis || {horizon: HORIZON, label: "Canonical starter readout"},
+      missing: [], ideas: null, canonicalResult: result};
+    if (!result || result.cancelled || result.status === "cancelled" || result.status === "running") return {...base, status: "loading"};
+    if (result.status === "error") return {...base, status: "error", error: result.reason};
+    if (result.status !== "ready" || !Array.isArray(result.rows)) return {...base, status: "ready",
+      missing: [{key: "canonical", text: result.reason || "Canonical trade results are not ready."}]};
+    base.ideas = {recommendations: result.rows, stretch: [], counts: result.counts};
+    const row = o.detailId ? result.rows.find(r => r.id === o.detailId) : null;
+    if (row && o.readoutFor) {
+      base.readout = o.readoutFor(row);
+      if (!base.readout || JSON.stringify(base.readout.decision) !== JSON.stringify(row.record)) {
+        base.readout = null;
+        base.missing.push({key: "readout", text: "The shared readout does not match this canonical package."});
+      }
+    }
+    return {...base, status: "ready"};
+  }
 
   // ---------- the address ----------
   // hash -> {detail: trade id | null} when the hash is this section's, else null.
@@ -53,6 +115,7 @@
   // A trade idea the section can show as given: priced, both sides and the other manager named, a likelihood in one of the
   // existing bands, at least one why line, and every source it cites labelled (sources may be absent: "nothing available").
   function usable(rec) {
+    if (rec && "record" in rec) return canonicalUsable(rec);
     return Boolean(rec && rec.id && text(rec.opponent) && Array.isArray(rec.give) && rec.give.length && Array.isArray(rec.receive)
       && rec.receive.length && rec.give.concat(rec.receive).every(p => p && p.name) && finite(rec.ourGain) && BANDS.includes(rec.band)
       && rec.likelihood && Array.isArray(rec.why) && rec.why.length && rec.why.every(text)
@@ -73,13 +136,14 @@
       out.push("The trade ideas came back in a form this section cannot read.");
     } else {
       const bad = ideas.recommendations.concat(ideas.stretch || []).filter(rec => !usable(rec)).length;
-      if (bad) out.push(`${plural(bad, "trade idea is", "trade ideas are")} missing a value, a player, the other manager, a likelihood, a reason or a source label.`);
+      if (bad) out.push(`${plural(bad, "trade idea is", "trade ideas are")} missing required shared values, players, decisions or source metadata.`);
     }
     return out;
   }
 
   // ---------- the view model ----------
   function item(rec, rank, stretch, labels) {
+    if (rec.record) return canonicalItem(rec, rank, stretch);
     const O = opps();
     const gainText = O.fmt(rec.ourGain);
     const market = rec.gains && rec.gains.market;
@@ -137,12 +201,17 @@
     const recs = c.ideas.recommendations;
     const stretch = c.ideas.stretch || [];
     const labels = {value: vm.valueLabel, market: c.basis && c.basis.marketLabel || "trade-chart"};
-    vm.counts = countsLine(c.ideas.counts);
+    vm.counts = c.canonicalResult ? `Evaluated ${c.canonicalResult.evaluated ?? "unknown"} packages; ${c.canonicalResult.total ?? "unknown"} match this search.`
+      + (c.canonicalResult.bounded || c.canonicalResult.capped ? " Search limits apply; this is not an exhaustive league result." : "")
+      + (c.canonicalResult.hasMore ? " More results are available in the full dashboard." : "") : countsLine(c.ideas.counts);
     vm.stretch = stretch.map((rec, i) => item(rec, i + 1, true, labels));
     if (!recs.length) {
-      set("none", "No trade to recommend right now", "None of the trade opportunities is a gain for you that these managers may take.");
+      const emptyPage = c.canonicalResult && c.canonicalResult.total > 0;
+      set("none", emptyPage ? "No packages on this page" : "No trade to recommend right now", c.canonicalResult
+        ? emptyPage ? "Return to the full dashboard to choose another results page." : "No packages match this canonical search."
+        : "None of the trade opportunities is a gain for you that these managers may take.");
     } else {
-      set("answer", "Your best trade right now", "");
+      set("answer", c.canonicalResult ? "A package from your search" : "Your best trade right now", "");
       const all = recs.map((rec, i) => item(rec, i + 1, false, labels));
       vm.answer = all[0];
       vm.more = all.slice(1);
@@ -237,6 +306,10 @@
         const all = out.ideas.recommendations.concat(out.ideas.stretch || []);
         const rec = detail && detail.detail ? all.find(x => x.id === detail.detail) : all[0];
         if (rec) {
+          if (rec.record) {
+            out.missing.push({key: "canonical", text: "This canonical package needs its controller's captured shared readout."});
+            return out;
+          }
           out.readout = readoutFor(r, state.context, rec, snapshot, state.shape);
           const readout = out.readout;
           if (!readout || !readout.ready || ["mine", "theirs"].some(side => !readout.sides[side].ddf
@@ -260,6 +333,10 @@
     return node;
   }
   const band = x => el("span", {class: "ss-evidence", text: x.evidence});
+  const questionNodes = x => !x.questions ? [] : [el("ol", {class: "ss-questions"}, ...x.questions.map(q =>
+    el("li", {"data-question-id": q.id, "data-status": q.status}, el("b", {text: q.label}),
+      el("p", {text: `${q.value} · ${q.result}`}), el("p", {class: "ss-note", text: q.meta}),
+      el("p", {class: "ss-note", text: q.detail}))))];
 
   function card(x) {
     return el("li", {class: "ss-item", "data-trade-id": x.id},
@@ -267,6 +344,7 @@
         el("span", {class: "ss-rank", text: `${x.rank}.`}),
         el("a", {class: "ss-item-link", href: x.href, "data-detail-for": x.id, text: x.offer})),
       el("p", {class: "ss-item-meta"}, el("span", {class: "ss-gain", text: x.gainLine}), " ", band(x)),
+      ...questionNodes(x),
       ...x.health.map(line => el("p", {class: "ss-health", text: line})),
       x.why ? el("p", {class: "ss-why", text: x.why}) : null);
   }
@@ -279,9 +357,10 @@
       el("dl", {class: "ss-facts"},
         el("dt", {text: "You give"}), el("dd", {text: x.give}),
         el("dt", {text: "You get"}), el("dd", {text: x.receive}),
-        el("dt", {text: "Your gain"}), el("dd", {text: `${x.gainText} in ${vm.valueLabel}`}),
+        el("dt", {text: x.canonical ? "Your starter change" : "Your gain"}), el("dd", {text: x.canonical ? x.gainLine : `${x.gainText} in ${vm.valueLabel}`}),
         el("dt", {text: "Their package evidence"}), el("dd", {}, band(x), " ", el("span", {class: "ss-note", text: vm.appealNote})),
-        x.fitWord ? el("dt", {text: "Current engine fit"}) : null, x.fitWord ? el("dd", {text: x.fitWord}) : null),
+        x.fitWord ? el("dt", {text: x.canonical ? "Canonical decision" : "Current engine fit"}) : null, x.fitWord ? el("dd", {text: x.fitWord}) : null),
+      ...questionNodes(x),
       el("h3", {text: "Why"}),
       ...x.health.map(line => el("p", {class: "ss-health", text: line})),
       el("ul", {class: "ss-lines"}, ...x.whyAll.map(line => el("li", {text: line}))),
@@ -293,6 +372,7 @@
         x.stretch ? el("li", {text: "Other package from the same search; inspect their side's evidence."}) : null));
     if (vm.readout) {
       [["mine", "Your roster"], ["theirs", `${x.opponent}'s roster`]].forEach(([who, title]) => {
+        if (x.partnerKind === "waivers" && who === "theirs") return;
         detail.append(el("h3", {text: title}));
         ["ddf", "market", "projections"].forEach(view => detail.append(root.TradeValueReadout.renderSide(vm.readout, who, view)));
       });
@@ -330,6 +410,7 @@
       status.append(
         el("p", {class: "ss-offer", text: a.offer}),
         el("p", {class: "ss-item-meta"}, el("span", {class: "ss-gain", text: a.gainLine}), " ", band(a)),
+        ...questionNodes(a),
         ...a.health.map(line => el("p", {class: "ss-health", text: line})),
         a.why ? el("p", {class: "ss-why", text: a.why}) : null,
         el("p", {class: "ss-note", text: vm.appealNote}),
@@ -431,7 +512,7 @@
     return mounted;
   }
 
-  const api = {NAME, ROUTE, HORIZON, GATES, parseRoute, routeFor, usable, gaps, viewModel, countsLine, liveContracts, readoutFor, liveContext, render, mount, activate};
+  const api = {NAME, ROUTE, HORIZON, GATES, parseRoute, routeFor, usable, canonicalUsable, canonicalContext, gaps, viewModel, countsLine, liveContracts, readoutFor, liveContext, render, mount, activate};
   if (typeof module !== "undefined" && module.exports) { module.exports = api; return; }
   root.TradeValueSimplifiedSite = api;
 })(typeof window !== "undefined" ? window : globalThis);
