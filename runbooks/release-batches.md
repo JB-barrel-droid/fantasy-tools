@@ -14,7 +14,10 @@ review, approval, provider and value-math gates still apply.
 The PR `batch-ownership` check validates exclusive reservations and registry
 transitions using main's code. It reports a reserved member as owned, without
 making that member's application CI unusable on synchronize; the ordinary merge
-preflight still rejects it. The merge runbook requires the same preflight
+preflight still rejects it. This ownership-only check pins the registry blob,
+so unrelated main commits do not invalidate unchanged membership. Actual
+`--pr`/`--batch` merge preflights still require the exact main SHA at both reads;
+an ownership-only receipt never establishes release readiness. The merge runbook requires the same preflight
 immediately before each merge; it freezes individual merges during an active
 batch, rejects stale main/member/integration heads and missing CI/review evidence,
 and blocks progression without publication/live acceptance. These commands do
@@ -191,3 +194,12 @@ summary exposes that limit. Do not present the dashboard as freshly published
 because a status-only workflow succeeded. Fresh holds that need rebaking remain
 owned by the producer's existing chain dispatch; this classifier never suppresses
 that workflow. A status-only classification cannot become a publication anchor.
+
+
+## Remaining main-write churn
+
+Skipping Pages does not stop operational commits from moving main. The concrete
+[status delivery separation proposal](../docs/claude-log/2026-11-05-jeg1484-status-main-separation.md)
+uses a data-only branch with existing App permissions, verified public readers,
+served-health arrival checks and pinned fidelity inputs. It requires coordinated
+writer/consumer cutover and live acceptance; none is activated by this PR.

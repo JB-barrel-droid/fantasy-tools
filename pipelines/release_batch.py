@@ -270,13 +270,24 @@ def main():
     group.add_argument('--pr', type=int, help='ordinary merge preflight (no merge is performed)')
     group.add_argument('--batch', help='integration preflight; requires --head')
     group.add_argument('--check-ownership', type=int, help='cheap PR gate against main reservations')
-    parser.add_argument('--main', required=True, help='exact expected current main SHA')
+    parser.add_argument('--main', required=True, help='pinned main SHA; ownership-only checks pin its registry blob')
     parser.add_argument('--head', help='exact expected integration head SHA')
     args = parser.parse_args()
     try:
         git('fetch', '--no-tags', 'origin', 'main')
         tip = git('rev-parse', 'FETCH_HEAD')
-        require(tip == args.main, 'main advanced; regenerate evidence')
+        registry_blob = None
+        if args.check_ownership:
+            # This lightweight check establishes membership, not merge readiness.
+            # Pin the actual ownership data so bot/status commits cannot poison
+            # source CI; every real --pr/--batch merge gate still pins main itself.
+            require(SHA.fullmatch(args.main) and SHA.fullmatch(tip), 'invalid registry source head')
+            registry_blob = git('rev-parse', f'{args.main}:{REGISTRY}')
+            require(SHA.fullmatch(registry_blob), 'missing registry blob')
+            require(git('rev-parse', f'{tip}:{REGISTRY}') == registry_blob,
+                    'registry changed; refresh ownership evidence')
+        else:
+            require(tip == args.main, 'main advanced; regenerate evidence')
         doc = json.loads(git('show', f'{tip}:{REGISTRY}'))
         active = registry(doc)
         if args.check_ownership:
@@ -313,8 +324,16 @@ def main():
             require(git('rev-parse', 'FETCH_HEAD') == args.head, 'integration head advanced')
             manifest = json.loads(git('show', f'{args.head}:{MANIFEST}'))
             preflight(doc, manifest, tip, args.head)
-        require(api('git/ref/heads/main')['object']['sha'] == tip, 'main advanced during preflight')
+        latest_main = api('git/ref/heads/main')['object']['sha']
+        if args.check_ownership:
+            require(SHA.fullmatch(latest_main), 'invalid registry source head')
+            if latest_main != tip:
+                require(api(f'contents/{REGISTRY}?ref={latest_main}')['sha'] == registry_blob,
+                        'registry changed during ownership check')
+        else:
+            require(latest_main == tip, 'main advanced during preflight')
         print(json.dumps({'passed': True, 'main': tip, 'head': args.head, 'batch': args.batch,
+                          'ownership_only': bool(args.check_ownership), 'registry_blob': registry_blob,
                           'checked_at': datetime.now(timezone.utc).isoformat()}))
         return 0
     except Exception as exc:

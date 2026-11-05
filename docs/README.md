@@ -122,3 +122,5 @@ The documentation-store work is tracked under JEG-583 in Linear. The consolidati
 | [jeg-1458-egress-rollup.md](jeg-1458-egress-rollup.md) | Record | - | - | Actions byte-counter attribution, offline/gh rollup, and uncovered traffic. |
 
 - [JEG-1484 release batch implementation evidence](claude-log/2026-11-03-jeg1484-release-batches.md) — executable preflight, status-only Pages behavior and validation.
+
+- [JEG-1484 status/main separation and resume evidence](claude-log/2026-11-05-jeg1484-status-main-separation.md) — current-main ownership check, unknown prior validation result, and coordinated data-branch delivery proposal.

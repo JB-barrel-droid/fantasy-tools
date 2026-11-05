@@ -158,6 +158,51 @@ class BatchTest(unittest.TestCase):
         self.assertIn('individual merge preflight remains blocked', output.getvalue())
         with self.assertRaises(ValueError): gate.ordinary(self.doc, 10)
 
+    def ownership_cli(self, fetched=A, latest=A, initial_blob=B, fetched_blob=B, latest_blob=B, merge_mode=False):
+        import contextlib
+        import sys
+        def run_git(*args):
+            if args == ('rev-parse', 'FETCH_HEAD'): return fetched
+            if args[0] == 'show': return json.dumps({'version': 1, 'batches': []})
+            if args[0] == 'rev-parse':
+                return initial_blob if args[1] == f'{A}:{gate.REGISTRY}' else fetched_blob
+            return ''
+        def api(path):
+            if path == 'git/ref/heads/main': return {'object': {'sha': latest}}
+            if path == f'contents/{gate.REGISTRY}?ref={latest}': return {'sha': latest_blob}
+            raise AssertionError(path)
+        argv = ['release_batch.py', '--pr' if merge_mode else '--check-ownership', '99', '--main', A]
+        output, errors = io.StringIO(), io.StringIO()
+        with patch.object(sys, 'argv', argv), patch.object(gate, 'git', side_effect=run_git), \
+             patch.object(gate, 'api', side_effect=api), patch.object(gate, 'items', return_value=[]), \
+             contextlib.redirect_stdout(output), contextlib.redirect_stderr(errors):
+            result = gate.main()
+        return result, output.getvalue(), errors.getvalue()
+
+    def test_ownership_pins_registry_while_unrelated_main_advances(self):
+        for fetched, latest in ((D, D), (A, D), (D, C)):
+            with self.subTest(fetched=fetched, latest=latest):
+                result, output, errors = self.ownership_cli(fetched=fetched, latest=latest)
+                self.assertEqual(result, 0, errors)
+                receipt = json.loads(output.splitlines()[-1])
+                self.assertTrue(receipt['ownership_only'])
+                self.assertEqual(receipt['registry_blob'], B)
+
+    def test_ownership_still_blocks_registry_changes_and_missing_evidence(self):
+        for fields in ({'fetched': D, 'fetched_blob': C}, {'latest': D, 'latest_blob': C},
+                       {'fetched': D, 'fetched_blob': ''}, {'latest': D, 'latest_blob': None}):
+            with self.subTest(fields=fields):
+                result, _, errors = self.ownership_cli(**fields)
+                self.assertEqual(result, 1)
+                self.assertIn('registry', errors)
+
+    def test_ordinary_release_preflight_still_requires_exact_main_at_both_reads(self):
+        for fields in ({'fetched': D}, {'latest': D}):
+            with self.subTest(fields=fields):
+                result, _, errors = self.ownership_cli(merge_mode=True, **fields)
+                self.assertEqual(result, 1)
+                self.assertIn('main advanced', errors)
+
 
 class EvidenceTest(unittest.TestCase):
     def ci_api(self, path):
