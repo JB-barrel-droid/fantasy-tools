@@ -14,13 +14,37 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   record:
     runs-on: ${{ vars.DATA_RUNNER || 'ubuntu-latest' }}
     steps:
       - uses: actions/checkout@v4
+      - name: Distinguish publication from status/control-only success
+        id: publication
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID/jobs?per_page=100" > /tmp/pages-jobs.json
+          python3 - <<'PYCODE'
+          import json, os
+          jobs = json.load(open('/tmp/pages-jobs.json'))
+          if jobs['total_count'] != len(jobs['jobs']):
+              raise SystemExit('Incomplete deploy job evidence')
+          # Preserve failures as failures. Only an intentionally skipped deploy
+          # with a successful classifier is a no-publication observation.
+          by_name = {j['name']: j['conclusion'] for j in jobs['jobs']}
+          noop = by_name.get('classify') == 'success' and by_name.get('deploy') == 'skipped'
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as out:
+              out.write('record=' + ('false' if noop else 'true') + '\n')
+          if noop:
+              with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as out:
+                  out.write('Status/control-only run: no publication; site_deploy observation unchanged. Live status remains at last publication.\n')
+          PYCODE
       - name: Record monitored check
+        if: steps.publication.outputs.record == 'true'
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}

@@ -103,9 +103,10 @@ def check_preview(preview_text, pages_text):
             problems.append(f"{command}: continue-on-error differs from pages.yml")
     for name in ("preview-build", "preview-shard"):
         body = job(preview_text, name) or ""
+        pages_body = job(pages_text, "build" if name == "preview-build" else "validate-shard")
         for key in ("python-version", "fetch-depth"):
-            if setting(pages_text, key) != setting(body, key):
-                problems.append(f"{name}: {key} differs: pages={setting(pages_text, key)!r} "
+            if setting(pages_body, key) != setting(body, key):
+                problems.append(f"{name}: {key} differs: pages={setting(pages_body, key)!r} "
                                 f"preview={setting(body, key)!r}")
         ref = setting(body, "ref")
         if not ref or "pull_request.head.sha" not in ref:
@@ -167,6 +168,9 @@ def shard_problems(preview_text, name="preview-shard"):
         if not re.search(r"^    needs: pr-state$", shard, re.M) or not condition or \
                 condition.group(1) != "needs.pr-state.outputs.run_expensive == 'true'":
             problems.append("preview-shard must run only after the PR-state gate allows full verification")
+    elif name == "validate-shard":
+        if not condition or condition.group(1) != "needs.classify.outputs.mode == 'full'":
+            problems.append('Pages shards require full classification')
     elif condition:
         problems.append(f"{name} must run unconditionally (no job-level if:)")
     if not re.search(r"^      fail-fast: false$", shard, re.M):

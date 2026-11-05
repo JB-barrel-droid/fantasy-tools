@@ -1,0 +1,31 @@
+name: Release batch ownership
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+permissions:
+  contents: read
+  actions: read
+  pull-requests: read
+jobs:
+  batch-ownership:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      # Run trusted main's gate, never a member PR's edited copy.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          fetch-depth: 0
+      - name: Check exclusive membership
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          git fetch --no-tags origin main
+          main_sha=$(git rev-parse FETCH_HEAD)
+          # Bootstrap only: no registry on pre-install main means no reservations.
+          if ! git cat-file -e "$main_sha:.github/release-batches.json"; then
+            echo 'Batch registry not installed on main yet; no reservations.' >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          python3 pipelines/release_batch.py --check-ownership "$PR_NUMBER" --main "$main_sha"
