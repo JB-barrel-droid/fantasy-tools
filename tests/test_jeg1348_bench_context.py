@@ -52,6 +52,73 @@ console.log(JSON.stringify(missing));
         qb3 = next(r for r in data["rows"] if r["id"] == "O3.QB.d3")
         self.assertEqual((qb3["rate"], qb3["breakouts"], qb3["n"]), (0, 0, 132))
 
+    def test_malformed_and_wrong_cohort_rows_stay_unavailable(self):
+        result = node(r'''
+const fs = require('fs'), vm = require('vm'); global.window = global;
+vm.runInThisContext(fs.readFileSync('app/v2/bench-breakout-evidence.js', 'utf8'));
+vm.runInThisContext(fs.readFileSync('app/v2/bench-context.js', 'utf8'));
+const mutations = [
+  e => { e.rows[0] = null; },
+  e => { e.rows[0] = []; },
+  e => { e.rows[0] = 'unavailable'; },
+  e => { e.rows[0].id = 'O1.QB.d1'; },
+  e => { e.rows[0].id = 'O3.RB.d1'; },
+  e => { delete e.rows[0].id; },
+];
+console.log(JSON.stringify(mutations.map(mutate => {
+  const e = JSON.parse(JSON.stringify(TradeValueBenchEvidence)); mutate(e);
+  return TradeValueBenchContext.evidenceRows(e);
+})));
+''')
+        self.assertEqual(result, [None] * 6,
+                         "malformed or misidentified evidence must not crash or display as counted O3")
+
+    def test_all_fixture_windows_keep_measured_context_and_fixed_history_separate(self):
+        result = node(r'''
+const fs = require('fs'), vm = require('vm');
+const source = fs.readFileSync('app/trade-value-chart/assets/curve-widget.js', 'utf8');
+const start = source.indexOf('  function benchShareReadout() {');
+const fn = source.slice(start, source.indexOf('  // Backward-compatible entry:', start));
+const config = JSON.parse(fs.readFileSync('config/lineup_parameters.json'));
+const cases = JSON.parse(fs.readFileSync('tests/fixtures/jeg1348_bench_context.json')).cases;
+const s = {lineupConfig: config, lineupConfigError: null,
+  pipeline: {benchShare: {QB: .1, RB: .2, WR: .3, TE: .4, overall: .25, override: false}}};
+s.window = s; vm.createContext(s); vm.runInContext(fn, s);
+vm.runInContext(fs.readFileSync('app/v2/bench-breakout-evidence.js', 'utf8'), s);
+vm.runInContext(fs.readFileSync('app/v2/bench-context.js', 'utf8'), s);
+const rows = JSON.stringify(s.TradeValueBenchContext.evidenceRows(s.TradeValueBenchEvidence));
+const results = cases.map(c => {
+  s.pipeline.lineup = {content_week: c.settings.contentWeek, window: [...c.window]};
+  const readout = s.benchShareReadout();
+  return {name:c.name, readout, text:s.TradeValueBenchContext.measuredText(readout),
+    historyUnchanged:rows === JSON.stringify(s.TradeValueBenchContext.evidenceRows(s.TradeValueBenchEvidence))};
+});
+const unknown = [null, {}, {byes:{}}, {byes:{ARI:null}}, {byes:{ARI:'10'}}].map(config => {
+  s.lineupConfig = config;
+  const readout = s.benchShareReadout();
+  return {readout, text:s.TradeValueBenchContext.measuredText(readout)};
+});
+console.log(JSON.stringify({results,unknown}));
+''')
+        self.assertEqual(len(result["results"]), 8)
+        for case, actual in zip(CASES["cases"], result["results"]):
+            with self.subTest(case=case["name"]):
+                readout = actual["readout"]
+                self.assertEqual(actual["name"], case["name"])
+                self.assertEqual(readout["window"], case["window"])
+                self.assertEqual((readout["weeksLeft"], readout["byesLeft"]),
+                                 (case["weeks"], case["byes"]))
+                self.assertEqual((readout["overall"], readout["override"]), (.25, False))
+                noun = "week" if case["weeks"] == 1 else "weeks"
+                self.assertTrue(actual["text"].startswith(f"Measured: {case['weeks']} {noun} left"))
+                self.assertIn(f"{case['byes']} of 32 teams have a bye", actual["text"])
+                self.assertTrue(actual["historyUnchanged"])
+        for unknown in result["unknown"]:
+            self.assertEqual(unknown["readout"]["weeksLeft"], 0)
+            self.assertIsNone(unknown["readout"]["byesLeft"])
+            self.assertIsNone(unknown["readout"]["byeTeams"])
+            self.assertIn("byes left unavailable", unknown["text"])
+
     def test_missing_counts_and_mislabelled_evidence_are_rejected(self):
         original = json.loads(asset.MATRIX.read_bytes())
         for field, value in (("n", None), ("n", 0), ("evidence", "measured"), ("window", "week 17")):

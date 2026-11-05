@@ -21,7 +21,8 @@
         || evidence.evidence !== "historical" || evidence.measureWeek !== 9
         || evidence.teams !== 12 || evidence.seasons !== "2015–2025"
         || typeof evidence.basis !== "string" || !evidence.basis.trim()
-        || !Array.isArray(evidence.rows)) return null;
+        || !Array.isArray(evidence.rows)
+        || !evidence.rows.every(row => row && typeof row === "object" && !Array.isArray(row))) return null;
     const rows = [];
     for (const pos of POSITIONS) {
       const cells = [];
@@ -29,7 +30,8 @@
         const found = evidence.rows.filter(row => row.position === pos && row.depth === depth);
         if (found.length !== 1) return null;
         const row = found[0];
-        if (!Number.isFinite(row.rate) || row.rate < 0 || row.rate > 1
+        if (row.id !== `O3.${pos}.d${depth}`
+            || !Number.isFinite(row.rate) || row.rate < 0 || row.rate > 1
             || !Number.isInteger(row.n) || row.n <= 0 || !Number.isInteger(row.breakouts)
             || row.breakouts < 0 || row.breakouts > row.n
             || Math.abs(row.rate - row.breakouts / row.n) > 0.000051) return null;

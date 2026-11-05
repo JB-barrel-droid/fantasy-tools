@@ -93,3 +93,35 @@ unchanged. The original integration patch remains the coordinator's handoff.
 - The earlier dependency-edit denial is preserved. The request to replace
   JEG-1348's blocked-by links was not retried, altered or performed indirectly.
   Integration/wording/high-risk review ownership stays with the coordinator.
+
+### 2026-11-05 owned-module continuation
+
+- Resumed from exact local author head `932ec24c8c82fed9d93e921079097e8cf511533c`.
+  Parent reports JEG-1176/#1304 has sole writer `01a1a86f` and full validation
+  active at `a5add978`; no repair objects were fetched or reconstructed, and
+  no combined execution or browser/heavy validation was started here.
+- Reproduced two display-boundary failures: a null historical row throws
+  during filtering, and an O1/mismatched row ID renders under the O3 cohort.
+  The owned `bench-context.js` now rejects malformed rows and requires the
+  exact O3 position/depth ID before displaying counts. No rate, count, cohort,
+  valuation, ranking or default changed.
+- Added a regression that errors before the guard and passes afterward for
+  null/array/string rows, wrong O1/position IDs and a missing ID. Added pure
+  readout/formatter coverage for all eight committed fixture windows and five
+  unknown-bye configurations, including zero-week windows. Fixed historical
+  rows stay identical across those injected resolved windows; this does not
+  execute the objective resolver, history preloader or value pipeline.
+- `PYTHONDONTWRITEBYTECODE=1 python3 -m unittest -v
+  tests.test_jeg1348_bench_context tests.test_validate_shards`: 24 tests passed
+  (8 bench, 16 registration), 0.158 seconds. Module syntax, evidence-asset
+  `--check` and `git diff --check` passed. These are scoped author checks,
+  not renewed full qualification or independent review.
+- Working-file hashes confirm Makefile, curve-widget.js, v2.js and the page
+  builder stayed unchanged. Existing generated churn was preserved. Prior
+  `/tmp/jeg1348-composition-*` artifacts were absent when this environment
+  resumed; none were removed or recreated. The committed integration patch
+  remains unchanged. Combined execution stays with the repair/integration
+  lane; this continuation makes no current-main compatibility claim.
+- No remote operations, denied-route retries, PR promotion, merge or deploy.
+  PR #1292 remains queued as a draft; previous PR-description, Linear-post
+  and dependency-edit denials are preserved.
