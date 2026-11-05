@@ -72,6 +72,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "pipelines"))
 from nfl_week import content_week_start, current_nfl_week, today_ny  # noqa: E402
+from lib.timestamps import parse_iso_timestamp  # noqa: E402
 
 sys.path.insert(0, str(ROOT / "pipelines" / "lib"))
 from games_remaining import PPG_DECIMALS  # noqa: E402  (bake_players' per-game precision)
@@ -126,7 +127,7 @@ def pulled_week_ny(value) -> int | None:
     if len(text) <= 10:
         return None
     try:
-        moment = datetime.fromisoformat(text.replace("Z", "+00:00"))
+        moment = parse_iso_timestamp(text)
     except ValueError:
         return None
     if moment.tzinfo is None:
