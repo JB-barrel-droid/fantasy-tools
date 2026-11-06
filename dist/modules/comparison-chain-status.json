@@ -1,28 +1,34 @@
 {
-  "run_at": "2026-11-06T00:51:52.882423+00:00",
+  "run_at": "2026-11-06T01:11:01.147400+00:00",
   "nfl_week": 9,
   "sources": {
     "usatoday": "promoted 3/3",
-    "fantasycalc": "promoted 3/3",
+    "fantasycalc": "promoted 3/3 (WARNING list changed, filled in from other charts: fantasycalc-full-12-qb1-section full_12_qb1/QB list 35 -> 36: dropped tanner mckee; added carson wentz, fernando mendoza | fantasycalc-full-12-qb1-section full_12_qb1/TE list 27 -> 28: dropped none; added mason taylor | fantasycalc-half-12-qb1-section half_12_qb1/QB list 35 -> 36: dropped tanner mckee; added carson wentz, fernando mendoza | fantasycalc-half-12-qb1-section half_12_qb1/TE list 27 -> 28: dropped none; added mason taylor | fantasycalc-standard-12-qb1-section standard_12_qb1/QB list 35 -> 36: dropped tanner mckee; added carson wentz, fernando mendoza | fantasycalc-standard-12-qb1-section standard_12_qb1/TE list 27 -> 28: dropped none; added mason taylor)",
     "fantasypros": "promoted 3/3",
     "espn": "promoted 1/1",
     "cbs": "promoted 3/3",
     "cbsros": "promoted 1/1",
     "razzball": "promoted 1/1"
   },
-  "failed": [
-    "post_rebuild_validation"
-  ],
-  "success": false,
-  "outcome": "failed",
+  "failed": [],
+  "success": true,
+  "outcome": "published_with_holds",
   "held": [
     "espn",
-    "fantasycalc",
     "razzball",
     "usatoday"
   ],
   "hold_severity": "red",
-  "list_changes": {},
+  "list_changes": {
+    "fantasycalc": [
+      "fantasycalc-full-12-qb1-section full_12_qb1/QB list 35 -> 36: dropped tanner mckee; added carson wentz, fernando mendoza",
+      "fantasycalc-full-12-qb1-section full_12_qb1/TE list 27 -> 28: dropped none; added mason taylor",
+      "fantasycalc-half-12-qb1-section half_12_qb1/QB list 35 -> 36: dropped tanner mckee; added carson wentz, fernando mendoza",
+      "fantasycalc-half-12-qb1-section half_12_qb1/TE list 27 -> 28: dropped none; added mason taylor",
+      "fantasycalc-standard-12-qb1-section standard_12_qb1/QB list 35 -> 36: dropped tanner mckee; added carson wentz, fernando mendoza",
+      "fantasycalc-standard-12-qb1-section standard_12_qb1/TE list 27 -> 28: dropped none; added mason taylor"
+    ]
+  },
   "held_detail": {
     "usatoday": {
       "reason": "fidelity: publisher_vs_stored",
@@ -34,18 +40,6 @@
       ],
       "detail": "927/927 values match exactly across 6 columns; 1 publisher names do not resolve to a canonical player",
       "hold_severity": "amber",
-      "week": 9
-    },
-    "fantasycalc": {
-      "reason": "fidelity: publisher_vs_stored",
-      "held_series": [
-        "fantasycalc"
-      ],
-      "sections": [
-        "fantasycalc"
-      ],
-      "detail": "17/1145 values match exactly across 6 columns; 1128 values differ, 15 outside the movement band; 1 live players not stored, 0 stored players not live (above the list's churn line); 15 players entered or left the bottom of the list since the save (churn)",
-      "hold_severity": "red",
       "week": 9
     },
     "espn": {
@@ -90,10 +84,17 @@
       "source": "fantasycalc",
       "status": "ok",
       "stage": "complete",
-      "detail": "promoted 3/3",
+      "detail": "promoted 3/3; WARNING list changed, filled in from other charts (OC-5): fantasycalc-full-12-qb1-section full_12_qb1/QB list 35 -> 36: dropped tanner mckee; added carson wentz, fernando mendoza | fantasycalc-full-12-qb1-section full_12_qb1/TE list 27 -> 28: dropped none; added mason taylor | fantasycalc-half-12-qb1-section half_12_qb1/QB list 35 -> 36: dropped tanner mckee; added carson wentz, fernando mendoza | fantasycalc-half-12-qb1-section half_12_qb1/TE list 27 -> 28: dropped none; added mason taylor | fantasycalc-standard-12-qb1-section standard_12_qb1/QB list 35 -> 36: dropped tanner mckee; added carson wentz, fernando mendoza | fantasycalc-standard-12-qb1-section standard_12_qb1/TE list 27 -> 28: dropped none; added mason taylor",
       "promoted": 3,
       "sections": 3,
-      "list_change_warnings": []
+      "list_change_warnings": [
+        "fantasycalc-full-12-qb1-section full_12_qb1/QB list 35 -> 36: dropped tanner mckee; added carson wentz, fernando mendoza",
+        "fantasycalc-full-12-qb1-section full_12_qb1/TE list 27 -> 28: dropped none; added mason taylor",
+        "fantasycalc-half-12-qb1-section half_12_qb1/QB list 35 -> 36: dropped tanner mckee; added carson wentz, fernando mendoza",
+        "fantasycalc-half-12-qb1-section half_12_qb1/TE list 27 -> 28: dropped none; added mason taylor",
+        "fantasycalc-standard-12-qb1-section standard_12_qb1/QB list 35 -> 36: dropped tanner mckee; added carson wentz, fernando mendoza",
+        "fantasycalc-standard-12-qb1-section standard_12_qb1/TE list 27 -> 28: dropped none; added mason taylor"
+      ]
     },
     "fantasypros": {
       "source": "fantasypros",
@@ -223,7 +224,7 @@
     "fantasycalc": {
       "served_week": 9,
       "label_week": 9,
-      "published_at": "2026-11-05T18:05:29+00:00",
+      "published_at": "2026-11-06T01:05:24+00:00",
       "basis": "section_label",
       "expected_week": 9,
       "weeks_behind": 0,
@@ -270,25 +271,7 @@
   "stale_rule": "a source still serving week N after Thursday 12:00 CT of week N+1 is stale (Jeremy, 2026-10-27, JEG-1176); a warning only, never a chain failure",
   "fidelity_holds": {
     "usatoday": "fidelity: publisher_vs_stored",
-    "fantasycalc": "fidelity: publisher_vs_stored",
     "espn": "fidelity: scrape_validity",
     "razzball": "fidelity: scrape_validity"
-  },
-  "post_rebuild_validation": {
-    "status": "failed",
-    "command": "make validate",
-    "failed_tests": [
-      "FAIL tests.test_rank_guard.TestEngineKeepsOrderInTransition.test_lagging_charts_keep_order_in_their_own_week",
-      "FAIL tests.test_rank_guard.TestEngineKeepsOrderInTransition.test_the_replay_is_a_transition"
-    ],
-    "assertions": [
-      "AssertionError: Lists differ: [\"('ppr', 12, 'null') fantasycalc: 1690 in[438 chars]5}]\"] != []",
-      "AssertionError: 7 not found in [9, 8] : (('ppr', 12), {'week': 8, 'selected': False, 'default_week': 8, 'newest': 9, 'previous': 8, 'transition': True, 'weeks': [9, 8], 'on_newest': 2, 'total': 4, 'views': {'8': {'sources': ['cbs', 'cbsros', 'fantasypros', 'usatoday'], 'missing_sources': []}, '9': {'sources': ['cbsros', 'fantasypros'], 'missing_sources': ['cbs', 'usatoday']}}, 'servedWeeks': {'espn': 9, 'cbsros': 9, 'razzball': 9, 'fantasycalc': 9, 'usatoday': 8, 'fantasypros': 9, 'cbs': 8}, 'missingSaved': {}})"
-    ],
-    "make_targets": [
-      "Makefile:676: test-core"
-    ],
-    "detail": "FAIL tests.test_rank_guard.TestEngineKeepsOrderInTransition.test_lagging_charts_keep_order_in_their_own_week; FAIL tests.test_rank_guard.TestEngineKeepsOrderInTransition.test_the_replay_is_a_transition; AssertionError: Lists differ: [\"('ppr', 12, 'null') fantasycalc: 1690 in[438 chars]5}]\"] != []; AssertionError: 7 not found in [9, 8] : (('ppr', 12), {'week': 8, 'selected': False, 'default_week': 8, 'newest': 9, 'previous': 8, 'transition': True, 'weeks': [9, 8], 'on_newest': 2, 'total': 4, 'views': {'8': {'sources': ['cbs', 'cbsros', 'fantasypros', 'usatoday'], 'missing_sources': []}, '9': {'sources': ['cbsros', 'fantasypros'], 'missing_sources': ['cbs', 'usatoday']}}, 'servedWeeks': {'espn': 9, 'cbsros': 9, 'razzball': 9, 'fantasycalc': 9, 'usatoday': 8, 'fantasypros': 9, 'cbs': 8}, 'missingSaved': {}})",
-    "recorded_at": "2026-11-06T01:08:16.201060+00:00"
   }
 }
