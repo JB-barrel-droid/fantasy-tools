@@ -339,7 +339,7 @@ jobs:
           python3 pipelines/fidelity_hold.py apply --week ${{ steps.week.outputs.nfl_week }} \
             || echo "::warning title=fidelity-hold::the fidelity hold step failed; see the log"
           set +e
-          env -u SUPABASE_URL -u SUPABASE_SERVICE_KEY make validate > output/post-rebuild-validate.log 2>&1
+          env -u SUPABASE_URL -u SUPABASE_SERVICE_KEY python3 pipelines/candidate_evidence.py run --kind validation -- make validate > output/post-rebuild-validate.log 2>&1
           rc=$?
           set -e
           cat output/post-rebuild-validate.log || echo "::warning::initial validation log could not be read"
@@ -355,7 +355,7 @@ jobs:
             # Re-run the COMPLETE gate once on the rolled-back fixture. Never
             # rerun the source chain or publish before confirm succeeds.
             set +e
-            env -u SUPABASE_URL -u SUPABASE_SERVICE_KEY make validate > output/post-rebuild-validate-retry.log 2>&1
+            env -u SUPABASE_URL -u SUPABASE_SERVICE_KEY python3 pipelines/candidate_evidence.py run --kind validation -- make validate > output/post-rebuild-validate-retry.log 2>&1
             retry_rc=$?
             set -e
             cat output/post-rebuild-validate-retry.log || echo "::warning::retry validation log could not be read"
@@ -756,6 +756,15 @@ jobs:
         run: |
           if [ -f output/value-check-prehold.md ]; then echo "### Before holds" >> "$GITHUB_STEP_SUMMARY"; cat output/value-check-prehold.md >> "$GITHUB_STEP_SUMMARY"; fi
           if [ -f output/value-check.md ]; then echo "### Published build" >> "$GITHUB_STEP_SUMMARY"; cat output/value-check.md >> "$GITHUB_STEP_SUMMARY"; fi
+
+      - name: Upload pinned candidate evidence (JEG-1521)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: candidate-evidence
+          path: output/candidate-evidence/
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Upload value check report (JEG-479)
         if: always()
