@@ -54,6 +54,8 @@ page closure and needs the built site.
 | S2 | `#trade-targets` link | `DDFOverrides.applyLink` runs only for `#find-trade` (v2.js:6265) and plain Compare (v2.js:6302). A Trade targets link's basis and overrides are never applied. | source |
 | S3 | Reopen the same link after "Use our methodology" | `useOurs` (overrides.js:868) keeps `linkSig`, so the same link opened again in that tab is ignored (`sig === S.linkSig`, overrides.js:815). May be intended; listed under open questions. | source |
 
+M1-M3 pass since JEG-1343 (the MCP tools send the link's basis and overrides to get-values, name them, and keep them on the link back); the stub get-values prices a sent `ov` as get-values does.
+
 There is no separate "Copy for AI" control on main: JEG-1101 replaced it with Copy link, which is
 the AI hand-off (shell.html:96-101). Wherever the ticket says Copy for AI, read Copy link.
 
@@ -229,6 +231,6 @@ disk changed) show each guard rejecting the input it exists for:
 | 2 | E1 sender precondition breaks (shareParams loses the single basis) | L1, O1 harness error, exit 2 |
 | 2 | E2 overrides.js throws on load; E3 Copy link module missing | harness error, exit 2 |
 | 2 | E4 malformed case result, bare setup TypeError, failed precondition | harness error, exit 2 (and 2 under `--strict`) |
-| 2 | E5/E6 controls: `read_state` throws or answers a JSON-RPC error | M1/M2 stay unmet specs, exit 0 |
-| 3 | V1-V9 site_url marker only, basis only, ov only, no marker, +4, absolute 5, weights 50/50, an extra override, `valuecontext=true` | M2 fails each |
-| 3 | V10 control: complete exact site_url | M2 passes |
+| 2 | E5/E6 controls: `read_state` throws or answers a JSON-RPC error | M1/M2 unmet, which differs from their record since JEG-1343, exit 1 |
+| 3 | V1-V9 site_url marker only, basis only, ov only, no marker, +4, absolute 5, weights 50/50, an extra override, `valuecontext=true` | M2 fails each (exit 1 since JEG-1343) |
+| 3 | V10 control: complete exact site_url | M2 passes (keeps its record, exit 0) |

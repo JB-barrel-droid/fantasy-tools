@@ -8,10 +8,12 @@
 import { handleRpc, setMcpBuild } from "./rpc.ts";
 import { MCP_BUILD_SHA } from "./build.ts";
 import type { Codec, Deps } from "./state.ts";
-import { type ChartValuesResponse, type FetchValues, type FetchValuesWithCharts, ToolInputError, type ValuesResponse } from "./tools.ts";
+import { type ChartValuesResponse, type FetchValues, type FetchValuesWithCharts, type ValuesResponse } from "./tools.ts";
 import { evalFinder, type Finder } from "./find-trades.ts";
 import type { FinderDeps } from "./tools.ts";
 import { type AnalysisResponse, evalPageModule, type FetchAnalysis, PAGE_MODULE_FILES, type PageModules } from "./analyses.ts";
+import type { ValueContextText } from "./value-context.ts";
+import { readValuesResponse, requestValuesWith } from "./values-client.ts";
 
 setMcpBuild(Deno.env.get("DDF_BUILD_SHA") || MCP_BUILD_SHA);
 
@@ -31,26 +33,21 @@ const CACHE_MAX = 12;
 
 // JEG-1179: a week with no published sources comes back from get-values as a 400 with
 // code "week_unavailable" and a message naming the weeks there are; the tool shows that message.
-async function readValues(res: Response): Promise<unknown> {
-  if (res.ok) return await res.json();
-  if (res.status === 400) {
-    const body = await res.json().catch(() => null) as { code?: string; error?: string } | null;
-    if (body?.code === "week_unavailable" && body.error) throw new ToolInputError(body.error);
-  }
-  throw new Error(`get-values ${res.status}`);
-}
+// JEG-1343: a refused link value context (400, 413, 422, 503 with its code) is the tool's message too (values-client.ts).
+const readValues = readValuesResponse;
+const requestValues = (
+  scoring: string, teams: number, superflex: number, league: Record<string, unknown> | undefined,
+  week: number | null | undefined, include: string | null, context: ValueContextText | null | undefined,
+) => requestValuesWith(fetch, VALUES_URL, scoring, teams, superflex, league, week, include, context);
 
-const fetchValues: FetchValues = async (scoring, teams, superflex, league, week) => {
-  const key = `${scoring}|${teams}|${superflex}|${league ? JSON.stringify(league) : ""}|${week ?? ""}`;
+const contextKey = (context: ValueContextText | null | undefined) =>
+  context ? `|b:${context.basis ?? ""}|o:${context.ov ?? ""}` : "";
+
+const fetchValues: FetchValues = async (scoring, teams, superflex, league, week, context) => {
+  const key = `${scoring}|${teams}|${superflex}|${league ? JSON.stringify(league) : ""}|${week ?? ""}${contextKey(context)}`;
   const hit = cache.get(key);
   if (hit && Date.now() - hit.at < CACHE_TTL_MS) return hit.data;
-  const url = new URL(VALUES_URL);
-  url.searchParams.set("scoring", scoring);
-  url.searchParams.set("teams", String(teams));
-  url.searchParams.set("superflex", String(superflex));
-  if (league) url.searchParams.set("league", JSON.stringify(league));
-  if (week) url.searchParams.set("week", String(week));
-  const res = await fetch(url, { headers: { Accept: "application/json" } });
+  const res = await requestValues(scoring, teams, superflex, league, week, null, context);
   const data = await readValues(res) as ValuesResponse;
   if (cache.size >= CACHE_MAX) cache.delete(cache.keys().next().value as string);
   cache.set(key, { at: Date.now(), data });
@@ -86,34 +83,22 @@ async function loadCodec(): Promise<Codec | null> {
 
 // Chart-enriched fetch: get-values with include=charts for the finder.
 const chartCache = new Map<string, { at: number; data: ChartValuesResponse }>();
-const fetchCharts: FetchValuesWithCharts = async (scoring, teams, superflex, league, week) => {
-  const key = `${scoring}|${teams}|${superflex}|${league ? JSON.stringify(league) : ""}|${week ?? ""}`;
+const fetchCharts: FetchValuesWithCharts = async (scoring, teams, superflex, league, week, context) => {
+  const key = `${scoring}|${teams}|${superflex}|${league ? JSON.stringify(league) : ""}|${week ?? ""}${contextKey(context)}`;
   const hit = chartCache.get(key);
   if (hit && Date.now() - hit.at < CACHE_TTL_MS) return hit.data;
-  const url = new URL(VALUES_URL);
-  url.searchParams.set("scoring", scoring);
-  url.searchParams.set("teams", String(teams));
-  url.searchParams.set("superflex", String(superflex));
-  if (league) url.searchParams.set("league", JSON.stringify(league));
-  if (week) url.searchParams.set("week", String(week));
-  url.searchParams.set("include", "charts");
-  const res = await fetch(url, { headers: { Accept: "application/json" } });
+  const res = await requestValues(scoring, teams, superflex, league, week, "charts", context);
   const data = await readValues(res) as ChartValuesResponse;
+  // The key now carries a pasted link's ov text (JEG-1343), so bound the cache like the values one.
+  if (chartCache.size >= CACHE_MAX) chartCache.delete(chartCache.keys().next().value as string);
   chartCache.set(key, { at: Date.now(), data });
   return data;
 };
 
 // JEG-1029: get-values with the analysis blocks (include=series, prior, audit) for risers_fallers,
 // compare_trade by_source and audit_values. Not cached here: get-values caches each answer itself.
-const fetchAnalysis: FetchAnalysis = async (scoring, teams, superflex, league, week, includes) => {
-  const url = new URL(VALUES_URL);
-  url.searchParams.set("scoring", scoring);
-  url.searchParams.set("teams", String(teams));
-  url.searchParams.set("superflex", String(superflex));
-  if (league) url.searchParams.set("league", JSON.stringify(league));
-  if (week) url.searchParams.set("week", String(week));
-  url.searchParams.set("include", includes.join(","));
-  const res = await fetch(url, { headers: { Accept: "application/json" } });
+const fetchAnalysis: FetchAnalysis = async (scoring, teams, superflex, league, week, includes, context) => {
+  const res = await requestValues(scoring, teams, superflex, league, week, includes.join(","), context);
   return await readValues(res) as AnalysisResponse;
 };
 

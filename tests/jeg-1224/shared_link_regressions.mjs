@@ -56,7 +56,7 @@ export async function shippedEnv() {
     const { handleRpc } = await import(join(ROOT, "supabase/functions/mcp/rpc.ts"));
     return {
       DDFState, handleRpc,
-      overridesSrc: read("app/v2/overrides.js"), stateSrc: read("app/v2/ddf-state.js"),
+      overridesSrc: read("app/v2/overrides.js"), linkSrc: read("app/v2/ddf-value-link.js"), stateSrc: read("app/v2/ddf-state.js"),
       assistSrc: read("app/v2/ddf-assist.js"), v2Src: read("app/v2/v2.js"),
     };
   } catch (error) { throw new HarnessError(`loading shipped modules: ${error.message}`); }
@@ -135,6 +135,7 @@ export function makeHarness(env) {
   // The Overrides module (basis + player overrides), booted with a reader's saved record.
   function loadOverrides(saved) {
     const win = pageContext({ local: saved ? { "ddf-v2-value-overrides": JSON.stringify(saved) } : {} });
+    if (env.linkSrc) vm.runInContext(env.linkSrc, win, { filename: "app/v2/ddf-value-link.js" });
     vm.runInContext(env.overridesSrc, win, { filename: "app/v2/overrides.js" });
     precondition(win.DDFOverrides && typeof win.DDFOverrides.applyLink === "function", "overrides.js exposes DDFOverrides.applyLink");
     const engine = fakeEngine();
@@ -168,10 +169,25 @@ export function makeHarness(env) {
   const sideKeys = list => list.map(r => ({ key: String(r.player_key), name: r.name }));
 
   // ---------- MCP ----------
-  const stubValues = async (scoring, teams, superflex) => ({
-    attribution: "Data Driven Football", as_of: "2026-10-28", setting: { scoring, teams, superflex },
-    players: ROWS.map(r => ({ ...r, tier: "starter" })), sources_included: ["fantasycalc"], sources_excluded: [],
-  });
+  // JEG-1343: the stub prices a sent value context as get-values does since JEG-1225 (plain ov only: key:value
+  // sets, key:+n / key:-n adjusts) and says so in value_context; without one it answers as before.
+  const stubValues = async (scoring, teams, superflex, _league, _week, context) => {
+    const overrides = {};
+    for (const part of String((context && context.ov) || "").split(",").filter(Boolean)) {
+      const [key, raw] = part.split(":");
+      overrides[key] = /^[+-]/.test(raw) ? { delta: Number(raw) } : Number(raw);
+    }
+    const price = (r) => {
+      const o = overrides[r.player_key];
+      return o === undefined ? r.value : typeof o === "number" ? o : r.value + o.delta;
+    };
+    return {
+      attribution: "Data Driven Football", as_of: "2026-10-28", setting: { scoring, teams, superflex },
+      players: ROWS.map(r => ({ ...r, value: price(r), tier: "starter" })), sources_included: ["fantasycalc"], sources_excluded: [],
+      ...(context ? { value_context: { basis: context.basis, basis_applied: Boolean(context.basis), overrides,
+        overrides_applied: Object.keys(overrides).length, overrides_not_priced: [] } } : {}),
+    };
+  };
   const rpc = (name, args) => handleRpc({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name, arguments: args } },
     stubValues, { codec: DDFState, siteOrigin: ORIGIN });
   // A JSON-RPC error or an empty result is the runtime's answer, so it fails the spec, not the harness.
@@ -390,14 +406,14 @@ export function makeCases(H) {
       } },
 
     // MCP read_state / make_state and the return-to-site link
-    { id: "M1", surface: "read_state", today: "fail", observed: "executed locally (stub get-values)",
+    { id: "M1", surface: "read_state", today: "pass", observed: "executed locally (stub get-values)",
       title: "read_state on a custom-basis link prices under the link's basis and override",
       expected: "Alpha Back priced with the override (58, not 40) and the reply names the basis (D1: B)",
       async run() {
         const t = mcpText(await mcp("read_state", { state: COMPARE_LEGACY_CUSTOM }));
         return { pass: /Alpha Back \(RB\): 58\b/.test(t) && /fantasycalc|basis/i.test(t), actual: t.split("\n").slice(0, 6).join(" | ") };
       } },
-    { id: "M2", surface: "return-to-site", today: "fail", observed: "executed locally (stub get-values)",
+    { id: "M2", surface: "return-to-site", today: "pass", observed: "executed locally (stub get-values)",
       title: "read_state's site_url keeps every value-context value exactly",
       expected: "valuecontext=1, and the reader decodes exactly blend espn 60 / razzball 40 and 202 +5 adjustment",
       async run() {
@@ -407,7 +423,7 @@ export function makeCases(H) {
         const misses = valueContextMismatches(url, FINDER_CUSTOM_CONTEXT);
         return { pass: misses.length === 0, actual: `${url.replace(ORIGIN, "")}${misses.length ? ` | ${misses.join("; ")}` : ""}` };
       } },
-    { id: "M3", surface: "make_state", today: "fail", observed: "executed locally (stub get-values)",
+    { id: "M3", surface: "make_state", today: "pass", observed: "executed locally (stub get-values)",
       title: "make_state from a pasted custom-basis state keeps the value context in the block and link",
       expected: "block and link carry basis/ov, or the reply says they were dropped",
       async run() {
