@@ -13,7 +13,7 @@ WORKFLOW = ROOT / '.github/workflows/rebuild-chain.yml'
 
 def validation_shell():
     script = script_of(find_step(WORKFLOW.read_text(), CHAIN))
-    start = script.index('set +e\nenv -u SUPABASE_URL -u SUPABASE_SERVICE_KEY make validate > output/post-rebuild-validate.log')
+    start = script.index('set +e\nenv -u SUPABASE_URL -u SUPABASE_SERVICE_KEY python3 pipelines/candidate_evidence.py run --kind validation -- make validate > output/post-rebuild-validate.log')
     end = script.index('# The published build', start)
     return script[start:end].replace('${{ steps.week.outputs.nfl_week }}', '8')
 
@@ -33,6 +33,8 @@ exit "$RETRY"
 ''')
         (bin_dir / 'python3').write_text('''#!/bin/sh
 case "$1 $2" in
+  'pipelines/candidate_evidence.py run')
+    exec make validate ;;
   'pipelines/isolate_post_validate.py isolate')
     echo isolate >> calls
     if [ "$ISOLATE" -ne 0 ]; then exit "$ISOLATE"; fi
