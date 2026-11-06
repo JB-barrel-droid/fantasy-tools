@@ -1,0 +1,28 @@
+name: Stale draft expiry (JEG-1452)
+on:
+  schedule:
+    - cron: '0 11 * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+  # Live mode requires pull-requests: write in a separate activation change.
+  pull-requests: read
+concurrency:
+  group: stale-draft-expiry
+  cancel-in-progress: false
+jobs:
+  expire:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: List or expire drafts (committed config defaults to dry-run)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
+        run: python3 scripts/stale_draft_expiry.py --repo "$GITHUB_REPOSITORY"
