@@ -23,6 +23,14 @@ from pathlib import Path
 from pull_fantasycalc_12team import SCORINGS, MIN_ROWS, fetch
 from nfl_week import content_week
 
+import sys as _sys  # noqa: E402
+from pathlib import Path as _Path  # noqa: E402
+
+# `lib` lives in pipelines/; make it importable whatever the CWD, checkout path or
+# import order (tests import this module as pipelines.X without pipelines/ on sys.path).
+_sys.path.insert(0, str(_Path(__file__).resolve().parent))
+from lib.timestamps import parse_iso_timestamp  # noqa: E402
+
 NORMALIZER_VERSION = "fantasycalc-native-v1"
 COMBOS = tuple((s, t, q) for s in SCORINGS for t in (8, 10, 12, 14) for q in (1, 2))
 
@@ -92,7 +100,7 @@ def content_hash(rows: list[dict]) -> str:
 def content_state(last_change: str | None, now: datetime) -> tuple[float | None, bool, str | None]:
     if last_change is None:
         return None, False, "content_vintage_unknown"
-    age = (now - datetime.fromisoformat(last_change)).total_seconds()
+    age = (now - parse_iso_timestamp(last_change)).total_seconds()
     if age < 0:
         return age, False, "future_timestamp"
     return age, age > 86400, "content_stale" if age > 86400 else None
@@ -127,7 +135,7 @@ def acquire(cache_dir: Path, *, week: int, season: int, fetch_fn=fetch,
                 for field in ("last_observed_change_at", "successful_fetch_at"):
                     timestamp = prior_observation.get(field)
                     if timestamp is not None:
-                        if not isinstance(timestamp, str) or datetime.fromisoformat(timestamp).tzinfo is None:
+                        if not isinstance(timestamp, str) or parse_iso_timestamp(timestamp).tzinfo is None:
                             raise ValueError(f"invalid prior {field}")
                 content_state(prior_observation.get("last_observed_change_at"), now)
         except (OSError, ValueError, TypeError, OverflowError) as exc:
