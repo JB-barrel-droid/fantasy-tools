@@ -120,3 +120,8 @@ The documentation-store work is tracked under JEG-583 in Linear. The consolidati
 
 - [Known baseline reds](baseline-reds/README.md): registry, gate attribution and three-night removal guidance (JEG-1450).
 | [jeg-1458-egress-rollup.md](jeg-1458-egress-rollup.md) | Record | - | - | Actions byte-counter attribution, offline/gh rollup, and uncovered traffic. |
+
+## Week-transition implementation
+
+- [week-transition-readiness.md](week-transition-readiness.md) — Maintained; JEG-1526; verified 2026-11-05. Offline capture, queue and isolated diagnostic runner; staging remains blocked.
+- [week9-regression-evidence.json](week9-regression-evidence.json) — Record; Week 9 incident case coordinates and evidence limitations.
