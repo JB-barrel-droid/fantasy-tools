@@ -8,8 +8,8 @@ hold that:
 - sigma = 0 is today's VP-2.2 allocation (value_reference.allocate) on the
   12-setting grid plus the USO and Charlotte roster shapes;
 - the mix's expected counts equal the fractional counts;
-- the mix moves continuously when a fringe player crosses a flex or bench
-  cutoff, and a hard cutoff (the mutation) fails the same check;
+- fixed inputs exercise flex and bench cutoff crossings on six roster
+  scenarios, and a hard cutoff (the mutation) fails the same continuity check;
 - the JS twin matches Python to 1e-12 on 200 random leagues.
 """
 from __future__ import annotations
@@ -20,6 +20,7 @@ import random
 import subprocess
 import sys
 import unittest
+from unittest import mock
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
@@ -140,47 +141,62 @@ def scan(league, order, score, today, pid, lo, hi, sigma):
     return worst
 
 
-def _cutoff_players(league, order, today, kind):
-    """Players either side of the flex or bench cutoff at each position:
-    the last one in and the first one out."""
-    out = []
+def boundary_case(name, kind):
+    """Fixed RB/WR crossing on the named roster shape, with no live inputs.
+
+    Flex: F-1 protected RBs and two 10 PPG candidates compete for F seats.
+    Bench: B-1 protected candidates and two candidates with discounted score
+    1 compete for B seats. Their raw scores divide by their rank's discount,
+    so the crossing is known without a projection-dependent search.
+    """
+    if name in LEAGUES:
+        lg = LEAGUES[name]
+        teams, slots, flex, bench = lg["teams"], dict(lg["slots"]), lg["flex"], lg["bench"]
+    else:
+        _scoring, t = name.split("/")
+        shape = VR.roster()
+        teams, slots = int(t), {p: shape[p] for p in FS.POSITIONS}
+        flex, bench = shape["FLEX"], shape["BENCH"]
+    league = VR.League(teams=teams, slots=slots, flex=flex, bench=bench)
+    nf, nb = teams * flex, teams * bench
+    dedicated = {p: teams * slots[p] for p in FS.POSITIONS}
+    tail = {}
+    if kind == "flex":
+        # The low tail supplies bench depth without competing for flex.
+        for p in FS.POSITIONS:
+            tail[p] = ([100.0] * (nf - 1) if p == "RB" else [])
+            if p in ("RB", "WR"):
+                tail[p] += [10.0]
+            tail[p] += [0.1] * (nb + 1)
+        target_rank, center = dedicated["RB"] + nf - 1, 10.0
+    elif kind == "bench":
+        starters = {p: dedicated[p] + (nf if p == "RB" else 0) for p in FS.POSITIONS}
+        disc = bench_discount(starters, teams)
+        # These are test quotas, not a proposed bench-allocation rule.
+        base, extra = divmod(nb - 1, len(FS.POSITIONS))
+        protected = {p: base + (j < extra) for j, p in enumerate(FS.POSITIONS)}
+        for p in FS.POSITIONS:
+            k = protected[p]
+            # Every protected score is above 10 after discount, and above
+            # its fringe candidate in raw-score order even at a tier step.
+            tail[p] = [10.0 / disc(p, k)] * k
+            if p in ("RB", "WR"):
+                tail[p] += [1.0 / disc(p, k)]
+            tail[p] += [0.1]
+        flex_score = max(max(v) for v in tail.values()) + 100.0
+        tail["RB"] = [flex_score] * nf + tail["RB"]
+        target_rank = starters["RB"] + protected["RB"]
+        center = 1.0 / disc("RB", protected["RB"])
+    else:
+        raise ValueError(kind)
+    dedicated_score = max(max(v) for v in tail.values()) + 100.0
+    order, score = {}, {}
     for p in FS.POSITIONS:
-        a = today[p]
-        if kind == "flex":
-            if p not in league.flex_eligible:
-                continue
-            first, n = a["dedicated"] + a["superflex"], a["flex"]
-        else:
-            first, n = a["starters"], a["bench"]
-        ids = order.get(p, [])
-        if n > 0:
-            out.append(ids[first + n - 1])
-        if first + n < len(ids):
-            out.append(ids[first + n])
-    return out
-
-
-def find_crossing(league, order, score, today, kind, reach=1.5, coarse=0.05):
-    """(player, lo, hi): a 1 PPG window over which moving that one player's
-    projection flips today's hard allocation (the case B must smooth)."""
-    for pid in _cutoff_players(league, order, today, kind):
-        pos = next(p for p in FS.POSITIONS if pid in order.get(p, []))
-        base = score[pid]
-        prev = None
-        n = int(round(2 * reach / coarse))
-        for j in range(n + 1):
-            x = base - reach + j * coarse
-            sc = dict(score)
-            sc[pid] = x
-            od = dict(order)
-            od[pos] = sorted(order[pos], key=lambda i: -sc[i])
-            m = mix_for(league, od, sc, today, 0.0)
-            if prev is not None and l1(prev, m) > 1.0:
-                field = "flex" if kind == "flex" else "bench"
-                if any(prev[0][1][p][field] != m[0][1][p][field] for p in FS.POSITIONS):
-                    return pid, x - 0.5, x + 0.5
-            prev = m
-    raise AssertionError(f"no {kind} crossing within {reach} PPG of a cutoff")
+        values = [dedicated_score] * dedicated[p] + tail[p]
+        order[p] = [f"{p}{j:04d}" for j in range(len(values))]
+        score.update(zip(order[p], values))
+    today = VR.allocate(league, order, score)
+    return league, order, score, today, order["RB"][target_rank], center - 0.5, center + 0.5
 
 
 class SigmaZeroIsTodayTest(unittest.TestCase):
@@ -256,26 +272,51 @@ class ExpectedCountsTest(unittest.TestCase):
             self.assertAlmostEqual(sum(got.values()), n, places=9)
 
 
+CONTINUITY_CASES = (("uso", "flex"), ("charlotte", "flex"), ("standard/10", "flex"),
+                    ("charlotte", "bench"), ("standard/10", "bench"), ("ppr/14", "bench"))
+
+
 class ContinuityTest(unittest.TestCase):
     """A fringe player's projection crossing a cutoff moves the mix a little
     per step under B, and a whole seat under a hard cutoff."""
 
     def _case(self, name, kind):
-        league, order, score, today, _kw = captured()[name][0]
-        pid, lo, hi = find_crossing(league, order, score, today, kind)
-        return league, order, score, today, pid, lo, hi
+        return boundary_case(name, kind)
+
+    def test_cases_cross_the_named_boundary_without_live_inputs(self):
+        with mock.patch.object(VR.Inputs, "load", side_effect=AssertionError("live inputs loaded")):
+            for name, kind in CONTINUITY_CASES:
+                with self.subTest(name=name, kind=kind):
+                    league, order, score, today, pid, lo, hi = self._case(name, kind)
+                    ends = []
+                    for value in (lo, hi):
+                        points = {**score, pid: value}
+                        self.assertTrue(all(order[p] == sorted(order[p], key=lambda i: -points[i])
+                                            for p in FS.POSITIONS))
+                        mix = mix_for(league, order, points, today, 0.0)
+                        self.assertEqual(len(mix), 1)
+                        weight, alloc = mix[0]
+                        self.assertEqual(weight, 1.0)
+                        self.assertEqual(sum(a["flex"] for a in alloc.values()), league.teams * league.flex)
+                        self.assertEqual(sum(a["bench"] for a in alloc.values()), league.teams * league.bench)
+                        for p in FS.POSITIONS:
+                            self.assertLessEqual(alloc[p]["rostered"], len(order[p]))
+                        ends.append(alloc)
+                    self.assertEqual(ends[1]["RB"][kind] - ends[0]["RB"][kind], 1)
+                    self.assertEqual(ends[1]["WR"][kind] - ends[0]["WR"][kind], -1)
+                    if kind == "bench":
+                        self.assertEqual([ends[0][p]["flex"] for p in FS.POSITIONS],
+                                         [ends[1][p]["flex"] for p in FS.POSITIONS])
 
     def test_crossings_are_continuous(self):
-        for name, kind in (("uso", "flex"), ("charlotte", "flex"), ("standard/10", "flex"),
-                           ("charlotte", "bench"), ("standard/10", "bench"), ("ppr/14", "bench")):
+        for name, kind in CONTINUITY_CASES:
             league, order, score, today, pid, lo, hi = self._case(name, kind)
             worst = scan(league, order, score, today, pid, lo, hi, SIGMA)
             self.assertLess(worst, STEP_BOUND,
                             f"{name} {kind}: mix moved {worst:.3f} in one 0.01 PPG step")
 
     def test_mutation_hard_cutoff_fails_continuity(self):
-        for name, kind in (("uso", "flex"), ("charlotte", "flex"), ("charlotte", "bench"),
-                           ("standard/10", "bench")):
+        for name, kind in CONTINUITY_CASES:
             league, order, score, today, pid, lo, hi = self._case(name, kind)
             worst = scan(league, order, score, today, pid, lo, hi, 0.0)
             self.assertGreaterEqual(worst, 1.0, f"{name} {kind}: a hard cutoff should jump")
