@@ -1,0 +1,15 @@
+{
+  "schema": "jeg1348-bench-context-cases/1",
+  "bye_source": "config/lineup_parameters.json",
+  "historical_source": "docs/research/bench-decay-evidence/output/evidence_matrix.json",
+  "cases": [
+    {"name":"season-week-8","settings":{"contentWeek":8,"optimizeFor":"season","regularSeasonEnd":14,"playoffWeeks":[15,17]},"window":[9,17],"weeks":9,"byes":18},
+    {"name":"regular-week-8","settings":{"contentWeek":8,"optimizeFor":"regular","regularSeasonEnd":14,"playoffWeeks":[15,17]},"window":[9,14],"weeks":6,"byes":18},
+    {"name":"short-regular-window","settings":{"contentWeek":8,"optimizeFor":"regular","regularSeasonEnd":10,"playoffWeeks":[15,17]},"window":[9,10],"weeks":2,"byes":6},
+    {"name":"playoffs-week-8","settings":{"contentWeek":8,"optimizeFor":"playoffs","regularSeasonEnd":14,"playoffWeeks":[15,17]},"window":[15,17],"weeks":3,"byes":0},
+    {"name":"regular-season-finished","settings":{"contentWeek":14,"optimizeFor":"regular","regularSeasonEnd":14,"playoffWeeks":[15,17]},"window":[15,14],"weeks":0,"byes":0},
+    {"name":"one-week-left","settings":{"contentWeek":16,"optimizeFor":"season","regularSeasonEnd":14,"playoffWeeks":[15,17]},"window":[17,17],"weeks":1,"byes":0},
+    {"name":"empty-week-17","settings":{"contentWeek":17,"optimizeFor":"season","regularSeasonEnd":14,"playoffWeeks":[15,17]},"window":[18,17],"weeks":0,"byes":0},
+    {"name":"empty-week-18","settings":{"contentWeek":18,"optimizeFor":"season","regularSeasonEnd":14,"playoffWeeks":[15,17]},"window":[19,17],"weeks":0,"byes":0}
+  ]
+}
