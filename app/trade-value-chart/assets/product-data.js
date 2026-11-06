@@ -305,6 +305,9 @@
         depth_chart_order: Number.isFinite(Number(player.depth_chart_order)) && player.depth_chart_order !== null
           ? Number(player.depth_chart_order) : null,
         sleeper_id: player.sleeper_id || null,
+        // JEG-1217: preseason FantasyPros rank at the player's position, for Trade ideas' draft-capital view. Read only; no
+        // value reads it.
+        preseason_ecr_rank: Number.isInteger(player.preseason_ecr_rank) ? player.preseason_ecr_rank : null,
         universe_only: player.universe_only === true,
         unpriced_reason: player.unpriced_reason || null,
         // Legacy aliases (removed by the v1 contract cutover).

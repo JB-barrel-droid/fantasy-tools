@@ -117,6 +117,9 @@ jobs:
         run: python3 -m unittest tests.test_interactive_trades_release_render
       - if: matrix.lane == 'contract'
         run: python3 -m unittest tests.test_jeg1213_import tests.test_jeg1213_logic tests.test_jeg1213_summary_fields tests.test_jeg1213_acceptance_render
+      # JEG-1217: Managers card (profiles, exclusions, reload) and its unit/mutation checks.
+      - if: matrix.lane == 'league'
+        run: python3 -m unittest tests.test_jeg1217_manager_profiles tests.test_jeg1217_manager_recs tests.test_jeg1217_managers_render
       # JEG-890 / JEG-1246: the Find a trade team value summary (thin-chart weeks and players with no DDF Value).
       - if: matrix.lane == 'league'
         run: python3 -m unittest tests.test_v2_finder_teams tests.test_v2_finder_teams_render

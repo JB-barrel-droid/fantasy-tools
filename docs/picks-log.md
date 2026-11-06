@@ -181,3 +181,27 @@ Evidence: `docs/claude-log/2026-10-28-league-health-main-integration.md`.
 
 - 10-28 10:17 AM | Connector review fix | JEG-1115 | Fit reasons exceed the old reply budgets | truncate reasons / raise caps / return a bounded ranked prefix | bounded prefix, full reasons and complete package; concise error if irreducible | Jeremy's limits are upper bounds; preserve counts and package totals; reserve 512 bytes for week decoration and check exact final UTF-8 result | be/jeg-1115-fit-review-fixes | no
 - 10-28 10:17 AM | Connector review fix | JEG-1115 | Two opponents can have the same display name | reject duplicates / use display name / use input identity | stable input index through fit and package selection, expose opponent_index | same-name teams are valid inputs; the roster and one-offer-per-opponent rule must follow identity | be/jeg-1115-fit-review-fixes | no
+
+### 2026-10-29 - Manager recommendation corrections (JEG-1255, part of JEG-1217, PR #1084)
+
+Claude picks on `claude/JEG-1217-manager-profiles`, all reversible; no ranking,
+appeal-band or value change.
+
+- Roster warnings on Trade ideas: each idea carries its Trade opportunities
+  row's checks per team (fit not judged, partial roster, construction issue
+  with the finder's own issue text) as one plain "Roster check:" line under the
+  likelihood. Words only: no filter, force fits stay (review 9e681c74). Our own
+  construction result comes from `opportunities.js fullFit` for rows marked
+  partial; without it the line says ours "not checked apart from theirs"
+  instead of calling it healthy.
+- Earlier-build note and "Other preferences" level: kept under the same field
+  names (`note`, `anchors.subjective`) so VERSION stays 1 and the earlier build
+  still reads them; shown read-only in Describe as "Kept from an earlier note"
+  (the JEG-1250 preview's wording); "Your note: ..." in Why as the earlier build
+  showed it; removed only by "Clear this profile". No new free-text input.
+- Save status: the Managers toolbar shows "Saved on this device." only after a
+  save succeeds; a blocked or full browser shows "Not saved: ... Download
+  profiles to keep them." A failed save stays pending and is retried on the next
+  change. The fixed "Saved on this device." sentence left the card intro.
+- Anchor summary: "None of the usual anchors." only when all four are marked
+  doesn't care; otherwise "Doesn't care about X; the rest not set." (59c00401).

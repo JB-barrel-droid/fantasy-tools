@@ -1575,6 +1575,9 @@
     UI.running = false;
     if (body) body.removeAttribute("aria-busy");
     if (live) live.textContent = "";
+    // Keep the exact pricing snapshot with the search result. Manager draft curves must use the same league bench,
+    // scoring, team count and roster settings as these opportunities, including while a new search is pending.
+    result.pricingRows = Array.from(ctx.rowsByKey.values());
     UI.result = result;
     renderOpps();
     announce(`${plural(result.rows.length, "trade opportunity", "trade opportunities")} found across ${plural(result.perOpponent.length, "opponent")}.`);

@@ -31,6 +31,7 @@ RENDER_COMMANDS = (
     "tests.test_v2_finder_guardrails_render",
     "tests.test_interactive_trades_release_render",
     "tests.test_jeg1213_import tests.test_jeg1213_logic tests.test_jeg1213_summary_fields tests.test_jeg1213_acceptance_render",
+    "tests.test_jeg1217_manager_profiles tests.test_jeg1217_manager_recs tests.test_jeg1217_managers_render",
     "tests.test_v2_finder_teams tests.test_v2_finder_teams_render",
     "-v tests.test_v2_waterfall_render",
     "tests.test_jeg1231_opponent_inclusion tests.test_jeg1231_opponent_inclusion_render tests.test_jeg1231_league_inclusion_render tests.test_jeg1263_simplified_site tests.test_jeg1263_simplified_site_render",
@@ -166,6 +167,7 @@ class CiSpeedupTest(unittest.TestCase):
             ("fail-fast: false", "fail-fast: true"),
             ("fail-fast: false", "fail-fast: false\n    continue-on-error: true"),
             ("        run: python3 -m unittest tests.test_v2_contract_render\n", ""),
+            ("        run: python3 -m unittest tests.test_jeg1217_manager_profiles tests.test_jeg1217_manager_recs tests.test_jeg1217_managers_render\n", ""),
             ("        run: python3 -m unittest tests.test_v2_contract_render\n",
              "        run: python3 -m unittest tests.test_v2_contract_render\n"
              "      - if: matrix.lane == 'contract'\n        run: python3 -m unittest tests.test_v2_contract_render\n"),
