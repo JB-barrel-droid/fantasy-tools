@@ -95,6 +95,7 @@ The durable docs live here as Markdown in GitHub (JEG-596 decision, Jeremy, 2026
 | [watchdog.md](watchdog.md) | Maintained | unknown | unknown | Every source-pulling job, who schedules it, and what watches it. |
 | [guard-harness.md](guard-harness.md) | Maintained | unknown | unknown | Node harness for the browser curve-widget guard math. |
 | [wiring-through-process.md](wiring-through-process.md) | Maintained | unknown | unknown | Standing rule: a fix is not done until wired to the live path. |
+| [exemption-decision-policy.md](exemption-decision-policy.md) | Maintained | JEG-1518 | unknown | Scope ladder, decision owners, evidence and standing gates for validation-bound exemptions; decision registry/template in the week-transition runbook (placement JEG-1530). |
 | [week-transition-runbook.md](week-transition-runbook.md) | Maintained | JEG-1180 | 2026-10-28 | Week N to N+1 flip: what normal looks like Tuesday to Thursday, lagging vs stale (still on N after Thursday 12:00 CT; a warning, never a chain failure), where each check reports it, and when a person steps in. |
 | [week-coding-rules.md](week-coding-rules.md) | Maintained | unknown | unknown | Rules for codifying page elements (headline etc.) to the dataset. |
 | [engineering-notes.md](engineering-notes.md) | Maintained | unknown | unknown | Dated incident and design notes moved out of AGENTS.md. |
@@ -120,5 +121,3 @@ The documentation-store work is tracked under JEG-583 in Linear. The consolidati
 
 - [Known baseline reds](baseline-reds/README.md): registry, gate attribution and three-night removal guidance (JEG-1450).
 | [jeg-1458-egress-rollup.md](jeg-1458-egress-rollup.md) | Record | - | - | Actions byte-counter attribution, offline/gh rollup, and uncovered traffic. |
-
-| [exemption-decision-policy.md](exemption-decision-policy.md) | Maintained | JEG-1518 | 2026-11-05 | Scope ladder for validation exemptions; no new authorization. |
