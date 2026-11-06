@@ -74,6 +74,29 @@ class DriftCheckTest(unittest.TestCase):
         self.assertTrue(result["needs_refresh"])
 
 
+class DiagnosticCliTest(unittest.TestCase):
+    def test_no_material_drift_does_not_claim_freshness(self):
+        import io
+        from contextlib import redirect_stdout
+        output = io.StringIO()
+        with patch.object(sys, "argv", ["check_fantasycalc_drift.py"]), \
+             patch.object(drift, "check_drift", return_value={
+                 "moved": 0, "sampled": 25, "drift_frac": 0,
+                 "threshold": .2, "details": [], "needs_refresh": False}), \
+             redirect_stdout(output):
+            self.assertEqual(0, drift.main())
+        self.assertIn("Diagnostic only", output.getvalue())
+        self.assertNotIn("snapshot is fresh", output.getvalue())
+
+    def test_trigger_cannot_publish(self):
+        import io
+        from contextlib import redirect_stderr
+        with patch.object(sys, "argv", ["check_fantasycalc_drift.py", "--trigger"]), \
+             redirect_stderr(io.StringIO()), self.assertRaises(SystemExit) as exc:
+            drift.main()
+        self.assertEqual(2, exc.exception.code)
+
+
 class NativeValuePreservationTest(unittest.TestCase):
     """The 2026-09-30 defect: match_source_snapshot dropped native_value,
     so the pipeline used the flattened `value` (50.7) instead of the raw
