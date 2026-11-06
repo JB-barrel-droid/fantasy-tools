@@ -1,0 +1,15 @@
+.trade-package-panel {
+  margin: 16px 0;
+  padding: 16px;
+  border: 1px solid var(--v2-border, #e2e2dc);
+  border-radius: var(--v2-radius-card, 12px);
+  background: var(--v2-surface, #fff);
+  color: var(--v2-ink, #1d1d1b);
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+.trade-package-panel h2 { font-size: 20px; margin: 0 0 8px; }
+.trade-package-panel p { margin: 0 0 12px; }
+.trade-package-panel .package-panel-build { min-height: 44px; max-width: 100%; margin-bottom: 12px; }
+.trade-package-panel .package-preview { padding: 0; max-width: none; }
+.trade-package-panel [hidden] { display: none; }

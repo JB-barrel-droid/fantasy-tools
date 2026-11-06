@@ -1,0 +1,74 @@
+--- a/app/v2/league.js
++++ b/app/v2/league.js
+@@ -1377,6 +1377,15 @@
+       sel("v2LgFilterCharts", "Min charts fair:", [[0, "Any"], [1, "1"], [2, "2"], [3, "3"], [4, "4"]], f.minCharts, v => set({filters: {minCharts: Number(v)}})),
+       hide);
+   }
++  // JEG-1183: exact completed-search snapshot, never the paginated/filtered rows.
++  function renderPackage() {
++    const target = $("v2LgOpps"), panel = root.TradeValuePackagePanel;
++    if (!target || !panel) return;
++    if (!UI.packagePanel) UI.packagePanel = panel.mountBefore(target);
++    UI.packagePanel.element.hidden = target.hidden;
++    UI.packagePanel.update(UI.running || UI.timer ? {status: "pending"}
++      : UI.result && UI.result.packageSnapshot || {status: "empty"});
++  }
+   function renderOppsNow() {
+     const card = $("v2LgOpps");
+     if (!card) return;
+@@ -1385,6 +1394,7 @@
+     const ctx = mathContext();
+     const has = ws.teams.some(t => t.entries.length);
+     card.hidden = !has;
++    renderPackage();
+     if (!has || !ctx) { body.replaceChildren(); return; }
+     renderInclusion(ws, ctx);
+     const mine = teamById(ws, ws.myTeamId);
+@@ -1552,6 +1562,7 @@
+     UI.runId += 1;
+     const id = UI.runId;
+     UI.timer = setTimeout(() => runOpps(id), OPP_DEBOUNCE_MS);
++    renderPackage();
+   }
+   async function runOpps(id) {
+     UI.timer = null;
+@@ -1575,6 +1586,8 @@
+     UI.running = false;
+     if (body) body.removeAttribute("aria-busy");
+     if (live) live.textContent = "";
++    result.packageSnapshot = {status: "ready", candidates: result.rows, ctx,
++      league: root.TradePackageConstraints.applyPackage(ws, []).league, capped: result.capped};
+     UI.result = result;
+     renderOpps();
+     announce(`${plural(result.rows.length, "trade opportunity", "trade opportunities")} found across ${plural(result.perOpponent.length, "opponent")}.`);
+--- a/pipelines/build_v2_page.py
++++ b/pipelines/build_v2_page.py
+@@ -273,6 +273,8 @@
+         '  <link rel="stylesheet" href="v2/waivers.css">\n'
+         '  <link rel="stylesheet" href="v2/overrides.css">\n'
+         '  <link rel="stylesheet" href="v2/opponent-inclusion.css">\n'
++        '  <link rel="stylesheet" href="v2/package-composition-preview.css">\n'
++        '  <link rel="stylesheet" href="v2/trade-package-panel.css">\n'
+         '  <link rel="stylesheet" href="v2/simplified-site.css">\n'
+         # JEG-1137: ?design=fieldnotes opts into the Fieldnotes layer; synchronous so it applies before first paint.
+         '  <script src="v2/design-flag.js"></script>\n'
+@@ -308,6 +310,10 @@
+                   '\n  <script src="v2/lineup-comparison.js" defer></script>'
+                   '\n  <script src="v2/opponent-inclusion.js" defer></script>'
+                   '\n  <script src="v2/trade-readout.js" defer></script>'
++                  '\n  <script src="v2/trade-package-constraints.js" defer></script>'
++                  '\n  <script src="v2/package-composition-preview.js" defer></script>'
++                  '\n  <script src="v2/trade-package-search.js" defer></script>'
++                  '\n  <script src="v2/trade-package-panel.js" defer></script>'
+                   '\n  <script src="v2/league.js" defer></script>'
+                   '\n  <script src="v2/nfl-byes.js" defer></script>'
+                   '\n  <script src="v2/player-flags.js" defer></script>'
+@@ -395,7 +401,7 @@
+     (out_dir / "kdef-names.js").write_text(kdef_names_js(), encoding="utf-8")
+     (out_dir / "nfl-byes.js").write_text(nfl_byes_js(), encoding="utf-8")
+     (out_dir / "player-status.js").write_text(player_status_js(), encoding="utf-8")
+-    for name in ("v2.css", "namesearch.js", "source-views.js", "targets.js", "trade.js", "movers.js", "roster-paste.js", "roster-provenance-transitions.js", "workspace.js", "table-sort.js", "team-summary.js", "opportunities.js", "simplified-site.js", "simplified-site.css", "finder.js", "lineup-comparison.js", "opponent-inclusion.js", "opponent-inclusion.css", "trade-readout.js", "league.js", "modules.js",
++    for name in ("v2.css", "namesearch.js", "source-views.js", "targets.js", "trade.js", "movers.js", "roster-paste.js", "roster-provenance-transitions.js", "workspace.js", "table-sort.js", "team-summary.js", "opportunities.js", "simplified-site.js", "simplified-site.css", "finder.js", "lineup-comparison.js", "opponent-inclusion.js", "opponent-inclusion.css", "trade-readout.js", "trade-package-constraints.js", "package-composition-preview.js", "package-composition-preview.css", "trade-package-search.js", "trade-package-panel.js", "trade-package-panel.css", "league.js", "modules.js",
+                  "audit-core.js", "audit-pie.js", "audit-source.js", "audit-pie.css", "audit-source.css", "ddf-value-link.js", "overrides.js", "overrides.css", "inputs-status.js", "name-format.js", "ddf-state.js", "trade-context.js", "ddf-assist.js", "waivers.js", "waivers.css", "player-flags.js", "design-flag.js", "v2.js"):
+         shutil.copy2(APP_V2 / name, out_dir / name)
+     # JEG-1137: self-hosted Fraunces (SIL OFL 1.1, license kept beside it), read by v2.css as fonts/fraunces.woff2.

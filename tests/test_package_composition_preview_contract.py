@@ -25,7 +25,9 @@ from __future__ import annotations
 import json
 import shutil
 import subprocess
+import sys
 import tempfile
+import types
 import unittest
 from pathlib import Path
 
@@ -217,6 +219,270 @@ class PackageCompositionPreviewContractTest(unittest.TestCase):
                     path = Path(tmp) / f"mutant-{abs(hash(name))}.js"
                     path.write_text(source.replace(old, new), encoding="utf-8")
                     self.assertNotEqual(run_checks(path), [], f"checks did not catch: {name}")
+
+
+SEARCH = REPO / "app" / "v2" / "trade-package-search.js"
+SEARCH_CASES = REPO / "tests" / "jeg1183_package_cases.js"
+SEARCH_CHECKS = r"""
+"use strict";
+const assert = require('node:assert/strict');
+const S = require(process.argv[1]);
+const {makeCase} = require(process.argv[2]);
+const P = require(process.argv[3] + '/trade-package-constraints.js');
+const F = require(process.argv[3] + '/finder.js');
+const Preview = require(process.argv[3] + '/package-composition-preview.js');
+const freeze = o => { if (o && typeof o === 'object') { Object.values(o).forEach(freeze); Object.freeze(o); } return o; };
+const ids = r => r.trades.map(t => t.opponentId);
+const test = process.argv[4];
+if (test === 'three') {
+  const {league, candidates, ctx} = makeCase();
+  const before = JSON.stringify([league, candidates, [...ctx.rowsByKey]]);
+  freeze(league); freeze(candidates); [...ctx.rowsByKey.values()].forEach(freeze); freeze(ctx);
+  const r = S.selectPackage(league, candidates, ctx);
+  assert.equal(r.status, 'ready');
+  assert.deepEqual(ids(r), ['d', 'c', 'b']);
+  assert.deepEqual(r.trades.map(t => t.edge), [13, 10, 7]);
+  assert.deepEqual(r.trades.map(t => t.rank), [1, 2, 3]);
+  assert.equal(r.edge, 30);
+  assert.equal(P.validatePackage(league, r.trades).ok, true);
+  const keys = r.trades.flatMap(t => t.give.concat(t.receive).map(p => p.player_key));
+  assert.equal(new Set(keys).size, keys.length);
+  assert.equal(new Set(ids(r)).size, 3);
+  const sequential = r.trades.reduce((l, t) => P.applyTrade(l, t).league, league);
+  assert.deepEqual(r.league, sequential);
+  assert.deepEqual(r.league, P.applyPackage(league, r.trades).league);
+  const rows = l => l.teams[0].entries.map(e => ctx.rowsByKey.get(e.key));
+  assert.deepEqual(F.pickStarters(rows(r.league), ctx.shape, F.OUR_KEY), F.pickStarters(rows(sequential), ctx.shape, F.OUR_KEY));
+  const side = l => {
+    const p = F.pickStarters(rows(l), ctx.shape, F.OUR_KEY);
+    const row = r => ({key: r.player_key, name: r.name, slot: r.pos});
+    return {starters: p.starters.map(row), bench: p.bench.map(row)};
+  };
+  const vm = Preview.viewModel({league, trades: r.trades, package: P,
+    lineup: {lineups: (before, after) => ({before: side(before), after: side(after)})}});
+  assert.equal(vm.state, 'valid');
+  assert.equal(vm.lineup.status, 'ready');
+  assert.deepEqual(vm.lineup.after, side(sequential));
+  assert.deepEqual(vm.lineup.after.starters.map(p => p.key), ['a-qb', 'a-rb', 'c-w', 'd-t']);
+  assert.notDeepEqual(vm.lineup.before.starters, vm.lineup.after.starters);
+  assert.deepEqual(ids(S.selectPackage(league, candidates.slice().reverse(), ctx)), ids(r));
+  assert.equal(JSON.stringify([league, candidates, [...ctx.rowsByKey]]), before);
+} else if (test === 'slot') {
+  const {league, candidates, ctx} = makeCase('slot');
+  ctx.keepMine = false; // Isolate the live viability gate from the optional keep-starters gate.
+  for (const t of candidates) assert.equal(S.selectPackage(league, [t], ctx).trades.length, 1);
+  const r = S.selectPackage(league, candidates, ctx);
+  assert.deepEqual(ids(r), ['b']); // The second individually viable offer now empties RB.
+  assert.ok(r.league.teams[0].entries.some(e => e.pos === 'RB'));
+} else if (test === 'rerank') {
+  const {league, candidates, ctx} = makeCase();
+  // First gain makes the old WR starter expendable. C is initially Market, then
+  // becomes Natural and must jump ahead of B; cached order would pick D,B,C.
+  for (const p of ctx.rowsByKey.values()) p.values.ddf_value_projections = 0;
+  ctx.rowsByKey.get('a-wr').values.ddf_value = 30;
+  ctx.rowsByKey.get('d-t').pos = 'WR';
+  Object.assign(league.teams[3].entries.find(e => e.key === 'd-t'), {pos: 'WR', slot: 'WR'});
+  ctx.rowsByKey.get('d-t').values.ddf_value = 40;
+  ctx.rowsByKey.get('c-w').pos = 'TE';
+  Object.assign(league.teams[2].entries.find(e => e.key === 'c-w'), {pos: 'TE', slot: 'TE'});
+  ctx.rowsByKey.get('c-w').values.ddf_value = 80;
+  candidates[1].give = ['a-wr'];
+  assert.equal(S.selectPackage(league, [candidates[1]], ctx).trades[0].overall, 'market');
+  assert.equal(S.selectPackage(league, [candidates[0]], ctx).trades[0].overall, 'natural');
+  const r = S.selectPackage(league, candidates, ctx);
+  assert.deepEqual(ids(r), ['d', 'c', 'b']);
+  assert.deepEqual(r.trades.map(t => t.overall), ['natural', 'natural', 'natural']);
+  assert.deepEqual(r.trades.map(t => t.edge), [35, 50, 7]);
+} else if (test === 'ties') {
+  const {league, candidates, ctx} = makeCase();
+  ctx.rowsByKey.get('b-r').values.ddf_value = 15;
+  league.teams[1].name = 'Zebra'; league.teams[2].name = 'Alpha';
+  assert.deepEqual(ids(S.selectPackage(league, candidates, ctx)), ['d', 'c', 'b']);
+  assert.deepEqual(ids(S.selectPackage(league, candidates.slice().reverse(), ctx)), ['d', 'c', 'b']);
+} else if (test === 'newly_viable') {
+  const {league, candidates, ctx} = makeCase();
+  league.teams[0].entries = league.teams[0].entries.filter(e => e.key !== 'a-r');
+  candidates.splice(0, 1);
+  candidates[0].give = ['a-rb'];
+  ctx.rowsByKey.get('c-w').values.ddf_value = 80;
+  ctx.rowsByKey.get('d-t').pos = 'RB';
+  Object.assign(league.teams[3].entries.find(e => e.key === 'd-t'), {pos: 'RB', slot: 'RB'});
+  ctx.keepMine = false;
+  assert.equal(S.selectPackage(league, [candidates[0]], ctx).status, 'empty');
+  // D supplies the RB that makes C possible, so initially rejected C is reconsidered.
+  assert.deepEqual(ids(S.selectPackage(league, candidates, ctx)), ['d', 'c']);
+} else if (test === 'arrival') {
+  const {league, candidates, ctx} = makeCase();
+  // The newly received D player cannot be traded onward, even to an unused team.
+  ctx.rowsByKey.get('c-qb').values.usatoday = 1;
+  ctx.rowsByKey.get('c-qb').values.fantasycalc = 1;
+  ctx.rowsByKey.get('c-qb').values.fantasypros = 1;
+  league.teams[2].entries.push({key: 'c-qb2', pos: 'QB', name: 'Synthetic backup QB'});
+  ctx.rowsByKey.set('c-qb2', {...ctx.rowsByKey.get('c-qb'), player_key: 'c-qb2'});
+  candidates.splice(1, 1, {opponentId: 'c', give: ['d-t'], receive: ['c-qb']});
+  const r = S.selectPackage(league, candidates, ctx);
+  assert.deepEqual(ids(r), ['d', 'b']);
+  assert.equal(P.validatePackage(league, r.trades).ok, true);
+} else if (test === 'conflicts') {
+  const {league, candidates, ctx} = makeCase();
+  candidates.push({opponentId: 'c', give: ['a-w'], receive: ['c-qb']}, // larger gain, still one counterparty
+    {opponentId: 'd', give: ['a-r'], receive: ['d-qb']}, // conflicts with b's give
+    {opponentId: 'c', give: ['d-t'], receive: ['c-t']}, // cannot re-trade an arrival
+    {opponentId: 'missing', give: ['a-r'], receive: ['b-r']},
+    {opponentId: 'b', give: [{key: 'a-r', player_key: 'a-w'}], receive: ['b-r']}, null);
+  const r = S.selectPackage(league, candidates, ctx);
+  assert.equal(r.ok, true);
+  assert.equal(P.validatePackage(league, r.trades).ok, true);
+  const keys = r.trades.flatMap(t => t.give.concat(t.receive).map(p => p.player_key));
+  assert.equal(keys.length, new Set(keys).size);
+  assert.equal(ids(r).length, new Set(ids(r)).size);
+  assert.ok(r.trades.length >= 2);
+} else if (test === 'unavailable') {
+  const {league, candidates, ctx} = makeCase();
+  assert.equal(S.selectPackage(league, [], ctx).status, 'empty');
+  assert.equal(S.selectPackage(league, null, ctx).status, 'unavailable');
+  assert.equal(S.selectPackage(null, candidates, ctx).status, 'unavailable');
+  assert.equal(S.selectPackage(league, candidates, null).status, 'unavailable');
+  assert.equal(S.selectPackage(league, candidates, {...ctx, market: []}).status, 'unavailable');
+  ctx.rowsByKey.delete('a-qb');
+  assert.equal(S.selectPackage(league, candidates, ctx).status, 'unavailable');
+} else if (test === 'pricing') {
+  const {league, candidates, ctx} = makeCase();
+  candidates.forEach(t => { t.give = t.give.map(p => ({player_key: typeof p === 'string' ? p : p.key, values: {ddf_value: 999}})); });
+  assert.deepEqual(ids(S.selectPackage(league, candidates, ctx)), ['d', 'c', 'b']);
+  ctx.rowsByKey.get('d-t').values.ddf_value = null;
+  assert.deepEqual(ids(S.selectPackage(league, candidates, ctx)), ['c', 'b']);
+  ctx.rowsByKey.get('c-w').values.usatoday = null;
+  assert.deepEqual(ids(S.selectPackage(league, candidates, ctx)), ['b']);
+  league.teams[0].entries.push({key: 'x:DEF:NYJ', pos: 'DEF', name: 'Synthetic defense'});
+  const r = S.selectPackage(league, candidates, ctx);
+  assert.ok(r.league.teams[0].entries.some(e => e.key === 'x:DEF:NYJ'));
+} else if (test === 'panel_lineups') {
+  const Panel = require(process.argv[3] + '/trade-package-panel.js');
+  const {league, candidates, ctx} = makeCase();
+  ctx.shape.FLEX = 1; ctx.shape.SUPERFLEX = 1;
+  league.teams.forEach(t => t.entries.forEach(e => { e.slot = 'RB'; }));
+  const r = S.selectPackage(league, candidates, ctx);
+  const unchanged = JSON.stringify([league, r.league]);
+  const supplied = Panel.lineups(league, r.league, ctx);
+  for (const [which, l] of [['before', league], ['after', r.league]]) {
+    const expected = F.pickStarters(l.teams[0].entries.map(e => ctx.rowsByKey.get(e.key)), ctx.shape, F.OUR_KEY);
+    assert.deepEqual(supplied[which].starters.map(p => p.key), expected.starters.map(p => p.player_key));
+    assert.deepEqual(supplied[which].starters.map(p => p.slot), ['QB', 'RB', 'WR', 'TE', 'FLEX', 'SUPERFLEX']);
+  }
+  assert.equal(JSON.stringify([league, r.league]), unchanged);
+  ctx.shape.RB = 20;
+  assert.ok(Panel.lineups(league, r.league, ctx).after.starters.some(p => p.key === null && p.slot === 'RB'));
+} else if (test === 'guardrails') {
+  const {league, candidates, ctx} = makeCase();
+  ctx.guardrails = {minDdfEdge: 10};
+  assert.deepEqual(ids(S.selectPackage(league, candidates, ctx)), ['d']);
+  const s = makeCase('slot');
+  s.league.teams[0].entries.push({key: 'a-r3', name: 'Synthetic third RB', pos: 'RB'});
+  s.ctx.rowsByKey.set('a-r3', {...s.ctx.rowsByKey.get('a-r1'), player_key: 'a-r3',
+    values: {...s.ctx.rowsByKey.get('a-r1').values, ddf_value: 4}});
+  s.ctx.guardrails = {minBackups: {RB: 1}};
+  const guarded = S.selectPackage(s.league, s.candidates, s.ctx);
+  assert.deepEqual(ids(guarded), ['b']); // C would consume the last RB backup.
+  assert.ok(F.benchBackups(guarded.league.teams[0].entries.map(e => s.ctx.rowsByKey.get(e.key)), s.ctx.shape, F.OUR_KEY).RB >= 1);
+} else { throw Error('unknown check ' + test); }
+"""
+
+
+@unittest.skipUnless(shutil.which("node"), "node is not installed")
+class GreedyPackageSearchTest(unittest.TestCase):
+    """Runs in the existing package-contract Makefile/CI lane."""
+
+    def check_case(self, name, module=SEARCH):
+        return subprocess.run(["node", "-e", SEARCH_CHECKS, str(module), str(SEARCH_CASES),
+                               str(REPO / "app" / "v2"), name], capture_output=True, text=True, timeout=30)
+
+    def test_greedy_selection_and_roster_invariants(self):
+        for name in ("three", "slot", "rerank", "ties", "newly_viable", "arrival", "conflicts", "unavailable", "pricing", "guardrails", "panel_lineups"):
+            with self.subTest(case=name):
+                result = self.check_case(name)
+                self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_missing_selector_fails_before(self):
+        result = self.check_case("three", MODULE)  # The pre-change preview has no selector.
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("selectPackage is not a function", result.stderr)
+
+    def test_coordinator_patch_applies_and_builds_the_panel_assets(self):
+        """Apply only to temporary copies; shared owners retain their source files."""
+        patch = REPO / "docs" / "integration" / "jeg1183-package-panel.patch"
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp)
+            for name in ("app/v2/league.js", "pipelines/build_v2_page.py"):
+                out = target / name
+                out.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(REPO / name, out)
+            result = subprocess.run(["git", "apply", str(patch)], cwd=target, capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            league = (target / "app/v2/league.js").read_text(encoding="utf-8")
+            self.assertIn('candidates: result.rows, ctx,', league)
+            self.assertIn('UI.running || UI.timer ? {status: "pending"}', league)
+            self.assertIn('TradePackageConstraints.applyPackage(ws, []).league', league)
+            # Keep the real builder's root selectors, while executing the patched temporary source.
+            source = (target / "pipelines/build_v2_page.py").read_text(encoding="utf-8")
+            builder = types.ModuleType("jeg1183_patched_builder")
+            builder.__file__ = str(REPO / "pipelines" / "build_v2_page.py")
+            sys.path.insert(0, str(REPO / "pipelines"))
+            exec(compile(source, builder.__file__, "exec"), builder.__dict__)
+            from tests.test_build_v2_page import INDEX
+            engine = target / "synthetic-engine.html"
+            engine.write_text(INDEX, encoding="utf-8")
+            built = builder.build(dist=target / "dist", engine_page=engine)
+            html = built.read_text(encoding="utf-8")
+            self.assertLess(html.index('src="v2/finder.js"'), html.index('src="v2/trade-package-search.js"'))
+            self.assertLess(html.index('src="v2/trade-package-panel.js"'), html.index('src="v2/league.js"'))
+            for name in ("trade-package-search.js", "trade-package-panel.js", "trade-package-panel.css",
+                         "trade-package-constraints.js", "package-composition-preview.js", "package-composition-preview.css"):
+                self.assertEqual((built.parent / name).read_bytes(), (REPO / "app" / "v2" / name).read_bytes())
+                self.assertIn(f'v2/{name}', html)
+
+    def test_final_lineup_mutation_is_caught(self):
+        panel = REPO / "app" / "v2" / "trade-package-panel.js"
+        source = panel.read_text(encoding="utf-8")
+        anchor = "after: side(after)"
+        self.assertEqual(source.count(anchor), 1)
+        with tempfile.TemporaryDirectory() as tmp:
+            mutant = Path(tmp) / "panel.js"
+            mutant.write_text(source.replace(anchor, "after: side(before)").replace(
+                'require("./', f'require("{REPO}/app/v2/'), encoding="utf-8")
+            check = r"""
+const assert = require('node:assert/strict');
+const Panel = require(process.argv[1]);
+const c = require(process.argv[2]).makeCase();
+const selected = require(process.argv[3]).selectPackage(c.league, c.candidates, c.ctx);
+const actual = Panel.lineups(c.league, selected.league, c.ctx).after.starters.map(r => r.key);
+assert.deepEqual(actual, ['a-qb', 'a-rb', 'c-w', 'd-t']);
+"""
+            result = subprocess.run(["node", "-e", check, str(mutant), str(SEARCH_CASES), str(SEARCH)],
+                                    capture_output=True, text=True, timeout=30)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("AssertionError", result.stderr)
+
+    def test_greedy_mutations_are_caught(self):
+        source = SEARCH.read_text(encoding="utf-8")
+        mutations = {
+            "stale rosters": ("rowsFor(current.teams.find(t => t.id === current.myTeamId))",
+                              "rowsFor(baseline.league.teams.find(t => t.id === current.myTeamId))", "slot"),
+            "edge before fit": ("O.rankRows(ranked)[0]", "ranked.sort((a, b) => b.edge - a.edge)[0]", "rerank"),
+            "retrade arrivals": ("P.validatePackage(league, trades.concat([candidate]))",
+                                 "P.validatePackage(current, [candidate])", "arrival"),
+            "skip viability": ("if (!viability) continue;", "if (false) continue;", "slot"),
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            for name, (old, new, case) in mutations.items():
+                with self.subTest(mutant=name):
+                    self.assertEqual(source.count(old), 1)
+                    path = Path(tmp) / "search.js"
+                    changed = source.replace(old, new).replace('require("./', f'require("{REPO}/app/v2/')
+                    path.write_text(changed, encoding="utf-8")
+                    result = self.check_case(case, path)
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertIn("AssertionError", result.stderr)
 
 
 if __name__ == "__main__":
