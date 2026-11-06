@@ -49,3 +49,14 @@ A dry run is the same dispatch without the write input (or a push to a `*/dry-*`
 
 - USA Today answers GitHub runners with 402. The Supabase relay is the primary fallback (`docs/watchdog.md`, "USA Today fetch chain"). `SOURCE_BLOCKED` is a warning and the last good week stays published.
 - CBS rest of season publishes Wednesdays; a retry runs at 17:00 UTC if there is no row that day.
+
+
+## Validation-bound exemption decisions
+
+For a designed mechanism that breaches a global validation bound, follow the
+[exemption decision policy](../docs/exemption-decision-policy.md). Record the
+authorized signature and decision-ticket link in the week-transition runbook's
+[exemption decision records](../docs/week-transition-runbook.md#exemption-decision-records),
+using its template. An unchanged signature needs an incident record on the
+ticket; a new or expanded signature needs the policy's decision owner.
+Independent exact-head review and green CI remain mandatory before merge.
