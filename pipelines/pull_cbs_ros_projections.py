@@ -261,6 +261,10 @@ def pull_weekly(source_week: int, scraped_at: str) -> dict:
             "not_offered_weeks": not_offered, "errors": errors}
 
 
+from content_observations import acquired, acquisition_entry
+
+
+@acquisition_entry('cbsros')
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--date", default=datetime.now(timezone.utc).strftime("%Y-%m-%d"),
@@ -311,6 +315,7 @@ def main() -> int:
             "by_pos": {p: sum(1 for r in all_rows if r["pos"] == p) for p in POSITIONS},
         },
     }
+    acquired('cbsros', all_rows)
     out_path = out_dir / "snapshot.json"
     out_path.write_text(json.dumps(snapshot, indent=2) + "\n", encoding="utf-8")
     print(f"Wrote {len(all_rows)} players -> {out_path}")

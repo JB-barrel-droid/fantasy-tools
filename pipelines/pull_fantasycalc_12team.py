@@ -78,6 +78,10 @@ def check_pull(lists: dict[str, list[dict]]) -> list[str]:
     return problems
 
 
+from lib.content_observations import acquired, acquisition_entry, acquisition_scope, record_failure
+
+
+@acquisition_entry('fantasycalc')
 def main(argv: list[str] | None = None, fetch_fn=fetch) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--cache-dir", type=Path, required=True)
@@ -102,7 +106,13 @@ def main(argv: list[str] | None = None, fetch_fn=fetch) -> int:
     if sf_problems:
         for p in sf_problems:
             print(f"WARNING: superflex (numQbs=2) {p}; superflex lists not written", file=sys.stderr)
+        record_failure('fantasycalc', [acquisition_scope('fantasycalc', scoring, '12_qb2')
+                                       for scoring in SCORINGS])
         superflex = {}
+
+    for qbs, group in ((1, lists), (2, superflex)):
+        for scoring, rows in group.items():
+            acquired('fantasycalc', rows, scoring=scoring, variant=f'12_qb{qbs}')
 
     args.cache_dir.mkdir(parents=True, exist_ok=True)
     for qb_slots, by_scoring in ((1, lists), (2, superflex)):

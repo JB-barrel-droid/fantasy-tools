@@ -331,6 +331,10 @@ def write_csv(snap: dict[str, Any], path: Path) -> None:
             w.writerow([r["player_name"] if c == "player" else r[c] for c in CSV_COLUMNS])
 
 
+from content_observations import acquired, acquisition_entry
+
+
+@acquisition_entry('razzball')
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--date", default=None,
@@ -342,6 +346,7 @@ def main(argv: list[str] | None = None) -> int:
     except PullError as e:
         print(f"RAZZBALL PULL FAILED [{e.code}]: {e}", file=sys.stderr, flush=True)
         return 1
+    acquired('razzball', snap['rows'])
     args.out_dir.mkdir(parents=True, exist_ok=True)
     out = args.out_dir / "snapshot.json"
     out.write_text(json.dumps(snap, indent=1, sort_keys=True))

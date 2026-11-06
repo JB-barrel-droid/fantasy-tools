@@ -1280,6 +1280,8 @@ def bake(args):
     assert_canonical_names(
         [(p["player_key"], p["name"]) for p in players],
         registry=registry, context="players.json")
+    from content_observations import recorded_scopes
+    meta["content_observation_scopes"] = recorded_scopes()
     meta["dataset_status"] = build_dataset_status(
         meta, players, snapshot_dir=str(SNAPSHOT_DIR), rz_live=True)
     meta["preseason_ecr"] = pecr_note()

@@ -58,6 +58,7 @@ Repo-port changes vs the original:
 
 import glob as _glob
 import json
+import sqlite3
 import os
 import statistics
 from datetime import datetime, timezone
@@ -550,8 +551,23 @@ def build_dataset_status(meta, players, snapshot_dir=None,
         if entry["key"] == "our_value":
             continue
         configured = scopes.get(entry["key"], [])
-        observations = [verdict(ledger.latest(Scope(**key)), evaluated_at)
-                        for key in configured] or [verdict(None, evaluated_at)]
+        try:
+            parsed = [Scope(**key) for key in configured]
+            espn_required = {'skill'}
+            if any(p.get('pos') == 'K' for p in players):
+                espn_required.add('k')
+            if any(p.get('pos') in ('DST', 'DEF', 'D/ST') for p in players):
+                espn_required.add('dst')
+            required = {'espn': espn_required, 'fantasycalc': {'values'},
+                        'razzball': {'ros'}, 'cbsros': {'ros'}}.get(entry['key'])
+            valid = (required is not None and bool(parsed)
+                     and all(k.source == entry['key'] and k.season == 2026
+                             and k.week_slate == 'ros' and k.dataset in required for k in parsed)
+                     and {k.dataset for k in parsed} == required)
+            observations = ([verdict(ledger.latest(k), evaluated_at) for k in parsed]
+                            if valid else [verdict(None, evaluated_at)])
+        except (TypeError, ValueError, OSError, sqlite3.Error):
+            observations = [verdict(None, evaluated_at)]
         unhealthy = [v for v in observations if v["stale"]]
         entry["stale"] = bool(unhealthy)
         entry["stale_reason"] = "; ".join(dict.fromkeys(

@@ -40,3 +40,33 @@ Connect validated collectors to the durable writer on every acquisition, includi
 Add remaining editorial adapters and any other explicitly enabled required chart sources. Wire durable ledger persistence/read access into workflows. Implement hourly/client status reevaluation so displayed flags age without rebakes, JEG-1515 readiness gating and alert routing. The helper can recompute verdicts now, but no hourly dispatcher or client updater is activated by this change. No live source freshness or scheduler execution is certified.
 
 Human step: Jeremy must specifically approve any production database migration, schedule activation, merge/deploy, or production-data change. The acting coordinator must reconcile live scheduler exports and JEG-1515's exact interface before that approval; no approval is requested in this local-only implementation.
+
+## Post-review acquisition wiring (2026-11-06)
+
+The ESPN, FantasyCalc, Razzball ROS and CBS ROS pull entry points now write
+observations before promoting their output. ESPN also records unchanged pulls
+before its early return. Failed/partial entry-point runs append failed
+observations; FantasyCalc's optional superflex failure invalidates those three
+scopes while retaining its existing independent 1-QB save behavior. A ledger
+write failure stops promotion and is not automatically retried.
+
+`CONTENT_OBSERVATION_LEDGER` selects the shared SQLite file (default:
+`data/content-observations.sqlite3`). Acquisition and bake must use the same
+persistent file. Bake supplies the recorded 2026 ROS scope keys in
+`meta.content_observation_scopes`; dataset status validates source, season,
+ROS dataset and required ESPN position coverage before reading verdicts.
+The current skill-only chart requires ESPN skill, and would additionally
+require independent K/DST scopes if those positions were served. Missing or
+invalid mappings and incomplete ledger coverage remain non-green.
+
+The `native-v2-numeric` normalizer retains team/position text in snapshots and
+coverage but excludes those descriptive fields from numeric hashes, and includes
+the Razzball collector's native `pg_*` and share-column names. Changing
+normalizer version establishes an unknown baseline, rather than treating the
+hash-format migration as evidence of fresh numbers.
+
+These are local acquisition integrations, not deployed storage provisioning.
+Separate CI runners still need an explicitly shared durable ledger; no storage,
+workflow, schedule or production configuration was activated by this fix.
+Original raw-response archival and ingestion/served-hash propagation remain
+unimplemented, as listed in the original implementation report.

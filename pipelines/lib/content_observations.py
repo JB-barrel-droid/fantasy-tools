@@ -8,10 +8,17 @@ from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 import hashlib
 import json
+import os
+from functools import wraps
 from pathlib import Path
 import sqlite3
 
-VERSION = 'native-v1'
+try:
+    from .timestamps import parse_iso_timestamp
+except ImportError:  # standalone pullers import from pipelines/lib
+    from timestamps import parse_iso_timestamp
+
+VERSION = 'native-v2-numeric'
 DEFAULT_PATH = Path(__file__).resolve().parents[2] / 'data/content-observations.sqlite3'
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS observations (
@@ -31,7 +38,7 @@ CREATE TRIGGER IF NOT EXISTS observations_no_delete BEFORE DELETE ON observation
 
 
 def stamp(value):
-    dt = datetime.fromisoformat(value.replace('Z', '+00:00'))
+    dt = parse_iso_timestamp(value)
     if dt.tzinfo is None or 'T' not in value:
         raise ValueError('exact timezone-aware timestamp required')
     return dt.astimezone(timezone.utc)
@@ -75,7 +82,9 @@ CBS_FIELDS = ('gp pass_att pass_cmp pass_yds pass_yds_g pass_td int rate '
               'rec_avg rec_td').split()
 RAZZ_FIELDS = ('rz_std_ppg rz_half_ppr_ppg rz_ppr_ppg games_reported '
                'pass_att pass_cmp pass_yds pass_td int rush_att rush_yds rush_td '
-               'tgt rec rec_yds rec_td fl').split()
+               'tgt rec rec_yds rec_td fl pg_snaps pg_cmp pg_att pg_pass_yds pg_pass_td '
+               'pg_int pg_sacks pg_rush_att pg_rush_yds pg_rush_td pg_fum pg_tgt '
+               'pg_rec pg_rec_yds pg_rec_td share_rush share_tgt').split()
 
 
 def normalize(source, rows):
@@ -124,14 +133,23 @@ def normalize(source, rows):
     return sorted(out, key=lambda r: (r['id'], r['pos']))
 
 
-def content_hash(source, rows):
-    return hashlib.sha256(json.dumps(normalize(source, rows), sort_keys=True,
+def numeric_hash(normalized):
+    # Keep descriptive fields in snapshots/coverage, but only identity and native
+    # numbers can renew the numeric-change clock. Sort after removing metadata.
+    numeric = [{k: v for k, v in row.items() if k not in ('team', 'pos')}
+               for row in normalized]
+    numeric.sort(key=lambda row: json.dumps(row, sort_keys=True))
+    return hashlib.sha256(json.dumps(numeric, sort_keys=True,
                                     separators=(',', ':')).encode()).hexdigest()
 
 
+def content_hash(source, rows):
+    return numeric_hash(normalize(source, rows))
+
+
 class Ledger:
-    def __init__(self, path=DEFAULT_PATH):
-        self.path = Path(path).absolute()
+    def __init__(self, path=None):
+        self.path = Path(path or os.environ.get('CONTENT_OBSERVATION_LEDGER', DEFAULT_PATH)).absolute()
 
     def latest(self, scope):
         if not self.path.exists():
@@ -160,8 +178,7 @@ class Ledger:
             result = 'incomplete_scope'
         if source_updated_at and trusted_numeric_time:
             stamp(source_updated_at)
-        digest = hashlib.sha256(json.dumps(normalized, sort_keys=True,
-                               separators=(',', ':')).encode()).hexdigest() if normalized else None
+        digest = numeric_hash(normalized) if normalized else None
         self.path.parent.mkdir(parents=True, exist_ok=True)
         with sqlite3.connect(self.path) as db:
             db.executescript(SCHEMA)
@@ -221,6 +238,9 @@ def verdict(observation, now=None):
         reasons.append('future_fetch_timestamp')
     if not fetch or (now - stamp(fetch)).total_seconds() > 86400:
         reasons.append('pull_overdue')
+    coverage = json.loads(o['coverage']) if o.get('coverage') else {}
+    if not coverage.get('complete') or not coverage.get('expected') or coverage.get('observed') != coverage.get('expected'):
+        reasons.append('incomplete_coverage')
     if o.get('result') and o['result'] != 'success':
         reasons.append(o['result'])
     return dict(stale=bool(reasons), reason=reasons[0] if reasons else None,
@@ -229,3 +249,76 @@ def verdict(observation, now=None):
                 normalized_content_hash=o.get('normalized_content_hash'),
                 coverage=json.loads(o['coverage']) if o.get('coverage') else None,
                 evaluated_at=iso(now))
+
+
+def acquisition_scope(source, scoring='native', variant='native'):
+    # These acquisition entry points are explicitly 2026 ROS producers.
+    return Scope(source, 'skill' if source == 'espn' else
+                 'values' if source == 'fantasycalc' else 'ros',
+                 2026, 'ros', scoring, variant)
+
+
+class ObservationWriteError(OSError):
+    pass
+
+
+def acquired(source, rows, *, scoring='native', variant='native', complete=True):
+    """Must succeed before promoting an acquisition, including unchanged pulls."""
+    try:
+        return Ledger().observe(acquisition_scope(source, scoring, variant), rows,
+            attempted_at=iso(datetime.now(timezone.utc)), expected=max(1, len(rows)),
+            complete=complete, consumers=('dataset_status',))
+    except (OSError, sqlite3.Error) as exc:
+        raise ObservationWriteError('content observation write failed; promotion stopped') from exc
+
+
+def recorded_scopes(ledger=None):
+    """Read acquisition scope keys; status validates required coverage separately."""
+    ledger = ledger or Ledger()
+    if not ledger.path.exists():
+        return {}
+    with sqlite3.connect(ledger.path.as_uri() + '?mode=ro', uri=True) as db:
+        keys = [json.loads(r[0]) for r in db.execute('SELECT DISTINCT scope FROM observations')]
+    out = {}
+    for key in keys:
+        if key['season'] == 2026 and key['week_slate'] == 'ros':
+            out.setdefault(key['source'], []).append(key)
+    return out
+
+
+def acquisition_entry(source):
+    """Record failed/partial runs without swallowing producer or ledger failures."""
+    def decorate(fn):
+        @wraps(fn)
+        def run(*args, **kwargs):
+            try:
+                result = fn(*args, **kwargs)
+            except SystemExit as exc:
+                if exc.code:
+                    record_failure(source)
+                raise
+            except ObservationWriteError:
+                raise
+            except Exception:
+                record_failure(source)
+                raise
+            if result:
+                record_failure(source)
+            return result
+        return run
+    return decorate
+
+
+def record_failure(source, scopes=None):
+    ledger = Ledger()
+    defaults = ([asdict(acquisition_scope(source, scoring, f'12_qb{qbs}'))
+                 for qbs in (1, 2) for scoring in ('standard', 'half', 'full')]
+                if source == 'fantasycalc' else [asdict(acquisition_scope(source))])
+    keys = ([asdict(k) for k in scopes] if scopes is not None
+            else recorded_scopes(ledger).get(source) or defaults)
+    try:
+        for key in keys:
+            ledger.observe(Scope(**key), attempted_at=iso(datetime.now(timezone.utc)),
+                           expected=1, result='failed', consumers=('dataset_status',))
+    except (OSError, sqlite3.Error) as exc:
+        raise ObservationWriteError('failure observation write failed') from exc

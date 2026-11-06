@@ -144,3 +144,135 @@ class Observations(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class ReviewRegressions(unittest.TestCase):
+    setUp = Observations.setUp
+    observe = Observations.observe
+    def test_wrong_source_and_missing_espn_datasets_fail_closed(self):
+        self.observe('2026-11-05T00:00:00Z', source_updated_at='2026-11-05T00:00:00Z', trusted_numeric_time=True)
+        skill = Scope('espn', 'k', 2026, 'ros', 'native', 'native')
+        self.ledger.observe(skill, [{'canon': '1', 'pos': 'K', 'weeks': {'1': {'yds': 1}}}],
+            attempted_at='2026-11-05T00:00:00Z', expected=1,
+            source_updated_at='2026-11-05T00:00:00Z', trusted_numeric_time=True)
+        for keys in ([asdict(self.scope)], [asdict(skill)]):
+            status = build_dataset_status({'as_of': '2026-11-05'}, [{'name': str(i)} for i in range(400)],
+                observation_ledger=self.ledger, observation_scopes={'espn': keys},
+                evaluated_at='2026-11-05T00:00:00Z')
+            for entry in status['datasets']:
+                if entry['key'] in ('espn', 'our_value'):
+                    self.assertTrue(entry['stale'])
+
+    def test_team_only_correction_preserves_numeric_clock(self):
+        self.observe('2026-11-01T00:00:00Z')
+        changed = self.observe('2026-11-02T00:00:00Z', [{'player_id': 1, 'value': 101, 'team': 'SEA'}])
+        corrected = self.observe('2026-11-04T00:00:00Z', [{'player_id': 1, 'value': 101, 'team': 'NYJ'}])
+        self.assertEqual(changed['normalized_content_hash'], corrected['normalized_content_hash'])
+        self.assertEqual(changed['last_observed_change_at'], corrected['last_observed_change_at'])
+        self.assertIn('content_stale', verdict(corrected, '2026-11-04T00:00:00Z')['reasons'])
+
+    def test_real_fc_entry_writes_scopes_and_fails_closed_on_ledger_error(self):
+        import os
+        from unittest.mock import patch
+        from pipelines import pull_fantasycalc_12team as pull
+        from pipelines.lib.content_observations import recorded_scopes
+        rows = [{'player': {'id': i, 'name': str(i), 'position': 'WR'}, 'value': i} for i in range(200)]
+        output = Path(self.tmp.name) / 'cache'
+        with patch.dict(os.environ, CONTENT_OBSERVATION_LEDGER=str(self.ledger.path)):
+            self.assertEqual(0, pull.main(['--cache-dir', str(output)], fetch_fn=lambda _: rows))
+            scopes = recorded_scopes(self.ledger)['fantasycalc']
+            self.assertEqual(6, len(scopes))
+            self.assertTrue(all(self.ledger.latest(Scope(**k))['result'] == 'success' for k in scopes))
+            # A failed acquisition invalidates previous success for every consumed scope.
+            with self.assertRaises(RuntimeError):
+                pull.main(['--cache-dir', str(output)], fetch_fn=lambda _: (_ for _ in ()).throw(RuntimeError('offline')))
+            self.assertTrue(all(self.ledger.latest(Scope(**k))['result'] == 'failed' for k in scopes))
+        blocked = Path(self.tmp.name) / 'not-a-directory'
+        blocked.write_text('blocked')
+        with patch.dict(os.environ, CONTENT_OBSERVATION_LEDGER=str(blocked / 'ledger')):
+            with self.assertRaises(OSError):
+                pull.main(['--cache-dir', str(output / 'new')], fetch_fn=lambda _: rows)
+            self.assertFalse((output / 'new').exists())
+
+    def test_razzball_and_cbs_entrypoints_record_before_promotion(self):
+        import os
+        from unittest.mock import patch
+        from pipelines import pull_razzball_ros as rz, pull_cbs_ros_projections as cbs
+        from pipelines.lib.content_observations import acquisition_scope
+        rz_row = {'player_name': 'One', 'pos': 'QB', 'rz_std_ppg': 1,
+                  'rz_half_ppr_ppg': 2, 'rz_ppr_ppg': 3}
+        snap = {'rows': [rz_row], 'vintage_date': '2026-11-05', 'page_stamps': {},
+                'row_count': 1, 'summary': {'by_pos': {'QB': 1}},
+                'review_count': 0, 'ppg_gate_diverging': []}
+        with patch.dict(os.environ, CONTENT_OBSERVATION_LEDGER=str(self.ledger.path)):
+            with patch.object(rz, 'pull', return_value=snap), patch.object(rz, 'write_csv'):
+                self.assertEqual(0, rz.main(['--out-dir', str(Path(self.tmp.name) / 'rz')]))
+            self.assertEqual('success', self.ledger.latest(acquisition_scope('razzball'))['result'])
+            cbs_rows = lambda pos, html: ([{'player_name': pos, 'pos': pos, 'gp': 8, 'raw_stats': {'rec': 2}}], [])
+            with patch('sys.argv', ['pull', '--out-dir', str(Path(self.tmp.name) / 'cbs')]), \
+                 patch.object(cbs, 'fetch', return_value='html'), \
+                 patch.object(cbs, 'parse_position', side_effect=cbs_rows), \
+                 patch.object(cbs, 'pull_weekly', return_value={'weeks': {}, 'not_offered_weeks': [], 'errors': []}):
+                self.assertEqual(0, cbs.main())
+            self.assertEqual('success', self.ledger.latest(acquisition_scope('cbsros'))['result'])
+            with patch.object(rz, 'pull', side_effect=rz.PullError('offline', 'SOURCE_BLOCKED')):
+                self.assertEqual(1, rz.main(['--out-dir', str(Path(self.tmp.name) / 'rz-failed')]))
+            self.assertEqual('failed', self.ledger.latest(acquisition_scope('razzball'))['result'])
+
+    def test_espn_failed_fetch_records_failed_observation(self):
+        import os
+        from unittest.mock import patch
+        from pipelines import pull_espn_projections as espn
+        from pipelines.lib.content_observations import acquisition_scope
+        with patch.dict(os.environ, CONTENT_OBSERVATION_LEDGER=str(self.ledger.path)), \
+             patch.object(espn, 'fetch_position', side_effect=RuntimeError('offline')), \
+             patch.object(espn, 'log_line'):
+            self.assertEqual(1, espn.main())
+        self.assertEqual('failed', self.ledger.latest(acquisition_scope('espn'))['result'])
+
+    def test_normal_bake_supplies_acquisition_scopes(self):
+        import os
+        from unittest.mock import patch
+        from tests.test_bake_today_unboundlocal import BakeTodayUnboundLocalTest
+        from pipelines.lib.content_observations import acquired, recorded_scopes
+        fixture = BakeTodayUnboundLocalTest()
+        fixture.setUp()
+        self.addCleanup(fixture.tearDown)
+        with patch.dict(os.environ, CONTENT_OBSERVATION_LEDGER=str(self.ledger.path)):
+            acquired('espn', [{'canon': 'one', 'pos': 'QB', 'weeks': {'1': {'yds': 1}}}])
+            result = fixture._run_bake()
+            self.assertEqual(recorded_scopes(self.ledger), result['meta']['content_observation_scopes'])
+            self.assertEqual('skill', result['meta']['content_observation_scopes']['espn'][0]['dataset'])
+
+    def test_incomplete_coverage_cannot_certify_freshness(self):
+        import json
+        healthy = self.observe('2026-11-05T00:00:00Z', source_updated_at='2026-11-05T00:00:00Z', trusted_numeric_time=True)
+        self.assertFalse(verdict(healthy, '2026-11-05T00:00:00Z')['stale'])
+        for coverage in ({'complete': False, 'observed': 1, 'expected': 1},
+                         {'complete': True, 'observed': 1, 'expected': 2}):
+            self.assertIn('incomplete_coverage', verdict(dict(healthy, coverage=json.dumps(coverage)),
+                '2026-11-05T00:00:00Z')['reasons'])
+
+    def test_espn_success_records_native_acquisition(self):
+        import os
+        from unittest.mock import patch
+        from tests.test_espn_pull_team_played_jeg574 import PullMainPerTeamWindowTest, PLAYED_THURSDAY
+        from pipelines.lib.content_observations import acquisition_scope
+        with patch.dict(os.environ, CONTENT_OBSERVATION_LEDGER=str(self.ledger.path)):
+            PullMainPerTeamWindowTest().run_pull(PLAYED_THURSDAY)
+        observation = self.ledger.latest(acquisition_scope('espn'))
+        self.assertEqual('success', observation['result'])
+        self.assertEqual('initial_baseline', observation['observation_kind'])
+
+
+    def test_descriptive_fields_do_not_change_numeric_hash_for_any_adapter(self):
+        examples = {
+            'espn': {'player_id': 1, 'pos': 'QB', 'weeks': {'1': {'yds': 1}}},
+            'fantasycalc': {'player_id': 1, 'pos': 'QB', 'value': 100},
+            'razzball': {'player_id': 1, 'pos': 'QB', 'rz_std_ppg': 1, 'rz_half_ppr_ppg': 2, 'rz_ppr_ppg': 3},
+            'cbsros': {'player_id': 1, 'pos': 'QB', 'gp': 8},
+        }
+        for source, row in examples.items():
+            with self.subTest(source=source):
+                self.assertEqual(content_hash(source, [row]),
+                                 content_hash(source, [dict(row, pos='RB', team='NYJ')]))

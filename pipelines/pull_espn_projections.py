@@ -391,6 +391,10 @@ def write_weekly_blocks(out_dir, proj, acts, team_map, played, ros_weeks):
         print(f"weekly blocks: {name} {len(rows)} rows", flush=True)
 
 
+from content_observations import acquired, acquisition_entry
+
+
+@acquisition_entry('espn')
 def main():
     problems = []
     t0 = time.time()
@@ -544,6 +548,9 @@ def main():
             if any(p["weeks"][w][c] != 0 for c in rcols))
 
     priced.sort(key=lambda p: -p["ros_half_ppr"])
+
+    acquired('espn', [dict(canon=p['canon'], pos=p['pos'], weeks=p['weekly'])
+                      for p in priced], complete=not problems)
 
     # ---- 4. change detection: hash of normalized payload ----
     h = hashlib.sha256()
