@@ -2,19 +2,9 @@
 
 This policy governs designed mechanisms that breach a global validation bound. A breach is not permission to suppress a check. Diagnose the causal channel, choose the smallest justified scope, record one decision, and implement it through the normal review and CI gates.
 
-Status: Maintained. Owner JEG-1518. Placement updated 2026-11-05 (JEG-1530);
-historical implementation evidence has not been reverified.
-
 ## Placement and evidence
 
-Use this policy with the [week-transition runbook](week-transition-runbook.md),
-[weekly-refresh runbook](../runbooks/weekly-refresh.md), and
-[publication chain runbook](../runbooks/run-the-chain.md). Keep authorized
-signatures in the week-transition runbook's
-[exemption decision records](week-transition-runbook.md#exemption-decision-records),
-using its decision-record template. Placement: JEG-1530, 2026-11-05.
-The evidence below records the original JEG-1518 investigation; historical
-checkout observations are not a fresh verification of this worktree.
+Publication guidance exists in `docs/week-transition-runbook.md`, alongside `runbooks/weekly-refresh.md` and `runbooks/run-the-chain.md`. The docs runbook explicitly links the weekly-refresh and source-held runbooks. Integrate this policy as `docs/exemption-decision-policy.md` and link it from the week-transition and weekly-refresh runbooks. This deliverable is the integration-ready text; those repo files have not been edited because fantasy-tools is read-only for this task.
 
 Read: JEG-1518, JEG-1511, and JEG-1514 through Linear. The requested CLI reads failed on the privsep socket; the connected Linear tool supplied the tickets. Local checkout HEAD is `71e0eafd6`; Week 9 files missing from that checkout were inspected using read-only `git show` at `b03ae99fe` and `c1bf2d474`. Historical paths below refer to those revisions where necessary, not a claim that the current checkout contains them.
 
