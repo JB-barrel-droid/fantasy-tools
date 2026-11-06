@@ -92,3 +92,46 @@ DDF_NOW=2026-10-29T17:01:00Z python3 pipelines/check_reference_freshness.py --ou
 
 Related: `runbooks/weekly-refresh.md` (the weekly check),
 `runbooks/source-held.md` (holds), `docs/watchdog.md` (producers).
+
+
+## Exemption decision records
+
+Follow the [exemption decision policy](exemption-decision-policy.md) (JEG-1518)
+when a designed mechanism breaches a global validation bound. Append authorized
+mechanism signatures here with their decision-ticket links. The policy's
+historical examples are evidence, not new authorizations. No new authorization
+is recorded by adding this template.
+
+Copy this template for each authorized standing signature. Record an incident
+that matches an unchanged signature on its Linear ticket and link the standing
+record; do not rewrite it for every bake. Keep the ticket, this record, and the
+code predicate/test-routing comment linked in the implementation PR.
+
+### Decision-record template
+
+```text
+Mechanism / signature name:
+Decision ticket (link); governing policy: JEG-1518
+Decider and authorization (exact scope / decision link):
+Decision timestamp (UTC):
+Highest rung (0 / 1 / 2 / 3):
+Reason and causal channel:
+Affected assertion(s):
+Precise eligibility predicate (included and excluded cases):
+Effect bounds and count limits (including counting unit):
+Inputs / bake hashes or immutable versions:
+Reproduction command:
+Full observed effects and counts:
+Counterexamples / negative controls:
+Replacement checks and retained blocking invariants:
+Monitoring / reporting path and per-use logging:
+Repair owner and ticket:
+Expiry or restoration trigger:
+Rollback:
+Code predicate / test-routing change (link):
+Implementation PR (link):
+Exact reviewed head and independent review evidence (link):
+CI evidence for that exact head (link):
+Incident instances (ticket links):
+Retirement / restored blocking checks and regression evidence:
+```
