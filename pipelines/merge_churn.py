@@ -124,7 +124,14 @@ def weekly_report(db, repository, start):
             if e['kind'] == 'ci':
                 p = e['data']
                 key = (str(p['run_id']), p['attempt'])
-                if key not in snapshots or snapshots[key]['observed_at'] <= e['time']:
+                old = snapshots.get(key)
+                # Completion is established evidence, even if a later shared-PR
+                # observation is incomplete. Prefer a completed snapshot in either
+                # traversal order, retaining its coherent start/head/end facts.
+                if (old is None
+                        or (p.get('completed_at') and not old.get('completed_at'))
+                        or (bool(p.get('completed_at')) == bool(old.get('completed_at'))
+                            and old['observed_at'] <= e['time'])):
                     snapshots[key] = dict(p, observed_at=e['time'], superseded=False)
     prs = []
     attempts = {}
@@ -149,7 +156,7 @@ def weekly_report(db, repository, start):
                         base_samples=len(bases),
                         stale=any(e['data']['behind'] > 0 for e in bases) if bases else None,
                         ready_to_merge_minutes=latency))
-        # Latest observation per run attempt; reruns remain separate. Runs shared
+        # Latest completed (otherwise latest) observation; reruns remain separate. Runs shared
         # by multiple PRs count once in the repository-wide CI denominator.
         pr_attempts = {}
         for e in history:

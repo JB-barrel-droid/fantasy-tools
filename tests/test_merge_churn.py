@@ -106,6 +106,32 @@ class MergeChurnTests(unittest.TestCase):
         # Pre-window ready is retained for a merge in this window.
         self.assertEqual(self.report()['latency_samples'], 1)
 
+    def test_later_shared_observation_preserves_completion(self):
+        events = list(m.FixtureSource(FIXTURE).events())
+        completed = next(e for e in events if e['source_id'] == 'run1')
+        for missing in ('absent', 'null'):
+            with self.subTest(completed_at=missing):
+                shared = copy.deepcopy(completed)
+                shared.update(source_id='later-shared-' + missing, pr=11,
+                              occurred_at='2026-11-02T03:00:00Z')
+                shared['payload'].pop('completed_at')
+                if missing == 'null':
+                    shared['payload']['completed_at'] = None
+                m.collect(self.db, Source([shared]))
+                r = self.report()
+                self.assertEqual((r['completed_ci_attempts'], r['ci_minutes']), (2, 30))
+                self.assertEqual(r['superseded_ci_minutes_share'], 2 / 3)
+                for number, minutes in ((10, 30), (11, 20)):
+                    p = next(p for p in r['prs'] if p['pr'] == number)
+                    self.assertEqual(p['ci_minutes'], minutes)
+                # The result must also survive reverse ingestion / PR ordering.
+                other = m.connect(':memory:')
+                try:
+                    m.collect(other, Source([shared] + list(reversed(events))))
+                    self.assertEqual(m.weekly_report(other, 'example/tools', START), r)
+                finally:
+                    other.close()
+
     def test_persistence_and_cli(self):
         with tempfile.TemporaryDirectory(dir=Path(__file__).resolve().parents[1]) as tmp:
             db = str(Path(tmp) / 'events.sqlite')
