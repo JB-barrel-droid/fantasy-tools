@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="icon" href="data:,"><title>DDF · Build a Trade</title>
+<!-- Check a trade now lives on Build a Trade (build.html). This stub keeps old links working: it forwards ?query and #hash, adding mode=any when there is no league state. -->
+<script>(function(){
+  var q = new URLSearchParams(location.search), h = location.hash;
+  /* No league state (no chat link in the URL or this tab) means the old check flow: open in "Any players" mode. */
+  var hasLeague = /(^#|&)s=/.test(h);
+  try{ hasLeague = hasLeague || (!!sessionStorage.getItem('ddf:link') && !!sessionStorage.getItem('ddf:league')); }catch(e){}
+  if(!hasLeague && !q.has('mode')) q.set('mode', 'any');
+  var s = q.toString();
+  location.replace('build.html' + (s ? '?' + s : '') + h);
+})();</script>
+<noscript><meta http-equiv="refresh" content="0;url=build.html?mode=any"></noscript>
+<style>body{font:16px/1.5 "Archivo",system-ui,sans-serif;color:#12202c;background:#f7f8f5;margin:0;padding:48px 20px;text-align:center}a{color:#176c4d;font-weight:600}</style>
+</head><body><p>Opening <a href="build.html?mode=any">Build a Trade</a>…</p></body></html>

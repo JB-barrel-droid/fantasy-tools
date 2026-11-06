@@ -550,6 +550,11 @@ def main() -> int:
     from build_inspector_page import build as build_inspector_page
     build_inspector_page(DIST)
 
+    # JEG-1534: private preview of the redesigned pages at /next/ (noindex,
+    # linked from no public page). Never replaces a live route.
+    from build_next_preview import build as build_next_preview
+    build_next_preview(DIST, tag)
+
     # DDF Value Logic (JEG-1086, JEG-1107): the values explainer, shown inside
     # Writing > How values work (a frame of this page; opened alone it redirects there). It reads the engine headless from the dist/ built above,
     # so it needs Playwright; without a browser it is skipped locally and a
