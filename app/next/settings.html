@@ -1,0 +1,163 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Confirm league settings · Data Driven Football</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet"><link rel="stylesheet" href="styles.css"><style>
+.team-page{max-width:1040px;padding:44px 28px 56px}
+.team-page h1{max-width:22ch;margin:0 0 10px;text-wrap:balance}
+.team-page p{max-width:74ch}
+.team-page .card{padding:24px;margin:20px 0}
+.team-page .card h2{font-size:22px;margin:0 0 16px}
+.team-page .st-sel{display:grid;grid-template-columns:1.3fr 1.4fr .8fr;gap:24px}
+.team-page .st-field{display:grid;gap:8px;align-content:start}
+.team-page .st-lbl{font-weight:600;font-size:14px;color:#39413b}
+.team-page .st-native{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;pointer-events:none}
+.team-page .segmented{width:100%}
+.team-page .segmented>button{flex:1;min-height:42px;cursor:pointer;font:inherit;font-weight:600;transition:background .15s,color .15s}
+.team-page .segmented>button:hover{background:#f3f7f4}
+.team-page .segmented>button[aria-pressed=true]{background:#e8f5ee;color:#176c4d}
+.team-page .st-slots{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:16px}
+.team-page .st-slots label{display:grid;gap:8px;font-weight:600;font-size:14px;color:#39413b}
+.team-page .stepper{display:flex;align-items:stretch;border:1px solid #bec8c1;border-radius:10px;overflow:hidden;background:#fff}
+.team-page .stepper button{width:36px;border:0;background:#fff;color:#176c4d;font-size:18px;font-weight:600;line-height:1;cursor:pointer;padding:0;border-radius:0}
+.team-page .stepper button:hover{background:#e8f5ee}
+.team-page .stepper button:active{background:#d7ecd9}
+.team-page .stepper input{flex:1;min-width:0;width:100%;border:0;border-left:1px solid #dbe0dc;border-right:1px solid #dbe0dc;border-radius:0;text-align:center;font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:16px;padding:8px 0;-moz-appearance:textfield}
+.team-page .stepper input::-webkit-outer-spin-button,.team-page .stepper input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.team-page .st-total{display:inline-block;margin-top:16px;padding:6px 14px;border-radius:99px;background:#e8f5ee;color:#176c4d;font-weight:600;font-size:14px}
+.team-page .cluster label{display:grid;gap:8px;font-size:14px;font-weight:600}
+.team-page input[type=number]{padding:8px;width:72px}
+.team-page details>summary{cursor:pointer;font-weight:600}
+.team-page .notice{font-size:13px}
+.team-page .st-actions{margin-top:28px;gap:16px}
+.team-page .st-actions .primary{font-size:17px;min-height:48px;padding:0 28px;display:inline-flex;align-items:center;position:relative}
+.team-page ::selection{background:#d7ecd9;color:#142b25}
+.team-shell .st-foot{max-width:1040px;margin:0 auto;padding:18px 28px 30px;font-weight:700;font-size:15px;color:#142b25;letter-spacing:.01em}.team-shell .st-foot:before{content:"";display:block;border-top:1px solid #dbe0dc;margin-bottom:16px}
+@media(max-width:760px){.team-page{padding:28px 16px 40px}.team-page .st-sel{grid-template-columns:1fr}.team-page .st-slots{grid-template-columns:repeat(2,minmax(0,1fr))}.team-page .st-actions{flex-direction:column-reverse;align-items:stretch}.team-page .st-actions .button{text-align:center;justify-content:center}.team-shell .st-foot{padding:16px}}
+</style><link rel="icon" href="data:,"><style id="qa-pass">
+:focus-visible{outline:3px solid #176c4d;outline-offset:2px}
+header :focus-visible,.entry-head :focus-visible{outline-color:#fff}
+.aiband :focus-visible{outline-color:#176c4d}
+
+.entry-head-inner{max-width:1040px;padding:14px 28px}
+.entry-wordmark{display:inline-flex;align-items:center;min-height:44px}
+.connect main{max-width:1040px;padding:28px 28px 40px}
+.setup main{padding:32px 28px 48px}
+.connect .cn-foot,.setup .su-foot,.team-shell .st-foot{max-width:1040px;padding:18px 28px 30px}
+@media(max-width:760px){
+ .entry-head-inner{padding:14px 20px}
+ .connect main,.setup main{padding-left:20px;padding-right:20px}
+ .team-page{padding-left:20px;padding-right:20px}
+ .connect .cn-foot,.setup .su-foot,.team-shell .st-foot{padding:16px 20px 24px}
+ .connect .provider-toggle button,.connect .slide-nav button,.connect summary,.connect .button{min-height:44px}
+ .team-page .segmented button,.team-page .stepper button,.team-page .stepper input,.team-page summary,.team-page .button{min-height:44px}
+ .team-page .stepper button{min-width:44px}
+}
+
+.team-page .st-total{color:#14563c}
+@media(max-width:760px){.team-page .cluster input{min-height:44px}}
+
+.team-page .info summary{width:17px;height:17px;line-height:15px}
+.team-page .info[open] span{position:fixed;top:auto;left:50%;transform:translateX(-50%);width:min(330px,85vw);white-space:normal;text-align:left;background:white;color:#12202c}
+.team-page .st-lblrow{display:flex;align-items:center;gap:8px}.team-page .sf-info{display:inline-block}
+.team-page .info summary:focus-visible{outline:3px solid #7fbf9d;outline-offset:2px}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}}
+</style><link rel="stylesheet" href="actionbar.css"><script src="actionbar.js"></script><style id="gating-pass">.team-page a.button.primary[aria-disabled="true"],.team-page a.button.primary[aria-disabled="true"]:hover,.team-page a.button.primary[aria-disabled="true"]:active{background:#e3e7e4;color:#59666f;border-color:#e3e7e4;box-shadow:none;transform:none;filter:none;cursor:not-allowed}.team-page .gate-reason{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}</style></head><body class="team-shell"><header class="entry-head"><div class="entry-head-inner"><a class="entry-wordmark" href="index.html">DDF</a><ol class="entry-steps" aria-label="League entry progress"><li class="is-complete"><a href="connect.html">✓ 1. League rosters</a></li><li class="is-complete"><a href="setup.html">✓ 2. Your team</a></li><li aria-current="step">3. League settings</li></ol></div></header><main class="team-page">
+<section id="settings">
+<h1>Confirm your league's settings</h1>
+<p class="muted">We filled in what we could read from your league. Correct anything that looks off.</p>
+<form id="editor">
+<section class="card"><h2>League format</h2><div class="st-sel"><div class="st-field"><span class="st-lbl" id="lbl-scoring">Scoring</span><select class="st-native" id="scoring" aria-labelledby="lbl-scoring" tabindex="-1"><option>PPR</option><option selected>Half PPR</option><option>Standard</option></select></div><div class="st-field"><span class="st-lbl" id="lbl-teams">Teams</span><select class="st-native" id="teams" aria-labelledby="lbl-teams" tabindex="-1"><option>8</option><option>10</option><option selected>12</option><option>14</option></select></div><div class="st-field"><div class="st-lblrow"><span class="st-lbl" id="lbl-superflex">Superflex</span><details class="info sf-info"><summary aria-label="About Superflex">&#9432;</summary><span role="note">Superflex means one extra starting spot that can be filled by a QB, RB, WR or TE. Most teams put a second quarterback there because QBs score the most, so quarterbacks become worth more. It is not the same as a 2-QB league, which requires you to start two quarterbacks. If your league has a 2-QB slot, set QB to 2 in your lineup and leave Superflex off. If it has a flex spot that lists QB as eligible, turn Superflex on.</span></details></div><select class="st-native" id="superflex" aria-labelledby="lbl-superflex" tabindex="-1"><option value="false" selected>No</option><option value="true">Yes</option></select></div></div></section>
+<section class="card"><h2>Position counts</h2><div class="st-slots">
+<label>QB <input id="lineup-qb" type="number" min="0" max="20" value="1" required></label><label>RB <input id="lineup-rb" type="number" min="0" max="20" value="2" required></label><label>WR <input id="lineup-wr" type="number" min="0" max="20" value="2" required></label><label>TE <input id="lineup-te" type="number" min="0" max="20" value="1" required></label><label>FLEX <input id="lineup-flex" type="number" min="0" max="20" value="1" required></label><label>Bench <input id="lineup-bench" type="number" min="0" max="20" value="7" required></label>
+</div><span class="st-total" id="st-total" role="status"></span></section>
+<p id="settings-status" class="notice" role="status"></p>
+<div class="row st-actions"><a class="button" href="setup.html">Back</a><a class="button primary" id="finish-setup" href="team.html" data-sticky-next data-back-href="setup.html" data-back-label="Back" data-next-label="Looks right, continue">Looks right, continue &rarr;</a><span id="gate-reason" class="gate-reason" role="status"></span></div>
+</form></section>
+</main><footer class="st-foot">Data Driven Football</footer><script src="site.js"></script><script>
+const rows=[['My team',324.17,244.48,327.98,264.63],['Team 02',265.02,215.42,266.46,228.18],['Team 03',253.74,207.91,257.30,227.34],['Team 04',239.56,200.24,242.83,219.66],['Team 05',260.83,211.27,266.12,237.10],['Team 06',200.19,175.51,200.72,186.23],['Team 07',201.27,177.48,212.20,211.28],['Team 08',128.20,133.83,129.98,148.75],['Team 09',179.41,169.14,189.89,199.00],['Team 10',192.83,174.48,202.67,204.43],['Team 11',137.14,146.08,141.26,168.16],['Team 12',147.70,145.43,158.52,180.34]];
+function render(){if(!document.querySelector('.team-page tbody'))return;document.querySelector('.team-page tbody').innerHTML=rows.map(r=>'<tr'+(r[0]==='My team'?' class="selected"':'')+'>'+r.map((v,i)=>'<td'+(i?' class="number"':'')+'>'+(i?v.toFixed(2):v)+'</td>').join('')+'</tr>').join('')}render();document.querySelectorAll('[data-sort]').forEach(b=>b.onclick=()=>{const i=+b.dataset.sort,t=b.closest('th'),asc=t.getAttribute('aria-sort')!=='ascending';document.querySelectorAll('.team-page th').forEach(h=>h.setAttribute('aria-sort','none'));t.setAttribute('aria-sort',asc?'ascending':'descending');rows.sort((a,b)=>(i?a[i]-b[i]:a[0].localeCompare(b[0]))*(asc?1:-1));render();document.getElementById('sort-status').textContent='Sorted by '+b.textContent.replace(' ↕','')+', '+(asc?'ascending':'descending')+'.'});
+if(document.getElementById('editor'))document.getElementById('editor').onsubmit=e=>{e.preventDefault();document.getElementById('settings-status').textContent='Settings saved.'};
+const more=document.querySelector('.morewrap'),moreButton=more?.querySelector('button');
+if(moreButton)document.addEventListener('click',()=>moreButton.setAttribute('aria-expanded',String(more.classList.contains('open'))));
+if(moreButton)document.addEventListener('keydown',e=>{if(e.key==='Escape'&&more.classList.contains('open')){more.classList.remove('open');moreButton.setAttribute('aria-expanded','false');moreButton.focus();}});
+
+/* site.js fills scoring/teams/slots; superflex is filled here from the same link state, once per arrival */
+document.addEventListener('ddf:link',()=>{const st=DDF.link.settings(),el=document.getElementById('superflex');if(!st||!el)return;const l=DDF.state.get('link',{});if(l.sfPrefilled===l.at)return;el.value=String(!!st.superflex);el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));l.sfPrefilled=l.at;DDF.state.set('link',l)});
+
+/* page enhancements: segmented controls, steppers, finish celebration */
+(function(){
+  document.querySelectorAll('.st-field select').forEach(function(sel){
+    var seg=document.createElement('div');seg.className='segmented';seg.setAttribute('role','group');seg.setAttribute('aria-labelledby','lbl-'+sel.id);
+    Array.prototype.forEach.call(sel.options,function(o){
+      var b=document.createElement('button');b.type='button';b.textContent=o.text.trim();b.dataset.value=o.value;
+      b.addEventListener('click',function(){sel.value=o.value;sel.dispatchEvent(new Event('input',{bubbles:true}));sel.dispatchEvent(new Event('change',{bubbles:true}));});
+      seg.appendChild(b);
+    });
+    sel.parentNode.insertBefore(seg,sel);
+    function sync(){Array.prototype.forEach.call(seg.children,function(b){b.setAttribute('aria-pressed',String(b.dataset.value===sel.value));});}
+    sel.addEventListener('change',sync);sel.addEventListener('input',sync);sync();
+    setTimeout(sync,300);
+  });
+  var keys=['qb','rb','wr','te','flex','bench'],total=document.getElementById('st-total');
+  function sumUp(){
+    var v={};keys.forEach(function(k){v[k]=Math.max(0,parseInt(document.getElementById('lineup-'+k).value,10)||0);});
+    var starters=v.qb+v.rb+v.wr+v.te+v.flex;
+    total.textContent=starters+' starters, '+v.bench+' bench';
+  }
+  keys.forEach(function(k){
+    var inp=document.getElementById('lineup-'+k),wrap=document.createElement('div');wrap.className='stepper';
+    var minus=document.createElement('button'),plus=document.createElement('button');
+    var lb=inp.closest('label'),nm=lb?lb.firstChild.textContent.trim():k.toUpperCase();inp.setAttribute('aria-label',nm);minus.type=plus.type='button';minus.textContent='\u2212';plus.textContent='+';
+    minus.setAttribute('aria-label','Decrease '+k.toUpperCase());plus.setAttribute('aria-label','Increase '+k.toUpperCase());
+    inp.parentNode.insertBefore(wrap,inp);wrap.append(minus,inp,plus);
+    function bump(d){var n=(parseInt(inp.value,10)||0)+d;n=Math.min(+inp.max,Math.max(+inp.min,n));inp.value=n;inp.dispatchEvent(new Event('input',{bubbles:true}));inp.dispatchEvent(new Event('change',{bubbles:true}));}
+    minus.addEventListener('click',function(){bump(-1);});plus.addEventListener('click',function(){bump(1);});
+    inp.addEventListener('input',sumUp);inp.addEventListener('change',sumUp);
+  });
+  function barSummary(){
+    if(!window.DDF||!DDF.actionBar)return;
+    var g=function(id){return document.getElementById(id).value};
+    DDF.actionBar.setSummary(g('scoring')+', '+g('teams')+' teams, '+g('lineup-qb')+' QB, '+g('lineup-rb')+' RB, '+g('lineup-wr')+' WR, '+g('lineup-te')+' TE, '+g('lineup-flex')+' FLEX. Confirm to continue.');
+  }
+  document.getElementById('editor').addEventListener('input',barSummary);document.getElementById('editor').addEventListener('change',barSummary);
+  document.addEventListener('ddf:link',function(){setTimeout(barSummary,0)});
+  setTimeout(barSummary,400);
+  sumUp();barSummary();
+  function ddfGate(btns,ok,reason,rid){
+    var r=document.getElementById(rid);if(r)r.textContent=ok?'':reason;
+    btns.forEach(function(b){
+      if(!b)return;
+      if(!b.hasAttribute('data-href'))b.setAttribute('data-href',b.getAttribute('href')||'');
+      if(ok){b.setAttribute('href',b.getAttribute('data-href'));b.removeAttribute('aria-disabled');b.removeAttribute('aria-describedby');b.removeAttribute('role');b.removeAttribute('tabindex')}
+      else{b.removeAttribute('href');b.setAttribute('aria-disabled','true');b.setAttribute('aria-describedby',rid);b.setAttribute('role','link');b.tabIndex=0}
+    });
+    if(window.DDF&&DDF.actionBar)DDF.actionBar.setDisabled(!ok,ok?null:reason);
+  }
+  document.addEventListener('click',function(e){var b=e.target.closest&&e.target.closest('a[aria-disabled="true"][data-href]');if(b){e.preventDefault();e.stopImmediatePropagation()}},true);
+    function validate(){
+    var why='';
+    if(!document.getElementById('scoring').value)why='Choose a scoring format first';
+    else if(!document.getElementById('teams').value)why='Choose the number of teams first';
+    else{
+      var starters=0;
+      for(var i=0;i<keys.length&&!why;i++){
+        var inp=document.getElementById('lineup-'+keys[i]),raw=inp.value.trim(),n=Number(raw);
+        if(raw===''||!/^\d+$/.test(raw)||n<+inp.min||n>+inp.max){why='Enter a whole number from 0 to 20 for '+(keys[i]==='bench'?'Bench':keys[i].toUpperCase())+' to continue';}
+        else if(keys[i]!=='bench')starters+=n;
+      }
+      if(!why&&starters<1)why='Add at least one starter slot to continue';
+    }
+    ddfGate([document.getElementById('finish-setup')],!why,why,'gate-reason');
+  }
+  var edForm=document.getElementById('editor');
+  edForm.addEventListener('input',validate);edForm.addEventListener('change',validate);
+  document.addEventListener('ddf:link',function(){setTimeout(validate,0)});
+  setTimeout(validate,400);validate();
+  var fin=document.getElementById('finish-setup');
+  fin.addEventListener('click',function(e){
+    if(!(window.matchMedia&&matchMedia('(prefers-reduced-motion: no-preference)').matches)||!window.DDF||!DDF.celebrate)return;
+    e.preventDefault();DDF.celebrate(fin);
+    setTimeout(function(){location.href=fin.href;},700);
+  });
+})();
+
+document.addEventListener('keydown',function(e){if(e.key==='Escape')document.querySelectorAll('details.info[open]').forEach(function(d){d.open=false;d.querySelector('summary').focus();});});
+document.addEventListener('click',function(e){document.querySelectorAll('details.info[open]').forEach(function(d){if(!d.contains(e.target))d.open=false;});});
+</script></body></html>

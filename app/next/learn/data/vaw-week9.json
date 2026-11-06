@@ -1,0 +1,362 @@
+{
+ "_comment": "Value above waivers (VORP before DDF's starter/bench weighting) for the players on values.html. Per chart: max(0, native - waiver line) x pie / surplusTotal (value-model.js lines 1739, 1952-1961, row.vorp = vorpDisplay); 'vaw' = mean of the four trade charts, parallel to DDF Value. Local engine run, not the live server: 09-mcp-server/engine-local get-values (site/value-model.js + a read-only dump hook), live bundle https://datadrivenfootball.github.io/fantasy-tools/assets/comparison-sources-data.json (last-modified 2026-11-06 18:43 GMT, as_of 2026-11-06). Recipe: 06-audit/vaw-run/README.md.",
+ "settings": {
+  "scoring": "half_ppr",
+  "teams": 12,
+  "superflex": false,
+  "week": 9,
+  "slots": {
+   "QB": 1,
+   "RB": 2,
+   "WR": 3,
+   "TE": 1,
+   "FLEX": 1,
+   "BENCH": 6
+  }
+ },
+ "captured": "2026-11-06",
+ "basis": [
+  "cbs",
+  "usatoday",
+  "fantasypros",
+  "fantasycalc"
+ ],
+ "check": {
+  "pie": 2688,
+  "vaw_total_by_chart": {
+   "cbs": 2688.0,
+   "usatoday": 2688.0,
+   "fantasypros": 2688.0,
+   "fantasycalc": 2688.0
+  },
+  "ddf_total": 2688.0,
+  "gibbs_ddf_same_run": 84.3
+ },
+ "note": "ddf_same_run is this run's DDF Value (for checking); values.html's DDF column is older example data (JEG-1535), so rows do not line up with it.",
+ "players": [
+  {
+   "n": "Jahmyr Gibbs",
+   "pos": "RB",
+   "vaw": 71.9,
+   "ddf_same_run": 84.3,
+   "by_chart": {
+    "cbs": 85.1,
+    "usatoday": 55.8,
+    "fantasypros": 61.7,
+    "fantasycalc": 85.1
+   }
+  },
+  {
+   "n": "Kenneth Walker III",
+   "pos": "RB",
+   "vaw": 62.8,
+   "ddf_same_run": 73.5,
+   "by_chart": {
+    "cbs": 77.5,
+    "usatoday": 51.3,
+    "fantasypros": 48.7,
+    "fantasycalc": 73.5
+   }
+  },
+  {
+   "n": "Bijan Robinson",
+   "pos": "RB",
+   "vaw": 61.6,
+   "ddf_same_run": 71.9,
+   "by_chart": {
+    "cbs": 68.4,
+    "usatoday": 47.6,
+    "fantasypros": 55.5,
+    "fantasycalc": 74.9
+   }
+  },
+  {
+   "n": "Jaxon Smith-Njigba",
+   "pos": "WR",
+   "vaw": 64.5,
+   "ddf_same_run": 71.9,
+   "by_chart": {
+    "cbs": 76.6,
+    "usatoday": 55.7,
+    "fantasypros": 46.1,
+    "fantasycalc": 79.7
+   }
+  },
+  {
+   "n": "Ja'Marr Chase",
+   "pos": "WR",
+   "vaw": 55.0,
+   "ddf_same_run": 61.0,
+   "by_chart": {
+    "cbs": 61.5,
+    "usatoday": 47.5,
+    "fantasypros": 43.5,
+    "fantasycalc": 67.3
+   }
+  },
+  {
+   "n": "Puka Nacua",
+   "pos": "WR",
+   "vaw": 61.6,
+   "ddf_same_run": 68.5,
+   "by_chart": {
+    "cbs": 75.9,
+    "usatoday": 52.7,
+    "fantasypros": 44.7,
+    "fantasycalc": 73.3
+   }
+  },
+  {
+   "n": "James Cook",
+   "pos": "RB",
+   "vaw": 52.8,
+   "ddf_same_run": 61.7,
+   "by_chart": {
+    "cbs": 59.3,
+    "usatoday": 45.4,
+    "fantasypros": 50.0,
+    "fantasycalc": 56.3
+   }
+  },
+  {
+   "n": "Amon-Ra St. Brown",
+   "pos": "WR",
+   "vaw": 49.9,
+   "ddf_same_run": 55.2,
+   "by_chart": {
+    "cbs": 53.9,
+    "usatoday": 42.3,
+    "fantasypros": 41.3,
+    "fantasycalc": 62.1
+   }
+  },
+  {
+   "n": "Justin Jefferson",
+   "pos": "WR",
+   "vaw": 32.6,
+   "ddf_same_run": 34.9,
+   "by_chart": {
+    "cbs": 31.9,
+    "usatoday": 30.4,
+    "fantasypros": 26.6,
+    "fantasycalc": 41.3
+   }
+  },
+  {
+   "n": "Saquon Barkley",
+   "pos": "RB",
+   "vaw": 21.3,
+   "ddf_same_run": 23.1,
+   "by_chart": {
+    "cbs": 19.9,
+    "usatoday": 20.1,
+    "fantasypros": 21.0,
+    "fantasycalc": 24.0
+   }
+  },
+  {
+   "n": "Ashton Jeanty",
+   "pos": "RB",
+   "vaw": 23.5,
+   "ddf_same_run": 26.0,
+   "by_chart": {
+    "cbs": 13.9,
+    "usatoday": 23.8,
+    "fantasypros": 27.1,
+    "fantasycalc": 29.1
+   }
+  },
+  {
+   "n": "Brock Bowers",
+   "pos": "TE",
+   "vaw": 37.1,
+   "ddf_same_run": 34.2,
+   "by_chart": {
+    "cbs": 35.0,
+    "usatoday": 40.3,
+    "fantasypros": 20.0,
+    "fantasycalc": 53.1
+   }
+  },
+  {
+   "n": "Josh Allen",
+   "pos": "QB",
+   "vaw": 32.9,
+   "ddf_same_run": 33.3,
+   "by_chart": {
+    "cbs": 30.6,
+    "usatoday": 27.5,
+    "fantasypros": 23.2,
+    "fantasycalc": 50.4
+   }
+  },
+  {
+   "n": "Trey McBride",
+   "pos": "TE",
+   "vaw": 32.0,
+   "ddf_same_run": 29.2,
+   "by_chart": {
+    "cbs": 25.9,
+    "usatoday": 36.5,
+    "fantasypros": 18.5,
+    "fantasycalc": 47.2
+   }
+  },
+  {
+   "n": "Breece Hall",
+   "pos": "RB",
+   "vaw": 21.7,
+   "ddf_same_run": 24.1,
+   "by_chart": {
+    "cbs": 15.4,
+    "usatoday": 21.6,
+    "fantasypros": 30.0,
+    "fantasycalc": 19.9
+   }
+  },
+  {
+   "n": "George Pickens",
+   "pos": "WR",
+   "vaw": 23.8,
+   "ddf_same_run": 25.0,
+   "by_chart": {
+    "cbs": 22.1,
+    "usatoday": 25.9,
+    "fantasypros": 23.6,
+    "fantasycalc": 23.6
+   }
+  },
+  {
+   "n": "Jonathan Taylor",
+   "pos": "RB",
+   "vaw": 45.5,
+   "ddf_same_run": 52.7,
+   "by_chart": {
+    "cbs": 45.7,
+    "usatoday": 40.2,
+    "fantasypros": 37.6,
+    "fantasycalc": 58.5
+   }
+  },
+  {
+   "n": "Jeremiyah Love",
+   "pos": "RB",
+   "vaw": 12.1,
+   "ddf_same_run": 11.0,
+   "by_chart": {
+    "cbs": 7.8,
+    "usatoday": 6.0,
+    "fantasypros": 18.7,
+    "fantasycalc": 15.9
+   }
+  },
+  {
+   "n": "Rhamondre Stevenson",
+   "pos": "RB",
+   "vaw": 22.1,
+   "ddf_same_run": 24.5,
+   "by_chart": {
+    "cbs": 23.0,
+    "usatoday": 18.6,
+    "fantasypros": 30.8,
+    "fantasycalc": 16.2
+   }
+  },
+  {
+   "n": "Joe Burrow",
+   "pos": "QB",
+   "vaw": 24.0,
+   "ddf_same_run": 24.4,
+   "by_chart": {
+    "cbs": 24.5,
+    "usatoday": 22.3,
+    "fantasypros": 22.8,
+    "fantasycalc": 26.2
+   }
+  },
+  {
+   "n": "Stefon Diggs",
+   "pos": "WR",
+   "vaw": 16.5,
+   "ddf_same_run": 16.2,
+   "by_chart": {
+    "cbs": 16.0,
+    "usatoday": 20.0,
+    "fantasypros": 18.9,
+    "fantasycalc": 11.1
+   }
+  },
+  {
+   "n": "Rachaad White",
+   "pos": "RB",
+   "vaw": 11.6,
+   "ddf_same_run": 11.0,
+   "by_chart": {
+    "cbs": 9.3,
+    "usatoday": 15.6,
+    "fantasypros": 15.5,
+    "fantasycalc": 5.9
+   }
+  },
+  {
+   "n": "Antonio Williams",
+   "pos": "WR",
+   "vaw": 9.3,
+   "ddf_same_run": 6.9,
+   "by_chart": {
+    "cbs": 7.7,
+    "usatoday": 11.8,
+    "fantasypros": 13.6,
+    "fantasycalc": 4.0
+   }
+  },
+  {
+   "n": "Brian Robinson",
+   "pos": "RB",
+   "vaw": 2.3,
+   "ddf_same_run": 0.6,
+   "by_chart": {
+    "cbs": 1.5,
+    "usatoday": 4.5,
+    "fantasypros": 2.8,
+    "fantasycalc": 0.5
+   }
+  },
+  {
+   "n": "Keaton Mitchell",
+   "pos": "RB",
+   "vaw": 0.5,
+   "ddf_same_run": 0.0,
+   "by_chart": {
+    "cbs": 0.9,
+    "usatoday": 0.7,
+    "fantasypros": 0.4,
+    "fantasycalc": 0.1
+   }
+  },
+  {
+   "n": "Rashee Rice",
+   "pos": "WR",
+   "vaw": 22.3,
+   "ddf_same_run": 23.1,
+   "by_chart": {
+    "cbs": 20.6,
+    "usatoday": 26.7,
+    "fantasypros": 20.6,
+    "fantasycalc": 21.3
+   }
+  },
+  {
+   "n": "DK Metcalf",
+   "pos": "WR",
+   "vaw": 13.9,
+   "ddf_same_run": 13.2,
+   "by_chart": {
+    "cbs": 11.5,
+    "usatoday": 20.0,
+    "fantasypros": 17.9,
+    "fantasycalc": 6.5
+   }
+  }
+ ]
+}
