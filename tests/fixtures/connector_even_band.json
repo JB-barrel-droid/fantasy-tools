@@ -1,0 +1,15 @@
+{
+  "provenance": "Synthetic JEG-1412 boundary sentinels; totals are DDF Value points, not live player prices.",
+  "cases": [
+    {"label": "floor boundary", "a": [10], "b": [11], "even": false},
+    {"label": "floor inside", "a": [10], "b": [10.9], "even": true},
+    {"label": "floor outside but under old two-point band", "a": [10], "b": [11.1], "even": false},
+    {"label": "percentage inside above old two-point band", "a": [100], "b": [102.9], "even": true},
+    {"label": "percentage boundary", "a": [98.5], "b": [101.5], "even": false},
+    {"label": "percentage just outside", "a": [100], "b": [103.1], "even": false},
+    {"label": "outside before sum rounding, inside after", "a": [50, 50], "b": [50, 53.046], "even": false},
+    {"label": "inside before sum rounding, outside after", "a": [98.44], "b": [101.43], "even": true},
+    {"label": "audit Amon-Ra versus Lamb rounded values", "a": [50.2], "b": [48.6], "even": false},
+    {"label": "real zero", "a": [0], "b": [0], "even": true}
+  ]
+}
