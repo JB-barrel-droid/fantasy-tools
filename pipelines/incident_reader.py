@@ -184,14 +184,19 @@ class Observer:
             if current['head']['sha'] != head:
                 self.head, self.run_ids, self.workflow_ids = None, {}, set()
                 raise Unknown('head changed during sample')
-            states = {}
+            latest_statuses = {}
             for item in statuses:  # API newest first; never let old success hide new failure.
-                states.setdefault(item['context'], item['state'])
+                latest_statuses.setdefault(item['context'], item['state'])
+            # Status history has one current result per context. Checks are
+            # separate evidence, including checks from different apps with the
+            # same name; none may overwrite another result or a commit status.
+            states = {name: [state] for name, state in latest_statuses.items()}
             for item in checks:
-                states[item['name']] = item['conclusion'] if item['status'] == 'completed' else 'pending'
+                states.setdefault(item['name'], []).append(
+                    item['conclusion'] if item['status'] == 'completed' else 'pending')
             if not self.required <= states.keys():
                 raise Unknown('required checks missing')
-            complete = all(states[name] == 'success' for name in self.required)
+            complete = all(state == 'success' for name in self.required for state in states[name])
             complete &= all(r['status'] == 'completed' and r['conclusion'] == 'success' for r in latest.values())
             complete &= all(j['status'] == 'completed' and j['conclusion'] in ('success', 'skipped', 'neutral') for j in jobs)
             return {'state': 'GREEN' if complete else 'PENDING', 'head': head,

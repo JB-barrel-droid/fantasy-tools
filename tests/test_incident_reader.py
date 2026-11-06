@@ -116,6 +116,32 @@ class ReaderTests(unittest.TestCase):
         self.fake.missing = True
         self.assertEqual(self.observer.sample()['state'], 'UNKNOWN')
 
+    def test_failed_status_cannot_be_hidden_by_successful_check(self):
+        original = self.client.send
+        def conflicting(method, path, token, payload):
+            status, headers, data = original(method, path, token, payload)
+            if '/statuses' in path:
+                data = [{'context': 'test', 'state': 'failure'}]
+            return status, headers, data
+        self.client.send = conflicting
+        self.assertEqual(self.observer.sample()['state'], 'PENDING')
+
+    def test_same_named_checks_require_every_result_to_pass(self):
+        original = self.client.send
+        for conclusions in (('failure', 'success'), ('success', 'failure'),
+                            (None, 'success'), ('success', 'success')):
+            with self.subTest(conclusions=conclusions):
+                def conflicting(method, path, token, payload):
+                    status, headers, data = original(method, path, token, payload)
+                    if '/check-runs' in path:
+                        data = {'check_runs': [
+                            {'name': 'test', 'status': 'completed' if conclusion else 'in_progress',
+                             'conclusion': conclusion} for conclusion in conclusions]}
+                    return status, headers, data
+                self.client.send = conflicting
+                self.assertEqual(self.observer.sample()['state'],
+                                 'GREEN' if conclusions == ('success', 'success') else 'PENDING')
+
     def test_new_head_invalidates_ids_even_on_failure(self):
         self.observer.sample()
         self.fake.head, self.fake.fail = OTHER, '/check-runs'
