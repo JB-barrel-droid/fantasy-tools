@@ -27,6 +27,11 @@ permissions:
   contents: read  # JEG-1441: main writes use the environment-scoped App.
   actions: write  # dispatch the rebuild chain after a probe-driven change
 
+env:
+  # JEG-1527: paths only; shared durable storage must be provisioned separately.
+  CONTENT_OBSERVATION_LEDGER: ${{ vars.CONTENT_OBSERVATION_LEDGER }}
+  CONTENT_OBSERVATION_ESPN_EXPECTATIONS: ${{ vars.CONTENT_OBSERVATION_ESPN_EXPECTATIONS }}
+
 jobs:
   sync:
     if: github.ref == 'refs/heads/main'

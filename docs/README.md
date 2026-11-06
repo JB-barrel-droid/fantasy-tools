@@ -44,6 +44,9 @@ The durable docs live here as Markdown in GitHub (JEG-596 decision, Jeremy, 2026
 
 ## Architecture and data
 
+[JEG-1527 content observation ledger and scheduler audit](jeg-1527-content-observation-ledger.md) — Record, 2026-11-05; local store contract, repo scheduler evidence and outstanding production wiring.
+
+
 [Merge churn telemetry](merge-churn-telemetry.md) — Maintained; owner JEG-1525; verified 2026-11-05. Local event schema, fixture collector, weekly metrics and remaining live integration.
 
 | Doc | Status | Owner | Verified | What it is |

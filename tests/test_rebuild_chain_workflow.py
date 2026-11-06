@@ -398,6 +398,8 @@ def run_post_rebuild_scenario(text, validate_ok):
         write(work, "pipelines/candidate_evidence.py", evidence.read_text(encoding="utf-8"))
         recorder = ROOT / "pipelines/record_post_rebuild_validation.py"
         write(work, "pipelines/record_post_rebuild_validation.py", recorder.read_text(encoding="utf-8"))
+        breach = ROOT / "pipelines/validation_breach.py"
+        write(work, "pipelines/validation_breach.py", breach.read_text(encoding="utf-8"))
         env = {"PATH": f"{os.path.dirname(sys.executable)}:/usr/bin:/bin:/usr/local/bin",
                "GITHUB_OUTPUT": str(td / "gh_out.txt")}
         chain_text = text.replace("${{ steps.week.outputs.nfl_week }}", "5")
