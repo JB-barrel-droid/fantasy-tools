@@ -24,6 +24,7 @@ rule written out here. The tolerance test covers the full 12-setting grid
 from __future__ import annotations
 
 import copy
+import hashlib
 import json
 import multiprocessing
 import os
@@ -41,6 +42,7 @@ sys.path.insert(0, str(REPO / "pipelines"))
 sys.path.insert(0, str(REPO / "pipelines" / "lib"))
 
 import value_reference as vr  # noqa: E402
+from validation_breach import PerturbationResult, SCHEMA, RUNBOOK, POLICY, emit
 from spec_reference import worked_example as spec_we  # noqa: E402
 from lib.roster_convention import (  # noqa: E402
     WAIVER_BAND_HALF_WIDTH,
@@ -395,7 +397,13 @@ class OnePlayerPerturbationTest(unittest.TestCase):
         vr.allocate = lambda *a, **k: call("allocate", orig_alloc, a, k)
         vr.allocation_mix = lambda *a, **k: call("mix", orig_mix, a, k)
         try:
-            rows = vr.Setting(self.inp, scoring, teams).result()["rows"]
+            result = vr.Setting(self.inp, scoring, teams).result()
+            rows = result["rows"]
+            self._last_trace = copy.deepcopy({
+                "sources": result["sources"],
+                "group_budgets": result["group_budgets"],
+                "allocation": made, "method": result["method"],
+            })
         finally:
             vr.allocate, vr.allocation_mix = orig_alloc, orig_mix
         if replay is not None:
@@ -412,8 +420,9 @@ class OnePlayerPerturbationTest(unittest.TestCase):
         mix each run is several pipeline runs)."""
         ck = (scoring, teams, vr._waiver_value)
         if ck not in self._base_cache:
-            self._base_cache[ck] = self._run(scoring, teams, src, pos, all_rows=True)
-        rows, made = self._base_cache[ck]
+            rows, made = self._run(scoring, teams, src, pos, all_rows=True)
+            self._base_cache[ck] = rows, made, self._last_trace
+        rows, made, self._base_trace = self._base_cache[ck]
         return {i: (r.get("adjusted") or {}).get(src) for i, r in rows.items() if r["pos"] == pos}, made
 
     @staticmethod
@@ -423,19 +432,81 @@ class OnePlayerPerturbationTest(unittest.TestCase):
         return [[a for _w, a in out] if kind == "mix" else out for kind, out in made]
 
     def _worst(self, scoring, teams, src, pos, key, delta, hold_slots=True):
-        """(worst move of another player, whether the free allocation changed)."""
+        """Retain same-run evidence; unpack as (worst move, allocation changed)."""
         field = vr.PPG_FIELD[src]
         base, base_alloc = self._base(scoring, teams, src, pos)
         rec = self.inp.players[key][field]
         old = rec[scoring]
+        inputs = copy.deepcopy({"fixture": self.inp.fixture, "players": self.inp.players})
+        before_trace = copy.deepcopy(self._base_trace)
         rec[scoring] = max(0.0, old + delta)
+        changed = rec[scoring]
         try:
             new, new_alloc = self._run(scoring, teams, src, pos, base_alloc if hold_slots else None)
         finally:
             rec[scoring] = old
-        moves = [abs(new[i] - b) for i, b in base.items()
-                 if i != key and b is not None and new.get(i) is not None]
-        return max(moves, default=0.0), self._slots(new_alloc) != self._slots(base_alloc)
+        def identity(i):
+            p = self.inp.players[i]
+            return {"player_key": i, "name": p["name"], "pos": p["pos"]}
+
+        affected = [{**identity(i), "before": b, "after": new[i],
+                     "signed": new[i] - b, "absolute": abs(new[i] - b),
+                     "excess": abs(new[i] - b) - TOLERANCE,
+                     "projection": self.inp.players[i].get(field)}
+                    for i, b in sorted(base.items())
+                    if i != key and b is not None and new.get(i) is not None]
+        argmax = max(affected, key=lambda r: r["absolute"], default=None)
+        worst = argmax["absolute"] if argmax else 0.0
+        flipped = self._slots(new_alloc) != self._slots(base_alloc)
+        if worst <= TOLERANCE:
+            return PerturbationResult(worst, flipped, {})
+
+        def trace(snapshot):
+            snapshot = copy.deepcopy(snapshot)
+            sources = snapshot.pop("sources", None)
+            if sources is not None:
+                source = sources.get(src) or {}
+                snapshot["source"] = source
+                info = source.get("positions", {}).get(pos, {})
+                n = info.get("rostered")
+                work = sorted(((int(i), p["native"]) for i, p in source.get("players", {}).items()
+                               if p["pos"] == pos), key=lambda row: (-row[1], row[0]))
+                snapshot["band"] = {
+                    "seat": n, "half_width": WAIVER_BAND_HALF_WIDTH,
+                    "sorted_projection_rows": work,
+                    "window": (work[max(0, n - 3):n + 4] if n is not None and len(work) > n
+                               else work[-1:]),
+                }
+            return snapshot
+
+        record = {
+            "schema": SCHEMA, "check_id": "BAND-LINE-ES-SENSITIVITY",
+            "status": "failed", "blocking_role": "reporting-only",
+            "setting": {"scoring": scoring, "teams": teams, "source": src,
+                        "position": pos, "mode": "allocations-held" if hold_slots else "allocations-free"},
+            "perturbed": identity(key), "affected": affected, "argmax": argmax,
+            "bound": {"operator": "<=", "value": TOLERANCE, "units": "Adjusted points"},
+            "perturbation": {"field": field + "." + scoring, "before": old,
+                             "after": changed, "requested_delta": delta,
+                             "actual_delta": changed - old, "units": "PPG"},
+            "mechanism": {"name": "unclassified", "confidence": "not diagnosed",
+                          "evidence": {"allocation_flipped": flipped,
+                                       "channel": "band-line / ES expected-start repricing candidate"}},
+            "trace": {"before": trace(before_trace), "after": trace(self._last_trace)},
+            "inputs": inputs,
+            "input_sha256": hashlib.sha256(json.dumps(inputs, sort_keys=True).encode()).hexdigest(),
+            "run": {"head": os.environ.get("GITHUB_SHA"), "id": os.environ.get("GITHUB_RUN_ID"),
+                    "week": self.inp.fixture.get("week"),
+                    "unknown": "head/run are null outside CI; source vintages retained in fixture"},
+            "runbook": RUNBOOK, "policy": POLICY,
+            "runbook_permalink": (
+                "https://github.com/" + os.environ["GITHUB_REPOSITORY"] + "/blob/"
+                + os.environ["GITHUB_SHA"] + "/" + RUNBOOK
+                if os.environ.get("GITHUB_REPOSITORY") and os.environ.get("GITHUB_SHA") else None),
+            "repair": "https://linear.app/jegabee/issue/JEG-1511",
+            "reproduce": "python3 -m unittest tests.test_waiver_band_line.OnePlayerPerturbationTest",
+        }
+        return PerturbationResult(worst, flipped, json.loads(json.dumps(record, allow_nan=False)))
 
     def _map_worst(self, jobs, hold_slots=True):
         """_worst over [(scoring, teams, src, pos, key, delta)], in parallel
@@ -454,12 +525,15 @@ class OnePlayerPerturbationTest(unittest.TestCase):
         self.assertGreaterEqual(len(cases), 20, "expected a waiver line at most source/position cells")
         failures = []
         jobs = [(*c, d) for c in cases for d in (-1.0, 1.0)]
-        for (scoring, teams, src, pos, key, delta), (worst, _) in zip(jobs, self._map_worst(jobs)):
+        for (scoring, teams, src, pos, key, delta), result in zip(jobs, self._map_worst(jobs)):
+            worst, _ = result
             if worst > TOLERANCE:
                 if (scoring, teams, src, pos, key, delta) in KNOWN_OVER_BAR_CASES:
+                    result.record["status"] = "exempt"
+                    emit(result.record)
                     print(f"known over-bar case (JEG-1511): {scoring}/{teams} {src} {pos} {key} {delta:+}: {worst:.3f}")
                     continue
-                failures.append(f"{scoring}/{teams} {src} {pos} {key} {delta:+}: {worst:.3f}")
+                failures.append(emit(result.record))
         self.assertEqual(failures, [], "one fringe player repriced the position:\n" + "\n".join(failures))
 
     def test_only_slot_flips_break_the_bar_with_slots_free(self):
@@ -468,12 +542,15 @@ class OnePlayerPerturbationTest(unittest.TestCase):
         flex-flip ticket), never the waiver line alone."""
         bad = []
         jobs = [(*c, d) for c in self._cases() for d in (-1.0, 1.0)]
-        for (scoring, teams, src, pos, key, delta), (worst, flipped) in zip(jobs, self._map_worst(jobs, False)):
+        for (scoring, teams, src, pos, key, delta), result in zip(jobs, self._map_worst(jobs, False)):
+            worst, flipped = result
             if worst > TOLERANCE and not flipped:
                 if (scoring, teams, src, pos, key, delta) in KNOWN_OVER_BAR_CASES:
+                    result.record["status"] = "exempt"
+                    emit(result.record)
                     print(f"known over-bar case (JEG-1511): {scoring}/{teams} {src} {pos} {key} {delta:+}: {worst:.3f}")
                     continue
-                bad.append(f"{scoring}/{teams} {src} {pos} {key} {delta:+}: {worst:.3f}")
+                bad.append(emit(result.record))
         self.assertEqual(bad, [], "over the bar with the slots unchanged:\n" + "\n".join(bad))
 
     def test_band_beats_one_player_rule(self):

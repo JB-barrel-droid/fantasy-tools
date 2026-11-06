@@ -34,3 +34,5 @@ JEG-601 asks that each runbook be followed once by a different session. A second
 ## Retired pages
 
 `docs/watchdog.md` is now the producer and schedule table (the Muse-era watchdog it once described is retired); `docs/guard-harness.md` documents a live gate (`make guard-harness`, part of `make validate`). Neither is deleted: their jobs are not retired.
+
+[Validation failures](validation-failures.md#band-line): band-line evidence and response, governed by JEG-1518.

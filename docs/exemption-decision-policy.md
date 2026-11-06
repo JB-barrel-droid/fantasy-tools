@@ -59,3 +59,7 @@ Rebase or any further commit requires renewed exact-head review and CI. Rate-lim
 5. **Review, merge, and verify.** Independent exact-head review plus CI green precede merge. Run the rebuilt chain, check its exemption report and counts, then verify Week 9 is served. If the shape does not match, escalate once with the actual broader request and evidence; no speculative widening.
 
 This is a policy replay, not a claim that the historical release followed these gates or that this task proved a successful live publish. Historical `b03ae99fe`/`63ae38034` implement the PR #1315 mechanism described above. Later `c1bf2d474` (PR #1316) records Jeremy's separate “Just don't let this test block us at all” decision: the whole `OnePlayerPerturbationTest` class moved from `test-core`/shard 4 to reporting `test-unit-modules`, while band math/end-to-end checks stayed blocking. Its commit message records a merge ahead of PR CI. Under this policy that is rung 3 and cannot bypass the standing pre-merge gates. Do not conflate that broader historical action with PR #1315 or silently repeat it as standing permission.
+
+## Validation diagnostics
+
+See [band-line failures](../runbooks/validation-failures.md#band-line) for the evidence and response checklist. This installed policy does not register or authorize any new exemption.
