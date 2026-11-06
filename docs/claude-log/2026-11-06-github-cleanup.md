@@ -31,7 +31,32 @@ ticket the always-red workflows. No code, workflow or config file changed.
   Commented evidence on JEG-1522 (chain-run-feedback) and JEG-1523 (health
   artifacts), with marker `claude-gh-cleanup-2026-11-06`.
 
+- Second pass (Jeremy chose "B"): removed `.github/workflows/jeg1140-settings-render.yml`.
+  JEG-1140 was canceled on 2026-11-06, yet the workflow still ran on every PR
+  touching `v2.js`, `v2.css`, `workspace.js` or the `Makefile`. Its three test
+  modules stay covered by `make test-unit-modules` (Makefile lines 223-225).
+  Also dropped its manifest line in `config/monitoring_coverage.json` and its
+  name from the workflow list in
+  `tests/test_org_cutover.py::test_build_and_status_workflows_export_shared_repository_variable`.
+  That assertion read a file that no longer exists, so the assertion itself was
+  wrong once the file was removed; no other assertion changed.
+- `jeg1265-values-fieldnotes.yml` is kept: it is the only runner of
+  `tests.test_jeg1265_values_fieldnotes`, so removing it would drop a test.
+- `python3 -m unittest tests.test_org_cutover`: OK.
+  `tests.test_monitoring_coverage::test_real_repo_is_fully_covered` is red with
+  and without this change, with the identical problem list:
+  `chain-run-feedback.yml`, `main-write-pause-switch.yml` and
+  `main-writer-checks.yml` are missing from the manifest. That is pre-existing on
+  main and not in `docs/baseline-reds/registry.json`; it is left for those
+  workflows' owners.
+- Moved #1260 and #1084 back to draft, bringing ready-for-review PRs from 10 to
+  the cap of 8.
+
 ### Claimed, not confirmed
+- `make validate` could not finish locally: one `test-core` error,
+  `ModuleNotFoundError: No module named 'playwright'` in
+  `tests.test_week_history` (Python Playwright is not installed in this
+  container). The PR's preview CI is the authoritative run.
 - The branch deletes and workflow disables are not done. This cloud session
   can push only to its own branch, and the API write path returns 403 through
   the proxy. A paste-ready PSpice print with SHA-pinned branch checks was

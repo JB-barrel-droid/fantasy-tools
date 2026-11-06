@@ -96,7 +96,7 @@ print(json.dumps({'urls': [f.SITE, f.SITE_FIXTURE, f.VALUE_CHECK_URL, f.UA,
     def test_build_and_status_workflows_export_shared_repository_variable(self):
         # Workflow-level env reaches every build, matrix shard, and status job.
         names = ('pages', 'preview', 'v2-render-test', 'full-suite', 'render-sweep',
-                 'jeg1140-settings-render', 'waivers-mutation-offline', 'bake-players',
+                 'waivers-mutation-offline', 'bake-players',
                  'rebuild-chain', 'fidelity-pulse', 'health-artifacts', 'player-identity-reconcile',
                  'live-page-synthetic', 'main-writer-checks')
         for name in names:
