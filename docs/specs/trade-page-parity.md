@@ -1,5 +1,7 @@
 # Trade-page parity: shared controls, one data contract, shippable slices (JEG-1220)
 
+Current-source supplement: [Mac inventory, remaining gaps and test plan (2026-11-01)](jeg-1220-current-parity-inventory.md). The source inventory and held-band discussion below describe October 29; consult the supplement for resolved gaps.
+
 Status: Proposal (spec, 2026-10-29). Docs only: no application code, value math, default, ranking, Supabase or deploy
 changes. It replaces the 01:24 UTC Codex source audit on JEG-1220 as the code inventory (line numbers there have
 moved, and JEG-1219 has shipped since). Copy, labels and empty states stay in the JEG-1221 review
