@@ -7,12 +7,20 @@ import sqlite3
 import statistics
 from typing import Protocol
 
+import sys as _sys  # noqa: E402
+from pathlib import Path as _Path  # noqa: E402
+
+# `lib` lives in pipelines/; make it importable whatever the CWD, checkout path or
+# import order (tests import this module as pipelines.X without pipelines/ on sys.path).
+_sys.path.insert(0, str(_Path(__file__).resolve().parent))
+from lib.timestamps import parse_iso_timestamp  # noqa: E402
+
 
 KINDS = {'ready', 'enqueue', 'head', 'base', 'refresh', 'merge', 'ci'}
 
 
 def instant(value):
-    dt = datetime.fromisoformat(value.replace('Z', '+00:00'))
+    dt = parse_iso_timestamp(value)
     if dt.tzinfo is None:
         raise ValueError('timestamps must include a timezone')
     return dt.astimezone(timezone.utc)
