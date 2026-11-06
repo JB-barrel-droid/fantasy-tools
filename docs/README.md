@@ -120,3 +120,5 @@ The documentation-store work is tracked under JEG-583 in Linear. The consolidati
 
 - [Known baseline reds](baseline-reds/README.md): registry, gate attribution and three-night removal guidance (JEG-1450).
 | [jeg-1458-egress-rollup.md](jeg-1458-egress-rollup.md) | Record | - | - | Actions byte-counter attribution, offline/gh rollup, and uncovered traffic. |
+
+- [jeg-1523-monitoring-publication.md](jeg-1523-monitoring-publication.md) — Record: staged health channel contract, producer/consumer inventory, remaining cutover work.

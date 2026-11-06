@@ -64,6 +64,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import time
 import urllib.error
@@ -144,6 +145,18 @@ def evaluate(payload, fields, now, max_age=MAX_AGE_MINUTES):
 def fetch_json(url, timeout=30):
     started = time.monotonic()
     try:
+        channel = os.environ.get("MONITORING_PUBLICATION_URL", "")
+        name = url.split("?")[0].rsplit("/", 1)[-1]
+        if channel and name in {item[0] for item in ARTIFACTS.values()}:
+            from monitoring_publication import fetch_artifact
+
+            def get(object_url):
+                req = urllib.request.Request(object_url, headers={"Cache-Control": "no-cache"})
+                with urllib.request.urlopen(req, timeout=timeout) as response:
+                    return response.read()
+
+            payload = fetch_artifact(channel, name, get)
+            return payload, 200, int((time.monotonic() - started) * 1000)
         req = urllib.request.Request(f"{url}?cb={int(time.time())}",
                                      headers={"Cache-Control": "no-cache"})
         with urllib.request.urlopen(req, timeout=timeout) as resp:
