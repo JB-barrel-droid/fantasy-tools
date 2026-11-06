@@ -53,7 +53,9 @@ def describe(repo):
         except (ValueError, AttributeError):
             sections = {}  # Hash malformed inputs too; the gate diagnoses them.
         for name, section in sections.items():
-            sources[name] = {'content_vintage': section.get('content_vintage'),
+            field = ('espn_snapshot' if name == 'espn' else
+                     'vintage' if name in ('cbsros', 'razzball') else 'content_vintage')
+            sources[name] = {'content_vintage': section.get(field),
                              'sha256': sha(json.dumps(section, sort_keys=True, separators=(',', ':')).encode())}
     return {'id': sha(json.dumps(hashes, sort_keys=True).encode()),
             'input_id': sha(json.dumps(inputs, sort_keys=True).encode()),
@@ -119,17 +121,46 @@ def replay(repo, store, result_id):
     _, index = refresh(repo, store)
     result = next(r for r in index['results'] if r['id'] == result_id)
     candidate_id = result['candidate_id']
-    with tempfile.TemporaryDirectory(prefix='candidate-replay-', dir=store) as tmp:
-        target = Path(tmp)
-        with tarfile.open(store / (candidate_id + '.tar.gz')) as tar:
-            for member in tar.getmembers():
-                if not member.isfile() or not (target / member.name).resolve().is_relative_to(target.resolve()):
-                    raise ValueError('unsafe candidate archive')
-            tar.extractall(target, filter='data')
-        if describe(target)['id'] != candidate_id:
-            raise ValueError('candidate archive hash mismatch')
-        return subprocess.run(result['command'], cwd=target,
-                              env={**os.environ, 'TODAY': result['today']}).returncode
+    replay_id = uuid.uuid4().hex
+    evidence = {**result, 'id': replay_id, 'kind': 'replay',
+                'parent_result_id': result_id,
+                'recorded_at': datetime.now(timezone.utc).isoformat(),
+                'status': 'running'}
+    for key in ('returncode', 'log_sha256', 'completed_at'):
+        evidence.pop(key, None)
+    index['results'].append(evidence)
+    save(store / 'index.json', index)
+    log_path = store / (replay_id + '.log')
+    rc = 127
+    try:
+        with log_path.open('wb') as log:
+            with tempfile.TemporaryDirectory(prefix='candidate-replay-', dir=store) as tmp:
+                target = Path(tmp)
+                with tarfile.open(store / (candidate_id + '.tar.gz')) as tar:
+                    for member in tar.getmembers():
+                        if not member.isfile() or not (target / member.name).resolve().is_relative_to(target.resolve()):
+                            raise ValueError('unsafe candidate archive')
+                    tar.extractall(target, filter='data')
+                if describe(target)['id'] != candidate_id:
+                    raise ValueError('candidate archive hash mismatch')
+                try:
+                    rc = subprocess.run(result['command'], cwd=target, stdout=log,
+                                        stderr=subprocess.STDOUT,
+                                        env={**os.environ, 'TODAY': result['today']}).returncode
+                except OSError as exc:
+                    log.write(str(exc).encode())
+    except Exception as exc:
+        with log_path.open('ab') as log:
+            log.write(str(exc).encode())
+        raise
+    finally:
+        evidence.update(returncode=rc, status='passed' if rc == 0 else 'failed',
+                        log_sha256=sha(log_path.read_bytes()),
+                        completed_at=datetime.now(timezone.utc).isoformat())
+        save(store / 'index.json', index)
+        print(log_path.read_text(errors='replace'), end='')
+        print(f"candidate-evidence: {replay_id} {evidence['status']} parent={result_id} candidate={candidate_id}")
+    return rc
 
 
 def main():

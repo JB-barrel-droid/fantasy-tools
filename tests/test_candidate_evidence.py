@@ -1,4 +1,6 @@
 import json
+import hashlib
+from datetime import datetime
 from pathlib import Path
 import sys
 import tempfile
@@ -22,7 +24,7 @@ class CandidateEvidenceTest(unittest.TestCase):
 
     def write(self, ppg):
         self.fixture.write_text(json.dumps({'sources': {'razzball': {
-            'content_vintage': '2026-11-05', 'ppg': ppg}}}))
+            'vintage': '2026-11-05', 'ppg': ppg}}}))
 
     def index(self):
         return json.loads((self.store / 'index.json').read_text())
@@ -41,6 +43,49 @@ class CandidateEvidenceTest(unittest.TestCase):
         self.assertEqual(run(self.repo, self.store, 'perturbation', self.command), 1)
         self.assertEqual(self.index()['results'][-1]['status'], 'failed')
 
+    def test_real_source_vintage_fields_are_recorded(self):
+        real = Path(__file__).resolve().parents[1] / 'data/fixtures/current/comparison-sources-data.json'
+        sections = json.loads(real.read_text())['sources']
+        self.fixture.write_text(json.dumps({'sources': sections}))
+        self.assertEqual(run(self.repo, self.store, 'validation', [sys.executable, '-c', 'pass']), 0)
+        recorded = self.index()['results'][0]['sources']
+        for name, field in {'espn': 'espn_snapshot', 'cbsros': 'vintage',
+                            'razzball': 'vintage', 'cbs': 'content_vintage',
+                            'fantasycalc': 'content_vintage', 'fantasypros': 'content_vintage',
+                            'usatoday': 'content_vintage'}.items():
+            with self.subTest(source=name):
+                self.assertTrue(sections[name][field])
+                self.assertEqual(recorded[name]['content_vintage'], sections[name][field])
+                expected = hashlib.sha256(json.dumps(sections[name], sort_keys=True,
+                                                     separators=(',', ':')).encode()).hexdigest()
+                self.assertEqual(recorded[name]['sha256'], expected)
+
+    def test_replay_outcomes_have_distinct_durable_evidence(self):
+        for code in (0, 3):
+            with self.subTest(returncode=code):
+                command = [sys.executable, '-c',
+                           f"import os; print('replay output', os.environ['TODAY']); raise SystemExit({code})"]
+                self.assertEqual(run(self.repo, self.store, 'validation', command), code)
+                parent = self.index()['results'][-1]
+                self.write(11)
+                for _ in range(2):
+                    self.assertEqual(replay(self.repo, self.store, parent['id']), code)
+                    results = self.index()['results']
+                    evidence = results[-1]
+                    self.assertEqual(len({r['id'] for r in results}), len(results))
+                    self.assertEqual(evidence['kind'], 'replay')
+                    self.assertEqual(evidence['parent_result_id'], parent['id'])
+                    for key in ('candidate_id', 'input_id', 'sources', 'command', 'today', 'exemptions'):
+                        self.assertEqual(evidence[key], parent[key])
+                    self.assertEqual(evidence['returncode'], code)
+                    self.assertEqual(evidence['status'], 'passed' if code == 0 else 'failed')
+                    self.assertLessEqual(datetime.fromisoformat(evidence['recorded_at']),
+                                         datetime.fromisoformat(evidence['completed_at']))
+                    log = (self.store / (evidence['id'] + '.log')).read_bytes()
+                    self.assertIn(('replay output ' + parent['today']).encode(), log)
+                    self.assertEqual(evidence['log_sha256'], hashlib.sha256(log).hexdigest())
+                    self.assertEqual(next(r for r in results if r['id'] == parent['id'])['returncode'], code)
+
     def test_exemptions_and_unchanged_inputs(self):
         exemption = self.repo / 'exemption.txt'
         exemption.write_text('[{"case":"Murray", "authority":"test only"}]')
@@ -58,6 +103,13 @@ class CandidateEvidenceTest(unittest.TestCase):
             pass
         with self.assertRaisesRegex(ValueError, 'hash mismatch'):
             replay(self.repo, self.store, result['id'])
+        failed = self.index()['results'][-1]
+        self.assertEqual(failed['parent_result_id'], result['id'])
+        self.assertEqual(failed['status'], 'failed')
+        self.assertEqual(failed['returncode'], 127)
+        log = (self.store / (failed['id'] + '.log')).read_bytes()
+        self.assertIn(b'hash mismatch', log)
+        self.assertEqual(failed['log_sha256'], hashlib.sha256(log).hexdigest())
 
     def test_mutation_during_command_supersedes_result(self):
         command = [sys.executable, '-c', "from pathlib import Path; Path('data/new.json').write_text('{}')"]
