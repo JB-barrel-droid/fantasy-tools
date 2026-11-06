@@ -92,3 +92,5 @@ DDF_NOW=2026-10-29T17:01:00Z python3 pipelines/check_reference_freshness.py --ou
 
 Related: `runbooks/weekly-refresh.md` (the weekly check),
 `runbooks/source-held.md` (holds), `docs/watchdog.md` (producers).
+
+Designed-mechanism validation breaches follow the [exemption decision policy](exemption-decision-policy.md).

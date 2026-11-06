@@ -49,3 +49,5 @@ A dry run is the same dispatch without the write input (or a push to a `*/dry-*`
 
 - USA Today answers GitHub runners with 402. The Supabase relay is the primary fallback (`docs/watchdog.md`, "USA Today fetch chain"). `SOURCE_BLOCKED` is a warning and the last good week stays published.
 - CBS rest of season publishes Wednesdays; a retry runs at 17:00 UTC if there is no row that day.
+
+Designed-mechanism validation breaches follow the [exemption decision policy](../docs/exemption-decision-policy.md).

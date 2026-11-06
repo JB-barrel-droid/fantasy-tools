@@ -120,3 +120,5 @@ The documentation-store work is tracked under JEG-583 in Linear. The consolidati
 
 - [Known baseline reds](baseline-reds/README.md): registry, gate attribution and three-night removal guidance (JEG-1450).
 | [jeg-1458-egress-rollup.md](jeg-1458-egress-rollup.md) | Record | - | - | Actions byte-counter attribution, offline/gh rollup, and uncovered traffic. |
+
+| [exemption-decision-policy.md](exemption-decision-policy.md) | Maintained | JEG-1518 | 2026-11-05 | Scope ladder for validation exemptions; no new authorization. |
