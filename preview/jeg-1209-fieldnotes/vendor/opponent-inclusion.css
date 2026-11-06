@@ -1,0 +1,166 @@
+/* JEG-1231: opponent inclusion checkboxes, following the JEG-1209 Fieldnotes revision 2 handoff
+   (docs/design/jeg-1209-fieldnotes, pinned at 2c8931231ccd2bbeb4946ac031aee5ac655182f4: the finder's Filters panel,
+   "Opponents to include" with Select all and Clear, and its light/dark roles). Colors come from the page's tokens: the
+   --ddf-* tokens in v2.css first, so the public league page keeps today's palette until the shell rollout (JEG-1137);
+   then the Fieldnotes role names (--canvas, --ink, --control, --focus ...); the last fallbacks are the Fieldnotes light
+   values. No new palette. Targets are at least 44px, rows 48px, the list is one column on a phone. */
+
+.oi {
+  --oi-surface: var(--ddf-surface, var(--surface, #FFFDF8));
+  --oi-canvas: var(--ddf-canvas, var(--canvas, #F5F2EA));
+  --oi-subtle: var(--ddf-neutral-tint, var(--subtle, #EAE8DF));
+  --oi-ink: var(--ddf-ink, var(--ink, #182D27));
+  --oi-muted: var(--ddf-muted, var(--muted, #52635C));
+  --oi-line: var(--ddf-line, var(--line, #D4D8CD));
+  --oi-control: var(--control, var(--ddf-muted, #79897F));
+  --oi-action: var(--ddf-action, var(--action, #126044));
+  --oi-warn-bg: var(--ddf-warn-tint, var(--subtle, #EAE8DF));
+  --oi-warn-ink: var(--ddf-warn-ink, var(--warning, #80500F));
+  --oi-focus: var(--focus, #175BC1);
+  --oi-radius: var(--ddf-radius-card, var(--radius, 16px));
+  --oi-dur: var(--duration, var(--dur, 160ms));
+  --oi-ease: var(--ease, cubic-bezier(0.2, 0.7, 0.2, 1));
+  margin: 0;
+  padding: 24px;
+  min-width: 0;
+  border: 1px solid var(--oi-line);
+  border-radius: var(--oi-radius);
+  background: var(--oi-surface);
+  color: var(--oi-ink);
+  font-family: var(--ddf-font-ui, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+.oi-legend {
+  padding: 0 4px;
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.oi-count {
+  margin: 0 0 12px;
+  color: var(--oi-muted);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.oi[data-status="allExcluded"] .oi-count {
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: var(--oi-warn-bg);
+  color: var(--oi-warn-ink);
+  font-weight: 600;
+}
+
+.oi-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 0 0 8px;
+}
+
+.oi-btn {
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--oi-control);
+  border-radius: 9px;
+  background: var(--oi-surface);
+  color: var(--oi-ink);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--oi-dur) var(--oi-ease), border-color var(--oi-dur) var(--oi-ease);
+}
+
+.oi-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 0 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.oi-item {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  align-items: center;
+  column-gap: 10px;
+  min-height: 48px;
+  border-bottom: 1px solid var(--oi-line);
+}
+
+.oi-box {
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  accent-color: var(--oi-action);
+  cursor: pointer;
+}
+
+.oi-box[aria-disabled="true"] { cursor: not-allowed; opacity: 0.55; }
+
+.oi-label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+  min-height: 48px;
+  padding: 12px 0;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+
+.oi-item[data-state="excluded"] .oi-name,
+.oi-item[data-state="profile"] .oi-name { color: var(--oi-muted); }
+
+.oi-meta {
+  color: var(--oi-muted);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.oi-tag {
+  padding: 0 8px;
+  border: 1px solid var(--oi-line);
+  border-radius: 999px;
+  color: var(--oi-muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.oi-note {
+  grid-column: 2;
+  margin: -6px 0 8px;
+  color: var(--oi-muted);
+  font-size: 12px;
+}
+
+.oi-item[data-state="profile"] .oi-note { color: var(--oi-warn-ink); }
+
+.oi-empty {
+  margin: 0;
+  color: var(--oi-muted);
+}
+
+.oi :focus { outline: none; }
+
+.oi :focus-visible {
+  outline: 3px solid var(--oi-focus);
+  outline-offset: 3px;
+}
+
+@media (hover: hover) {
+  .oi-btn:hover { background: var(--oi-subtle); }
+  .oi-item:hover .oi-name { text-decoration: underline; text-underline-offset: 3px; }
+}
+
+@media (max-width: 767px) {
+  .oi { padding: 16px; }
+  .oi-list { grid-template-columns: 1fr; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .oi { --oi-dur: 0ms; }
+}

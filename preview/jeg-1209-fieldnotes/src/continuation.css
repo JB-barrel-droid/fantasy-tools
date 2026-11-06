@@ -1,0 +1,113 @@
+/* JEG-1209 Fieldnotes revision 3: the continuation's own styles, on top of the unchanged revision-2 CSS (#1089).
+   The sibling components read the live page's --v2-* and --ddf-* names; here those names point at the revision-2 roles,
+   so the components draw in Fieldnotes without any change to their own files. No new color, size or motion value. */
+:root, html[data-theme="dark"] {
+  --v2-surface: var(--surface); --v2-ink: var(--ink); --v2-muted: var(--muted); --v2-border: var(--line);
+  --v2-field-border: var(--control); --v2-focus: var(--focus); --v2-action: var(--action); --v2-action-text: var(--action);
+  --v2-positive: var(--positive); --v2-radius-card: var(--radius); --v2-radius-btn: 9px;
+  --ddf-surface: var(--surface); --ddf-canvas: var(--canvas); --ddf-neutral-tint: var(--subtle); --ddf-ink: var(--ink);
+  --ddf-muted: var(--muted); --ddf-line: var(--line); --ddf-action: var(--action); --ddf-warn-tint: var(--subtle);
+  --ddf-warn-ink: var(--warning); --ddf-radius-card: var(--radius); --ddf-font-ui: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+.v2-ls { --ls-focus: var(--focus); --ls-title-font: Fraunces, Georgia, serif; --ls-warn-bg: var(--subtle); --ls-warn-ink: var(--warning);
+  --ls-bad-bg: var(--subtle); --ls-bad-ink: var(--negative); --ls-radius: 12px; padding: 16px 20px; }
+.v2-ls-toggle { min-height: 44px; }
+
+/* Shared live-page classes the vendored cards use. */
+.v2-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 24px; margin-top: 24px; }
+.v2-card-head h2 { font-size: 22px; line-height: 1.25; }
+.v2-card-head .v2-meta { margin-top: 6px; }
+.v2-meta { font-size: 13px; color: var(--muted); }
+.v2-btn { border: 1px solid var(--control); background: var(--surface); border-radius: 9px; padding: 8px 12px; min-height: 44px; font-weight: 600; font-size: 14px; }
+.v2-ctoolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 14px 0 8px; }
+.v2-sr, .sr { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+.v2-mi-list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 10px; }
+.v2-mi-item { border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; background: var(--surface); }
+.v2-mi-head { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; }
+.v2-mi-gain { margin-left: auto; font-weight: 650; font-variant-numeric: tabular-nums; }
+.v2-mi-band { border: 1px solid var(--control); border-radius: 5px; font-size: 12px; font-weight: 650; padding: 3px 7px; }
+.v2-mi-band.is-likely { border-color: var(--positive); color: var(--positive); }
+.v2-mi-band.is-longShot { border-style: dashed; color: var(--muted); }
+.v2-mi-deal { margin-top: 8px; font-size: 14px; }
+.v2-mi-why, .v2-mi-stretch { margin-top: 10px; }
+.v2-mi-lines { margin: 8px 0; padding-left: 20px; font-size: 14px; }
+.v2-mi-stretch > summary { font-family: Fraunces, Georgia, serif; font-size: 18px; }
+/* No free text (2026-10-29): the Managers note is a set of checkboxes. */
+.v2-mg-tags { border: 0; padding: 0; margin: 12px 0 0; display: flex; flex-wrap: wrap; gap: 6px 14px; }
+.v2-mg-tags legend { font-size: 14px; font-weight: 650; margin-bottom: 6px; padding: 0; }
+.v2-mg-tag { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; font-size: 14px; }
+
+/* Journey, layout and stages. */
+.finder-journey .journeystep { display: block; text-decoration: none; color: var(--ink); border: 1px solid var(--control); border-radius: 9px;
+  padding: 10px 14px; min-height: 44px; font-size: 13px; font-weight: 600; background: transparent; }
+.finder-journey small { display: block; color: var(--muted); font-size: 11px; font-weight: 400; }
+.stage { scroll-margin-top: 16px; }
+.stage:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
+.finder-layout { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 24px; align-items: start; margin-top: 24px; }
+.finder-main > .card + .card, .finder-main > .v2-card { margin-top: 24px; }
+.finder-main, .finder-rail { min-width: 0; }
+.finder-rail { display: grid; gap: 24px; position: sticky; top: 16px; }
+.sidecard { padding: 20px; }
+.sidecard h2 { margin-bottom: 8px; }
+.sidecard .oi { padding: 0; border: 0; background: transparent; }
+.cardhead { margin-bottom: 12px; }
+.cardhead .meta { margin-top: 6px; }
+.prefgroup { margin-top: 18px; }
+.prefgroup legend { margin-bottom: 10px; }
+.segmented { flex-wrap: wrap; }
+.backups { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 16px; }
+.backup-stepper { margin-top: 4px; }
+.backup-stepper .poslabel { width: 36px; font-weight: 650; }
+.backup-stepper button { min-width: 44px; }
+.shared { margin-top: 18px; }
+.shared p { font-size: 14px; }
+.stale { margin-top: 16px; padding: 12px 14px; border-left: 3px solid var(--warning); background: var(--subtle); font-size: 14px; }
+.stale button { margin-left: 8px; }
+#v2LgOpps[data-stale="true"] .finder-table tbody, #v2LgOpps[data-stale="true"] .finder-cards { opacity: .62; }
+.oppsnote { margin-bottom: 8px; }
+.reviewtools { border: 1px dashed var(--control); border-radius: 12px; padding: 12px 14px; margin-bottom: 18px; }
+.reviewtools .kicker { margin-bottom: 8px; }
+.reviewtools .kicker .meta { text-transform: none; letter-spacing: 0; font-weight: 400; }
+.buttonlike { display: inline-flex; align-items: center; min-height: 44px; padding: 10px 16px; border: 1px solid var(--control); border-radius: 9px;
+  background: var(--surface); color: var(--ink); text-decoration: none; font-weight: 600; }
+.buttonlike.primary { background: var(--action); border-color: var(--action); color: var(--action-ink); }
+.desktopnav a { font-size: 14px; padding: 8px 9px; min-height: 44px; display: inline-flex; align-items: center; color: var(--ink); text-decoration: none; border-radius: 9px; }
+.desktopnav a[aria-current="page"] { background: var(--subtle); }
+.unavailable { color: var(--muted); font-size: 16px !important; }
+.emptystate { padding: 24px; border: 1px dashed var(--control); border-radius: 12px; background: var(--canvas); }
+.emptystate button { margin-top: 12px; }
+.optcols { margin-top: 12px; }
+.optcols legend { font-size: 14px; font-weight: 650; }
+.optcols .column-choice { flex-wrap: wrap; }
+.optcols .column-choice small { flex-basis: 100%; padding-left: 30px; margin-top: 0; }
+.v2-colorder-list { max-width: none; }
+.finder-table th small, .finder-table th b { display: block; }
+.finder-table th .opener { margin-top: 8px; padding-left: 0; }
+.finder-table tr.exprow > td { padding: 0 0 8px; }
+.finder-cards { list-style: none; padding: 0; margin: 0; display: none; }
+.finder-sideblock h3 { margin-bottom: 4px; }
+.finder-sideblock + .finder-sideblock { border-left: 1px solid var(--line); padding-left: 24px; }
+.detailtitle { font-family: Fraunces, Georgia, serif; font-size: 22px; margin-top: 8px; }
+.flowgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+.flowgrid h2, .space h2 { margin-bottom: 8px; }
+.handoff-table th, .handoff-table td { white-space: normal; text-align: left; vertical-align: top; }
+.handoff-table td:first-of-type { min-width: 150px; }
+.bottomnav a { padding: 8px 2px; min-height: 54px; display: grid; place-items: center; font-size: 11px; font-weight: 600; color: var(--ink); text-decoration: none; }
+.bottomnav a[aria-current="page"] { background: var(--subtle); color: var(--action); }
+html[data-theme="dark"] .finder-table tr.selected { background: #253c2c; }
+
+@media (max-width: 900px) {
+  .finder-layout { grid-template-columns: minmax(0, 1fr); }
+  .finder-rail { position: static; order: -1; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 700px) {
+  .finder-rail { grid-template-columns: minmax(0, 1fr); }
+  .finder-tablewrap { display: none; }
+  .finder-cards { display: block; }
+  .finder-result .opener { margin-top: 12px; width: 100%; }
+  .finder-sideblock + .finder-sideblock { border-left: 0; padding-left: 0; border-top: 1px solid var(--line); padding-top: 20px; }
+  .flowgrid { grid-template-columns: 1fr; }
+  .backups { grid-template-columns: 1fr; }
+  .v2-card { padding: 18px; }
+  .v2-mi-gain { margin-left: 0; }
+}

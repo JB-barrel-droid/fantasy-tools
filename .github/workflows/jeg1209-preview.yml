@@ -1,0 +1,49 @@
+name: JEG-1209 Fieldnotes preview
+
+# Private design review (JEG-1209): checks the revision 3 preview in a real browser and keeps its screenshots as a run
+# artifact. Nothing is built into dist/ or published; the preview is never deployed.
+on:
+  pull_request:
+    paths:
+      - "preview/jeg-1209-fieldnotes/**"
+      - "docs/design/jeg-1209-fieldnotes/**"
+      - ".github/workflows/jeg1209-preview.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: jeg1209-preview-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Preview inputs and built page match
+        run: python3 preview/jeg-1209-fieldnotes/build.py --check
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ms-playwright-${{ runner.os }}-1.49.1
+      - name: Browser
+        run: |
+          python3 -m pip install --quiet playwright==1.49.1
+          python3 -m playwright install --with-deps chromium
+      - name: Browser checks and screenshots
+        run: python3 preview/jeg-1209-fieldnotes/checks.py --shots shots
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: jeg1209-fieldnotes-r3-shots
+          path: shots/
+          retention-days: 30

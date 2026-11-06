@@ -1,0 +1,138 @@
+{
+ "note": "Copies of sibling components at pinned commits, for the private preview only. The files are byte-for-byte their PR heads; build.py applies a listed set of exact replacements when it builds the page (PREVIEW_STORAGE, NO_FREE_TEXT). Refresh with build.py --vendor once the PRs move. Replace with app/v2/ once they merge.",
+ "files": [
+  {
+   "file": "workspace.js",
+   "from": "main",
+   "branch": "main",
+   "commit": "dbe06a7e2bcbeb7bc8db857e42272f4314d0e5e7",
+   "path": "app/v2/workspace.js",
+   "blob": "4d4896d1f8d5e1dbf96a43eaab797300510ec66a"
+  },
+  {
+   "file": "opportunities.js",
+   "from": "main",
+   "branch": "main",
+   "commit": "dbe06a7e2bcbeb7bc8db857e42272f4314d0e5e7",
+   "path": "app/v2/opportunities.js",
+   "blob": "60e014872aacf0f740e0d8b52bdca032bb5e6c42"
+  },
+  {
+   "file": "league-status.js",
+   "from": "#1091 JEG-1233",
+   "branch": "claude/JEG-1233-league-status",
+   "commit": "571876f058dceb2c6f358bb145a87a967c394cdc",
+   "path": "app/v2/league-status.js",
+   "blob": "40a445f9018cf40a10f120542b96c1ab856ce5d7"
+  },
+  {
+   "file": "league-status.css",
+   "from": "#1091 JEG-1233",
+   "branch": "claude/JEG-1233-league-status",
+   "commit": "571876f058dceb2c6f358bb145a87a967c394cdc",
+   "path": "app/v2/league-status.css",
+   "blob": "b7a12d55b69dc775119dfc9ee505a332e816419e"
+  },
+  {
+   "file": "opponent-inclusion.js",
+   "from": "#1090 JEG-1231",
+   "branch": "claude/JEG-1231-opponent-inclusion",
+   "commit": "a54714290a32d43528f607b242baadd34d715640",
+   "path": "app/v2/opponent-inclusion.js",
+   "blob": "cd155194c90c99b0a2885260948dbe789eabc520"
+  },
+  {
+   "file": "opponent-inclusion.css",
+   "from": "#1090 JEG-1231",
+   "branch": "claude/JEG-1231-opponent-inclusion",
+   "commit": "a54714290a32d43528f607b242baadd34d715640",
+   "path": "app/v2/opponent-inclusion.css",
+   "blob": "a8b34cb1c4e6b767d8a853df6b5a5e46c9fd2aa4"
+  },
+  {
+   "file": "column-order.js",
+   "from": "#1093 JEG-1232",
+   "branch": "claude/JEG-1232-column-order",
+   "commit": "0953404c080d2365c0382f84a8561d35f9e24c64",
+   "path": "app/v2/column-order.js",
+   "blob": "1941cb4702ee7bc83ab3c891426e539fb1a7c9ca",
+   "loaded": false
+  },
+  {
+   "file": "column-order.css",
+   "from": "#1093 JEG-1232",
+   "branch": "claude/JEG-1232-column-order",
+   "commit": "0953404c080d2365c0382f84a8561d35f9e24c64",
+   "path": "app/v2/column-order.css",
+   "blob": "fc9b449e6f09b48f371be51a969aeeab4a28c2d1",
+   "loaded": false
+  },
+  {
+   "file": "manager-profiles.js",
+   "from": "#1084 JEG-1217",
+   "branch": "claude/JEG-1217-manager-profiles",
+   "commit": "a1e62342eb2863fc56e581fb4f7bb97f340c7b98",
+   "path": "app/v2/manager-profiles.js",
+   "blob": "2e70373dd7786089b44b8cbe4b8931fe5d152ac6"
+  },
+  {
+   "file": "manager-recs.js",
+   "from": "#1084 JEG-1217",
+   "branch": "claude/JEG-1217-manager-profiles",
+   "commit": "a1e62342eb2863fc56e581fb4f7bb97f340c7b98",
+   "path": "app/v2/manager-recs.js",
+   "blob": "2153c69114a869e32c0b09a965a8f0025e48d90e"
+  },
+  {
+   "file": "manager-profiles-ui.js",
+   "from": "#1084 JEG-1217",
+   "branch": "claude/JEG-1217-manager-profiles",
+   "commit": "a1e62342eb2863fc56e581fb4f7bb97f340c7b98",
+   "path": "app/v2/manager-profiles-ui.js",
+   "blob": "1b8b529955b4c62c2a83e7f04c680cc83ddf4ae6"
+  },
+  {
+   "file": "manager-recs-ui.js",
+   "from": "#1084 JEG-1217",
+   "branch": "claude/JEG-1217-manager-profiles",
+   "commit": "a1e62342eb2863fc56e581fb4f7bb97f340c7b98",
+   "path": "app/v2/manager-recs-ui.js",
+   "blob": "813be51b2ee76deaa219666bcc6113a2965b9fee"
+  },
+  {
+   "file": "manager-profiles.css",
+   "from": "#1084 JEG-1217",
+   "branch": "claude/JEG-1217-manager-profiles",
+   "commit": "a1e62342eb2863fc56e581fb4f7bb97f340c7b98",
+   "path": "app/v2/manager-profiles.css",
+   "blob": "e3a9613b98b6c5963eb2375378d529ae23cf6cd1"
+  }
+ ],
+ "superseded": [
+  {
+   "pr": 1093,
+   "ticket": "JEG-1232",
+   "reason": "Jeremy, 2026-10-29: \"Go with the fixed order value first.\" Reviewed #1093 head b7e076f80b597140b298a8ecd2bfa04c8f506ea2 has no column-order picker or saved order. column-order.js/.css stay pinned here (\"loaded\": false) but build.py no longer loads them; the preview draws its columns in one fixed order."
+  }
+ ],
+ "open_findings": [
+  {
+   "pr": 1091,
+   "ticket": "JEG-1233",
+   "pinned": "571876f058",
+   "finding": "Open review 00895375: empty league with unavailable/full storage still promises saving; every 'replace' (including Undo) reads as a file/link import. Owner correction pending; repin after it is reviewed."
+  },
+  {
+   "pr": 1093,
+   "ticket": "JEG-1232",
+   "pinned": null,
+   "finding": "Hidden-column Reset finding superseded: the picker and saved order are gone from #1093 (review f411c027)."
+  },
+  {
+   "pr": 1084,
+   "ticket": "JEG-1217",
+   "pinned": "a1e62342eb",
+   "finding": "Open review 9e681c74: Trade ideas drop partial/unjudged roster warnings, blank card after hide/show, stale names/gains after a rename; capture findings in 59c00401. Newer head b29aac31 (fixed tags instead of the note) is not reviewed yet and drops an existing note on load, so the preview stays on a1e62342 and keeps its own lossless note patch."
+  }
+ ]
+}
