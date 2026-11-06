@@ -1299,7 +1299,110 @@
     return entry;
   }
 
+  // ===================================================================
+  // Position weights (LINK-FORMAT.md 3.2 settings.extras.positionWeights; settings.html "Advanced
+  // settings"): setting.position_weights = {starter: [QB, RB, WR, TE], bench: [QB, RB, WR, TE]}
+  // (arrays, or {QB, RB, WR, TE} objects).
+  //   starter: relative weight 0-5 (default 1) on each position's starter group.
+  //   bench:   the position's bench group as a percent of the whole pie, 0-100. A value within
+  //            VP_PW_DEFAULT_TOLERANCE points of the model's own share (what the page shows as the
+  //            default), or null, means the model's own share.
+  // Mapped onto the DDF group weights W (VP-4; pie x W = each group's budget, VP-5): each bench group
+  // is set to its percent, the starter groups are scaled by their weights and fill the rest of the
+  // pie (1 - the bench total), and W is renormalized to 1 when the inputs cannot fill it exactly
+  // (bench total over 100, or every starter weight 0). Starter 1,1,1,1 with the model's own bench
+  // shares is today's W, so the pipeline's result is returned as is (identical numbers).
+  // ===================================================================
+  var VP_PW_STARTER_BOUNDS = [0, 5];
+  var VP_PW_BENCH_BOUNDS = [0, 100];
+  var VP_PW_DEFAULT_TOLERANCE = 0.05;
+
+  function vpPwPick(v, i, pos) {
+    var x = Array.isArray(v) ? v[i] : (v && typeof v === "object" ? v[pos] : undefined);
+    if (x === null || x === undefined || x === "") return null;
+    var n = Number(x);
+    return vpFinite(n) ? n : null;
+  }
+
+  // The asked weights against the model's own W: per position the starter weight and the bench
+  // percent (null = the model's own), and whether that is today's W.
+  function vpResolvePositionWeights(ask, baseW) {
+    var starter = {}, bench = {}, own = {}, identity = true, anyWeight = false;
+    POSITION_ORDER.forEach(function (pos, i) {
+      var s = vpPwPick(ask && ask.starter, i, pos);
+      s = s === null ? 1 : Math.max(VP_PW_STARTER_BOUNDS[0], Math.min(VP_PW_STARTER_BOUNDS[1], s));
+      var b0 = 100 * (baseW[vpGroupKey(pos, "bench")] || 0);
+      var b = vpPwPick(ask && ask.bench, i, pos);
+      if (b !== null) b = Math.max(VP_PW_BENCH_BOUNDS[0], Math.min(VP_PW_BENCH_BOUNDS[1], b));
+      if (b !== null && Math.abs(b - b0) <= VP_PW_DEFAULT_TOLERANCE + 1e-9) b = null;
+      starter[pos] = s;
+      bench[pos] = b;
+      own[pos] = b0;
+      if (s !== 1 || b !== null) identity = false;
+      if ((s > 0 && (baseW[vpGroupKey(pos, "starter")] || 0) > 0) || (b === null ? b0 > 0 : b > 0)) anyWeight = true;
+    });
+    return { resolved: { starter: starter, bench: bench }, defaultBenchPct: own, identity: identity, usable: anyWeight };
+  }
+
+  // W in place: bench groups at their percent, starter groups scaled to fill the rest; sums to 1.
+  function vpApplyPositionWeights(W, r) {
+    var bench = {}, benchTotal = 0, starterBase = 0;
+    POSITION_ORDER.forEach(function (pos) {
+      var b = r.bench[pos];
+      bench[pos] = b === null ? W[vpGroupKey(pos, "bench")] : b / 100;
+      benchTotal += bench[pos];
+      starterBase += r.starter[pos] * W[vpGroupKey(pos, "starter")];
+    });
+    var room = Math.max(0, 1 - benchTotal), total = 0;
+    POSITION_ORDER.forEach(function (pos) {
+      var gs = vpGroupKey(pos, "starter"), gb = vpGroupKey(pos, "bench");
+      W[gs] = starterBase > 0 ? r.starter[pos] * W[gs] * room / starterBase : 0;
+      W[gb] = bench[pos];
+      total += W[gs] + W[gb];
+    });
+    if (total > 0 && Math.abs(total - 1) > 1e-12) Object.keys(W).forEach(function (g) { W[g] /= total; });
+  }
+
+  // One run at the model's own weights (to read its bench shares, the defaults the asked weights are
+  // judged against), then, unless that is what was asked, one run with the weights resolved.
+  function vpRunWithPositionWeights(input) {
+    var ask = input.setting.position_weights;
+    var setting = Object.assign({}, input.setting);
+    delete setting.position_weights;
+    var base = runValuePipeline(Object.assign({}, input, { setting: setting }));
+    var copyW = function (w) { var o = {}; Object.keys(w || {}).forEach(function (g) { o[g] = w[g]; }); return o; };
+    var readout = { asked: JSON.parse(JSON.stringify(ask)), applied: false, identity: false,
+      starter: null, benchPct: null, defaultBenchPct: null, weightsBefore: copyW(base.ddfWeights), weights: null, reason: null };
+    if (base.degenerate || !base.ddfWeights) {
+      readout.reason = "the model has no weights at this setting";
+      readout.weights = copyW(base.ddfWeights);
+      base.positionWeights = readout;
+      return base;
+    }
+    var plan = vpResolvePositionWeights(ask, base.ddfWeights);
+    readout.starter = plan.resolved.starter;
+    readout.benchPct = plan.resolved.bench;
+    readout.defaultBenchPct = plan.defaultBenchPct;
+    var result = base;
+    if (!plan.usable) {
+      readout.reason = "every weight is 0, so nothing would be valued";
+    } else {
+      readout.applied = true;
+      readout.identity = plan.identity;
+      if (!plan.identity) {
+        result = runValuePipeline(Object.assign({}, input, { setting: setting, positionWeightsResolved: plan.resolved }));
+      }
+    }
+    readout.weights = copyW(result.ddfWeights);
+    result.positionWeights = readout;
+    return result;
+  }
+
   function runValuePipeline(input) {
+    if (input && input.setting && input.setting.position_weights && !input.positionWeightsResolved &&
+        !input.seatAllocation) {
+      return vpRunWithPositionWeights(input);
+    }
     var setting = input.setting || {};
     var players = input.players || {};
     var sources = input.sources || {};
@@ -1810,6 +1913,14 @@
         W[vpGroupKey(pos, "bench")] = be * shares[pos] / sum;
       });
     }
+    // Position weights (the Settings page's advanced weights), resolved once by vpRunWithPositionWeights
+    // and applied last, on top of the weights above. Absent = W untouched (today's numbers, byte-identical).
+    var WBeforePositionWeights = null;
+    if (input.positionWeightsResolved) {
+      WBeforePositionWeights = {};
+      Object.keys(W).forEach(function (g) { WBeforePositionWeights[g] = W[g]; });
+      vpApplyPositionWeights(W, input.positionWeightsResolved);
+    }
 
     // --- VP-5 budgets, rates, Adjusted, VORP display.
     var budgets = vpEmptyGroups();
@@ -2120,6 +2231,7 @@
       benchMixMean: Braw,
       ddfWeights: W,
       ddfWeightsBeforeShares: WBase,
+      ddfWeightsBeforePositionWeights: WBeforePositionWeights,
       budgets: budgets,
       sources: out,
       indexed: indexed,
@@ -2355,6 +2467,7 @@
       benchShareOverride: result.benchShareOverride, lineup: result.lineup, chartSigma: result.chartSigma,
       benchShareApplied: result.benchShareApplied, included: result.included, excluded: result.excluded,
       basis: result.basis || null,
+      positionWeights: result.positionWeights || null,
       degenerate: result.degenerate, ddfWeights: result.ddfWeights, allocation: result.allocation,
       slotFill: result.slotFill, fillSets: result.fillSets,
       allocationMix: result.allocationMix || null, allocationExpected: result.allocationExpected || null,
@@ -2421,6 +2534,8 @@
     VP_DEFAULT_BENCH_SHARE: VP_DEFAULT_BENCH_SHARE,
     VP_PIE_PER_STARTING_SLOT: VP_PIE_PER_STARTING_SLOT,
     runValuePipeline: runValuePipeline,
+    resolvePositionWeights: vpResolvePositionWeights,
+    applyPositionWeights: vpApplyPositionWeights,
     applyDdfOverride: applyDdfOverride,
     normalizeOverride: normalizeOverride,
     OVERRIDE_MIN: OVERRIDE_MIN,
