@@ -650,7 +650,7 @@
           .sort((a, b) => b.r.values[key] - a.r.values[key] || a.index - b.index)
           .forEach(({r}, index) => ranks.set(String(r.player_key), index + 1));
       }
-      const zones = engineRanked ? C.getZones()
+      const zones = scope.zonesFor ? scope.zonesFor(key, pos) : engineRanked ? C.getZones()
         : typeof C.getZonesFor === "function" ? C.getZonesFor(key, pos)
         : C.getRankSource() !== DDF_KEY || pos === "ALL" ? C.getZones() : null;
       entry = {ranks, zones};
@@ -5155,6 +5155,12 @@
   // it never substitutes this reader's saved teams and never writes them. Choosing a team ends it.
   let carriedTrade = null;    // {text, transfer} from the address
   let compareCarried = null;  // receive()'s result for this render
+  let comparePrices = null;   // one selected provider for validation, tables, tiers and examples
+  function resolveComparePricing() {
+    const TC = window.TradeValueTradeContext;
+    return TC.comparePricing(C, {transfer: carriedTrade?.transfer, workspace: window.TradeValueWorkspace?.store?.get() || null,
+      keys: carriedTrade?.transfer ? TC.pricingKeys({mine: carriedTrade.transfer.mine?.roster, theirs: carriedTrade.transfer.theirs?.roster, deal: carriedTrade.transfer.deal}) : undefined});
+  }
   function receiveCarried() {
     if (!carriedTrade) return null;
     const TC = window.TradeValueTradeContext;
@@ -5162,13 +5168,12 @@
     if (!TC) return held("this page cannot read a carried trade");
     if (!carriedTrade.transfer) return held("the trade context in this link could not be read");
     const t = carriedTrade.transfer;
-    const keys = TC.pricingKeys({mine: t.mine && t.mine.roster, theirs: t.theirs && t.theirs.roster, deal: t.deal});
     const common = TC.commonFromPage({leagueQuery: leagueLinkParts().join("&"),
       valueContext: window.DDFOverrides && window.DDFOverrides.snapshotContext ? window.DDFOverrides.snapshotContext() : null,
       sources: TC.sourcesFromEngine(C.getSourceInfo())});
     try {
-      // Compare prices the modeled bench on this build; a trade priced at another level is held, never repriced here.
-      return TC.receive(t, {route: "compare", common, pricing: TC.modeledPricing(C, keys), ws: window.TradeValueWorkspace?.store?.get() || null});
+      // Validate the same dual-level provider that prices every Compare surface.
+      return TC.receive(t, {route: "compare", common, pricing: comparePrices?.pricing || null, ws: window.TradeValueWorkspace?.store?.get() || null});
     } catch (error) { return held("the trade context in this link could not be read"); }
   }
   function carriedHoldText(result) {
@@ -5184,8 +5189,8 @@
   // Compare tiers: rank by the verdict series over every priced player, against the All-positions zones.
   let compareTierRows = null;
   function compareTierScope() {
-    if (!compareTierRows) compareTierRows = C.getAllRows();
-    return {rows: compareTierRows, pos: "ALL", engineOrder: false};
+    if (!compareTierRows) compareTierRows = comparePrices?.rows || [];
+    return {rows: compareTierRows, pos: "ALL", engineOrder: false, zonesFor: comparePrices?.zonesFor};
   }
   // {signature, picks, next, fallback}: the examples the start button and "Show another" load in turn (JEG-1191 path A:
   // trades the market misses; fewer than TradeValueTrade.EXAMPLE_COUNT falls back to the single JEG-1190 sample).
@@ -5395,6 +5400,7 @@
 
   function compareConstructionInput() {
     const ctx = compareRosterContext();
+    if (compareView.held) return {reason: carriedHoldText(compareView.held), held: true};
     if (ctx.held) return {reason: carriedHoldText(ctx.held), held: true};
     if (!ctx.ready) return {reason: "Add both rosters in Your league to see starters, bench and open spots."};
     if (!compareRosterMembership(ctx)) return {reason: "Choose trade players from the selected rosters to see lineup changes."};
@@ -5417,8 +5423,8 @@
     const host = $("v2CConstructionBody");
     const input = compareConstructionInput();
     host.replaceChildren();
-    // JEG-1259 / JEG-1240: the bench level that priced these lineups (Compare prices the modeled bench on this build).
-    card.dataset.benchLevel = compareCarried && compareCarried.status === "ok" ? compareCarried.context.pricing.mode : "modeled";
+    // JEG-1259 / JEG-1483: identify the provider that priced these lineups.
+    card.dataset.benchLevel = comparePrices?.pricing?.mode || "held";
     card.dataset.carried = compareCarried ? compareCarried.status : "none";
     if (input.reason) {
       const note = document.createElement("p");
@@ -5468,8 +5474,9 @@
 
   function collectCompare() {
     compareTierRows = null;
+    comparePrices = resolveComparePricing();
     compareCarried = receiveCarried();
-    const rowsByKey = new Map(C.getAllRows().map(row => [String(row.player_key), row]));
+    const rowsByKey = comparePrices.rowsByKey;
     // A player the engine no longer has a row for stays listed, missing in every series.
     const resolve = list => list.map(p => rowsByKey.get(p.key) || {player_key: p.key, name: p.name, values: {}, unpriced: true});
     const usable = keys => keys.filter(key => view.infoByKey[key]?.available);
@@ -5497,7 +5504,7 @@
     const giveRows = resolve(TR.give);
     const receiveRows = resolve(TR.receive);
     // JEG-1285: a held carried trade shows its players but no number or claim priced on this page.
-    const held = compareCarried && compareCarried.status === "hold" ? compareCarried : null;
+    const held = compareCarried && compareCarried.status === "hold" ? compareCarried : comparePrices.status === "hold" ? comparePrices : null;
     const ready = !held && giveRows.length > 0 && receiveRows.length > 0;
     const points = ready ? TC.compareTrade(giveRows, receiveRows, pointKeys).rows : [];
     const vorp = ready ? TC.compareTrade(giveRows, receiveRows, vorpKeys).rows : [];
@@ -5509,7 +5516,7 @@
     const falls = keys => (ready ? keys.map(key => TC.waterfall(giveRows, receiveRows, key)) : []);
     const pointFalls = falls(pointKeys);
     const deal = ready ? TC.dealRead(giveRows, receiveRows, chartKeys) : null;
-    compareView = {rowsByKey, giveRows, receiveRows, ready, example: Boolean(example), pointKeys, vorpKeys, chartKeys, unavailable, shownChoices,
+    compareView = {pricing: comparePrices.pricing, pricingProvider: comparePrices, rowsByKey, giveRows, receiveRows, ready, example: Boolean(example), pointKeys, vorpKeys, chartKeys, unavailable, shownChoices,
       points, story: ready ? TC.tradeStory(points, metaFor) : {kind: null},
       verdict: ready ? TC.tradeVerdict(points.concat(vorp), verdictKey()) : {kind: null, key: verdictKey()},
       deal,
@@ -5530,9 +5537,9 @@
   function exampleList(pointKeys, chartKeys) {
     const T = window.TradeValueTrade;
     const key = verdictKey();
-    const rows = C.getAllRows();
+    const rows = comparePrices?.rows || [];
     const keys = pointKeys.concat(key, chartKeys, T.DEAL_KEYS.value, T.DEAL_KEYS.projections);
-    const signature = `${keys.join(",")}|${rows.length}|${rows.reduce((acc, r) => acc + keys.reduce((a, k) => a + (Number.isFinite(r.values[k]) ? r.values[k] : 0.123), 0), 0)}`;
+    const signature = `${JSON.stringify(comparePrices?.pricing)}|${keys.join(",")}|${rows.length}|${rows.reduce((acc, r) => acc + keys.reduce((a, k) => a + (Number.isFinite(r.values[k]) ? r.values[k] : 0.123), 0), 0)}`;
     if (!exampleCache || exampleCache.signature !== signature) {
       const misses = T.pickMarketMisses(rows, chartKeys);
       const fallback = misses.length < T.EXAMPLE_COUNT;
@@ -6421,7 +6428,8 @@
       }
     }
     // JEG-1259: a pending carried trade stays in the address (reload and share keep it), with this visit's deal.
-    if (carriedTrade) parts.push("valuecontext=1", `tc=${carriedTradeText()}`);
+    const contextText = carriedTrade ? carriedTradeText() : manualCompareText();
+    if (contextText) parts.push("valuecontext=1", `tc=${contextText}`);
     return `#compare-trade${parts.length ? `?${parts.join("&")}` : ""}`;
   }
   let shareDroppedOverrides = false;
@@ -6431,8 +6439,24 @@
     const deal = {give: TR.give.map(p => p.key).filter(Boolean), get: TR.receive.map(p => p.key).filter(Boolean)};
     const teams = compareCarried.context.teams;
     const patch = compareTeams.carriedSwapped ? {deal, mine: teams.theirs, theirs: teams.mine} : {deal};
+    // An edit can introduce an off-roster player; include that row in the new identity too.
+    patch.pricing = TC.pricingProvider(C, {...comparePrices.pricing,
+      keys: TC.pricingKeys({mine: teams.mine.roster, theirs: teams.theirs.roster, deal})}).pricing;
     try { return TC.encodeTransfer(TC.toTransfer(TC.withChanges(compareCarried.context, patch))); }
     catch (error) { return carriedTrade.text; }
+  }
+  function manualCompareText() {
+    if (!compareView?.ready || comparePrices?.pricing?.mode !== "league") return null;
+    const TC = window.TradeValueTradeContext, ws = window.TradeValueWorkspace?.store?.get();
+    const ctx = compareRosterContext();
+    if (!ctx.ready) return null;
+    const deal = {give: TR.give.map(p => p.key), get: TR.receive.map(p => p.key)};
+    const pricing = TC.pricingProvider(C, {...comparePrices.pricing,
+      keys: TC.pricingKeys({mine: ctx.mine.entries, theirs: ctx.theirs.entries, deal})}).pricing;
+    if (!pricing) return null;
+    const common = TC.commonFromPage({leagueQuery: leagueLinkParts().join("&"),
+      valueContext: window.DDFOverrides?.snapshotContext?.(), sources: TC.sourcesFromEngine(C.getSourceInfo())});
+    return TC.encodeTransfer(TC.toTransfer(TC.fromCompare({common, pricing}, ws, {give: deal.give, receive: deal.get}, compareTeams)));
   }
   // Apply a link's scoring and roster when they differ from the reader's; say so. JEG-1389 (Jeremy's pick A, 2026-10-30):
   // {save: true} (a league import or share link on the league page) saves them as the settings form does, so a reload

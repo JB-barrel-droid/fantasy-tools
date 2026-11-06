@@ -13,9 +13,9 @@
 // and returns a deep-frozen TradeContext. Nothing here changes a value, a fit rule, a default or a ranking: where the
 // routes disagree today, ROUTE_DISCREPANCIES records it and each route keeps its own behavior.
 (function (root, factory) {
-  if (typeof module === "object" && module.exports) module.exports = factory(() => require("./ddf-state.js"), () => require("./workspace.js"));
-  else root.TradeValueTradeContext = factory(() => root.DDFState, () => root.TradeValueWorkspace);
-})(typeof window !== "undefined" ? window : globalThis, function (stateCodec, workspaceApi) {
+  if (typeof module === "object" && module.exports) module.exports = factory(() => require("./ddf-state.js"), () => require("./workspace.js"), () => ({model: require("../trade-value-chart/assets/value-model.js"), provenance: require("./roster-provenance-transitions.js")}));
+  else root.TradeValueTradeContext = factory(() => root.DDFState, () => root.TradeValueWorkspace, () => ({model: root.ValueModel, provenance: root.DDFRosterProvenance}));
+})(typeof window !== "undefined" ? window : globalThis, function (stateCodec, workspaceApi, leagueApis) {
   "use strict";
 
   const VERSION = 1;
@@ -591,9 +591,91 @@
       allocation: adjust ? adjust.allocation : null, weights: readout, keys})}};
   }
 
+  // The same completeness/provenance gate as the league page. No new inference,
+  // threshold or source observation: K/DEF are outside the value engine.
+  function leagueCheck(engine, ws, now = Date.now()) {
+    const {model: V, provenance: PV} = leagueApis();
+    if (!V?.leagueCompleteness || !PV || !engine?.getState || !ws || !Array.isArray(ws.teams) || ws.teams.length < 2) return null;
+    const shape = engine.getRosterShape?.() || {};
+    const check = V.leagueCompleteness({teamsExpected: engine.getState().teams, now,
+      startingSlotsPerTeam: ["QB", "RB", "WR", "TE", "FLEX", "SUPERFLEX"].reduce((n, k) => n + (Number(shape[k]) || 0), 0),
+      teams: ws.teams.map(t => ({id: t.id, unresolved: t.provenance?.unresolved, loadedAt: PV.freshnessTime(t.provenance),
+        players: (t.entries || []).filter(e => !["K", "DEF", "DST", "D/ST"].includes(e.pos)).map(e => ({key: e.key, slot: e.slot}))}))});
+    const reasons = PV.inferenceBlockers({teams: ws.teams, existingReasons: check.reasons}).filter(r => r !== "coverage_unproven");
+    return {...check, ok: !reasons.length, reasons};
+  }
+  const LEVEL_CHART_KEYS = ["usatoday", "fantasycalc", "fantasypros", "cbs"];
+  // Pure provider over existing engine runs. A requested league level never
+  // falls back to modeled prices; both identities retain the original raw runs.
+  function pricingProvider(engine, options = {}) {
+    const held = detail => ({status: "hold", reasons: [{code: "level-changed", where: "level", detail}], rows: [], rowsByKey: new Map(), pricing: null});
+    if (!engine?.getAllRows) return held("the value engine is unavailable");
+    const mode = options.mode || "modeled", keys = options.keys;
+    if (mode === "modeled") {
+      const rows = engine.getAllRows();
+      return {status: "ok", rows, rowsByKey: new Map(rows.map(r => [String(r.player_key), r])),
+        pricing: modeledPricing(engine, keys), levels: null,
+        zonesFor: (key, pos) => engine.getZonesFor?.(key, pos) || null};
+    }
+    if (mode !== "league" || !Array.isArray(options.rostered) || !Array.isArray(options.reserve) || !engine.getLeagueLevel)
+      return held("this page cannot reproduce the requested league levels");
+    const rostered = [...new Set(options.rostered.map(String))].sort(), reserve = [...new Set(options.reserve.map(String))].sort();
+    if (!rostered.length || rostered.some(k => !PLAYER_KEY.test(k)) || reserve.some(k => !rostered.includes(k)))
+      return held("the league level player sets are incomplete");
+    try {
+      const args = {rostered, reserve};
+      const ddf = engine.getLeagueLevel({...args, level: "ddf"}), market = engine.getLeagueLevel({...args, level: "market"});
+      if (!ddf?.rows?.length || !market?.rows?.length || !Array.isArray(ddf.allocation) || !Array.isArray(market.allocation) || !ddf.readout || !market.readout)
+        return held("both league level rows, allocations and weights are required");
+      const marketByKey = new Map(market.rows.map(r => [String(r.player_key), r]));
+      if (marketByKey.size !== ddf.rows.length || ddf.rows.some(r => !marketByKey.has(String(r.player_key))))
+        return held("the DDF and market levels have different player coverage");
+      const rows = ddf.rows.map(r => {
+        const m = marketByKey.get(String(r.player_key)), values = {...r.values};
+        const marketSeries = new Set(LEVEL_CHART_KEYS.flatMap(key => [key, `${key}_adjusted`, `${key}_vorp`]));
+        const missingReasons = {...r.missingReasons}, estimated = {...r.estimated};
+        marketSeries.forEach(key => {
+          if (key in (r.values || {}) || key in (m.values || {})) values[key] = m.values?.[key] ?? null;
+          for (const [field, out] of [["missingReasons", missingReasons], ["estimated", estimated]]) {
+            delete out[key];
+            if (m[field]?.[key] !== undefined) out[key] = m[field][key];
+          }
+        });
+        return {...r, values, missingReasons, estimated};
+      });
+      const pricing = {mode, rostered, reserve, levels: {
+        ddf: levelIdentity("ddf", {...ddf, weights: ddf.readout, keys}),
+        market: levelIdentity("market", {...market, weights: market.readout, keys})}};
+      const levels = {rows, ddf: new Map(ddf.rows.map(r => [String(r.player_key), r])), market: marketByKey,
+        marketAllocation: market.allocation, ddfCounts: ddf.counts, marketCounts: market.counts, ddfReadout: ddf.readout};
+      const zonesFor = (key, pos = "ALL") => {
+        if (key?.startsWith("ddf_value")) return null; // use the row's DDF tier / version scope
+        const allocation = LEVEL_CHART_KEYS.some(k => key === k || key?.startsWith(`${k}_`)) ? market.allocation : ddf.allocation;
+        const group = pos === "ALL" ? ["QB", "RB", "WR", "TE"] : pos === "FLEX" ? ["RB", "WR", "TE"] : [pos];
+        const selected = allocation.filter(a => group.includes(a.pos));
+        return selected.length ? {starter_to_bench: selected.reduce((n, a) => n + a.lineup, 0) + 0.5,
+          bench_to_waiver: selected.reduce((n, a) => n + a.rostered, 0) + 0.5} : null;
+      };
+      return {status: "ok", rows, rowsByKey: new Map(rows.map(r => [String(r.player_key), r])), pricing, levels, zonesFor};
+    } catch (error) { return held("the requested league levels could not be rebuilt"); }
+  }
+  // Transfer pricing wins over this device's toggle. receive() still validates
+  // its checksum, settings, source versions and both independently rebuilt levels.
+  function comparePricing(engine, options = {}) {
+    const {transfer, workspace, keys, now} = options;
+    if (transfer) {
+      const raw = normalizePricing(transfer.pricing, []);
+      if (!raw) return {status: "hold", reasons: [{code: "level-missing", where: "level", detail: "the trade's pricing identity is incomplete"}], rows: [], rowsByKey: new Map(), pricing: null};
+      return pricingProvider(engine, {...raw, keys});
+    }
+    const check = leagueCheck(engine, workspace, now);
+    const selected = check?.ok && workspace.ui?.leagueRosters !== false;
+    return {...pricingProvider(engine, selected ? {mode: "league", rostered: check.rostered, reserve: check.reserve, keys} : {mode: "modeled", keys}), check};
+  }
+
   return {VERSION, ROUTES, CAPABILITIES, ROUTE_DISCREPANCIES, normalizeCommon, commonFromPage, leagueFromQuery, resolveCommon,
     savedTeam, rosterTeam, workingTeam, normalizeDeal, unresolvedDeal, routeControls, createContext, withChanges, selectTeam, beginVisit, maySave,
     cacheParts, cacheKey, commonKey, dealPartner, fromPair, fromLeague, fromCompare, stable,
     LEVELS, pricingKeys, levelIdentity, normalizePricing, TRANSFER_VERSION, toTransfer, encodeTransfer, decodeTransfer, receive,
-    sourcesFromEngine, modeledPricing};
+    sourcesFromEngine, modeledPricing, leagueCheck, pricingProvider, comparePricing};
 });

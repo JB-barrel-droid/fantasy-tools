@@ -1,0 +1,3827 @@
+{
+  "baselineRuntime": "67b08e30 (not later design-next source)",
+  "week": {
+    "week": 8,
+    "selected": false,
+    "default_week": 8,
+    "newest": 8,
+    "previous": 7,
+    "transition": false,
+    "weeks": [
+      8
+    ],
+    "on_newest": 7,
+    "total": 7,
+    "views": {
+      "8": {
+        "sources": [
+          "cbs",
+          "cbsros",
+          "espn",
+          "fantasycalc",
+          "fantasypros",
+          "razzball",
+          "usatoday"
+        ],
+        "missing_sources": []
+      }
+    },
+    "servedWeeks": {
+      "espn": 8,
+      "cbsros": 8,
+      "razzball": 8,
+      "fantasycalc": 8,
+      "usatoday": 8,
+      "fantasypros": 8,
+      "cbs": 8
+    },
+    "missingSaved": {}
+  },
+  "settingsQuery": "scoring=ppr&teams=12&roster=QB1.RB2.WR2.TE1.FLEX1.SF0.BN7",
+  "basis": {
+    "mode": "default"
+  },
+  "teams": [
+    "Jeremy's team",
+    "Nic's team"
+  ],
+  "cases": [
+    {
+      "name": "three published charts",
+      "input": {
+        "shape": {
+          "QB": 1,
+          "RB": 2,
+          "WR": 2,
+          "TE": 1,
+          "FLEX": 1,
+          "SUPERFLEX": 0,
+          "BENCH": 7,
+          "K": 1,
+          "DST": 1
+        },
+        "chartKeys": [
+          "usatoday",
+          "fantasycalc",
+          "fantasypros",
+          "cbs"
+        ],
+        "sourceInfo": [
+          {
+            "key": "usatoday",
+            "available": true,
+            "paused": false,
+            "excludedReason": null
+          },
+          {
+            "key": "fantasycalc",
+            "available": true,
+            "paused": false,
+            "excludedReason": null
+          },
+          {
+            "key": "fantasypros",
+            "available": true,
+            "paused": false,
+            "excludedReason": null
+          },
+          {
+            "key": "cbs",
+            "available": true,
+            "paused": false,
+            "excludedReason": null
+          },
+          {
+            "key": "espn",
+            "available": true,
+            "paused": false,
+            "excludedReason": null
+          },
+          {
+            "key": "cbsros",
+            "available": true,
+            "paused": false,
+            "excludedReason": null
+          },
+          {
+            "key": "razzball",
+            "available": true,
+            "paused": false,
+            "excludedReason": null
+          },
+          {
+            "key": "fantasycalc_adjusted",
+            "available": true,
+            "paused": false,
+            "excludedReason": null
+          },
+          {
+            "key": "usatoday_adjusted",
+            "available": true,
+            "paused": false,
+            "excludedReason": null
+          },
+          {
+            "key": "fantasypros_adjusted",
+            "available": true,
+            "paused": false,
+            "excludedReason": null
+          },
+          {
+            "key": "cbs_adjusted",
+            "available": true,
+            "paused": false,
+            "excludedReason": null
+          },
+          {
+            "key": "espn_vorp",
+            "available": true,
+            "paused": false,
+            "excludedReason": null
+          },
+          {
+            "key": "cbsros_vorp",
+            "available": true,
+            "paused": false,
+            "excludedReason": null
+          },
+          {
+            "key": "razzball_vorp",
+            "available": true,
+            "paused": false,
+            "excludedReason": null
+          }
+        ],
+        "mine": {
+          "entries": [
+            {
+              "key": "869",
+              "name": "Josh Allen",
+              "pos": "QB",
+              "team": "BUF"
+            },
+            {
+              "key": "4561",
+              "name": "Brock Purdy",
+              "pos": "QB",
+              "team": "SF"
+            },
+            {
+              "key": "2227",
+              "name": "Jahmyr Gibbs",
+              "pos": "RB",
+              "team": "DET"
+            },
+            {
+              "key": "547",
+              "name": "Jonathan Taylor",
+              "pos": "RB",
+              "team": "IND"
+            },
+            {
+              "key": "3862",
+              "name": "Chase Brown",
+              "pos": "RB",
+              "team": "CIN"
+            },
+            {
+              "key": "337",
+              "name": "Bucky Irving",
+              "pos": "RB",
+              "team": "TB"
+            },
+            {
+              "key": "319",
+              "name": "Bhayshul Tuten",
+              "pos": "RB",
+              "team": "JAX"
+            },
+            {
+              "key": "2730",
+              "name": "Ja'Marr Chase",
+              "pos": "WR",
+              "team": "CIN"
+            },
+            {
+              "key": "4573",
+              "name": "Tetairoa McMillan",
+              "pos": "WR",
+              "team": "CAR"
+            },
+            {
+              "key": "4581",
+              "name": "Jalen Coker",
+              "pos": "WR",
+              "team": "CAR"
+            },
+            {
+              "key": "764",
+              "name": "DeVonta Smith",
+              "pos": "WR",
+              "team": "PHI"
+            },
+            {
+              "key": "4474",
+              "name": "Tee Higgins",
+              "pos": "WR",
+              "team": "CIN"
+            },
+            {
+              "key": "51",
+              "name": "Brock Bowers",
+              "pos": "TE",
+              "team": "LV"
+            },
+            {
+              "key": "3871",
+              "name": "Colston Loveland",
+              "pos": "TE",
+              "team": "CHI"
+            },
+            {
+              "key": "x:DEF:SF",
+              "name": "49ers D/ST",
+              "pos": "DEF",
+              "team": "SF"
+            }
+          ],
+          "rows": [
+            {
+              "player_key": 869,
+              "name": "Josh Allen",
+              "pos": "QB",
+              "values": {
+                "ddf_value": 31.12269866159567,
+                "ddf_value_projections": 29.455655210313026,
+                "espn": 27.86124244014264,
+                "cbsros": 25.986479839980785,
+                "razzball": 34.519243350815636,
+                "usatoday": 20.59123015595494,
+                "fantasycalc": 39.81733712804774,
+                "fantasypros": 19.720650326503886,
+                "cbs": 25.05369588890779
+              }
+            },
+            {
+              "player_key": 4561,
+              "name": "Brock Purdy",
+              "pos": "QB",
+              "values": {
+                "ddf_value": 14.312346895023955,
+                "ddf_value_projections": 9.638180169638929,
+                "espn": 9.68220046497125,
+                "cbsros": 12.937441129245073,
+                "razzball": 6.294898914700458,
+                "usatoday": 10.785882462643062,
+                "fantasycalc": 14.242704277160678,
+                "fantasypros": 16.73883378229024,
+                "cbs": 11.930331375670375
+              }
+            },
+            {
+              "player_key": 2227,
+              "name": "Jahmyr Gibbs",
+              "pos": "RB",
+              "values": {
+                "ddf_value": 73.10088047541272,
+                "ddf_value_projections": 72.19139788958681,
+                "espn": 72.30244228982103,
+                "cbsros": 71.75923278127469,
+                "razzball": 72.5125185976647,
+                "usatoday": 39.71165815791309,
+                "fantasycalc": 68.43888441237381,
+                "fantasypros": 50.894186925101096,
+                "cbs": 66.8098557037541
+              }
+            },
+            {
+              "player_key": 547,
+              "name": "Jonathan Taylor",
+              "pos": "RB",
+              "values": {
+                "ddf_value": 48.18178080444023,
+                "ddf_value_projections": 42.79405247613207,
+                "espn": 42.04006035153335,
+                "cbsros": 48.820927274322365,
+                "razzball": 37.52116980254052,
+                "usatoday": 30.396577849266816,
+                "fantasycalc": 50.04719026840256,
+                "fantasypros": 35.442955741448564,
+                "cbs": 36.98402726457817
+              }
+            },
+            {
+              "player_key": 3862,
+              "name": "Chase Brown",
+              "pos": "RB",
+              "values": {
+                "ddf_value": 23.3093312483731,
+                "ddf_value_projections": 34.9372765970701,
+                "espn": 29.78909562685685,
+                "cbsros": 37.94265155611453,
+                "razzball": 37.08008260823894,
+                "usatoday": 16.178823693964596,
+                "fantasycalc": 25.289389797543834,
+                "fantasypros": 25.480977741462066,
+                "cbs": 16.702463925938524
+              }
+            },
+            {
+              "player_key": 337,
+              "name": "Bucky Irving",
+              "pos": "RB",
+              "values": {
+                "ddf_value": 31.891691056058686,
+                "ddf_value_projections": 40.51912219769241,
+                "espn": 37.409156172513256,
+                "cbsros": 39.29412480643498,
+                "razzball": 44.854085614129,
+                "usatoday": 23.042567079282907,
+                "fantasycalc": 28.193682704311236,
+                "fantasypros": 27.310728802684075,
+                "cbs": 27.439762164041863
+              }
+            },
+            {
+              "player_key": 319,
+              "name": "Bhayshul Tuten",
+              "pos": "RB",
+              "values": {
+                "ddf_value": 28.099695938543128,
+                "ddf_value_projections": 24.97173476301307,
+                "espn": 25.061244548723877,
+                "cbsros": 29.38783572665225,
+                "razzball": 20.46612401366309,
+                "usatoday": 22.552299694617314,
+                "fantasycalc": 24.446626230847937,
+                "fantasypros": 26.836348897922814,
+                "cbs": 20.28156333863964
+              }
+            },
+            {
+              "player_key": 2730,
+              "name": "Ja'Marr Chase",
+              "pos": "WR",
+              "values": {
+                "ddf_value": 56.79095925021218,
+                "ddf_value_projections": 48.15461600314396,
+                "espn": 51.720042413074445,
+                "cbsros": 47.53418999789368,
+                "razzball": 45.209615598463735,
+                "usatoday": 33.33818215726038,
+                "fantasycalc": 52.29672071181392,
+                "fantasypros": 36.5950212244402,
+                "cbs": 51.300424915382614
+              }
+            },
+            {
+              "player_key": 4573,
+              "name": "Tetairoa McMillan",
+              "pos": "WR",
+              "values": {
+                "ddf_value": 24.068729879789778,
+                "ddf_value_projections": 27.20969660261898,
+                "espn": 30.97275317099074,
+                "cbsros": 19.384840353468455,
+                "razzball": 31.271496283397752,
+                "usatoday": 17.15935846329578,
+                "fantasycalc": 22.54716680744872,
+                "fantasypros": 21.347095714256785,
+                "cbs": 23.86066275134075
+              }
+            },
+            {
+              "player_key": 4581,
+              "name": "Jalen Coker",
+              "pos": "WR",
+              "values": {
+                "ddf_value": 14.757482376469229,
+                "ddf_value_projections": 23.162696875431628,
+                "espn": 26.297663791163934,
+                "cbsros": 8.607229644663743,
+                "razzball": 34.58319719046721,
+                "usatoday": 12.746952001305438,
+                "fantasycalc": 11.474550100397996,
+                "fantasypros": 17.55205647616669,
+                "cbs": 19.0885302010726
+              }
+            },
+            {
+              "player_key": 764,
+              "name": "DeVonta Smith",
+              "pos": "WR",
+              "values": {
+                "ddf_value": 14.866532003847782,
+                "ddf_value_projections": 18.247110157486894,
+                "espn": 19.126436933081216,
+                "cbsros": 20.270038966706174,
+                "razzball": 15.344854572673292,
+                "usatoday": 11.76641723197425,
+                "fantasycalc": 13.043386893785746,
+                "fantasypros": 17.7553621496358,
+                "cbs": 19.0885302010726
+              }
+            },
+            {
+              "player_key": 4474,
+              "name": "Tee Higgins",
+              "pos": "WR",
+              "values": {
+                "ddf_value": 29.70412764467141,
+                "ddf_value_projections": 31.989695051627073,
+                "espn": 27.664977162186286,
+                "cbsros": 35.777513341748715,
+                "razzball": 32.526594650946244,
+                "usatoday": 23.042567079282907,
+                "fantasycalc": 27.603748207624108,
+                "fantasypros": 22.702466870717533,
+                "cbs": 25.05369588890779
+              }
+            },
+            {
+              "player_key": 51,
+              "name": "Brock Bowers",
+              "pos": "TE",
+              "values": {
+                "ddf_value": 32.57842655425793,
+                "ddf_value_projections": 26.864397090641972,
+                "espn": 25.973355807296297,
+                "cbsros": 20.129865637661233,
+                "razzball": 34.489969826968384,
+                "usatoday": 30.396577849266816,
+                "fantasycalc": 38.436501437999844,
+                "fantasypros": 18.975196190450475,
+                "cbs": 29.82582843917594
+              }
+            },
+            {
+              "player_key": 3871,
+              "name": "Colston Loveland",
+              "pos": "TE",
+              "values": {
+                "ddf_value": 12.866925552502682,
+                "ddf_value_projections": 8.694063420531686,
+                "espn": 15.700897030011543,
+                "cbsros": 4.29258445153632,
+                "razzball": 6.088708780047194,
+                "usatoday": 17.15935846329578,
+                "fantasycalc": 15.247537760528864,
+                "fantasypros": 10.300820789101687,
+                "cbs": 11.930331375670375
+              }
+            }
+          ]
+        },
+        "theirs": {
+          "entries": [
+            {
+              "key": "1730",
+              "name": "Drake Maye",
+              "pos": "QB",
+              "team": "NE"
+            },
+            {
+              "key": "217",
+              "name": "Bijan Robinson",
+              "pos": "RB",
+              "team": "ATL"
+            },
+            {
+              "key": "560",
+              "name": "Derrick Henry",
+              "pos": "RB",
+              "team": "BAL"
+            },
+            {
+              "key": "4048",
+              "name": "Chuba Hubbard",
+              "pos": "RB",
+              "team": "CAR"
+            },
+            {
+              "key": "4589",
+              "name": "Jaylen Warren",
+              "pos": "RB",
+              "team": "PIT"
+            },
+            {
+              "key": "1107",
+              "name": "Breece Hall",
+              "pos": "RB",
+              "team": "NYJ"
+            },
+            {
+              "key": "3289",
+              "name": "Amon-Ra St. Brown",
+              "pos": "WR",
+              "team": "DET"
+            },
+            {
+              "key": "303",
+              "name": "CeeDee Lamb",
+              "pos": "WR",
+              "team": "DAL"
+            },
+            {
+              "key": "1381",
+              "name": "Zay Flowers",
+              "pos": "WR",
+              "team": "BAL"
+            },
+            {
+              "key": "2126",
+              "name": "Matthew Golden",
+              "pos": "WR",
+              "team": "GB"
+            },
+            {
+              "key": "2795",
+              "name": "George Kittle",
+              "pos": "TE",
+              "team": "SF"
+            },
+            {
+              "key": "2575",
+              "name": "T.J. Hockenson",
+              "pos": "TE",
+              "team": "MIN"
+            }
+          ],
+          "rows": [
+            {
+              "player_key": 1730,
+              "name": "Drake Maye",
+              "pos": "QB",
+              "values": {
+                "ddf_value": 21.27414112771026,
+                "ddf_value_projections": 15.279428667168098,
+                "espn": 28.05663886271724,
+                "cbsros": 8.257757143428373,
+                "razzball": 9.52388999535868,
+                "usatoday": 15.688556309299,
+                "fantasycalc": 19.15018135399756,
+                "fantasypros": 19.3818075373887,
+                "cbs": 19.0885302010726
+              }
+            },
+            {
+              "player_key": 217,
+              "name": "Bijan Robinson",
+              "pos": "RB",
+              "values": {
+                "ddf_value": 65.52076338710225,
+                "ddf_value_projections": 53.4151518803934,
+                "espn": 50.05267143045347,
+                "cbsros": 55.01875186293651,
+                "razzball": 55.17403234779022,
+                "usatoday": 35.29925169592275,
+                "fantasycalc": 61.57360274213569,
+                "fantasypros": 45.74377653055025,
+                "cbs": 62.037723153485956
+              }
+            },
+            {
+              "player_key": 560,
+              "name": "Derrick Henry",
+              "pos": "RB",
+              "values": {
+                "ddf_value": 41.65731901339071,
+                "ddf_value_projections": 38.784757380548506,
+                "espn": 39.13477471695889,
+                "cbsros": 39.69832762214612,
+                "razzball": 37.52116980254052,
+                "usatoday": 26.964706156607658,
+                "fantasycalc": 39.1560918680248,
+                "fantasypros": 34.2231217006339,
+                "cbs": 33.40492785187705
+              }
+            },
+            {
+              "player_key": 4048,
+              "name": "Chuba Hubbard",
+              "pos": "RB",
+              "values": {
+                "ddf_value": 37.60008095218836,
+                "ddf_value_projections": 29.807558343744496,
+                "espn": 31.286870622300317,
+                "cbsros": 37.66968039527007,
+                "razzball": 20.46612401366309,
+                "usatoday": 25.98417138727647,
+                "fantasycalc": 28.064026770973406,
+                "fantasypros": 28.733868516967863,
+                "cbs": 39.37009353971224
+              }
+            },
+            {
+              "player_key": 4589,
+              "name": "Jaylen Warren",
+              "pos": "RB",
+              "values": {
+                "ddf_value": 29.917619374627055,
+                "ddf_value_projections": 35.18578268836842,
+                "espn": 32.31752580151581,
+                "cbsros": 33.96567029631687,
+                "razzball": 39.27415196727258,
+                "usatoday": 21.081497540620532,
+                "fantasycalc": 25.09490589753709,
+                "fantasypros": 28.191720054383563,
+                "cbs": 26.246729026474824
+              }
+            },
+            {
+              "player_key": 1107,
+              "name": "Breece Hall",
+              "pos": "RB",
+              "values": {
+                "ddf_value": 24.64493159263126,
+                "ddf_value_projections": 19.774473398552068,
+                "espn": 20.993193586327887,
+                "cbsros": 17.864102595665237,
+                "razzball": 20.46612401366309,
+                "usatoday": 18.630160617292564,
+                "fantasycalc": 19.99294492069346,
+                "fantasypros": 24.803292163231692,
+                "cbs": 22.667629613773713
+              }
+            },
+            {
+              "player_key": 3289,
+              "name": "Amon-Ra St. Brown",
+              "pos": "WR",
+              "values": {
+                "ddf_value": 54.33970173185508,
+                "ddf_value_projections": 47.09761733747234,
+                "espn": 46.46638202102642,
+                "cbsros": 49.616854392926875,
+                "razzball": 45.209615598463735,
+                "usatoday": 30.88684523393241,
+                "fantasycalc": 52.1605819818092,
+                "fantasypros": 34.76527016321819,
+                "cbs": 50.10739177781558
+              }
+            },
+            {
+              "player_key": 303,
+              "name": "CeeDee Lamb",
+              "pos": "WR",
+              "values": {
+                "ddf_value": 53.3000784127703,
+                "ddf_value_projections": 48.20850073920526,
+                "espn": 44.70008554999155,
+                "cbsros": 55.485394710338696,
+                "razzball": 44.44002195728555,
+                "usatoday": 33.33818215726038,
+                "fantasycalc": 52.89313800516794,
+                "fantasypros": 27.446265918330152,
+                "cbs": 53.68649119051669
+              }
+            },
+            {
+              "player_key": 1381,
+              "name": "Zay Flowers",
+              "pos": "WR",
+              "values": {
+                "ddf_value": 43.67287733765355,
+                "ddf_value_projections": 41.68393133352203,
+                "espn": 42.456763836199286,
+                "cbsros": 40.08768943140463,
+                "razzball": 42.5073407329622,
+                "usatoday": 28.43550831060444,
+                "fantasycalc": 39.66175000804234,
+                "fantasypros": 27.98841438091445,
+                "cbs": 41.75615981484631
+              }
+            },
+            {
+              "player_key": 2126,
+              "name": "Matthew Golden",
+              "pos": "WR",
+              "values": {
+                "ddf_value": 26.505273097534506,
+                "ddf_value_projections": 30.195688876849204,
+                "espn": 30.133249310061476,
+                "cbsros": 28.343682873355807,
+                "razzball": 32.11013444713034,
+                "usatoday": 23.5328344639485,
+                "fantasycalc": 20.401361110707626,
+                "fantasypros": 21.685938503371972,
+                "cbs": 22.667629613773713
+              }
+            },
+            {
+              "player_key": 2795,
+              "name": "George Kittle",
+              "pos": "TE",
+              "values": {
+                "ddf_value": 19.847292036644387,
+                "ddf_value_projections": 15.97073542090775,
+                "espn": 24.0251792849574,
+                "cbsros": 10.929213954756767,
+                "razzball": 12.957813023009088,
+                "usatoday": 21.081497540620532,
+                "fantasycalc": 20.913502047392054,
+                "fantasypros": 13.147100217669257,
+                "cbs": 21.474596476206678
+              }
+            },
+            {
+              "player_key": 2575,
+              "name": "T.J. Hockenson",
+              "pos": "TE",
+              "values": {
+                "ddf_value": 3.814817117460254,
+                "ddf_value_projections": 3.305818085712098,
+                "espn": 7.194871284491593,
+                "cbsros": 1.3854955055565932,
+                "razzball": 1.3370874670881074,
+                "usatoday": 11.76641723197425,
+                "fantasycalc": 3.662780116793711,
+                "fantasypros": 3.9983449115592076,
+                "cbs": 7.158198825402225
+              }
+            }
+          ]
+        },
+        "give": [
+          "547",
+          "319"
+        ],
+        "receive": [
+          "1381",
+          "4048"
+        ],
+        "calculationSettings": {}
+      },
+      "record": {
+        "version": 1,
+        "ready": true,
+        "reason": null,
+        "outside": {
+          "give": [],
+          "receive": []
+        },
+        "views": {
+          "ddf": {
+            "status": "available",
+            "reason": null,
+            "held": [],
+            "label": "DDF Value",
+            "valueKey": "ddf_value"
+          },
+          "market": {
+            "status": "available",
+            "reason": null,
+            "held": [],
+            "label": "Indexed published-chart average",
+            "valueKey": "chart_avg",
+            "coverage": {
+              "available": 3,
+              "total": 3,
+              "required": 2,
+              "text": "3 of 3"
+            },
+            "chartKeys": [
+              "usatoday",
+              "fantasypros",
+              "cbs"
+            ],
+            "aggregation": "arithmetic mean of complete indexed published charts"
+          },
+          "projections": {
+            "status": "available",
+            "reason": null,
+            "held": [],
+            "label": "DDF Value (projections)",
+            "valueKey": "ddf_value_projections"
+          }
+        },
+        "roster": {
+          "mine": {
+            "configuredBench": 7,
+            "reserveKnown": true,
+            "before": {
+              "size": 15,
+              "active": 15,
+              "reserve": 0,
+              "startingSlots": 9,
+              "filledStarting": 8,
+              "emptyStarting": 1,
+              "bench": 7
+            },
+            "after": {
+              "size": 15,
+              "active": 15,
+              "reserve": 0,
+              "startingSlots": 9,
+              "filledStarting": 8,
+              "emptyStarting": 1,
+              "bench": 7
+            },
+            "rosterSizeDelta": 0,
+            "benchDelta": 0,
+            "overCapacity": {
+              "before": 0,
+              "after": 0
+            }
+          },
+          "theirs": {
+            "configuredBench": 7,
+            "reserveKnown": true,
+            "before": {
+              "size": 12,
+              "active": 12,
+              "reserve": 0,
+              "startingSlots": 9,
+              "filledStarting": 7,
+              "emptyStarting": 2,
+              "bench": 5
+            },
+            "after": {
+              "size": 12,
+              "active": 12,
+              "reserve": 0,
+              "startingSlots": 9,
+              "filledStarting": 7,
+              "emptyStarting": 2,
+              "bench": 5
+            },
+            "rosterSizeDelta": 0,
+            "benchDelta": 0,
+            "overCapacity": {
+              "before": 0,
+              "after": 0
+            }
+          }
+        },
+        "decision": {
+          "contract": "JEG-1483/1",
+          "settings": {
+            "basis": "ddf_value",
+            "market": "published-average",
+            "ourMinimum": {
+              "tier": "any"
+            },
+            "theirMinimum": {
+              "tier": "neutral"
+            }
+          },
+          "questions": [
+            {
+              "subject": "mine",
+              "scope": "starters",
+              "basis": "ddf_value",
+              "value": 3.387049840730242,
+              "status": "known",
+              "sources": [
+                "ddf_value"
+              ],
+              "coverage": {
+                "available": 1,
+                "total": 1,
+                "required": 1,
+                "text": "1 of 1"
+              },
+              "aggregation": "sum of existing best eligible starting lineup",
+              "sign": "positive is better for the subject",
+              "tolerance": 0.05,
+              "id": "our-starters",
+              "label": "Our starter value",
+              "threshold": 0,
+              "operator": ">",
+              "tier": "any",
+              "pass": true,
+              "reason": null
+            },
+            {
+              "subject": "mine",
+              "scope": "roster",
+              "basis": "ddf_value",
+              "value": true,
+              "status": "known",
+              "sources": [
+                "ddf_value"
+              ],
+              "coverage": {
+                "available": 1,
+                "total": 1,
+                "required": 1,
+                "text": "1 of 1"
+              },
+              "aggregation": "existing rosterConstructionOk",
+              "sign": "positive is better for the subject",
+              "tolerance": null,
+              "id": "our-roster",
+              "label": "Our roster construction",
+              "pass": true,
+              "issues": [],
+              "reason": null
+            },
+            {
+              "subject": "theirs",
+              "scope": "starters",
+              "basis": "published-average",
+              "value": 1.5478261163094373,
+              "status": "known",
+              "sources": [
+                "usatoday",
+                "fantasypros",
+                "cbs"
+              ],
+              "coverage": {
+                "available": 3,
+                "total": 3,
+                "required": 2,
+                "text": "3 of 3"
+              },
+              "aggregation": "sum of existing best eligible starting lineup",
+              "sign": "positive is better for the subject",
+              "tolerance": 6.686526039962804,
+              "id": "their-starters",
+              "label": "Their market starter value",
+              "threshold": 0,
+              "operator": ">=",
+              "tier": "neutral",
+              "pass": true,
+              "reason": null
+            },
+            {
+              "subject": "theirs",
+              "scope": "roster",
+              "basis": "published-average",
+              "value": true,
+              "status": "known",
+              "sources": [
+                "usatoday",
+                "fantasypros",
+                "cbs"
+              ],
+              "coverage": {
+                "available": 3,
+                "total": 3,
+                "required": 2,
+                "text": "3 of 3"
+              },
+              "aggregation": "existing rosterConstructionOk",
+              "sign": "positive is better for the subject",
+              "tolerance": null,
+              "id": "their-roster",
+              "label": "Their roster construction",
+              "pass": true,
+              "issues": [],
+              "reason": null
+            }
+          ],
+          "natural": true,
+          "participants": {
+            "mine": null,
+            "theirs": null
+          },
+          "partnerKind": "team",
+          "deal": {
+            "give": [
+              "547",
+              "319"
+            ],
+            "get": [
+              "1381",
+              "4048"
+            ]
+          },
+          "label": "Natural fit",
+          "passes": true,
+          "failed": [],
+          "unknown": [],
+          "supporting": {
+            "mine": {
+              "ddf": {
+                "starters": {
+                  "subject": "mine",
+                  "scope": "starters",
+                  "basis": "ddf_value",
+                  "value": 3.387049840730242,
+                  "status": "known",
+                  "sources": [
+                    "ddf_value"
+                  ],
+                  "coverage": {
+                    "available": 1,
+                    "total": 1,
+                    "required": 1,
+                    "text": "1 of 1"
+                  },
+                  "aggregation": "existing rosterImpact starter delta",
+                  "sign": "positive is better for the subject",
+                  "tolerance": null
+                },
+                "package": {
+                  "subject": "mine",
+                  "scope": "package total",
+                  "basis": "ddf_value",
+                  "value": 4.991481546858552,
+                  "status": "known",
+                  "sources": [
+                    "ddf_value"
+                  ],
+                  "coverage": {
+                    "available": 1,
+                    "total": 1,
+                    "required": 1,
+                    "text": "1 of 1"
+                  },
+                  "aggregation": "sum received minus sum given",
+                  "sign": "positive is better for the subject",
+                  "tolerance": null
+                }
+              },
+              "projections": {
+                "starters": {
+                  "subject": "mine",
+                  "scope": "starters",
+                  "basis": "ddf_value_projections",
+                  "value": 1.83746040283296,
+                  "status": "known",
+                  "sources": [
+                    "ddf_value_projections"
+                  ],
+                  "coverage": {
+                    "available": 1,
+                    "total": 1,
+                    "required": 1,
+                    "text": "1 of 1"
+                  },
+                  "aggregation": "existing rosterImpact starter delta",
+                  "sign": "positive is better for the subject",
+                  "tolerance": null
+                },
+                "package": {
+                  "subject": "mine",
+                  "scope": "package total",
+                  "basis": "ddf_value_projections",
+                  "value": 3.7257024381213455,
+                  "status": "known",
+                  "sources": [
+                    "ddf_value_projections"
+                  ],
+                  "coverage": {
+                    "available": 1,
+                    "total": 1,
+                    "required": 1,
+                    "text": "1 of 1"
+                  },
+                  "aggregation": "sum received minus sum given",
+                  "sign": "positive is better for the subject",
+                  "tolerance": null
+                }
+              },
+              "market": {
+                "starters": {
+                  "subject": "mine",
+                  "scope": "starters",
+                  "basis": "published-average",
+                  "value": 6.215308418706684,
+                  "status": "known",
+                  "sources": [
+                    "usatoday",
+                    "fantasypros",
+                    "cbs"
+                  ],
+                  "coverage": {
+                    "available": 3,
+                    "total": 3,
+                    "required": 2,
+                    "text": "3 of 3"
+                  },
+                  "aggregation": "existing rosterImpact starter delta",
+                  "sign": "positive is better for the subject",
+                  "tolerance": null
+                },
+                "package": {
+                  "subject": "mine",
+                  "scope": "package total",
+                  "basis": "published-average",
+                  "value": 6.5914810546161675,
+                  "status": "known",
+                  "sources": [
+                    "usatoday",
+                    "fantasypros",
+                    "cbs"
+                  ],
+                  "coverage": {
+                    "available": 3,
+                    "total": 3,
+                    "required": 2,
+                    "text": "3 of 3"
+                  },
+                  "aggregation": "sum received minus sum given",
+                  "sign": "positive is better for the subject",
+                  "tolerance": null
+                }
+              }
+            },
+            "theirs": {
+              "ddf": {
+                "starters": {
+                  "subject": "theirs",
+                  "scope": "starters",
+                  "basis": "ddf_value",
+                  "value": 4.5089034667866486,
+                  "status": "known",
+                  "sources": [
+                    "ddf_value"
+                  ],
+                  "coverage": {
+                    "available": 1,
+                    "total": 1,
+                    "required": 1,
+                    "text": "1 of 1"
+                  },
+                  "aggregation": "existing rosterImpact starter delta",
+                  "sign": "positive is better for the subject",
+                  "tolerance": null
+                },
+                "package": {
+                  "subject": "theirs",
+                  "scope": "package total",
+                  "basis": "ddf_value",
+                  "value": -4.9914815468586085,
+                  "status": "known",
+                  "sources": [
+                    "ddf_value"
+                  ],
+                  "coverage": {
+                    "available": 1,
+                    "total": 1,
+                    "required": 1,
+                    "text": "1 of 1"
+                  },
+                  "aggregation": "sum received minus sum given",
+                  "sign": "positive is better for the subject",
+                  "tolerance": null
+                }
+              },
+              "projections": {
+                "starters": {
+                  "subject": "theirs",
+                  "scope": "starters",
+                  "basis": "ddf_value_projections",
+                  "value": 1.1101211426100122,
+                  "status": "known",
+                  "sources": [
+                    "ddf_value_projections"
+                  ],
+                  "coverage": {
+                    "available": 1,
+                    "total": 1,
+                    "required": 1,
+                    "text": "1 of 1"
+                  },
+                  "aggregation": "existing rosterImpact starter delta",
+                  "sign": "positive is better for the subject",
+                  "tolerance": null
+                },
+                "package": {
+                  "subject": "theirs",
+                  "scope": "package total",
+                  "basis": "ddf_value_projections",
+                  "value": -3.7257024381214023,
+                  "status": "known",
+                  "sources": [
+                    "ddf_value_projections"
+                  ],
+                  "coverage": {
+                    "available": 1,
+                    "total": 1,
+                    "required": 1,
+                    "text": "1 of 1"
+                  },
+                  "aggregation": "sum received minus sum given",
+                  "sign": "positive is better for the subject",
+                  "tolerance": null
+                }
+              },
+              "market": {
+                "starters": {
+                  "subject": "theirs",
+                  "scope": "starters",
+                  "basis": "published-average",
+                  "value": 1.5478261163094373,
+                  "status": "known",
+                  "sources": [
+                    "usatoday",
+                    "fantasypros",
+                    "cbs"
+                  ],
+                  "coverage": {
+                    "available": 3,
+                    "total": 3,
+                    "required": 2,
+                    "text": "3 of 3"
+                  },
+                  "aggregation": "existing rosterImpact starter delta",
+                  "sign": "positive is better for the subject",
+                  "tolerance": null
+                },
+                "package": {
+                  "subject": "theirs",
+                  "scope": "package total",
+                  "basis": "published-average",
+                  "value": -6.5914810546161675,
+                  "status": "known",
+                  "sources": [
+                    "usatoday",
+                    "fantasypros",
+                    "cbs"
+                  ],
+                  "coverage": {
+                    "available": 3,
+                    "total": 3,
+                    "required": 2,
+                    "text": "3 of 3"
+                  },
+                  "aggregation": "sum received minus sum given",
+                  "sign": "positive is better for the subject",
+                  "tolerance": null
+                }
+              }
+            }
+          }
+        },
+        "mine": {
+          "ddf": {
+            "starterDelta": 3.387049840730242,
+            "benchDelta": 1.6044317061282811,
+            "totalDelta": 4.991481546858552,
+            "spotsOpened": 0,
+            "newlyEmpty": {},
+            "needLine": "Starters by position unchanged",
+            "tradedUnpriced": [],
+            "rosterUnpriced": [],
+            "missing": [],
+            "depth": {
+              "before": {
+                "QB": 1,
+                "RB": 2,
+                "WR": 3,
+                "TE": 1
+              },
+              "after": {
+                "QB": 1,
+                "RB": 1,
+                "WR": 4,
+                "TE": 1
+              }
+            },
+            "notEvaluated": [
+              "x:DEF:SF"
+            ],
+            "unresolved": [],
+            "lowConfidence": [],
+            "complete": true,
+            "before": {
+              "starterValue": 303.3705644466488,
+              "benchValue": 132.28104389454964,
+              "total": 435.6516083411984,
+              "counts": {
+                "QB": 1,
+                "RB": 3,
+                "WR": 2,
+                "TE": 1
+              },
+              "size": 14,
+              "slots": {
+                "QB": [
+                  "869"
+                ],
+                "RB": [
+                  "2227",
+                  "547"
+                ],
+                "WR": [
+                  "2730",
+                  "4474"
+                ],
+                "TE": [
+                  "51"
+                ],
+                "FLEX": [
+                  "337"
+                ],
+                "SUPERFLEX": []
+              },
+              "bench": [
+                "319",
+                "4573",
+                "3862",
+                "764",
+                "4581",
+                "4561",
+                "3871"
+              ],
+              "unvalued": [],
+              "empty": {}
+            },
+            "after": {
+              "starterValue": 306.75761428737906,
+              "benchValue": 133.88547560067792,
+              "total": 440.643089888057,
+              "counts": {
+                "QB": 1,
+                "RB": 3,
+                "WR": 2,
+                "TE": 1
+              },
+              "size": 14,
+              "slots": {
+                "QB": [
+                  "869"
+                ],
+                "RB": [
+                  "2227",
+                  "4048"
+                ],
+                "WR": [
+                  "2730",
+                  "1381"
+                ],
+                "TE": [
+                  "51"
+                ],
+                "FLEX": [
+                  "337"
+                ],
+                "SUPERFLEX": []
+              },
+              "bench": [
+                "4474",
+                "4573",
+                "3862",
+                "764",
+                "4581",
+                "4561",
+                "3871"
+              ],
+              "unvalued": [],
+              "empty": {}
+            }
+          },
+          "market": {
+            "starterDelta": 6.215308418706684,
+            "benchDelta": 0.3761726359094979,
+            "totalDelta": 6.5914810546161675,
+            "spotsOpened": 0,
+            "newlyEmpty": {},
+            "needLine": "Starters by position unchanged",
+            "tradedUnpriced": [],
+            "rosterUnpriced": [],
+            "missing": [],
+            "depth": {
+              "before": {
+                "QB": 1,
+                "RB": 2,
+                "WR": 3,
+                "TE": 1
+              },
+              "after": {
+                "QB": 1,
+                "RB": 1,
+                "WR": 4,
+                "TE": 1
+              }
+            },
+            "notEvaluated": [
+              "x:DEF:SF"
+            ],
+            "unresolved": [],
+            "lowConfidence": [],
+            "complete": true,
+            "before": {
+              "starterValue": 224.87595222477398,
+              "benchValue": 122.41433357711239,
+              "total": 347.2902858018864,
+              "counts": {
+                "QB": 1,
+                "RB": 3,
+                "WR": 2,
+                "TE": 1
+              },
+              "size": 14,
+              "slots": {
+                "QB": [
+                  "869"
+                ],
+                "RB": [
+                  "2227",
+                  "547"
+                ],
+                "WR": [
+                  "2730",
+                  "4474"
+                ],
+                "TE": [
+                  "51"
+                ],
+                "FLEX": [
+                  "337"
+                ],
+                "SUPERFLEX": []
+              },
+              "bench": [
+                "319",
+                "4573",
+                "3862",
+                "4581",
+                "764",
+                "4561",
+                "3871"
+              ],
+              "unvalued": [],
+              "empty": {}
+            },
+            "after": {
+              "starterValue": 231.09126064348067,
+              "benchValue": 122.79050621302189,
+              "total": 353.88176685650257,
+              "counts": {
+                "QB": 1,
+                "RB": 3,
+                "WR": 2,
+                "TE": 1
+              },
+              "size": 14,
+              "slots": {
+                "QB": [
+                  "869"
+                ],
+                "RB": [
+                  "2227",
+                  "4048"
+                ],
+                "WR": [
+                  "2730",
+                  "1381"
+                ],
+                "TE": [
+                  "51"
+                ],
+                "FLEX": [
+                  "337"
+                ],
+                "SUPERFLEX": []
+              },
+              "bench": [
+                "4474",
+                "4573",
+                "3862",
+                "4581",
+                "764",
+                "4561",
+                "3871"
+              ],
+              "unvalued": [],
+              "empty": {}
+            }
+          },
+          "projections": {
+            "starterDelta": 1.83746040283296,
+            "benchDelta": 1.8882420352883855,
+            "totalDelta": 3.7257024381213455,
+            "spotsOpened": 0,
+            "newlyEmpty": {},
+            "needLine": "Starters by position unchanged",
+            "tradedUnpriced": [],
+            "rosterUnpriced": [],
+            "missing": [],
+            "depth": {
+              "before": {
+                "QB": 1,
+                "RB": 2,
+                "WR": 3,
+                "TE": 1
+              },
+              "after": {
+                "QB": 1,
+                "RB": 1,
+                "WR": 4,
+                "TE": 1
+              }
+            },
+            "notEvaluated": [
+              "x:DEF:SF"
+            ],
+            "unresolved": [],
+            "lowConfidence": [],
+            "complete": true,
+            "before": {
+              "starterValue": 291.9689359191373,
+              "benchValue": 146.8607585857913,
+              "total": 438.8296945049286,
+              "counts": {
+                "QB": 1,
+                "RB": 3,
+                "WR": 2,
+                "TE": 1
+              },
+              "size": 14,
+              "slots": {
+                "QB": [
+                  "869"
+                ],
+                "RB": [
+                  "2227",
+                  "547"
+                ],
+                "WR": [
+                  "2730",
+                  "4474"
+                ],
+                "TE": [
+                  "51"
+                ],
+                "FLEX": [
+                  "337"
+                ],
+                "SUPERFLEX": []
+              },
+              "bench": [
+                "3862",
+                "4573",
+                "319",
+                "4581",
+                "764",
+                "4561",
+                "3871"
+              ],
+              "unvalued": [],
+              "empty": {}
+            },
+            "after": {
+              "starterValue": 293.8063963219703,
+              "benchValue": 148.7490006210797,
+              "total": 442.55539694304997,
+              "counts": {
+                "QB": 1,
+                "RB": 3,
+                "WR": 2,
+                "TE": 1
+              },
+              "size": 14,
+              "slots": {
+                "QB": [
+                  "869"
+                ],
+                "RB": [
+                  "2227",
+                  "337"
+                ],
+                "WR": [
+                  "2730",
+                  "1381"
+                ],
+                "TE": [
+                  "51"
+                ],
+                "FLEX": [
+                  "3862"
+                ],
+                "SUPERFLEX": []
+              },
+              "bench": [
+                "4474",
+                "4048",
+                "4573",
+                "4581",
+                "764",
+                "4561",
+                "3871"
+              ],
+              "unvalued": [],
+              "empty": {}
+            }
+          }
+        },
+        "theirs": {
+          "ddf": {
+            "starterDelta": 4.5089034667866486,
+            "benchDelta": -9.500385013645229,
+            "totalDelta": -4.9914815468586085,
+            "spotsOpened": 0,
+            "newlyEmpty": {},
+            "needLine": "RB: 2 starters \u2192 3; WR: 3 starters \u2192 2",
+            "tradedUnpriced": [],
+            "rosterUnpriced": [],
+            "missing": [],
+            "depth": {
+              "before": {
+                "QB": 0,
+                "RB": 3,
+                "WR": 1,
+                "TE": 1
+              },
+              "after": {
+                "QB": 0,
+                "RB": 3,
+                "WR": 1,
+                "TE": 1
+              }
+            },
+            "notEvaluated": [],
+            "unresolved": [],
+            "lowConfidence": [],
+            "complete": true,
+            "before": {
+              "starterValue": 299.61217304712653,
+              "benchValue": 122.48272213444142,
+              "total": 422.09489518156795,
+              "counts": {
+                "QB": 1,
+                "RB": 2,
+                "WR": 3,
+                "TE": 1
+              },
+              "size": 12,
+              "slots": {
+                "QB": [
+                  "1730"
+                ],
+                "RB": [
+                  "217",
+                  "560"
+                ],
+                "WR": [
+                  "3289",
+                  "303"
+                ],
+                "TE": [
+                  "2795"
+                ],
+                "FLEX": [
+                  "1381"
+                ],
+                "SUPERFLEX": []
+              },
+              "bench": [
+                "4048",
+                "4589",
+                "2126",
+                "1107",
+                "2575"
+              ],
+              "unvalued": [],
+              "empty": {}
+            },
+            "after": {
+              "starterValue": 304.1210765139132,
+              "benchValue": 112.98233712079619,
+              "total": 417.10341363470934,
+              "counts": {
+                "QB": 1,
+                "RB": 3,
+                "WR": 2,
+                "TE": 1
+              },
+              "size": 12,
+              "slots": {
+                "QB": [
+                  "1730"
+                ],
+                "RB": [
+                  "217",
+                  "547"
+                ],
+                "WR": [
+                  "3289",
+                  "303"
+                ],
+                "TE": [
+                  "2795"
+                ],
+                "FLEX": [
+                  "560"
+                ],
+                "SUPERFLEX": []
+              },
+              "bench": [
+                "4589",
+                "319",
+                "2126",
+                "1107",
+                "2575"
+              ],
+              "unvalued": [],
+              "empty": {}
+            }
+          },
+          "market": {
+            "starterDelta": 1.5478261163094373,
+            "benchDelta": -8.139307170925605,
+            "totalDelta": -6.5914810546161675,
+            "spotsOpened": 0,
+            "newlyEmpty": {},
+            "needLine": "RB: 2 starters \u2192 3; WR: 3 starters \u2192 2",
+            "tradedUnpriced": [],
+            "rosterUnpriced": [],
+            "missing": [],
+            "depth": {
+              "before": {
+                "QB": 0,
+                "RB": 3,
+                "WR": 1,
+                "TE": 1
+              },
+              "after": {
+                "QB": 0,
+                "RB": 3,
+                "WR": 1,
+                "TE": 1
+              }
+            },
+            "notEvaluated": [],
+            "unresolved": [],
+            "lowConfidence": [],
+            "complete": true,
+            "before": {
+              "starterValue": 225.3153747729243,
+              "benchValue": 108.83950866992112,
+              "total": 334.1548834428454,
+              "counts": {
+                "QB": 1,
+                "RB": 2,
+                "WR": 3,
+                "TE": 1
+              },
+              "size": 12,
+              "slots": {
+                "QB": [
+                  "1730"
+                ],
+                "RB": [
+                  "217",
+                  "560"
+                ],
+                "WR": [
+                  "3289",
+                  "303"
+                ],
+                "TE": [
+                  "2795"
+                ],
+                "FLEX": [
+                  "1381"
+                ],
+                "SUPERFLEX": []
+              },
+              "bench": [
+                "4048",
+                "4589",
+                "2126",
+                "1107",
+                "2575"
+              ],
+              "unvalued": [],
+              "empty": {}
+            },
+            "after": {
+              "starterValue": 226.86320088923372,
+              "benchValue": 100.70020149899551,
+              "total": 327.56340238822924,
+              "counts": {
+                "QB": 1,
+                "RB": 3,
+                "WR": 2,
+                "TE": 1
+              },
+              "size": 12,
+              "slots": {
+                "QB": [
+                  "1730"
+                ],
+                "RB": [
+                  "217",
+                  "547"
+                ],
+                "WR": [
+                  "3289",
+                  "303"
+                ],
+                "TE": [
+                  "2795"
+                ],
+                "FLEX": [
+                  "560"
+                ],
+                "SUPERFLEX": []
+              },
+              "bench": [
+                "4589",
+                "319",
+                "2126",
+                "1107",
+                "2575"
+              ],
+              "unvalued": [],
+              "empty": {}
+            }
+          },
+          "projections": {
+            "starterDelta": 1.1101211426100122,
+            "benchDelta": -4.8358235807314145,
+            "totalDelta": -3.7257024381214023,
+            "spotsOpened": 0,
+            "newlyEmpty": {},
+            "needLine": "RB: 2 starters \u2192 3; WR: 3 starters \u2192 2",
+            "tradedUnpriced": [],
+            "rosterUnpriced": [],
+            "missing": [],
+            "depth": {
+              "before": {
+                "QB": 0,
+                "RB": 3,
+                "WR": 1,
+                "TE": 1
+              },
+              "after": {
+                "QB": 0,
+                "RB": 3,
+                "WR": 1,
+                "TE": 1
+              }
+            },
+            "notEvaluated": [],
+            "unresolved": [],
+            "lowConfidence": [],
+            "complete": true,
+            "before": {
+              "starterValue": 260.4401227592174,
+              "benchValue": 118.26932139322628,
+              "total": 378.70944415244367,
+              "counts": {
+                "QB": 1,
+                "RB": 2,
+                "WR": 3,
+                "TE": 1
+              },
+              "size": 12,
+              "slots": {
+                "QB": [
+                  "1730"
+                ],
+                "RB": [
+                  "217",
+                  "560"
+                ],
+                "WR": [
+                  "303",
+                  "3289"
+                ],
+                "TE": [
+                  "2795"
+                ],
+                "FLEX": [
+                  "1381"
+                ],
+                "SUPERFLEX": []
+              },
+              "bench": [
+                "4589",
+                "2126",
+                "4048",
+                "1107",
+                "2575"
+              ],
+              "unvalued": [],
+              "empty": {}
+            },
+            "after": {
+              "starterValue": 261.5502439018274,
+              "benchValue": 113.43349781249486,
+              "total": 374.98374171432226,
+              "counts": {
+                "QB": 1,
+                "RB": 3,
+                "WR": 2,
+                "TE": 1
+              },
+              "size": 12,
+              "slots": {
+                "QB": [
+                  "1730"
+                ],
+                "RB": [
+                  "217",
+                  "547"
+                ],
+                "WR": [
+                  "303",
+                  "3289"
+                ],
+                "TE": [
+                  "2795"
+                ],
+                "FLEX": [
+                  "560"
+                ],
+                "SUPERFLEX": []
+              },
+              "bench": [
+                "4589",
+                "2126",
+                "319",
+                "1107",
+                "2575"
+              ],
+              "unvalued": [],
+              "empty": {}
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "missing CBS",
+      "input": {
+        "shape": {
+          "QB": 1,
+          "RB": 2,
+          "WR": 2,
+          "TE": 1,
+          "FLEX": 1,
+          "SUPERFLEX": 0,
+          "BENCH": 7,
+          "K": 1,
+          "DST": 1
+        },
+        "chartKeys": [
+          "usatoday",
+          "fantasycalc",
+          "fantasypros"
+        ],
+        "sourceInfo": [
+          {
+            "key": "usatoday",
+            "available": true,
+            "paused": false,
+            "excludedReason": null
+          },
+          {
+            "key": "fantasycalc",
+            "available": true,
+            "paused": false,
+            "excludedReason": null
+          },
+          {
+            "key": "fantasypros",
+            "available": true,
+            "paused": false,
+            "excludedReason": null
+          },
+          {
+            "key": "cbs",
+            "available": true,
+            "paused": false,
+            "excludedReason": null
+          },
+          {
+            "key": "espn",
+            "available": true,
+            "paused": false,
+            "excludedReason": null
+          },
+          {
+            "key": "cbsros",
+            "available": true,
+            "paused": false,
+            "excludedReason": null
+          },
+          {
+            "key": "razzball",
+            "available": true,
+            "paused": false,
+            "excludedReason": null
+          },
+          {
+            "key": "fantasycalc_adjusted",
+            "available": true,
+            "paused": false,
+            "excludedReason": null
+          },
+          {
+            "key": "usatoday_adjusted",
+            "available": true,
+            "paused": false,
+            "excludedReason": null
+          },
+          {
+            "key": "fantasypros_adjusted",
+            "available": true,
+            "paused": false,
+            "excludedReason": null
+          },
+          {
+            "key": "cbs_adjusted",
+            "available": true,
+            "paused": false,
+            "excludedReason": null
+          },
+          {
+            "key": "espn_vorp",
+            "available": true,
+            "paused": false,
+            "excludedReason": null
+          },
+          {
+            "key": "cbsros_vorp",
+            "available": true,
+            "paused": false,
+            "excludedReason": null
+          },
+          {
+            "key": "razzball_vorp",
+            "available": true,
+            "paused": false,
+            "excludedReason": null
+          }
+        ],
+        "mine": {
+          "entries": [
+            {
+              "key": "869",
+              "name": "Josh Allen",
+              "pos": "QB",
+              "team": "BUF"
+            },
+            {
+              "key": "4561",
+              "name": "Brock Purdy",
+              "pos": "QB",
+              "team": "SF"
+            },
+            {
+              "key": "2227",
+              "name": "Jahmyr Gibbs",
+              "pos": "RB",
+              "team": "DET"
+            },
+            {
+              "key": "547",
+              "name": "Jonathan Taylor",
+              "pos": "RB",
+              "team": "IND"
+            },
+            {
+              "key": "3862",
+              "name": "Chase Brown",
+              "pos": "RB",
+              "team": "CIN"
+            },
+            {
+              "key": "337",
+              "name": "Bucky Irving",
+              "pos": "RB",
+              "team": "TB"
+            },
+            {
+              "key": "319",
+              "name": "Bhayshul Tuten",
+              "pos": "RB",
+              "team": "JAX"
+            },
+            {
+              "key": "2730",
+              "name": "Ja'Marr Chase",
+              "pos": "WR",
+              "team": "CIN"
+            },
+            {
+              "key": "4573",
+              "name": "Tetairoa McMillan",
+              "pos": "WR",
+              "team": "CAR"
+            },
+            {
+              "key": "4581",
+              "name": "Jalen Coker",
+              "pos": "WR",
+              "team": "CAR"
+            },
+            {
+              "key": "764",
+              "name": "DeVonta Smith",
+              "pos": "WR",
+              "team": "PHI"
+            },
+            {
+              "key": "4474",
+              "name": "Tee Higgins",
+              "pos": "WR",
+              "team": "CIN"
+            },
+            {
+              "key": "51",
+              "name": "Brock Bowers",
+              "pos": "TE",
+              "team": "LV"
+            },
+            {
+              "key": "3871",
+              "name": "Colston Loveland",
+              "pos": "TE",
+              "team": "CHI"
+            },
+            {
+              "key": "x:DEF:SF",
+              "name": "49ers D/ST",
+              "pos": "DEF",
+              "team": "SF"
+            }
+          ],
+          "rows": [
+            {
+              "player_key": 869,
+              "name": "Josh Allen",
+              "pos": "QB",
+              "values": {
+                "ddf_value": 31.12269866159567,
+                "ddf_value_projections": 29.455655210313026,
+                "espn": 27.86124244014264,
+                "cbsros": 25.986479839980785,
+                "razzball": 34.519243350815636,
+                "usatoday": 20.59123015595494,
+                "fantasycalc": 39.81733712804774,
+                "fantasypros": 19.720650326503886,
+                "cbs": 25.05369588890779
+              }
+            },
+            {
+              "player_key": 4561,
+              "name": "Brock Purdy",
+              "pos": "QB",
+              "values": {
+                "ddf_value": 14.312346895023955,
+                "ddf_value_projections": 9.638180169638929,
+                "espn": 9.68220046497125,
+                "cbsros": 12.937441129245073,
+                "razzball": 6.294898914700458,
+                "usatoday": 10.785882462643062,
+                "fantasycalc": 14.242704277160678,
+                "fantasypros": 16.73883378229024,
+                "cbs": 11.930331375670375
+              }
+            },
+            {
+              "player_key": 2227,
+              "name": "Jahmyr Gibbs",
+              "pos": "RB",
+              "values": {
+                "ddf_value": 73.10088047541272,
+                "ddf_value_projections": 72.19139788958681,
+                "espn": 72.30244228982103,
+                "cbsros": 71.75923278127469,
+                "razzball": 72.5125185976647,
+                "usatoday": 39.71165815791309,
+                "fantasycalc": 68.43888441237381,
+                "fantasypros": 50.894186925101096,
+                "cbs": 66.8098557037541
+              }
+            },
+            {
+              "player_key": 547,
+              "name": "Jonathan Taylor",
+              "pos": "RB",
+              "values": {
+                "ddf_value": 48.18178080444023,
+                "ddf_value_projections": 42.79405247613207,
+                "espn": 42.04006035153335,
+                "cbsros": 48.820927274322365,
+                "razzball": 37.52116980254052,
+                "usatoday": 30.396577849266816,
+                "fantasycalc": 50.04719026840256,
+                "fantasypros": 35.442955741448564,
+                "cbs": 36.98402726457817
+              }
+            },
+            {
+              "player_key": 3862,
+              "name": "Chase Brown",
+              "pos": "RB",
+              "values": {
+                "ddf_value": 23.3093312483731,
+                "ddf_value_projections": 34.9372765970701,
+                "espn": 29.78909562685685,
+                "cbsros": 37.94265155611453,
+                "razzball": 37.08008260823894,
+                "usatoday": 16.178823693964596,
+                "fantasycalc": 25.289389797543834,
+                "fantasypros": 25.480977741462066,
+                "cbs": 16.702463925938524
+              }
+            },
+            {
+              "player_key": 337,
+              "name": "Bucky Irving",
+              "pos": "RB",
+              "values": {
+                "ddf_value": 31.891691056058686,
+                "ddf_value_projections": 40.51912219769241,
+                "espn": 37.409156172513256,
+                "cbsros": 39.29412480643498,
+                "razzball": 44.854085614129,
+                "usatoday": 23.042567079282907,
+                "fantasycalc": 28.193682704311236,
+                "fantasypros": 27.310728802684075,
+                "cbs": 27.439762164041863
+              }
+            },
+            {
+              "player_key": 319,
+              "name": "Bhayshul Tuten",
+              "pos": "RB",
+              "values": {
+                "ddf_value": 28.099695938543128,
+                "ddf_value_projections": 24.97173476301307,
+                "espn": 25.061244548723877,
+                "cbsros": 29.38783572665225,
+                "razzball": 20.46612401366309,
+                "usatoday": 22.552299694617314,
+                "fantasycalc": 24.446626230847937,
+                "fantasypros": 26.836348897922814,
+                "cbs": 20.28156333863964
+              }
+            },
+            {
+              "player_key": 2730,
+              "name": "Ja'Marr Chase",
+              "pos": "WR",
+              "values": {
+                "ddf_value": 56.79095925021218,
+                "ddf_value_projections": 48.15461600314396,
+                "espn": 51.720042413074445,
+                "cbsros": 47.53418999789368,
+                "razzball": 45.209615598463735,
+                "usatoday": 33.33818215726038,
+                "fantasycalc": 52.29672071181392,
+                "fantasypros": 36.5950212244402,
+                "cbs": 51.300424915382614
+              }
+            },
+            {
+              "player_key": 4573,
+              "name": "Tetairoa McMillan",
+              "pos": "WR",
+              "values": {
+                "ddf_value": 24.068729879789778,
+                "ddf_value_projections": 27.20969660261898,
+                "espn": 30.97275317099074,
+                "cbsros": 19.384840353468455,
+                "razzball": 31.271496283397752,
+                "usatoday": 17.15935846329578,
+                "fantasycalc": 22.54716680744872,
+                "fantasypros": 21.347095714256785,
+                "cbs": 23.86066275134075
+              }
+            },
+            {
+              "player_key": 4581,
+              "name": "Jalen Coker",
+              "pos": "WR",
+              "values": {
+                "ddf_value": 14.757482376469229,
+                "ddf_value_projections": 23.162696875431628,
+                "espn": 26.297663791163934,
+                "cbsros": 8.607229644663743,
+                "razzball": 34.58319719046721,
+                "usatoday": 12.746952001305438,
+                "fantasycalc": 11.474550100397996,
+                "fantasypros": 17.55205647616669,
+                "cbs": 19.0885302010726
+              }
+            },
+            {
+              "player_key": 764,
+              "name": "DeVonta Smith",
+              "pos": "WR",
+              "values": {
+                "ddf_value": 14.866532003847782,
+                "ddf_value_projections": 18.247110157486894,
+                "espn": 19.126436933081216,
+                "cbsros": 20.270038966706174,
+                "razzball": 15.344854572673292,
+                "usatoday": 11.76641723197425,
+                "fantasycalc": 13.043386893785746,
+                "fantasypros": 17.7553621496358,
+                "cbs": 19.0885302010726
+              }
+            },
+            {
+              "player_key": 4474,
+              "name": "Tee Higgins",
+              "pos": "WR",
+              "values": {
+                "ddf_value": 29.70412764467141,
+                "ddf_value_projections": 31.989695051627073,
+                "espn": 27.664977162186286,
+                "cbsros": 35.777513341748715,
+                "razzball": 32.526594650946244,
+                "usatoday": 23.042567079282907,
+                "fantasycalc": 27.603748207624108,
+                "fantasypros": 22.702466870717533,
+                "cbs": 25.05369588890779
+              }
+            },
+            {
+              "player_key": 51,
+              "name": "Brock Bowers",
+              "pos": "TE",
+              "values": {
+                "ddf_value": 32.57842655425793,
+                "ddf_value_projections": 26.864397090641972,
+                "espn": 25.973355807296297,
+                "cbsros": 20.129865637661233,
+                "razzball": 34.489969826968384,
+                "usatoday": 30.396577849266816,
+                "fantasycalc": 38.436501437999844,
+                "fantasypros": 18.975196190450475,
+                "cbs": 29.82582843917594
+              }
+            },
+            {
+              "player_key": 3871,
+              "name": "Colston Loveland",
+              "pos": "TE",
+              "values": {
+                "ddf_value": 12.866925552502682,
+                "ddf_value_projections": 8.694063420531686,
+                "espn": 15.700897030011543,
+                "cbsros": 4.29258445153632,
+                "razzball": 6.088708780047194,
+                "usatoday": 17.15935846329578,
+                "fantasycalc": 15.247537760528864,
+                "fantasypros": 10.300820789101687,
+                "cbs": 11.930331375670375
+              }
+            }
+          ]
+        },
+        "theirs": {
+          "entries": [
+            {
+              "key": "1730",
+              "name": "Drake Maye",
+              "pos": "QB",
+              "team": "NE"
+            },
+            {
+              "key": "217",
+              "name": "Bijan Robinson",
+              "pos": "RB",
+              "team": "ATL"
+            },
+            {
+              "key": "560",
+              "name": "Derrick Henry",
+              "pos": "RB",
+              "team": "BAL"
+            },
+            {
+              "key": "4048",
+              "name": "Chuba Hubbard",
+              "pos": "RB",
+              "team": "CAR"
+            },
+            {
+              "key": "4589",
+              "name": "Jaylen Warren",
+              "pos": "RB",
+              "team": "PIT"
+            },
+            {
+              "key": "1107",
+              "name": "Breece Hall",
+              "pos": "RB",
+              "team": "NYJ"
+            },
+            {
+              "key": "3289",
+              "name": "Amon-Ra St. Brown",
+              "pos": "WR",
+              "team": "DET"
+            },
+            {
+              "key": "303",
+              "name": "CeeDee Lamb",
+              "pos": "WR",
+              "team": "DAL"
+            },
+            {
+              "key": "1381",
+              "name": "Zay Flowers",
+              "pos": "WR",
+              "team": "BAL"
+            },
+            {
+              "key": "2126",
+              "name": "Matthew Golden",
+              "pos": "WR",
+              "team": "GB"
+            },
+            {
+              "key": "2795",
+              "name": "George Kittle",
+              "pos": "TE",
+              "team": "SF"
+            },
+            {
+              "key": "2575",
+              "name": "T.J. Hockenson",
+              "pos": "TE",
+              "team": "MIN"
+            }
+          ],
+          "rows": [
+            {
+              "player_key": 1730,
+              "name": "Drake Maye",
+              "pos": "QB",
+              "values": {
+                "ddf_value": 21.27414112771026,
+                "ddf_value_projections": 15.279428667168098,
+                "espn": 28.05663886271724,
+                "cbsros": 8.257757143428373,
+                "razzball": 9.52388999535868,
+                "usatoday": 15.688556309299,
+                "fantasycalc": 19.15018135399756,
+                "fantasypros": 19.3818075373887,
+                "cbs": 19.0885302010726
+              }
+            },
+            {
+              "player_key": 217,
+              "name": "Bijan Robinson",
+              "pos": "RB",
+              "values": {
+                "ddf_value": 65.52076338710225,
+                "ddf_value_projections": 53.4151518803934,
+                "espn": 50.05267143045347,
+                "cbsros": 55.01875186293651,
+                "razzball": 55.17403234779022,
+                "usatoday": 35.29925169592275,
+                "fantasycalc": 61.57360274213569,
+                "fantasypros": 45.74377653055025,
+                "cbs": 62.037723153485956
+              }
+            },
+            {
+              "player_key": 560,
+              "name": "Derrick Henry",
+              "pos": "RB",
+              "values": {
+                "ddf_value": 41.65731901339071,
+                "ddf_value_projections": 38.784757380548506,
+                "espn": 39.13477471695889,
+                "cbsros": 39.69832762214612,
+                "razzball": 37.52116980254052,
+                "usatoday": 26.964706156607658,
+                "fantasycalc": 39.1560918680248,
+                "fantasypros": 34.2231217006339,
+                "cbs": 33.40492785187705
+              }
+            },
+            {
+              "player_key": 4048,
+              "name": "Chuba Hubbard",
+              "pos": "RB",
+              "values": {
+                "ddf_value": 37.60008095218836,
+                "ddf_value_projections": 29.807558343744496,
+                "espn": 31.286870622300317,
+                "cbsros": 37.66968039527007,
+                "razzball": 20.46612401366309,
+                "usatoday": 25.98417138727647,
+                "fantasycalc": 28.064026770973406,
+                "fantasypros": 28.733868516967863,
+                "cbs": 39.37009353971224
+              }
+            },
+            {
+              "player_key": 4589,
+              "name": "Jaylen Warren",
+              "pos": "RB",
+              "values": {
+                "ddf_value": 29.917619374627055,
+                "ddf_value_projections": 35.18578268836842,
+                "espn": 32.31752580151581,
+                "cbsros": 33.96567029631687,
+                "razzball": 39.27415196727258,
+                "usatoday": 21.081497540620532,
+                "fantasycalc": 25.09490589753709,
+                "fantasypros": 28.191720054383563,
+                "cbs": 26.246729026474824
+              }
+            },
+            {
+              "player_key": 1107,
+              "name": "Breece Hall",
+              "pos": "RB",
+              "values": {
+                "ddf_value": 24.64493159263126,
+                "ddf_value_projections": 19.774473398552068,
+                "espn": 20.993193586327887,
+                "cbsros": 17.864102595665237,
+                "razzball": 20.46612401366309,
+                "usatoday": 18.630160617292564,
+                "fantasycalc": 19.99294492069346,
+                "fantasypros": 24.803292163231692,
+                "cbs": 22.667629613773713
+              }
+            },
+            {
+              "player_key": 3289,
+              "name": "Amon-Ra St. Brown",
+              "pos": "WR",
+              "values": {
+                "ddf_value": 54.33970173185508,
+                "ddf_value_projections": 47.09761733747234,
+                "espn": 46.46638202102642,
+                "cbsros": 49.616854392926875,
+                "razzball": 45.209615598463735,
+                "usatoday": 30.88684523393241,
+                "fantasycalc": 52.1605819818092,
+                "fantasypros": 34.76527016321819,
+                "cbs": 50.10739177781558
+              }
+            },
+            {
+              "player_key": 303,
+              "name": "CeeDee Lamb",
+              "pos": "WR",
+              "values": {
+                "ddf_value": 53.3000784127703,
+                "ddf_value_projections": 48.20850073920526,
+                "espn": 44.70008554999155,
+                "cbsros": 55.485394710338696,
+                "razzball": 44.44002195728555,
+                "usatoday": 33.33818215726038,
+                "fantasycalc": 52.89313800516794,
+                "fantasypros": 27.446265918330152,
+                "cbs": 53.68649119051669
+              }
+            },
+            {
+              "player_key": 1381,
+              "name": "Zay Flowers",
+              "pos": "WR",
+              "values": {
+                "ddf_value": 43.67287733765355,
+                "ddf_value_projections": 41.68393133352203,
+                "espn": 42.456763836199286,
+                "cbsros": 40.08768943140463,
+                "razzball": 42.5073407329622,
+                "usatoday": 28.43550831060444,
+                "fantasycalc": 39.66175000804234,
+                "fantasypros": 27.98841438091445,
+                "cbs": 41.75615981484631
+              }
+            },
+            {
+              "player_key": 2126,
+              "name": "Matthew Golden",
+              "pos": "WR",
+              "values": {
+                "ddf_value": 26.505273097534506,
+                "ddf_value_projections": 30.195688876849204,
+                "espn": 30.133249310061476,
+                "cbsros": 28.343682873355807,
+                "razzball": 32.11013444713034,
+                "usatoday": 23.5328344639485,
+                "fantasycalc": 20.401361110707626,
+                "fantasypros": 21.685938503371972,
+                "cbs": 22.667629613773713
+              }
+            },
+            {
+              "player_key": 2795,
+              "name": "George Kittle",
+              "pos": "TE",
+              "values": {
+                "ddf_value": 19.847292036644387,
+                "ddf_value_projections": 15.97073542090775,
+                "espn": 24.0251792849574,
+                "cbsros": 10.929213954756767,
+                "razzball": 12.957813023009088,
+                "usatoday": 21.081497540620532,
+                "fantasycalc": 20.913502047392054,
+                "fantasypros": 13.147100217669257,
+                "cbs": 21.474596476206678
+              }
+            },
+            {
+              "player_key": 2575,
+              "name": "T.J. Hockenson",
+              "pos": "TE",
+              "values": {
+                "ddf_value": 3.814817117460254,
+                "ddf_value_projections": 3.305818085712098,
+                "espn": 7.194871284491593,
+                "cbsros": 1.3854955055565932,
+                "razzball": 1.3370874670881074,
+                "usatoday": 11.76641723197425,
+                "fantasycalc": 3.662780116793711,
+                "fantasypros": 3.9983449115592076,
+                "cbs": 7.158198825402225
+              }
+            }
+          ]
+        },
+        "give": [
+          "547",
+          "319"
+        ],
+        "receive": [
+          "1381",
+          "4048"
+        ],
+        "calculationSettings": {}
+      },
+      "record": {
+        "version": 1,
+        "ready": true,
+        "reason": null,
+        "outside": {
+          "give": [],
+          "receive": []
+        },
+        "views": {
+          "ddf": {
+            "status": "available",
+            "reason": null,
+            "held": [],
+            "label": "DDF Value",
+            "valueKey": "ddf_value"
+          },
+          "market": {
+            "status": "available",
+            "reason": null,
+            "held": [],
+            "label": "Indexed published-chart average",
+            "valueKey": "chart_avg",
+            "coverage": {
+              "available": 2,
+              "total": 3,
+              "required": 2,
+              "text": "2 of 3"
+            },
+            "chartKeys": [
+              "usatoday",
+              "fantasypros"
+            ],
+            "aggregation": "arithmetic mean of complete indexed published charts"
+          },
+          "projections": {
+            "status": "available",
+            "reason": null,
+            "held": [],
+            "label": "DDF Value (projections)",
+            "valueKey": "ddf_value_projections"
+          }
+        },
+        "roster": {
+          "mine": {
+            "configuredBench": 7,
+            "reserveKnown": true,
+            "before": {
+              "size": 15,
+              "active": 15,
+              "reserve": 0,
+              "startingSlots": 9,
+              "filledStarting": 8,
+              "emptyStarting": 1,
+              "bench": 7
+            },
+            "after": {
+              "size": 15,
+              "active": 15,
+              "reserve": 0,
+              "startingSlots": 9,
+              "filledStarting": 8,
+              "emptyStarting": 1,
+              "bench": 7
+            },
+            "rosterSizeDelta": 0,
+            "benchDelta": 0,
+            "overCapacity": {
+              "before": 0,
+              "after": 0
+            }
+          },
+          "theirs": {
+            "configuredBench": 7,
+            "reserveKnown": true,
+            "before": {
+              "size": 12,
+              "active": 12,
+              "reserve": 0,
+              "startingSlots": 9,
+              "filledStarting": 7,
+              "emptyStarting": 2,
+              "bench": 5
+            },
+            "after": {
+              "size": 12,
+              "active": 12,
+              "reserve": 0,
+              "startingSlots": 9,
+              "filledStarting": 7,
+              "emptyStarting": 2,
+              "bench": 5
+            },
+            "rosterSizeDelta": 0,
+            "benchDelta": 0,
+            "overCapacity": {
+              "before": 0,
+              "after": 0
+            }
+          }
+        },
+        "decision": {
+          "contract": "JEG-1483/1",
+          "settings": {
+            "basis": "ddf_value",
+            "market": "published-average",
+            "ourMinimum": {
+              "tier": "any"
+            },
+            "theirMinimum": {
+              "tier": "neutral"
+            }
+          },
+          "questions": [
+            {
+              "subject": "mine",
+              "scope": "starters",
+              "basis": "ddf_value",
+              "value": 3.387049840730242,
+              "status": "known",
+              "sources": [
+                "ddf_value"
+              ],
+              "coverage": {
+                "available": 1,
+                "total": 1,
+                "required": 1,
+                "text": "1 of 1"
+              },
+              "aggregation": "sum of existing best eligible starting lineup",
+              "sign": "positive is better for the subject",
+              "tolerance": 0.05,
+              "id": "our-starters",
+              "label": "Our starter value",
+              "threshold": 0,
+              "operator": ">",
+              "tier": "any",
+              "pass": true,
+              "reason": null
+            },
+            {
+              "subject": "mine",
+              "scope": "roster",
+              "basis": "ddf_value",
+              "value": true,
+              "status": "known",
+              "sources": [
+                "ddf_value"
+              ],
+              "coverage": {
+                "available": 1,
+                "total": 1,
+                "required": 1,
+                "text": "1 of 1"
+              },
+              "aggregation": "existing rosterConstructionOk",
+              "sign": "positive is better for the subject",
+              "tolerance": null,
+              "id": "our-roster",
+              "label": "Our roster construction",
+              "pass": true,
+              "issues": [],
+              "reason": null
+            },
+            {
+              "subject": "theirs",
+              "scope": "starters",
+              "basis": "published-average",
+              "value": 4.707805449598226,
+              "status": "known",
+              "sources": [
+                "usatoday",
+                "fantasypros"
+              ],
+              "coverage": {
+                "available": 2,
+                "total": 3,
+                "required": 2,
+                "text": "2 of 3"
+              },
+              "aggregation": "sum of existing best eligible starting lineup",
+              "sign": "positive is better for the subject",
+              "tolerance": 3.5909516389824137,
+              "id": "their-starters",
+              "label": "Their market starter value",
+              "threshold": 0,
+              "operator": ">=",
+              "tier": "neutral",
+              "pass": true,
+              "reason": null
+            },
+            {
+              "subject": "theirs",
+              "scope": "roster",
+              "basis": "published-average",
+              "value": true,
+              "status": "known",
+              "sources": [
+                "usatoday",
+                "fantasypros"
+              ],
+              "coverage": {
+                "available": 2,
+                "total": 3,
+                "required": 2,
+                "text": "2 of 3"
+              },
+              "aggregation": "existing rosterConstructionOk",
+              "sign": "positive is better for the subject",
+              "tolerance": null,
+              "id": "their-roster",
+              "label": "Their roster construction",
+              "pass": true,
+              "issues": [],
+              "reason": null
+            }
+          ],
+          "natural": true,
+          "participants": {
+            "mine": null,
+            "theirs": null
+          },
+          "partnerKind": "team",
+          "deal": {
+            "give": [
+              "547",
+              "319"
+            ],
+            "get": [
+              "1381",
+              "4048"
+            ]
+          },
+          "label": "Natural fit",
+          "passes": true,
+          "failed": [],
+          "unknown": [],
+          "supporting": {
+            "mine": {
+              "ddf": {
+                "starters": {
+                  "subject": "mine",
+                  "scope": "starters",
+                  "basis": "ddf_value",
+                  "value": 3.387049840730242,
+                  "status": "known",
+                  "sources": [
+                    "ddf_value"
+                  ],
+                  "coverage": {
+                    "available": 1,
+                    "total": 1,
+                    "required": 1,
+                    "text": "1 of 1"
+                  },
+                  "aggregation": "existing rosterImpact starter delta",
+                  "sign": "positive is better for the subject",
+                  "tolerance": null
+                },
+                "package": {
+                  "subject": "mine",
+                  "scope": "package total",
+                  "basis": "ddf_value",
+                  "value": 4.991481546858552,
+                  "status": "known",
+                  "sources": [
+                    "ddf_value"
+                  ],
+                  "coverage": {
+                    "available": 1,
+                    "total": 1,
+                    "required": 1,
+                    "text": "1 of 1"
+                  },
+                  "aggregation": "sum received minus sum given",
+                  "sign": "positive is better for the subject",
+                  "tolerance": null
+                }
+              },
+              "projections": {
+                "starters": {
+                  "subject": "mine",
+                  "scope": "starters",
+                  "basis": "ddf_value_projections",
+                  "value": 1.83746040283296,
+                  "status": "known",
+                  "sources": [
+                    "ddf_value_projections"
+                  ],
+                  "coverage": {
+                    "available": 1,
+                    "total": 1,
+                    "required": 1,
+                    "text": "1 of 1"
+                  },
+                  "aggregation": "existing rosterImpact starter delta",
+                  "sign": "positive is better for the subject",
+                  "tolerance": null
+                },
+                "package": {
+                  "subject": "mine",
+                  "scope": "package total",
+                  "basis": "ddf_value_projections",
+                  "value": 3.7257024381213455,
+                  "status": "known",
+                  "sources": [
+                    "ddf_value_projections"
+                  ],
+                  "coverage": {
+                    "available": 1,
+                    "total": 1,
+                    "required": 1,
+                    "text": "1 of 1"
+                  },
+                  "aggregation": "sum received minus sum given",
+                  "sign": "positive is better for the subject",
+                  "tolerance": null
+                }
+              },
+              "market": {
+                "starters": {
+                  "subject": "mine",
+                  "scope": "starters",
+                  "basis": "published-average",
+                  "value": -0.22130247247628176,
+                  "status": "known",
+                  "sources": [
+                    "usatoday",
+                    "fantasypros"
+                  ],
+                  "coverage": {
+                    "available": 2,
+                    "total": 3,
+                    "required": 2,
+                    "text": "2 of 3"
+                  },
+                  "aggregation": "existing rosterImpact starter delta",
+                  "sign": "positive is better for the subject",
+                  "tolerance": null
+                },
+                "package": {
+                  "subject": "mine",
+                  "scope": "package total",
+                  "basis": "published-average",
+                  "value": -2.043109793746112,
+                  "status": "known",
+                  "sources": [
+                    "usatoday",
+                    "fantasypros"
+                  ],
+                  "coverage": {
+                    "available": 2,
+                    "total": 3,
+                    "required": 2,
+                    "text": "2 of 3"
+                  },
+                  "aggregation": "sum received minus sum given",
+                  "sign": "positive is better for the subject",
+                  "tolerance": null
+                }
+              }
+            },
+            "theirs": {
+              "ddf": {
+                "starters": {
+                  "subject": "theirs",
+                  "scope": "starters",
+                  "basis": "ddf_value",
+                  "value": 4.5089034667866486,
+                  "status": "known",
+                  "sources": [
+                    "ddf_value"
+                  ],
+                  "coverage": {
+                    "available": 1,
+                    "total": 1,
+                    "required": 1,
+                    "text": "1 of 1"
+                  },
+                  "aggregation": "existing rosterImpact starter delta",
+                  "sign": "positive is better for the subject",
+                  "tolerance": null
+                },
+                "package": {
+                  "subject": "theirs",
+                  "scope": "package total",
+                  "basis": "ddf_value",
+                  "value": -4.9914815468586085,
+                  "status": "known",
+                  "sources": [
+                    "ddf_value"
+                  ],
+                  "coverage": {
+                    "available": 1,
+                    "total": 1,
+                    "required": 1,
+                    "text": "1 of 1"
+                  },
+                  "aggregation": "sum received minus sum given",
+                  "sign": "positive is better for the subject",
+                  "tolerance": null
+                }
+              },
+              "projections": {
+                "starters": {
+                  "subject": "theirs",
+                  "scope": "starters",
+                  "basis": "ddf_value_projections",
+                  "value": 1.1101211426100122,
+                  "status": "known",
+                  "sources": [
+                    "ddf_value_projections"
+                  ],
+                  "coverage": {
+                    "available": 1,
+                    "total": 1,
+                    "required": 1,
+                    "text": "1 of 1"
+                  },
+                  "aggregation": "existing rosterImpact starter delta",
+                  "sign": "positive is better for the subject",
+                  "tolerance": null
+                },
+                "package": {
+                  "subject": "theirs",
+                  "scope": "package total",
+                  "basis": "ddf_value_projections",
+                  "value": -3.7257024381214023,
+                  "status": "known",
+                  "sources": [
+                    "ddf_value_projections"
+                  ],
+                  "coverage": {
+                    "available": 1,
+                    "total": 1,
+                    "required": 1,
+                    "text": "1 of 1"
+                  },
+                  "aggregation": "sum received minus sum given",
+                  "sign": "positive is better for the subject",
+                  "tolerance": null
+                }
+              },
+              "market": {
+                "starters": {
+                  "subject": "theirs",
+                  "scope": "starters",
+                  "basis": "published-average",
+                  "value": 4.707805449598226,
+                  "status": "known",
+                  "sources": [
+                    "usatoday",
+                    "fantasypros"
+                  ],
+                  "coverage": {
+                    "available": 2,
+                    "total": 3,
+                    "required": 2,
+                    "text": "2 of 3"
+                  },
+                  "aggregation": "existing rosterImpact starter delta",
+                  "sign": "positive is better for the subject",
+                  "tolerance": null
+                },
+                "package": {
+                  "subject": "theirs",
+                  "scope": "package total",
+                  "basis": "published-average",
+                  "value": 2.043109793746112,
+                  "status": "known",
+                  "sources": [
+                    "usatoday",
+                    "fantasypros"
+                  ],
+                  "coverage": {
+                    "available": 2,
+                    "total": 3,
+                    "required": 2,
+                    "text": "2 of 3"
+                  },
+                  "aggregation": "sum received minus sum given",
+                  "sign": "positive is better for the subject",
+                  "tolerance": null
+                }
+              }
+            }
+          }
+        },
+        "mine": {
+          "ddf": {
+            "starterDelta": 3.387049840730242,
+            "benchDelta": 1.6044317061282811,
+            "totalDelta": 4.991481546858552,
+            "spotsOpened": 0,
+            "newlyEmpty": {},
+            "needLine": "Starters by position unchanged",
+            "tradedUnpriced": [],
+            "rosterUnpriced": [],
+            "missing": [],
+            "depth": {
+              "before": {
+                "QB": 1,
+                "RB": 2,
+                "WR": 3,
+                "TE": 1
+              },
+              "after": {
+                "QB": 1,
+                "RB": 1,
+                "WR": 4,
+                "TE": 1
+              }
+            },
+            "notEvaluated": [
+              "x:DEF:SF"
+            ],
+            "unresolved": [],
+            "lowConfidence": [],
+            "complete": true,
+            "before": {
+              "starterValue": 303.3705644466488,
+              "benchValue": 132.28104389454964,
+              "total": 435.6516083411984,
+              "counts": {
+                "QB": 1,
+                "RB": 3,
+                "WR": 2,
+                "TE": 1
+              },
+              "size": 14,
+              "slots": {
+                "QB": [
+                  "869"
+                ],
+                "RB": [
+                  "2227",
+                  "547"
+                ],
+                "WR": [
+                  "2730",
+                  "4474"
+                ],
+                "TE": [
+                  "51"
+                ],
+                "FLEX": [
+                  "337"
+                ],
+                "SUPERFLEX": []
+              },
+              "bench": [
+                "319",
+                "4573",
+                "3862",
+                "764",
+                "4581",
+                "4561",
+                "3871"
+              ],
+              "unvalued": [],
+              "empty": {}
+            },
+            "after": {
+              "starterValue": 306.75761428737906,
+              "benchValue": 133.88547560067792,
+              "total": 440.643089888057,
+              "counts": {
+                "QB": 1,
+                "RB": 3,
+                "WR": 2,
+                "TE": 1
+              },
+              "size": 14,
+              "slots": {
+                "QB": [
+                  "869"
+                ],
+                "RB": [
+                  "2227",
+                  "4048"
+                ],
+                "WR": [
+                  "2730",
+                  "1381"
+                ],
+                "TE": [
+                  "51"
+                ],
+                "FLEX": [
+                  "337"
+                ],
+                "SUPERFLEX": []
+              },
+              "bench": [
+                "4474",
+                "4573",
+                "3862",
+                "764",
+                "4581",
+                "4561",
+                "3871"
+              ],
+              "unvalued": [],
+              "empty": {}
+            }
+          },
+          "market": {
+            "starterDelta": -0.22130247247628176,
+            "benchDelta": -1.8218073212698584,
+            "totalDelta": -2.043109793746112,
+            "spotsOpened": 0,
+            "newlyEmpty": {},
+            "needLine": "Starters by position unchanged",
+            "tradedUnpriced": [],
+            "rosterUnpriced": [],
+            "missing": [],
+            "depth": {
+              "before": {
+                "QB": 1,
+                "RB": 2,
+                "WR": 3,
+                "TE": 1
+              },
+              "after": {
+                "QB": 1,
+                "RB": 1,
+                "WR": 4,
+                "TE": 1
+              }
+            },
+            "notEvaluated": [
+              "x:DEF:SF"
+            ],
+            "unresolved": [],
+            "lowConfidence": [],
+            "complete": true,
+            "before": {
+              "starterValue": 206.08028320478684,
+              "benchValue": 122.18029378096617,
+              "total": 328.260576985753,
+              "counts": {
+                "QB": 1,
+                "RB": 3,
+                "WR": 2,
+                "TE": 1
+              },
+              "size": 14,
+              "slots": {
+                "QB": [
+                  "869"
+                ],
+                "RB": [
+                  "2227",
+                  "547"
+                ],
+                "WR": [
+                  "2730",
+                  "4474"
+                ],
+                "TE": [
+                  "51"
+                ],
+                "FLEX": [
+                  "337"
+                ],
+                "SUPERFLEX": []
+              },
+              "bench": [
+                "319",
+                "3862",
+                "4573",
+                "4581",
+                "764",
+                "4561",
+                "3871"
+              ],
+              "unvalued": [],
+              "empty": {}
+            },
+            "after": {
+              "starterValue": 205.85898073231056,
+              "benchValue": 120.35848645969631,
+              "total": 326.2174671920069,
+              "counts": {
+                "QB": 1,
+                "RB": 3,
+                "WR": 2,
+                "TE": 1
+              },
+              "size": 14,
+              "slots": {
+                "QB": [
+                  "869"
+                ],
+                "RB": [
+                  "2227",
+                  "4048"
+                ],
+                "WR": [
+                  "2730",
+                  "1381"
+                ],
+                "TE": [
+                  "51"
+                ],
+                "FLEX": [
+                  "337"
+                ],
+                "SUPERFLEX": []
+              },
+              "bench": [
+                "4474",
+                "3862",
+                "4573",
+                "4581",
+                "764",
+                "4561",
+                "3871"
+              ],
+              "unvalued": [],
+              "empty": {}
+            }
+          },
+          "projections": {
+            "starterDelta": 1.83746040283296,
+            "benchDelta": 1.8882420352883855,
+            "totalDelta": 3.7257024381213455,
+            "spotsOpened": 0,
+            "newlyEmpty": {},
+            "needLine": "Starters by position unchanged",
+            "tradedUnpriced": [],
+            "rosterUnpriced": [],
+            "missing": [],
+            "depth": {
+              "before": {
+                "QB": 1,
+                "RB": 2,
+                "WR": 3,
+                "TE": 1
+              },
+              "after": {
+                "QB": 1,
+                "RB": 1,
+                "WR": 4,
+                "TE": 1
+              }
+            },
+            "notEvaluated": [
+              "x:DEF:SF"
+            ],
+            "unresolved": [],
+            "lowConfidence": [],
+            "complete": true,
+            "before": {
+              "starterValue": 291.9689359191373,
+              "benchValue": 146.8607585857913,
+              "total": 438.8296945049286,
+              "counts": {
+                "QB": 1,
+                "RB": 3,
+                "WR": 2,
+                "TE": 1
+              },
+              "size": 14,
+              "slots": {
+                "QB": [
+                  "869"
+                ],
+                "RB": [
+                  "2227",
+                  "547"
+                ],
+                "WR": [
+                  "2730",
+                  "4474"
+                ],
+                "TE": [
+                  "51"
+                ],
+                "FLEX": [
+                  "337"
+                ],
+                "SUPERFLEX": []
+              },
+              "bench": [
+                "3862",
+                "4573",
+                "319",
+                "4581",
+                "764",
+                "4561",
+                "3871"
+              ],
+              "unvalued": [],
+              "empty": {}
+            },
+            "after": {
+              "starterValue": 293.8063963219703,
+              "benchValue": 148.7490006210797,
+              "total": 442.55539694304997,
+              "counts": {
+                "QB": 1,
+                "RB": 3,
+                "WR": 2,
+                "TE": 1
+              },
+              "size": 14,
+              "slots": {
+                "QB": [
+                  "869"
+                ],
+                "RB": [
+                  "2227",
+                  "337"
+                ],
+                "WR": [
+                  "2730",
+                  "1381"
+                ],
+                "TE": [
+                  "51"
+                ],
+                "FLEX": [
+                  "3862"
+                ],
+                "SUPERFLEX": []
+              },
+              "bench": [
+                "4474",
+                "4048",
+                "4573",
+                "4581",
+                "764",
+                "4561",
+                "3871"
+              ],
+              "unvalued": [],
+              "empty": {}
+            }
+          }
+        },
+        "theirs": {
+          "ddf": {
+            "starterDelta": 4.5089034667866486,
+            "benchDelta": -9.500385013645229,
+            "totalDelta": -4.9914815468586085,
+            "spotsOpened": 0,
+            "newlyEmpty": {},
+            "needLine": "RB: 2 starters \u2192 3; WR: 3 starters \u2192 2",
+            "tradedUnpriced": [],
+            "rosterUnpriced": [],
+            "missing": [],
+            "depth": {
+              "before": {
+                "QB": 0,
+                "RB": 3,
+                "WR": 1,
+                "TE": 1
+              },
+              "after": {
+                "QB": 0,
+                "RB": 3,
+                "WR": 1,
+                "TE": 1
+              }
+            },
+            "notEvaluated": [],
+            "unresolved": [],
+            "lowConfidence": [],
+            "complete": true,
+            "before": {
+              "starterValue": 299.61217304712653,
+              "benchValue": 122.48272213444142,
+              "total": 422.09489518156795,
+              "counts": {
+                "QB": 1,
+                "RB": 2,
+                "WR": 3,
+                "TE": 1
+              },
+              "size": 12,
+              "slots": {
+                "QB": [
+                  "1730"
+                ],
+                "RB": [
+                  "217",
+                  "560"
+                ],
+                "WR": [
+                  "3289",
+                  "303"
+                ],
+                "TE": [
+                  "2795"
+                ],
+                "FLEX": [
+                  "1381"
+                ],
+                "SUPERFLEX": []
+              },
+              "bench": [
+                "4048",
+                "4589",
+                "2126",
+                "1107",
+                "2575"
+              ],
+              "unvalued": [],
+              "empty": {}
+            },
+            "after": {
+              "starterValue": 304.1210765139132,
+              "benchValue": 112.98233712079619,
+              "total": 417.10341363470934,
+              "counts": {
+                "QB": 1,
+                "RB": 3,
+                "WR": 2,
+                "TE": 1
+              },
+              "size": 12,
+              "slots": {
+                "QB": [
+                  "1730"
+                ],
+                "RB": [
+                  "217",
+                  "547"
+                ],
+                "WR": [
+                  "3289",
+                  "303"
+                ],
+                "TE": [
+                  "2795"
+                ],
+                "FLEX": [
+                  "560"
+                ],
+                "SUPERFLEX": []
+              },
+              "bench": [
+                "4589",
+                "319",
+                "2126",
+                "1107",
+                "2575"
+              ],
+              "unvalued": [],
+              "empty": {}
+            }
+          },
+          "market": {
+            "starterDelta": 4.707805449598226,
+            "benchDelta": -2.664695655852114,
+            "totalDelta": 2.043109793746112,
+            "spotsOpened": 0,
+            "newlyEmpty": {},
+            "needLine": "RB: 2 starters \u2192 3; WR: 3 starters \u2192 2",
+            "tradedUnpriced": [],
+            "rosterUnpriced": [],
+            "missing": [],
+            "depth": {
+              "before": {
+                "QB": 0,
+                "RB": 3,
+                "WR": 1,
+                "TE": 1
+              },
+              "after": {
+                "QB": 0,
+                "RB": 3,
+                "WR": 1,
+                "TE": 1
+              }
+            },
+            "notEvaluated": [],
+            "unresolved": [],
+            "lowConfidence": [],
+            "complete": true,
+            "before": {
+              "starterValue": 197.19515192647603,
+              "benchValue": 104.20412269531332,
+              "total": 301.39927462178935,
+              "counts": {
+                "QB": 1,
+                "RB": 2,
+                "WR": 3,
+                "TE": 1
+              },
+              "size": 12,
+              "slots": {
+                "QB": [
+                  "1730"
+                ],
+                "RB": [
+                  "217",
+                  "560"
+                ],
+                "WR": [
+                  "3289",
+                  "303"
+                ],
+                "TE": [
+                  "2795"
+                ],
+                "FLEX": [
+                  "1381"
+                ],
+                "SUPERFLEX": []
+              },
+              "bench": [
+                "4048",
+                "4589",
+                "2126",
+                "1107",
+                "2575"
+              ],
+              "unvalued": [],
+              "empty": {}
+            },
+            "after": {
+              "starterValue": 201.90295737607426,
+              "benchValue": 101.5394270394612,
+              "total": 303.44238441553546,
+              "counts": {
+                "QB": 1,
+                "RB": 3,
+                "WR": 2,
+                "TE": 1
+              },
+              "size": 12,
+              "slots": {
+                "QB": [
+                  "1730"
+                ],
+                "RB": [
+                  "217",
+                  "547"
+                ],
+                "WR": [
+                  "3289",
+                  "303"
+                ],
+                "TE": [
+                  "2795"
+                ],
+                "FLEX": [
+                  "560"
+                ],
+                "SUPERFLEX": []
+              },
+              "bench": [
+                "319",
+                "4589",
+                "2126",
+                "1107",
+                "2575"
+              ],
+              "unvalued": [],
+              "empty": {}
+            }
+          },
+          "projections": {
+            "starterDelta": 1.1101211426100122,
+            "benchDelta": -4.8358235807314145,
+            "totalDelta": -3.7257024381214023,
+            "spotsOpened": 0,
+            "newlyEmpty": {},
+            "needLine": "RB: 2 starters \u2192 3; WR: 3 starters \u2192 2",
+            "tradedUnpriced": [],
+            "rosterUnpriced": [],
+            "missing": [],
+            "depth": {
+              "before": {
+                "QB": 0,
+                "RB": 3,
+                "WR": 1,
+                "TE": 1
+              },
+              "after": {
+                "QB": 0,
+                "RB": 3,
+                "WR": 1,
+                "TE": 1
+              }
+            },
+            "notEvaluated": [],
+            "unresolved": [],
+            "lowConfidence": [],
+            "complete": true,
+            "before": {
+              "starterValue": 260.4401227592174,
+              "benchValue": 118.26932139322628,
+              "total": 378.70944415244367,
+              "counts": {
+                "QB": 1,
+                "RB": 2,
+                "WR": 3,
+                "TE": 1
+              },
+              "size": 12,
+              "slots": {
+                "QB": [
+                  "1730"
+                ],
+                "RB": [
+                  "217",
+                  "560"
+                ],
+                "WR": [
+                  "303",
+                  "3289"
+                ],
+                "TE": [
+                  "2795"
+                ],
+                "FLEX": [
+                  "1381"
+                ],
+                "SUPERFLEX": []
+              },
+              "bench": [
+                "4589",
+                "2126",
+                "4048",
+                "1107",
+                "2575"
+              ],
+              "unvalued": [],
+              "empty": {}
+            },
+            "after": {
+              "starterValue": 261.5502439018274,
+              "benchValue": 113.43349781249486,
+              "total": 374.98374171432226,
+              "counts": {
+                "QB": 1,
+                "RB": 3,
+                "WR": 2,
+                "TE": 1
+              },
+              "size": 12,
+              "slots": {
+                "QB": [
+                  "1730"
+                ],
+                "RB": [
+                  "217",
+                  "547"
+                ],
+                "WR": [
+                  "303",
+                  "3289"
+                ],
+                "TE": [
+                  "2795"
+                ],
+                "FLEX": [
+                  "560"
+                ],
+                "SUPERFLEX": []
+              },
+              "bench": [
+                "4589",
+                "2126",
+                "319",
+                "1107",
+                "2575"
+              ],
+              "unvalued": [],
+              "empty": {}
+            }
+          }
+        }
+      }
+    }
+  ],
+  "provenance": {
+    "app/v2/finder.js": "4002c1c4785cdf9daeffcfff725e3d31edad02747443f5d3a0f1b18b90a82b6c",
+    "app/v2/trade-readout.js": "172f3003daa6916beb264d62ff6620e4ebecac0f487a35318afa16b993bada8a",
+    "data/fixtures/current/comparison-sources-data.json": "c443a8ff4abf878a5f77c0882bce50d9ca98629999ccf84c8bdffc9ae9f3101f"
+  }
+}

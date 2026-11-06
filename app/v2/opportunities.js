@@ -24,6 +24,8 @@
   const CACHE_MAX_ROWS = 150000;
   const finite = value => typeof value === "number" && Number.isFinite(value);
   const finder = () => (typeof module !== "undefined" && module.exports ? require("./finder.js") : root.TradeValueFinder);
+  const readout = () => (typeof module !== "undefined" && module.exports ? require("./trade-readout.js") : root.TradeValueReadout);
+  const canonicalInputs = new WeakMap();
   const shown = n => Math.round(n * 10) / 10;
   const asShown = n => (Math.abs(n) < 0.05 ? 0 : n);
   const fmt = n => (Math.abs(n) < 0.05 ? "0.0" : (n > 0 ? "+" : "−") + Math.abs(n).toFixed(1));
@@ -185,9 +187,21 @@
   // ---------- all pairings: cached, chunked ----------
   function createCache() { return new Map(); }
   const nextFrame = () => new Promise(resolve => (root.requestAnimationFrame ? root.requestAnimationFrame(() => resolve()) : setTimeout(resolve, 0)));
+  // Canonical computation must not wait for a display frame (background tabs
+  // can throttle rAF). Yield a real task; painting/cancellation remain possible.
+  const nextCanonicalTask = () => {
+    if (root.scheduler && typeof root.scheduler.yield === "function") return root.scheduler.yield();
+    if (root.document && typeof root.MessageChannel === "function") return new Promise(resolve => {
+      const channel = new root.MessageChannel();
+      channel.port1.onmessage = () => { channel.port1.close(); channel.port2.close(); resolve(); };
+      channel.port2.postMessage(null);
+    });
+    return new Promise(resolve => setTimeout(resolve, 0));
+  };
   // mine: {id, name, entries}; opponents: [{id, name, entries}]. Options: {cache, onProgress({index, total, name}), yieldFn, isCancelled(), budgetMs}.
   // Resolves {rows (ranked), perOpponent, capped, computed, reused, cancelled}.
   async function runAll(mine, opponents, ctx, options) {
+    if (ctx.calculationSettings) return runCanonical(mine, opponents, ctx, options);
     const o = options || {};
     const cache = o.cache || createCache();
     const yieldFn = o.yieldFn || nextFrame;
@@ -243,6 +257,106 @@
     return out;
   }
 
+  // JEG-1483: enumerate first, then use only the four canonical questions.
+  // Legacy findTrades is intentionally NOT an input: its edge/even-band/chart
+  // gates discard legitimate starter gains before the new rule can judge them.
+  function canonicalCompare(a, b) {
+    if (a.tier !== b.tier) return a.tier - b.tier;
+    if (finite(a.edge) && finite(b.edge)) return compareRows(a, b);
+    if (finite(a.edge) !== finite(b.edge)) return finite(a.edge) ? -1 : 1;
+    return a.size - b.size || a.id.localeCompare(b.id);
+  }
+  function canonicalReadout(row) {
+    const input = canonicalInputs.get(row);
+    return input ? readout().build(input) : null;
+  }
+  async function runCanonical(mine, opponents, ctx, options) {
+    const F = finder(), R = readout(), o = options || {}, limit = o.limit === undefined ? F.LIMIT : o.limit, offset = o.offset || 0;
+    if (!Number.isInteger(limit) || limit < 1 || !Number.isInteger(offset) || offset < 0) throw new RangeError("Use a positive finite page limit and a nonnegative offset.");
+    const fit = o.fit || "all";
+    if (!["all", "natural", "other", "pickup", "unknown"].includes(fit)) throw new RangeError("Unknown canonical fit group.");
+    const settings = R.calculationSettings(ctx.calculationSettings || {}), excluded = new Set(ctx.excludedOpponentIds || []);
+    const result = {status: "ready", rows: [], evaluated: 0, total: 0, totalPackages: 0, perOpponent: [], cancelled: false,
+      bounded: false, capped: false, computed: 0, reused: 0, limit, offset, hasMore: false,
+      counts: {natural: 0, other: 0, unknown: 0, pickup: 0}, calculationSettings: settings, week: ctx.week ?? null};
+    if (!mine?.id || !mine.entries?.length || !ctx.shape || !(ctx.rowsByKey instanceof Map)) return {...result, status: "missing-context", reason: "A saved team, roster and league settings are required."};
+    const constraint = ctx.constraint || null;
+    if (constraint && (!["buy", "sell"].includes(constraint.direction) || !constraint.playerKey)) throw new TypeError("A player constraint needs a stable playerKey and buy/sell direction.");
+    const teamCopy = team => ({...team, entries: (team.entries || []).map(e => ({...e}))});
+    const owner = teamCopy(mine), seen = new Set();
+    const selected = opponents.filter(team => !excluded.has(team.id) && team.id !== owner.id).map(team => {
+      if (!team.id || seen.has(team.id)) throw new TypeError("Partner IDs must be present and unique.");
+      seen.add(team.id); return teamCopy(team);
+    });
+    result.capped = selected.length > MAX_OPPONENTS;
+    if (!selected.length) return {...result, status: "missing-partners", reason: "Choose at least one partner; saved exclusions were kept."};
+    // Capture inputs once. A later week/settings/roster change cannot mutate a
+    // finished offer or its Review readout. There is no rounded legacy cache.
+    const rowsByKey = new Map([...ctx.rowsByKey].map(([key, row]) => [String(key), {...row, values: {...row.values},
+      ...(row.estimated ? {estimated: {...row.estimated}} : {}), ...(row.missingReasons ? {missingReasons: {...row.missingReasons}} : {})}]));
+    const shape = {...ctx.shape}, sourceInfo = (ctx.sourceInfo || []).map(s => ({...s}));
+    const charts = (ctx.charts || ctx.chartKeys || []).slice(), mineRows = rowsFor(owner.entries, rowsByKey);
+    result.missingMine = owner.entries.filter(e => !F.isNotEvaluated(e) && !rowsByKey.has(String(e.key))).map(e => String(e.key));
+    const plans = selected.slice(0, MAX_OPPONENTS).map(partner => {
+      const theirs = rowsFor(partner.entries, rowsByKey), waivers = partner.partnerKind === "waivers" || partner.kind === "waivers" || ctx.partnerKind === "waivers" && selected.length === 1;
+      const plan = F.enumeratePackages(mineRows, theirs, {maxSize: ctx.maxSize || 2, ourKey: settings.basis, waivers,
+        requiredGive: constraint?.direction === "sell" ? [String(constraint.playerKey)] : [],
+        requiredGet: constraint?.direction === "buy" ? [String(constraint.playerKey)] : []});
+      result.totalPackages += plan.totalPackages; result.bounded ||= plan.bounded;
+      return {partner, theirs, waivers, plan};
+    });
+    const kept = [], retain = offset + limit, pickupByPosition = new Map();
+    const keep = row => {
+      let lo = 0, hi = kept.length;
+      while (lo < hi) { const mid = (lo + hi) >> 1; if (canonicalCompare(row, kept[mid]) < 0) hi = mid; else lo = mid + 1; }
+      if (lo < retain) { kept.splice(lo, 0, row); if (kept.length > retain) kept.pop(); }
+    };
+    const yieldFn = o.yieldFn || nextCanonicalTask, budget = o.budgetMs === undefined ? 12 : o.budgetMs;
+    const clock = () => root.performance?.now ? root.performance.now() : Date.now(); let last = clock();
+    const cancel = () => { result.cancelled = true; result.status = "cancelled"; result.rows = []; return result; };
+    for (let index = 0; index < plans.length; index++) {
+      const {partner, theirs, waivers, plan} = plans[index];
+      const detail = {id: partner.id, name: partner.name, evaluated: 0, totalPackages: plan.totalPackages, bounded: plan.bounded,
+        searched: {mine: plan.mine.searched, mineOf: plan.mine.of, theirs: plan.theirs.searched, theirsOf: plan.theirs.of},
+        missingRequired: plan.missingRequired, missingPlayers: partner.entries.filter(e => !F.isNotEvaluated(e) && !rowsByKey.has(String(e.key))).map(e => String(e.key))};
+      result.perOpponent.push(detail);
+      const base = {shape, sourceInfo, chartKeys: charts, calculationSettings: settings, partnerKind: waivers ? "waivers" : "team",
+        mine: {id: owner.id, rows: mineRows, entries: owner.entries}, theirs: {id: partner.id, rows: theirs, entries: partner.entries}};
+      const evaluator = R.createEvaluator(base);
+      const progress = phase => o.onProgress?.({phase, index, total: plans.length, name: partner.name, evaluated: result.evaluated, totalPackages: result.totalPackages});
+      progress("running");
+      for (const candidate of plan) {
+        if (o.isCancelled?.()) return cancel();
+        const give = candidate.give.map(r => String(r.player_key)).sort(), get = candidate.receive.map(r => String(r.player_key)).sort();
+        const input = {...base, give, receive: get}, record = evaluator.evaluate({give, receive: get});
+        const overall = record.natural ? "natural" : record.partnerKind === "waivers" && record.passes ? "pickup" : record.label === "Not judged" ? "unknown" : "other";
+        const edge = record.supporting.mine.ddf.package.value, size = give.length + get.length;
+        const row = {id: `${partner.id}|${give}|${get}`, opponentId: partner.id, opponent: partner.name || String(partner.id),
+          give: give.map(k => rowsByKey.get(k)), receive: get.map(k => rowsByKey.get(k)), record, overall,
+          edge, score: finite(edge) ? F.packageScore(edge, size) : null, tier: overall === "natural" || overall === "pickup" ? 0 : overall === "unknown" ? UNJUDGED_TIER : 2, size};
+        canonicalInputs.set(row, input); result.evaluated++; detail.evaluated++; result.counts[overall]++;
+        if (overall === "pickup") {
+          const positions = [...new Set(row.receive.map(r => r.pos))], gain = record.questions[0].value;
+          if (positions.length === 1 && (!pickupByPosition.has(positions[0]) || gain > pickupByPosition.get(positions[0]).starterGain)) pickupByPosition.set(positions[0], {playerKeys: get, giveKeys: give, starterGain: gain, position: positions[0], basis: record.settings.basis});
+        }
+        if (fit === "all" || fit === overall || fit === "other" && overall === "unknown") { result.total++; keep(row); }
+        if (clock() - last >= budget) { progress("running"); await yieldFn(); last = clock(); if (o.isCancelled?.()) return cancel(); }
+      }
+      result.computed++; progress("complete");
+    }
+    if (o.isCancelled?.()) return cancel();
+    result.rows = kept.slice(offset, offset + limit).map((row, i) => {
+      const ranked = {...row, rank: offset + i + 1}; canonicalInputs.set(ranked, canonicalInputs.get(row));
+      if (row.record.partnerKind !== "waivers") {
+        const positions = [...new Set(row.receive.map(r => r.pos))], alternative = positions.length === 1 ? pickupByPosition.get(positions[0]) : null;
+        if (alternative && finite(row.record.questions[0].value) && alternative.starterGain >= row.record.questions[0].value) ranked.pickupAlternative = alternative;
+      }
+      return ranked;
+    });
+    result.hasMore = offset + result.rows.length < result.total;
+    return result;
+  }
+
   // ---------- filters (section 4.7, JEG-1108: value retired) ----------
   // filters: {fit: "all" | "natural" | "naturalMarket", opponent: "all" | id, minCapture: points, minCharts: count}; hideForce: boolean.
   function filterRows(rows, filters, hideForce) {
@@ -296,7 +410,7 @@
   const OPP_DEFAULT = {col: "rank", dir: "asc"};
   const OPP_TIES = [{get: r => r.rank, type: "number", dir: "asc"}, {get: r => r.opponent, type: "text", dir: "asc"}, {get: r => r.id, type: "text", dir: "asc"}];
 
-  const api = {OPP_COLUMNS, OPP_DEFAULT, OPP_TIES, MAX_OPPONENTS, CACHE_MAX_ROWS, TIERS, FIT_WORD, ourFitOf, theirFitOf, overallFit, projAgreement, PROJ_KEY, CAP_PER_CORE, capPerCore, computePairing, fullFit, compareRows, rankRows, createCache, runAll, filterRows, leagueHeadline,
+  const api = {OPP_COLUMNS, OPP_DEFAULT, OPP_TIES, MAX_OPPONENTS, CACHE_MAX_ROWS, TIERS, FIT_WORD, ourFitOf, theirFitOf, overallFit, projAgreement, PROJ_KEY, CAP_PER_CORE, capPerCore, computePairing, fullFit, compareRows, rankRows, createCache, runAll, runCanonical, canonicalReadout, filterRows, leagueHeadline,
     opponentHeadline, contextSig, sigOf, fmt};
   if (typeof module !== "undefined" && module.exports) { module.exports = api; return; }
   root.TradeValueOpportunities = api;
