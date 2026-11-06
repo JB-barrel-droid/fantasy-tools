@@ -46,7 +46,7 @@ on:
         required: false
         default: "1"
 
-# One run at a time, queued, never cancelled mid-publish (refresh-cadence,
+# One run per ref at a time, queued, never cancelled mid-publish (refresh-cadence,
 # 2026-10-08). Two dispatches 24 s apart (12:59:55 and 13:00:19 UTC on
 # 2026-10-08) both rebuilt and the second push hit rebase conflicts on
 # generated files (run 37780929856). The group did serialize them (and again
@@ -59,8 +59,9 @@ on:
 # `source_probe.py dispatch-chain`, which skips when a run is already waiting,
 # so a burst of changes coalesces into one queued run and never replaces a
 # waiting one (GitHub cancels an older *pending* run in the group).
+# JEG-1522: a non-publishing branch proof must not hold main's slot.
 concurrency:
-  group: rebuild-chain
+  group: rebuild-chain-${{ github.ref }}
   cancel-in-progress: false
 
 permissions:
@@ -77,6 +78,9 @@ jobs:
     if: github.ref == 'refs/heads/main'
     environment: main-writer
     runs-on: ubuntu-latest  # Isolate App credentials from shared runners.
+    # Includes setup, gate, recovery and publication; never allow a proof to
+    # occupy its slot for the Actions default six hours.
+    timeout-minutes: 120
     steps: &writer-steps
       - uses: actions/checkout@v4
         with:
@@ -93,7 +97,9 @@ jobs:
       # scheduler-slip measurement (started_at - cron_at) reflects when the
       # run began, not when the recording step runs at the end of the job.
       - name: Record workflow start time (JEG-137 R10)
-        run: echo "WORKFLOW_STARTED_AT=$(date -u +%FT%TZ)" >> $GITHUB_ENV
+        run: |
+          echo "WORKFLOW_STARTED_AT=$(date -u +%FT%TZ)" >> $GITHUB_ENV
+          echo 'Concurrency policy: same-ref pending runs may be replaced by a newer dispatch; running runs are not cancelled. Branch proofs have a separate slot. Job timeout: 120 minutes.' | tee -a "$GITHUB_STEP_SUMMARY"
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -328,26 +334,31 @@ jobs:
           # the whole site; a source the pulse no longer holds is released.
           python3 pipelines/fidelity_hold.py apply --week ${{ steps.week.outputs.nfl_week }} \
             || echo "::warning title=fidelity-hold::the fidelity hold step failed; see the log"
+          echo "initial_validate_start $(date -u +%FT%TZ)" >> output/chain-phase-timing.txt
           set +e
           env -u SUPABASE_URL -u SUPABASE_SERVICE_KEY python3 pipelines/candidate_evidence.py run --kind validation -- make validate > output/post-rebuild-validate.log 2>&1
           rc=$?
           set -e
+          echo "initial_validate_end $(date -u +%FT%TZ) rc=$rc" >> output/chain-phase-timing.txt
           cat output/post-rebuild-validate.log || echo "::warning::initial validation log could not be read"
           if [ "$rc" -ne 0 ]; then
             # JEG-1203: only the isolator may name a single changed culprit.
             # A decline or error keeps the original red validation status.
+            echo "isolation_start $(date -u +%FT%TZ)" >> output/chain-phase-timing.txt
             if ! python3 pipelines/isolate_post_validate.py isolate \
                 --log output/post-rebuild-validate.log \
                 --week "${{ steps.week.outputs.nfl_week }}"; then
               python3 pipelines/record_post_rebuild_validation.py --log output/post-rebuild-validate.log
               exit 1
             fi
+            echo "isolation_end_retry_validate_start $(date -u +%FT%TZ)" >> output/chain-phase-timing.txt
             # Re-run the COMPLETE gate once on the rolled-back fixture. Never
             # rerun the source chain or publish before confirm succeeds.
             set +e
             env -u SUPABASE_URL -u SUPABASE_SERVICE_KEY python3 pipelines/candidate_evidence.py run --kind validation -- make validate > output/post-rebuild-validate-retry.log 2>&1
             retry_rc=$?
             set -e
+            echo "retry_validate_end $(date -u +%FT%TZ) rc=$retry_rc" >> output/chain-phase-timing.txt
             cat output/post-rebuild-validate-retry.log || echo "::warning::retry validation log could not be read"
             if [ "$retry_rc" -ne 0 ]; then
               python3 pipelines/record_post_rebuild_validation.py --log output/post-rebuild-validate-retry.log
@@ -799,6 +810,15 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
+      - name: Retain chain phase timings (JEG-1522)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: chain-phase-timing
+          path: output/chain-phase-timing.txt
+          if-no-files-found: ignore
+          retention-days: 14
+
       - name: Upload review artifacts (JEG-113)
         # The review JSONs are gitignored, so a bare "hold" in the log says
         # nothing about WHY. Upload them on every run so the failing checks
@@ -836,10 +856,10 @@ jobs:
         if: always()
         env:
           SUPABASE_BYTES_CALLER: rebuild-chain:record-workflow-run-jeg-137-r10
-          CHAIN_OUTCOME_FOR_RECORD: ${{ steps.chain.outcome }}
+          JOB_STATUS_FOR_RECORD: ${{ job.status }}
         run: |
-          STATUS="success"
-          if [ "$CHAIN_OUTCOME_FOR_RECORD" = "failure" ]; then STATUS="failure"; fi
+          # Preserve cancellation and publication/setup failures as terminal states.
+          STATUS="$JOB_STATUS_FOR_RECORD"
           python3 pipelines/lib/record_workflow_run.py \
             --workflow "Rebuild comparison chain" \
             --started-at "${WORKFLOW_STARTED_AT:-$(date -u +%FT%TZ)}" \
@@ -882,4 +902,5 @@ jobs:
       contents: read
       actions: write
       issues: write
+    timeout-minutes: 120
     steps: *writer-steps
