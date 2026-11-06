@@ -89,9 +89,17 @@ def prepare(repo, snapshot, *, dry_run=False, validator=None):
         env = dict(os.environ, GIT_AUTHOR_NAME=author.rsplit(' <', 1)[0],
                    GIT_AUTHOR_EMAIL=author.rsplit(' <', 1)[1][:-1])
         commit = git(repo, 'commit-tree', tree, '-p', base, input=message, env=env)
+        symbolic = subprocess.run(['git', '-C', str(repo), 'symbolic-ref', '--quiet', ref],
+                                  text=True, capture_output=True)
+        if symbolic.returncode == 0:
+            raise ValueError(f'symbolic queue ref is forbidden: {ref}')
+        if symbolic.returncode != 1:
+            symbolic.check_returncode()
         old = subprocess.run(['git', '-C', str(repo), 'rev-parse', '--verify', ref],
                              text=True, capture_output=True)
-        git(repo, 'update-ref', ref, commit, old.stdout.strip() if old.returncode == 0 else '0' * 40)
+        # Never follow a symbolic ref, including one installed after the check.
+        git(repo, 'update-ref', '--no-deref', ref, commit,
+            old.stdout.strip() if old.returncode == 0 else '0' * 40)
         event = {'pr': number, 'owner': pr['owner'], 'head': head,
                  'base': base, 'candidate': commit, 'ref': ref}
         # Validate the exact candidate, never the lane checkout.

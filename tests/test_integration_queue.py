@@ -106,6 +106,19 @@ class QueueTests(unittest.TestCase):
         self.assertEqual(len(events), 1)
         self.assertEqual(events[0]['state'], 'validation_failed')
 
+    def test_symbolic_queue_ref_is_rejected_without_moving_main(self):
+        ref = 'refs/heads/queue/pr-1'
+        git(self.repo, 'symbolic-ref', ref, 'refs/heads/main')
+        validated = []
+        try:
+            with self.assertRaisesRegex(ValueError, 'symbolic queue ref'):
+                prepare(self.repo, self.snapshot,
+                        validator=lambda path: validated.append(path) or True)
+        finally:
+            self.assertEqual(git(self.repo, 'rev-parse', 'main'), self.base)
+            self.assertEqual(git(self.repo, 'symbolic-ref', ref), 'refs/heads/main')
+            self.assertEqual(validated, [])
+
     def test_dry_run_does_not_write_objects_or_refs(self):
         refs = git(self.repo, 'show-ref')
         objects = git(self.repo, 'count-objects', '-v')
