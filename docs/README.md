@@ -44,6 +44,8 @@ The durable docs live here as Markdown in GitHub (JEG-596 decision, Jeremy, 2026
 
 ## Architecture and data
 
+[Merge churn telemetry](merge-churn-telemetry.md) — Maintained; owner JEG-1525; verified 2026-11-05. Local event schema, fixture collector, weekly metrics and remaining live integration.
+
 | Doc | Status | Owner | Verified | What it is |
 |---|---|---|---|---|
 | [architecture-current.md](architecture-current.md) | Maintained | JEG-599 | 2026-10-12 | Current state: every file the site reads, the job that writes it, pg_cron schedule, what Supabase is for (JEG-599). |
@@ -121,6 +123,8 @@ The documentation-store work is tracked under JEG-583 in Linear. The consolidati
 
 - [Known baseline reds](baseline-reds/README.md): registry, gate attribution and three-night removal guidance (JEG-1450).
 | [jeg-1458-egress-rollup.md](jeg-1458-egress-rollup.md) | Record | - | - | Actions byte-counter attribution, offline/gh rollup, and uncovered traffic. |
+
+| [jeg-1531-incident-reader.md](jeg-1531-incident-reader.md) | Record | JEG-1531 | 2026-11-05 | Trusted incident command, credential contract and live acceptance drill. |
 
 - [jeg-1523-monitoring-publication.md](jeg-1523-monitoring-publication.md) — Record: staged health channel contract, producer/consumer inventory, remaining cutover work.
 

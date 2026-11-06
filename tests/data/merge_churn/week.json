@@ -1,0 +1,134 @@
+{
+  "schema_version": 1,
+  "events": [
+    {
+      "repository": "example/tools",
+      "source_id": "initial",
+      "pr": 10,
+      "kind": "head",
+      "occurred_at": "2026-11-01T23:00:00Z",
+      "payload": {
+        "head_sha": "aaa"
+      }
+    },
+    {
+      "repository": "example/tools",
+      "source_id": "ready",
+      "pr": 10,
+      "kind": "ready",
+      "occurred_at": "2026-11-01T23:00:00Z",
+      "payload": {}
+    },
+    {
+      "repository": "example/tools",
+      "source_id": "enqueue",
+      "pr": 10,
+      "kind": "enqueue",
+      "occurred_at": "2026-11-02T00:30:00Z",
+      "payload": {}
+    },
+    {
+      "repository": "example/tools",
+      "source_id": "base",
+      "pr": 10,
+      "kind": "base",
+      "occurred_at": "2026-11-02T00:40:00Z",
+      "payload": {
+        "head_sha": "aaa",
+        "base_sha": "base1",
+        "behind": 4
+      }
+    },
+    {
+      "repository": "example/tools",
+      "source_id": "head",
+      "pr": 10,
+      "kind": "head",
+      "occurred_at": "2026-11-02T01:10:00Z",
+      "payload": {
+        "head_sha": "bbb"
+      }
+    },
+    {
+      "repository": "example/tools",
+      "source_id": "refresh",
+      "pr": 10,
+      "kind": "refresh",
+      "occurred_at": "2026-11-02T01:10:00Z",
+      "payload": {
+        "head_sha": "bbb"
+      }
+    },
+    {
+      "repository": "example/tools",
+      "source_id": "freshbase",
+      "pr": 10,
+      "kind": "base",
+      "occurred_at": "2026-11-02T01:11:00Z",
+      "payload": {
+        "head_sha": "bbb",
+        "base_sha": "base2",
+        "behind": 0
+      }
+    },
+    {
+      "repository": "example/tools",
+      "source_id": "run1",
+      "pr": 10,
+      "kind": "ci",
+      "occurred_at": "2026-11-02T01:20:00Z",
+      "payload": {
+        "head_sha": "aaa",
+        "run_id": 100,
+        "attempt": 1,
+        "started_at": "2026-11-02T01:00:00Z",
+        "completed_at": "2026-11-02T01:20:00Z"
+      }
+    },
+    {
+      "repository": "example/tools",
+      "source_id": "run2",
+      "pr": 10,
+      "kind": "ci",
+      "occurred_at": "2026-11-02T01:30:00Z",
+      "payload": {
+        "head_sha": "bbb",
+        "run_id": 101,
+        "attempt": 1,
+        "started_at": "2026-11-02T01:20:00Z",
+        "completed_at": "2026-11-02T01:30:00Z"
+      }
+    },
+    {
+      "repository": "example/tools",
+      "source_id": "merge",
+      "pr": 10,
+      "kind": "merge",
+      "occurred_at": "2026-11-02T02:00:00Z",
+      "payload": {}
+    },
+    {
+      "repository": "example/tools",
+      "source_id": "openhead",
+      "pr": 11,
+      "kind": "head",
+      "occurred_at": "2026-11-02T01:00:00Z",
+      "payload": {
+        "head_sha": "ccc"
+      }
+    },
+    {
+      "repository": "example/tools",
+      "source_id": "pending",
+      "pr": 11,
+      "kind": "ci",
+      "occurred_at": "2026-11-02T02:00:00Z",
+      "payload": {
+        "head_sha": "ccc",
+        "run_id": 102,
+        "attempt": 1,
+        "started_at": "2026-11-02T02:00:00Z"
+      }
+    }
+  ]
+}
