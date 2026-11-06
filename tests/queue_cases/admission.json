@@ -1,0 +1,149 @@
+[
+  {
+    "name": "ordered",
+    "changes": [
+      {},
+      {}
+    ],
+    "expected": [
+      [
+        1,
+        "validated"
+      ]
+    ]
+  },
+  {
+    "name": "held leaves queue",
+    "changes": [
+      {
+        "held": true
+      },
+      {}
+    ],
+    "expected": [
+      [
+        1,
+        "removed"
+      ],
+      [
+        2,
+        "validated"
+      ]
+    ]
+  },
+  {
+    "name": "failed review tier zero",
+    "changes": [
+      {
+        "tier": 0,
+        "review_result": "fail"
+      },
+      {}
+    ],
+    "expected": [
+      [
+        1,
+        "held"
+      ],
+      [
+        2,
+        "validated"
+      ]
+    ]
+  },
+  {
+    "name": "failed CI",
+    "changes": [
+      {
+        "ci_result": "failure"
+      },
+      {}
+    ],
+    "expected": [
+      [
+        1,
+        "held"
+      ],
+      [
+        2,
+        "validated"
+      ]
+    ]
+  },
+  {
+    "name": "stale review",
+    "changes": [
+      {
+        "stale_review": true
+      },
+      {}
+    ],
+    "expected": [
+      [
+        1,
+        "held"
+      ],
+      [
+        2,
+        "validated"
+      ]
+    ]
+  },
+  {
+    "name": "stale CI",
+    "changes": [
+      {
+        "stale_ci": true
+      },
+      {}
+    ],
+    "expected": [
+      [
+        1,
+        "held"
+      ],
+      [
+        2,
+        "validated"
+      ]
+    ]
+  },
+  {
+    "name": "self review",
+    "changes": [
+      {
+        "self_review": true
+      },
+      {}
+    ],
+    "expected": [
+      [
+        1,
+        "held"
+      ],
+      [
+        2,
+        "validated"
+      ]
+    ]
+  },
+  {
+    "name": "missing author session",
+    "changes": [
+      {
+        "author_session": ""
+      },
+      {}
+    ],
+    "expected": [
+      [
+        1,
+        "held"
+      ],
+      [
+        2,
+        "validated"
+      ]
+    ]
+  }
+]

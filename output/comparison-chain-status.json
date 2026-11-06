@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-11-06T00:51:52.882423+00:00",
+  "run_at": "2026-11-06T10:54:06.478354+00:00",
   "nfl_week": 9,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -10,14 +10,12 @@
     "cbsros": "promoted 1/1",
     "razzball": "promoted 1/1"
   },
-  "failed": [
-    "post_rebuild_validation"
-  ],
-  "success": false,
-  "outcome": "failed",
+  "failed": [],
+  "success": true,
+  "outcome": "published_with_holds",
   "held": [
+    "cbsros",
     "espn",
-    "fantasycalc",
     "razzball",
     "usatoday"
   ],
@@ -36,18 +34,6 @@
       "hold_severity": "amber",
       "week": 9
     },
-    "fantasycalc": {
-      "reason": "fidelity: publisher_vs_stored",
-      "held_series": [
-        "fantasycalc"
-      ],
-      "sections": [
-        "fantasycalc"
-      ],
-      "detail": "17/1145 values match exactly across 6 columns; 1128 values differ, 15 outside the movement band; 1 live players not stored, 0 stored players not live (above the list's churn line); 15 players entered or left the bottom of the list since the save (churn)",
-      "hold_severity": "red",
-      "week": 9
-    },
     "espn": {
       "reason": "fidelity: scrape_validity",
       "held_series": [
@@ -61,6 +47,19 @@
       "hold_severity": "red",
       "week": 9
     },
+    "cbsros": {
+      "reason": "fidelity: publisher_vs_stored",
+      "held_series": [
+        "cbsros",
+        "cbsros_vorp"
+      ],
+      "sections": [
+        "cbsros"
+      ],
+      "detail": "1095/1095 values match exactly across 3 columns; 1 publisher names do not resolve to a canonical player; 4 players at the page's last listed value swapped in or out (ties at the row cap: Bauer Sharp, Carter Runyon, Dallen Bentley, Tip Reiman); parse notes: RB: 1 players listed with another position ",
+      "hold_severity": "amber",
+      "week": 9
+    },
     "razzball": {
       "reason": "fidelity: scrape_validity",
       "held_series": [
@@ -70,7 +69,7 @@
       "sections": [
         "razzball"
       ],
-      "detail": "player count dropped vs week 8: stored QB 101->89 (the publisher's own list dropped too (88)), stored TE 141->130, chart QB 101->85 (the publisher's own list dropped too (88)), chart RB 149->137, chart WR 206->178, chart TE 141->128",
+      "detail": "player count dropped vs week 8: stored QB 101->88 (the publisher's own list dropped too (88)), stored TE 141->128, chart QB 101->84 (the publisher's own list dropped too (88)), chart RB 149->137, chart WR 206->178, chart TE 141->126",
       "hold_severity": "red",
       "week": 9
     }
@@ -125,7 +124,7 @@
       "source": "cbsros",
       "status": "ok",
       "stage": "complete",
-      "detail": "snapshot 2026-11-05 -> 12 DDF legs -> section; review passed (4404 values)",
+      "detail": "snapshot 2026-11-06 -> 12 DDF legs -> section; review passed (4404 values)",
       "promoted": 1,
       "sections": 1
     },
@@ -133,7 +132,7 @@
       "source": "razzball",
       "status": "ok",
       "stage": "complete",
-      "detail": "snapshot 2026-11-05 -> 12 DDF legs -> section; review passed (6336 values)",
+      "detail": "snapshot 2026-11-05 -> 12 DDF legs -> section; review passed (6300 values)",
       "promoted": 1,
       "sections": 1
     }
@@ -174,7 +173,7 @@
       "lagging_one_week": false
     },
     "cbsros": {
-      "content_vintage": "2026-11-05",
+      "content_vintage": "2026-11-06",
       "content_week": 9,
       "health_status": "ok",
       "lagging_one_week": false
@@ -201,7 +200,7 @@
     "cbsros": {
       "served_week": 9,
       "label_week": 9,
-      "published_at": "2026-11-05",
+      "published_at": "2026-11-06",
       "basis": "section_label",
       "expected_week": 9,
       "weeks_behind": 0,
@@ -223,7 +222,7 @@
     "fantasycalc": {
       "served_week": 9,
       "label_week": 9,
-      "published_at": "2026-11-05T18:05:29+00:00",
+      "published_at": "2026-11-06T08:08:16+00:00",
       "basis": "section_label",
       "expected_week": 9,
       "weeks_behind": 0,
@@ -270,25 +269,8 @@
   "stale_rule": "a source still serving week N after Thursday 12:00 CT of week N+1 is stale (Jeremy, 2026-10-27, JEG-1176); a warning only, never a chain failure",
   "fidelity_holds": {
     "usatoday": "fidelity: publisher_vs_stored",
-    "fantasycalc": "fidelity: publisher_vs_stored",
     "espn": "fidelity: scrape_validity",
+    "cbsros": "fidelity: publisher_vs_stored",
     "razzball": "fidelity: scrape_validity"
-  },
-  "post_rebuild_validation": {
-    "status": "failed",
-    "command": "make validate",
-    "failed_tests": [
-      "FAIL tests.test_rank_guard.TestEngineKeepsOrderInTransition.test_lagging_charts_keep_order_in_their_own_week",
-      "FAIL tests.test_rank_guard.TestEngineKeepsOrderInTransition.test_the_replay_is_a_transition"
-    ],
-    "assertions": [
-      "AssertionError: Lists differ: [\"('ppr', 12, 'null') fantasycalc: 1690 in[438 chars]5}]\"] != []",
-      "AssertionError: 7 not found in [9, 8] : (('ppr', 12), {'week': 8, 'selected': False, 'default_week': 8, 'newest': 9, 'previous': 8, 'transition': True, 'weeks': [9, 8], 'on_newest': 2, 'total': 4, 'views': {'8': {'sources': ['cbs', 'cbsros', 'fantasypros', 'usatoday'], 'missing_sources': []}, '9': {'sources': ['cbsros', 'fantasypros'], 'missing_sources': ['cbs', 'usatoday']}}, 'servedWeeks': {'espn': 9, 'cbsros': 9, 'razzball': 9, 'fantasycalc': 9, 'usatoday': 8, 'fantasypros': 9, 'cbs': 8}, 'missingSaved': {}})"
-    ],
-    "make_targets": [
-      "Makefile:676: test-core"
-    ],
-    "detail": "FAIL tests.test_rank_guard.TestEngineKeepsOrderInTransition.test_lagging_charts_keep_order_in_their_own_week; FAIL tests.test_rank_guard.TestEngineKeepsOrderInTransition.test_the_replay_is_a_transition; AssertionError: Lists differ: [\"('ppr', 12, 'null') fantasycalc: 1690 in[438 chars]5}]\"] != []; AssertionError: 7 not found in [9, 8] : (('ppr', 12), {'week': 8, 'selected': False, 'default_week': 8, 'newest': 9, 'previous': 8, 'transition': True, 'weeks': [9, 8], 'on_newest': 2, 'total': 4, 'views': {'8': {'sources': ['cbs', 'cbsros', 'fantasypros', 'usatoday'], 'missing_sources': []}, '9': {'sources': ['cbsros', 'fantasypros'], 'missing_sources': ['cbs', 'usatoday']}}, 'servedWeeks': {'espn': 9, 'cbsros': 9, 'razzball': 9, 'fantasycalc': 9, 'usatoday': 8, 'fantasypros': 9, 'cbs': 8}, 'missingSaved': {}})",
-    "recorded_at": "2026-11-06T01:08:16.201060+00:00"
   }
 }

@@ -27,7 +27,8 @@ CONTENT, never from the request or a label:
   * CBS (no content date) -> the pull's week column (the puller reads it from
     the article), and the pull cannot predate that week;
   * FantasyCalc (a live crowd value, no article) -> the pull's week column,
-    which must equal the content week the pull happened in.
+    which must equal the pull's Tuesday-flip week on UTC or New York's
+    calendar (legacy writers used both); an offset timestamp is required.
 An entry whose evidence does not give the file's week is refused
 (validate_week_doc), so a Week 4 file can never carry Week 3 content.
 
@@ -155,18 +156,35 @@ def evidence_week(entry: dict) -> int:
             raise HistoryError(f"{entry.get('source')}: week column {week} pulled in week {pulled}")
         return week
     if rule == "week_column_pull":  # FantasyCalc: live value, the pull IS the content
-        week = int(ev.get("week_column") or 0)
-        pulled = week_of_day(ev.get("pulled_at"))
-        # JEG-1479: a pull on Monday evening ET is already Tuesday in UTC. The
-        # FantasyCalc writer has labelled such pulls on both clocks (Oct 27
-        # 01:05Z -> 8, UTC; Nov 3 03:05Z -> 8, New York), so a label that
-        # matches either calendar is the pull's week. Anything else still
-        # fails closed.
-        if week >= 1 and pulled != week and pulled_week_ny(ev.get("pulled_at")) == week:
-            return week
-        if week < 1 or pulled != week:
-            raise HistoryError(f"{entry.get('source')}: week column {week} but pulled in week {pulled}")
+        raw = ev.get("pulled_at")
+        interpretations = {}
+        try:
+            moment = parse_iso_timestamp(str(raw or ""))
+            if moment.tzinfo is None:
+                raise ValueError("pull timestamp requires a UTC offset")
+            for clock, day in (("UTC", moment.astimezone(timezone.utc).date()),
+                               ("America/New_York", today_ny(moment))):
+                interpretations[clock] = {"date": day.isoformat(), "week": current_nfl_week(day)}
+            try:
+                week = int(ev.get("week_column") or 0)
+            except (TypeError, ValueError) as exc:
+                raise ValueError("week column must be an integer") from exc
+            if str(ev.get("week_column")) != str(week):
+                raise ValueError("week column must be an integer")
+        except (TypeError, ValueError) as exc:
+            week = None
+            reason = str(exc)
+        else:
+            reason = "label matches neither calendar"
+        accepted_rule = "week_column_pull: integer week >= 1 matching UTC or America/New_York Tuesday-flip calendar; offset timestamp required"
+        if week is None or week < 1 or week not in {v["week"] for v in interpretations.values()}:
+            raise HistoryError(
+                f"history-capture rejected source={entry.get('source')} "
+                f"bake_ids={entry.get('bake_ids', [])!r} origin={entry.get('origin')!r} "
+                f"raw_timestamp={raw!r} week_column={ev.get('week_column')!r} "
+                f"interpreted={interpretations!r}; accepted_rule={accepted_rule}; {reason}")
         return week
+
     raise HistoryError(f"{entry.get('source')}: unknown week evidence rule {rule!r}")
 
 
@@ -266,6 +284,14 @@ def published_entries_from_rows(rows: list[dict]) -> list[dict]:
     rows = [r for r in rows if r.get("source") in PUBLISHED and r.get("week") is not None
             and int(r.get("qb_slots") or 1) == 1 and int(r.get("league_teams") or 12) == 12
             and (r.get("variant") or "as_published") == "as_published"]
+    # Validate the original label before any int() grouping can truncate it.
+    for row in rows:
+        if row["source"] == "fantasycalc":
+            evidence_week({"source": row["source"], "bake_ids": [row.get("bake_id")],
+                           "origin": "supabase:public.source_trade_values",
+                           "week_evidence": {"rule": "week_column_pull",
+                                             "week_column": row["week"],
+                                             "pulled_at": row.get("pulled_at")}})
     for row in _latest_pull_per_bake(rows):
         source = row["source"]
         if int(row.get("season") or SEASON) != SEASON:
@@ -880,7 +906,7 @@ def git_json(rev: str, path: str) -> dict:
     return json.loads(subprocess.check_output(["git", "show", f"{rev}:{path}"], cwd=ROOT))
 
 
-def main(argv=None) -> int:
+def run_capture(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--supabase", action="store_true", help="fetch saved inputs from Supabase (CI)")
     ap.add_argument("--supabase-dump", type=Path, help="read a saved Supabase dump instead")
@@ -933,6 +959,32 @@ def main(argv=None) -> int:
         note = rec.get("label_mismatch") or rec.get("note") or rec.get("reason") or ""
         print(f"served {source}: week {rec['week']} {note}")
     return 0
+
+
+def main(argv=None) -> int:
+    """Expose capture failures as a dependency failure, before chart evaluation."""
+    import os
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument("--status-file", type=Path)
+    opts, remaining = parser.parse_known_args(argv)
+    try:
+        result = run_capture(remaining)
+        status = {"schema": "week-history-capture/1", "success": True}
+    except Exception as exc:
+        result = 1
+        status = {"schema": "week-history-capture/1", "success": False,
+                  "stage": "history-capture", "error_type": type(exc).__name__, "detail": str(exc)}
+        print("history-capture FAILED: " + str(exc), file=sys.stderr)
+    if opts.status_file:
+        opts.status_file.parent.mkdir(parents=True, exist_ok=True)
+        opts.status_file.write_text(json.dumps(status, indent=2) + "\n")
+        summary = os.environ.get("GITHUB_STEP_SUMMARY")
+        if summary:
+            with open(summary, "a") as stream:
+                stream.write("\n## History capture: " + ("success" if status["success"] else "FAILED") + "\n")
+                if not status["success"]:
+                    stream.write("\n```text\n" + status["detail"] + "\n```\n")
+    return result
 
 
 if __name__ == "__main__":

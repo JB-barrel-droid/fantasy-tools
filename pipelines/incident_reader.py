@@ -14,6 +14,14 @@ import time
 import urllib.error
 import urllib.request
 
+import sys as _sys  # noqa: E402
+from pathlib import Path as _Path  # noqa: E402
+
+# `lib` lives in pipelines/; make it importable whatever the CWD, checkout path or
+# import order (tests import this module as pipelines.X without pipelines/ on sys.path).
+_sys.path.insert(0, str(_Path(__file__).resolve().parent))
+from lib.timestamps import parse_iso_timestamp  # noqa: E402
+
 
 class Unknown(Exception):
     """Incomplete evidence; messages must never contain remote response bodies."""
@@ -109,7 +117,7 @@ class IncidentClient:
             data, _ = self.request('POST', '/app/installations/'+installation+'/access_tokens', jwt,
                 {'repositories': [self.repo.split('/')[1]], 'permissions': {
                     'actions': 'read', 'checks': 'read', 'statuses': 'read', 'pull_requests': 'read'}})
-            expiry = datetime.fromisoformat(data['expires_at'].replace('Z', '+00:00')).timestamp()
+            expiry = parse_iso_timestamp(data['expires_at']).timestamp()
             if expiry <= self.clock()+60 or not data['token']:
                 raise ValueError()
             self.token, self.expires = data['token'], expiry
