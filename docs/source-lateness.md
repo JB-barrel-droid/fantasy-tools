@@ -17,12 +17,13 @@ sources changes (otherwise at most every 6 hours) and closes it when every
 source is on time again. GitHub emails the repository owner.
 
 The monitoring run fails if the check cannot complete or GitHub alert delivery
-fails. Every on-site source needs a known served week, from the published
-history index or the existing chain-status fallback. An explicit unknown in
-the history index takes precedence over a chain attempt. Missing publication
-metadata appears as unknown in the report; it never resolves an existing
-alert. Incomplete reports leave alerts unchanged and exit 1. A delivery error
-also exits 1; a multi-request update may already have partially completed.
+fails. Every on-site source needs a known served week from the published
+history index. Chain-status labels describe an attempted rebuild; even a
+successful rebuild may fail to publish. They never fill a missing, empty or
+unknown published-history entry. Missing publication metadata appears as
+unknown in the report; it never resolves an existing alert. Incomplete reports
+leave alerts unchanged and exit 1. A delivery error also exits 1; a
+multi-request update may already have partially completed.
 
 ## The rule for each source
 

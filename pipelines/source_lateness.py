@@ -199,21 +199,17 @@ def known_week(value) -> bool:
 
 
 def served_weeks(history: dict[str, Any], status: dict[str, Any]) -> dict[str, int]:
-    """The week each source serves on the site: the history index (what is
-    published), else the chain status' last run."""
+    """The week each source serves, from published history only.
+
+    `status` remains an accepted argument for existing callers, but a chain
+    attempt (even a successful rebuild) does not prove its data published.
+    Missing published weeks must stay unknown rather than use its labels.
+    """
     out: dict[str, int] = {}
-    for src, info in (status.get("source_weeks") or {}).items():
-        wk = info.get("served_week") if isinstance(info, dict) else None
-        if known_week(wk):
-            out[src] = wk
     for src, info in (history.get("served") or {}).items():
         wk = info.get("week") if isinstance(info, dict) else None
         if known_week(wk):
             out[src] = wk
-        else:
-            # An explicit unknown in the published index must not become
-            # "current" via a chain attempt that may never have published.
-            out.pop(src, None)
     return out
 
 
