@@ -8,6 +8,10 @@ const path = require("path");
 const dir = path.resolve(process.argv[2] || path.join(__dirname, "..", "app", "v2"));
 const S = require(path.join(dir, "simplified-site.js"));
 const O = require(path.join(dir, "opportunities.js"));
+const TC = require(path.join(dir, "trade-context.js"));
+const R = require(path.join(dir, "trade-readout.js"));
+const F = require(path.join(dir, "finder.js"));
+const L = require(path.join(dir, "lineup-comparison.js"));
 const FIXTURE = JSON.parse(fs.readFileSync(path.join(__dirname, "fixtures", "simplified-site", "synthetic-answer.json"), "utf8"));
 // The full dashboard's capture cell format (league.js), read from its source so the comparison is against the page itself.
 const leagueSrc = fs.readFileSync(path.join(dir, "league.js"), "utf8");
@@ -22,7 +26,106 @@ function eq(a, b, what) { if (JSON.stringify(a) !== JSON.stringify(b)) throw new
 function ok(v, what) { if (!v) throw new Error(what); }
 const withheld = vm => vm.answer === null && vm.more.length === 0 && vm.stretch.length === 0 && vm.detail === null;
 
+// Explicitly synthetic UI contract input, not a second calculator or a live recommendation fixture.
+function canonicalRow() {
+  const q = (id, subject, scope, value, basis) => ({id, subject, scope, value, basis, status: "known", pass: true,
+    label: {"our-starters": "Our starter value", "our-roster": "Our roster construction",
+      "their-starters": "Their market starter value", "their-roster": "Their roster construction"}[id],
+    sources: ["usatoday", "fantasypros"], coverage: {available: 2, total: 3, required: 2, text: "2 of 3"},
+    aggregation: "Supplied canonical method", sign: "positive is better for the subject", tolerance: 0.05,
+    ...(scope === "starters" ? {operator: subject === "mine" ? ">" : ">=", threshold: 0, tier: "any"} : {})});
+  return {id: "them|1|2", opponentId: "them", opponent: "Synthetic partner", give: [{player_key: "1", name: "Synthetic A"}],
+    receive: [{player_key: "2", name: "Synthetic B"}], edge: 999, record: {contract: "JEG-1483/1", label: "Other", natural: false,
+      partnerKind: "team", settings: {basis: "ddf_value_projections", market: "published-average"},
+      participants: {mine: "mine", theirs: "them"}, deal: {give: ["1"], get: ["2"]},
+      questions: [q("our-starters", "mine", "starters", 2, "ddf_value_projections"), q("our-roster", "mine", "roster", true, "ddf_value_projections"),
+        q("their-starters", "theirs", "starters", 0, "published-average"), q("their-roster", "theirs", "roster", true, "published-average")],
+      supporting: {theirs: {market: {package: q("support", "theirs", "package total", 0, "published-average")}}}}};
+}
+const canonicalResult = row => ({status: "ready", rows: [row], evaluated: 40, total: 20, hasMore: true,
+  bounded: true, capped: false, counts: {natural: 3, other: 15, unknown: 2, pickup: 0}});
+const canonicalOptions = {league: {name: "Synthetic canonical league", myTeam: "Synthetic A"},
+  fixture: {kind: "synthetic", label: "Synthetic UI contract, not a live answer."}};
+if (process.argv[3] === "--canonical-fixture") {
+  process.stdout.write(JSON.stringify(S.canonicalContext(canonicalResult(canonicalRow()), canonicalOptions))); process.exit(0);
+}
+
+// Contract tests use the real shared modules with a small, explicitly synthetic engine/roster. No recommendation
+// success is fabricated: the provider is absent, or throws if the pending-search guard calls it.
+function runtime() {
+  const rows = [{player_key: "1", name: "Synthetic A", pos: "RB", values: {ddf_value: 10}},
+    {player_key: "2", name: "Synthetic B", pos: "RB", values: {ddf_value: 14}}];
+  const ws = freeze({id: "synthetic", name: "Synthetic League", myTeamId: "a", ui: {}, teams: [
+    {id: "a", name: "Synthetic A", entries: [{key: "1", name: "Synthetic A", pos: "RB"}]},
+    {id: "b", name: "Synthetic B", entries: [{key: "2", name: "Synthetic B", pos: "RB"}]}]});
+  const shape = {QB: 0, RB: 1, WR: 0, TE: 0, FLEX: 0, SUPERFLEX: 0, BENCH: 5};
+  return {TradeValueWorkspace: {store: {get: () => ws}}, TradeValueTradeContext: TC, TradeValueReadout: R,
+    TradeValueFinder: F, TradeValueLineupComparison: L, ValueModel: {isReserveSlot: slot => slot === "IR"},
+    TradeValueCurveControls: {getBasis: () => ({mode: "default"}), getSourceInfo: () => [], getRosterShape: () => shape,
+      getAllRows: () => { throw new Error("must not reprice the completed search"); }},
+    TradeValueV2: {leagueQuery: () => "scoring=half_ppr&teams=12&roster=QB0.RB1.WR0.TE0.FLEX0.SF0.BN5"},
+    DDFOverrides: {snapshotContext: () => ({basis: {mode: "default"}, values: {}})},
+    TradeValueLeague: {ui: {ready: true, running: false, timer: null, result: {rows: [], pricingRows: rows}}}};
+}
+
 const checks = {
+  test_canonical_authority_and_immutable_row_identity() {
+    const row = canonicalRow(); row.rank = 21;
+    const result = freeze(canonicalResult(row)), before = JSON.stringify(result);
+    const c = S.canonicalContext(result, canonicalOptions), v = S.viewModel(c, null);
+    eq(v.state, "answer", "canonical rows need no invented manager likelihood");
+    ok(c.ideas.recommendations[0] === row, "keep producer WeakMap/captured-row identity");
+    eq(v.answer.gainText, "+2.0", "use supplied starter quantity, ignore legacy edge999");
+    eq(v.answer.rank, 21, "canonical page rank is not reset by the presentation");
+    eq(v.answer.fitWord, "Other", "copy canonical label; never rejudge the four true flags");
+    eq(v.answer.evidence, "Their Published-chart average package: 0.0 · 2 of 3.", "known package zero retained");
+    eq(v.answer.questions.map(q => q.id), ["our-starters", "our-roster", "their-starters", "their-roster"], "four visible questions in canonical order");
+    ok(v.counts.includes("Evaluated 40") && v.counts.includes("20 match") && v.counts.includes("not an exhaustive")
+      && v.counts.includes("More results"), "copy producer page/bound disclosures");
+    eq(JSON.stringify(result), before, "canonical result never mutated");
+  },
+  test_canonical_unknown_coverage_and_pickup() {
+    for (const available of [0, 1, 2, 3]) {
+      const row = canonicalRow(), q = row.record.questions[2];
+      q.value = null; q.pass = null; q.status = "unknown"; q.coverage.text = `${available} of 3`;
+      row.record.label = "Not judged";
+      const v = S.viewModel(S.canonicalContext(canonicalResult(row), canonicalOptions), null);
+      eq(v.answer.questions[2].value, "Unavailable", "unknown never becomes zero");
+      eq(v.answer.questions[2].result, "Unknown", "unknown predicate stays unknown");
+      ok(v.answer.questions[2].meta.includes(`${available} of 3`), "source coverage copied, not recalculated");
+      eq(v.answer.fitWord, "Not judged", "source judgment preserved at every supplied coverage");
+      ok(v.answer.evidence.includes("0.0"), "known package evidence survives unknown starter judgment");
+    }
+    const row = canonicalRow(); row.give = []; row.record.deal.give = []; row.opponent = "Waivers";
+    row.record.partnerKind = "waivers"; row.record.label = "Pickup"; row.record.supporting.theirs = null;
+    row.record.questions.slice(2).forEach(q => {q.status = "not_applicable"; q.value = null; q.pass = null; q.reason = "Not applicable: Waivers";});
+    const v = S.viewModel(S.canonicalContext(canonicalResult(row), canonicalOptions), null);
+    eq(v.answer.fitWord, "Pickup", "Pickup label is not Natural fit");
+    eq(v.answer.offer, "Pick up Synthetic B from Waivers.", "add-only package needs no fictional drop");
+    eq(v.answer.evidence, "No other manager: Waivers.", "no fictional manager evidence");
+    eq(v.answer.questions.slice(2).map(q => q.status), ["not_applicable", "not_applicable"], "waiver predicates stay not applicable");
+  },
+  test_canonical_identity_readout_and_pending_guards() {
+    const row = canonicalRow(), result = canonicalResult(row);
+    const detail = S.canonicalContext(result, {...canonicalOptions, detailId: row.id,
+      readoutFor: got => {ok(got === row, "canonicalReadout sees original row"); return {decision: clone(got.record)};}});
+    ok(S.viewModel(detail, {detail: row.id}).readout, "matching shared readout carried to detail");
+    const mismatch = S.canonicalContext(result, {...canonicalOptions, detailId: row.id, readoutFor: () => ({decision: {}})});
+    eq(S.viewModel(mismatch, {detail: row.id}).state, "incomplete", "wrong package readout withheld");
+    for (const edit of [r => {r.record.deal.get = ["other"];}, r => {r.record.participants.theirs = "other";},
+      r => {r.record.questions[0].value = null;}, r => {r.record.questions[0].status = "unknown";}]) {
+      const bad = clone(row); edit(bad);
+      eq(S.viewModel(S.canonicalContext(canonicalResult(bad), canonicalOptions), null).state, "incomplete", "malformed identity/status cannot render");
+    }
+    for (const r of [null, {...result, cancelled: true}, {...result, status: "running"}])
+      eq(S.viewModel(S.canonicalContext(r, canonicalOptions), null).state, "loading", "pending/cancelled result is never shown");
+    eq(S.viewModel(S.canonicalContext({...result,status:'missing-partners',reason:'Choose partners'},canonicalOptions),null).state,
+      "incomplete", "missing partners do not masquerade as no result");
+    const page = S.viewModel(S.canonicalContext({...result, rows: [], total: 20, offset: 20}, canonicalOptions), null);
+    eq(page.heading, "No packages on this page", "empty page does not claim the full search has no results");
+    const r = runtime(); r.TradeValueTradeIdeas = {compute: () => ({recommendations:[row],stretch:[]})};
+    ok(S.liveContext(r).missing.some(x=>x.key==='canonical'), "legacy bridge cannot reprice a canonical package");
+  },
   test_name_and_route_are_exact() {
     eq(S.NAME, "Simplified site", "section name");
     eq(S.ROUTE, "#simplified-site", "route");
@@ -71,6 +174,11 @@ const checks = {
       eq(x.fitWord, rec.fit ? O.FIT_WORD[rec.fit] : null, "fit word from opportunities.js");
     });
     eq(shown.map(x => x.gainText), ["+4.2", "+3.0", "+0.1", "+6.5"], "fixture gains as displayed");
+    const labeled = S.viewModel(ctx(c => {c.basis.valueLabel = "DDF Projections"; c.basis.marketLabel = "indexed FantasyCalc";
+      c.ideas.recommendations[0].fitLabel = "Canonical fit label";}), null);
+    eq(labeled.answer.gainLine, "You gain +4.2 in DDF Projections.", "canonical basis label passed through, no new calculation");
+    eq(labeled.answer.evidence, "Their indexed FantasyCalc package +2.1.", "canonical market label passed through");
+    eq(labeled.answer.fitWord, "Canonical fit label", "canonical classifier label is authoritative");
   },
   test_context_not_mutated() {
     // Not frozen, so an in-place change shows in the comparison; two stretch offers, so reordering one shows too.
@@ -206,18 +314,59 @@ const checks = {
     const root = gates => ({TradeValueWorkspace: {store}, TradeValueTradeIdeas: {compute: () => ideas}, TradeValueSimplifiedGates: gates});
     const closed = S.viewModel(S.liveContext(root(undefined)), null);
     eq(closed.state, "incomplete", "gates closed: withheld");
-    eq(closed.reasons.length, 3, "one reason per gate");
+    eq(closed.reasons.length, 4, "three missing contracts plus ideas not read before contracts are ready");
     eq(S.GATES.map(g => g[1]), ["JEG-1259", "JEG-1260", "JEG-1249"], "the three gates");
-    eq(S.viewModel(S.liveContext(root({context: true, readout: true})), null).state, "incomplete", "two of three gates is still withheld");
     const open = S.viewModel(S.liveContext(root({context: true, readout: true, lineup: true})), null);
-    eq(open.state, "answer", "all gates open: the answer");
-    eq(open.fixture, null, "live answer is not labelled a fixture");
+    eq(open.state, "incomplete", "global flags cannot substitute for missing shared runtime contracts");
+    eq(open.reasons.length, 4, "every missing runtime contract remains named and ideas stay unread");
     eq(open.league, "Synthetic League", "league name read");
     eq(writes, [], "the adapter never writes the workspace");
     const noCard = S.viewModel(S.liveContext({TradeValueWorkspace: {store}, TradeValueSimplifiedGates: {context: true, readout: true, lineup: true}}), null);
     eq(noCard.state, "incomplete", "no Trade ideas card: withheld");
     eq(S.liveContext({}).status, "loading", "no workspace yet: loading");
     eq(S.viewModel(S.liveContext({TradeValueWorkspace: {store: {get: () => { throw new Error("bad state"); }}}}), null).state, "error", "store error is an error");
+  },
+  test_completed_contracts_do_not_need_ideas() {
+    const r = runtime(), state = S.liveContext(r);
+    eq(state.contracts, {context: true, readout: true, lineup: true}, "merged contracts are usable without #1084");
+    eq(state.missing.map(m => m.key), ["ideas"], "only the provider dependency remains");
+    eq(state.context.common.league.scoring, "half_ppr", "normalized current scoring");
+    eq(state.context.teams.mine.id, "a", "starred saved identity");
+    ok(Object.isFrozen(state.context), "shared context is immutable");
+    eq(S.viewModel(state, null).state, "incomplete", "no provider means no recommendation");
+    r.TradeValueReadout = null;
+    ok(S.liveContext(r).missing.some(m => m.key === "readout"), "missing readout fails closed");
+    r.ValueModel = null;
+    ok(S.liveContext(r).missing.some(m => m.key === "lineup"), "missing reserve/bench rule fails closed");
+    r.TradeValueV2.leagueQuery = () => "scoring=unknown";
+    ok(S.liveContext(r).missing.some(m => m.key === "context"), "unreadable settings fail closed");
+  },
+  test_search_pending_never_reads_old_ideas() {
+    for (const pending of [{running: true}, {timer: 9}, {ready: false}]) {
+      const r = runtime(); Object.assign(r.TradeValueLeague.ui, pending);
+      r.TradeValueTradeIdeas = {compute: () => { throw new Error("read a stale recommendation"); }};
+      eq(S.liveContext(r).status, "loading", "pending search is loading, never stale");
+    }
+    const r = runtime();
+    r.TradeValueTradeIdeas = {compute: () => null};
+    eq(S.liveContext(r).status, "loading", "provider still computing is not no-qualifying-result");
+    r.TradeValueTradeIdeas.compute = () => Promise.resolve(FIXTURE.ideas);
+    eq(S.liveContext(r).status, "loading", "asynchronous output cannot become an answer");
+  },
+  test_shared_readout_keeps_pricing_and_missing_players() {
+    const r = runtime(), ws = r.TradeValueWorkspace.store.get(), state = S.liveContracts(r, ws);
+    const rec = {opponentId: "b", give: [{player_key: "1"}], receive: [{player_key: "2"}]};
+    const snapshot = r.TradeValueLeague.ui.result;
+    const before = JSON.stringify({ws, snapshot});
+    const got = S.readoutFor(r, state.context, rec, snapshot, state.shape);
+    ok(got.ready, "shared readout ready");
+    eq(got.sides.mine.ddf.totalDelta, 4, "snapshot value delta kept");
+    eq(got.roster.mine.before.size, 1, "physical roster before");
+    eq(got.roster.mine.after.size, 1, "physical roster after");
+    const missing = S.readoutFor(r, state.context, rec, {...snapshot, pricingRows: snapshot.pricingRows.slice(0, 1)}, state.shape);
+    ok(!missing.ready && missing.outside.receive.includes("2"), "missing moving player is unavailable, never zero");
+    eq(S.readoutFor(r, state.context, {...rec, opponentId: "gone"}, snapshot, state.shape), null, "deleted opponent is not substituted");
+    eq(JSON.stringify({ws, snapshot}), before, "readout never mutates saved rosters or pricing rows");
   },
   test_live_adapter_no_league() {
     const store = {get: () => freeze({name: "My league", myTeamId: null, teams: []})};

@@ -15,6 +15,16 @@
 /* Titles take focus only so keyboard and screen reader users land in the right place; they are not controls. */
 .simplified-site h1[tabindex="-1"]:focus, .simplified-site h2[tabindex="-1"]:focus { outline: none; }
 .simplified-site a { color: var(--v2-action-text); }
+.simplified-site .ss-access { display: flex; flex-wrap: wrap; gap: 8px 20px; margin: 0 0 12px; }
+.simplified-site .ss-access a { display: inline-flex; align-items: center; min-height: 44px; }
+.simplified-site .ss-evidence { color: var(--v2-muted); font-size: 13px; }
+.simplified-site .ss-questions { padding-left: 20px; margin: 12px 0; }
+.simplified-site .ss-questions li { margin-bottom: 10px; }
+.simplified-site .ss-health { border-left: 3px solid var(--v2-older); padding-left: 8px; }
+.simplified-site .v2-lineup-comparison { min-width: 0; table-layout: fixed; }
+.simplified-site .v2-lineup-comparison th:first-child { width: 24%; }
+.simplified-site .v2-lineup-comparison th:last-child { width: 18%; }
+.simplified-site .v2-lineup-comparison-wrap { overflow: visible; }
 .simplified-site a:focus-visible { outline: 2px solid var(--v2-focus); outline-offset: 2px; border-radius: 2px; }
 .simplified-site p { margin: 0 0 8px; }
 

@@ -16,6 +16,7 @@ import json
 import os
 import shutil
 import socketserver
+import subprocess
 import tempfile
 import threading
 import unittest
@@ -169,9 +170,44 @@ class SimplifiedSiteRenderTest(unittest.TestCase):
         # Answer, the two next tries, the stretch offer: opportunities.js fmt / the Trade opportunities capture cell.
         self.assertEqual(gains, ["You gain +4.2 in DDF Value.", "You gain +3.0 in DDF Value.", "You gain +0.1 in DDF Value.", "You gain +6.5 in DDF Value."])
         self.assertEqual(page.inner_text(".ss-offer"), "Offer RB Alpha to Synthetic Team B for WR India.")
-        self.assertEqual(page.locator(".ss-band").all_inner_texts(), ["Likely", "Possible", "Possible", "Long shot"])
+        # JEG-1209's November 3 decision: show existing package evidence, never an acceptance prediction.
+        self.assertEqual(page.locator(".ss-evidence").all_inner_texts(), ["Their trade-chart package +2.1.",
+                         "Their trade-chart package −0.4.", "Their trade-chart package value is unavailable.",
+                         "Their trade-chart package −2.2."])
         self.assertEqual(page.locator(".ss-more .ss-rank").all_inner_texts(), ["2.", "3."])
         page.context.close()
+
+    def test_canonical_questions_navigation_and_unknown_at_every_width(self):
+        ctx = json.loads(subprocess.check_output(["node", str(ROOT / "tests/simplified_site_harness.cjs"), str(APP),
+                                                  "--canonical-fixture"], text=True))
+        for width in WIDTHS:
+            with self.subTest(width=width):
+                errors = []
+                page = self.open(ctx, width, errors=errors)
+                self.assert_layout(page, f"canonical@{width}")
+                self.assertEqual(page.inner_text(".ss-gain"), "Our starter value: +2.0 (DDF Projections).")
+                self.assertNotIn("999", page.inner_text("#v2Simplified"), "legacy edge is not canonical starter gain")
+                self.assertEqual(page.locator(".ss-questions li").evaluate_all("ns => ns.map(n => n.dataset.questionId)"),
+                                 ["our-starters", "our-roster", "their-starters", "their-roster"])
+                self.assertIn("not an exhaustive", page.inner_text(".ss-counts"))
+                for _ in range(3):
+                    page.locator("[data-detail-for]").first.click()
+                    page.wait_for_selector("#ssDetailTitle")
+                    self.assertEqual(page.evaluate("document.activeElement.id"), "ssDetailTitle")
+                    self.assertEqual(page.locator(".ss-questions li").count(), 4)
+                    self.assertIn("Canonical decision", page.inner_text(".ss-facts"))
+                    self.assert_layout(page, f"canonical detail@{width}")
+                    page.go_back()
+                    page.wait_for_selector("#v2Simplified[data-view=section]")
+                page.evaluate("""() => {const r=window.__SS_CTX.ideas.recommendations[0];
+                  r.record.questions[2]={...r.record.questions[2],status:'unknown',value:null,pass:null};
+                  r.record.label='Not judged';window.__ssHandle.update(false);}""")
+                self.assertIn("Unavailable", page.inner_text('[data-question-id="their-starters"]'))
+                self.assertIn("Unknown", page.inner_text('[data-question-id="their-starters"]'))
+                self.assertIn("0.0", page.inner_text(".ss-evidence"), "known package zero survives unknown starter result")
+                self.assertEqual(page.evaluate("window.__ssWrites"), [])
+                self.assertEqual(errors, [])
+                page.context.close()
 
     def test_deep_link_open_and_back_with_focus(self):
         first = FIXTURE["ideas"]["recommendations"][0]
@@ -247,8 +283,7 @@ class SimplifiedSiteRenderTest(unittest.TestCase):
         page.context.close()
 
     def test_activate_reads_live_context_once_mounted(self):
-        """The dashboard's one call: activate() mounts once on the live adapter, withholds while a gate is closed, and
-        re-reads on later calls without writing the workspace."""
+        """activate() mounts once, cannot bypass missing contracts with rollout flags, and re-reads the saved team."""
         page = self.open(state("answer"), 390, hash_="#find-league", wait=False)
         result = page.evaluate("""([ideas]) => {
           const box = document.createElement('main'); document.body.append(box);
@@ -263,17 +298,92 @@ class SimplifiedSiteRenderTest(unittest.TestCase):
             const closed = box.dataset.state;
             window.TradeValueSimplifiedGates = {context: true, readout: true, lineup: true};
             const b = S.activate(box);
-            resolve({same: a === b, closed, open: box.dataset.state, h1: box.querySelectorAll('h1').length, writes,
+            const flagged = box.dataset.state;
+            ws.myTeamId = null;
+            S.activate(box);
+            resolve({same: a === b, closed, flagged, open: box.dataset.state, h1: box.querySelectorAll('h1').length, writes,
               fixture: box.querySelectorAll('.ss-fixture').length});
           }, 0));
         }""", [FIXTURE["ideas"]])
         self.assertTrue(result["same"], "mounted once")
         self.assertEqual(result["closed"], "incomplete", "gates closed: withheld")
-        self.assertEqual(result["open"], "answer", "gates open: the answer")
+        self.assertEqual(result["flagged"], "incomplete", "flags cannot replace shared contracts")
+        self.assertEqual(result["open"], "empty", "later call re-reads the starred saved team")
         self.assertEqual(result["h1"], 1)
         self.assertEqual(result["fixture"], 0, "a live context is not labelled as a fixture")
         self.assertEqual(result["writes"], [])
         page.context.close()
+
+    def test_completed_contracts_on_loaded_dashboard_without_ideas_provider(self):
+        """Real built dashboard + historical USO rosters: prerequisites work before #1084, without a fake answer."""
+        from tests._league_render import open_page
+        from tests.test_v2_finder_render import _built_dist
+        from tests.test_jeg1249_league_site_render import PASTED, SAVED, SEED, settle, uso
+        from tests.test_jeg1389_link_settings_reload_render import USO_QUERY
+
+        fx = uso()
+        with _built_dist() as base:
+            problems = []
+            page = open_page(self.chromium, base, errors=problems)
+            page.evaluate("q => TradeValueV2.applyLinkLeague(new URLSearchParams(q), {save: true})", USO_QUERY)
+            settle(page)
+            page.evaluate(SEED, [fx["league"]["teams"], fx["mine"], PASTED, {}, {}])
+            settle(page)
+            # Source on this PR has no #1084 provider. Do not stub recommendations to turn this into a success claim.
+            self.assertFalse(page.evaluate("!!window.TradeValueTradeIdeas"))
+            before = page.evaluate(SAVED)
+            for league_pricing in (True, False):
+                if not league_pricing:
+                    page.set_viewport_size({"width": 1280, "height": 900})
+                    page.click("#v2LgUseLeague")
+                    settle(page)
+                    before = page.evaluate(SAVED)
+                page.evaluate("location.hash = '#simplified-site'")
+                page.wait_for_selector("#v2Simplified[data-state=incomplete]")
+                state = page.evaluate("""() => {const c = TradeValueSimplifiedSite.liveContext(window); return {
+                  contracts:c.contracts, missing:c.missing.map(m=>m.key), scoring:c.context.common.league.scoring,
+                  mine:c.context.teams.mine.id, savedMine:TradeValueWorkspace.store.get().myTeamId};}""")
+                self.assertEqual(state["contracts"], {"context": True, "readout": True, "lineup": True})
+                self.assertEqual(state["missing"], ["ideas"])
+                self.assertEqual(state["scoring"], "half_ppr")
+                self.assertEqual(state["mine"], state["savedMine"])
+                for width in WIDTHS:
+                    page.set_viewport_size({"width": width, "height": 900})
+                    self.assert_layout(page, f"loaded USO, league pricing {league_pricing}@{width}")
+                self.assertEqual(page.evaluate(SAVED), before, "Simplified must not write the saved league")
+                self.assertEqual(page.locator(".ss-offer").count(), 0, "missing provider must not fabricate an answer")
+                page.evaluate("location.hash = '#find-league'")
+            # On the standard bench, the completed page's engine rows are its pricing rows. Check the shared readout
+            # adapter on an actual trade, without simulating the missing recommendation provider.
+            settle(page)
+            readout = page.evaluate("""() => {
+              const S=TradeValueSimplifiedSite, ws=TradeValueWorkspace.store.get(), state=S.liveContracts(window,ws);
+              const result=TradeValueLeague.ui.result, rec=result.rows[0];
+              if(!rec) return {missingTrade:true};
+              const snapshot={...result,pricingRows:TradeValueCurveControls.getAllRows()};
+              const got=S.readoutFor(window,state.context,rec,snapshot,state.shape);
+              const missing=S.readoutFor(window,state.context,rec,{...snapshot,
+                pricingRows:snapshot.pricingRows.filter(r=>String(r.player_key)!==String(rec.receive[0].player_key))},state.shape);
+              return {ready:got.ready,mine:got.roster.mine,theirs:got.roster.theirs,
+                missingReady:missing.ready,missingKeys:missing.outside.receive,receive:String(rec.receive[0].player_key)};
+            }""")
+            self.assertNotIn("missingTrade", readout)
+            self.assertTrue(readout["ready"])
+            self.assertFalse(readout["missingReady"])
+            self.assertIn(readout["receive"], readout["missingKeys"])
+            for side in ("mine", "theirs"):
+                self.assertEqual(readout[side]["after"]["size"] - readout[side]["before"]["size"], readout[side]["rosterSizeDelta"])
+            self.assertEqual(page.evaluate(SAVED), before)
+            page.evaluate("location.hash = '#simplified-site'")
+            page.wait_for_selector("#v2Simplified[data-state=incomplete]")
+            # Change the source workspace, not the Simplified view: its subscription must redraw without a route change
+            # or a manual activate() call, and must leave the new source snapshot untouched.
+            page.evaluate("TradeValueWorkspace.store.update(w => ({...w, myTeamId: null}), 'test:star-cleared')")
+            changed = page.evaluate(SAVED)
+            page.wait_for_selector("#v2Simplified[data-state=empty]")
+            self.assertEqual(page.evaluate(SAVED), changed)
+            self.assertEqual(problems, [])
+            page.context.close()
 
 
 if __name__ == "__main__":
