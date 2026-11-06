@@ -12,8 +12,10 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "pipelines"))
@@ -33,6 +35,19 @@ def _node(script):
     if out.returncode:
         raise AssertionError(out.stdout + out.stderr)
     return json.loads(out.stdout.strip().splitlines()[-1])
+
+
+def _synthetic_build(snapshot, aliases):
+    """Exercise collision guards independently of the changing real snapshot."""
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        for rel, doc in ((bna.SNAPSHOT, snapshot), (bna.SPELLINGS, {"rows": []})):
+            path = root / rel
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(json.dumps(doc), encoding="utf-8")
+        with mock.patch.object(bna, "ROOT", root), mock.patch.object(
+                bna.player_aliases, "json_entries", return_value=aliases):
+            return bna.build()
 
 
 class OneList(unittest.TestCase):
@@ -59,11 +74,35 @@ class OneList(unittest.TestCase):
             forms.setdefault(bna.plain(alias), set()).add(key)
         self.assertTrue(all(len(k) == 1 for k in forms.values()), forms)
 
-    def test_a_spelling_that_is_a_duplicate_row_is_left_out(self):
-        # Until JEG-1351 deletes 4660, "Mitch Tinsley" is also that row's own name.
+    def test_completed_cleanup_reaches_the_alias_list_and_snapshot_pair(self):
+        # JEG-1351's production read-back and the rebaked pool removed these
+        # duplicates. The offline mirror must not keep suppressing their aliases.
+        snapshot = {r["player_key"]: r for r in json.loads((ROOT / bna.SNAPSHOT).read_text())}
+        active = json.loads((ROOT / "data/inputs/players_active_snapshot.json").read_text())
+        self.assertFalse({4653, 4655, 4660} & snapshot.keys())
+        expected = {"Nyheim Miller-Hines": 2785, "Jody Fortson": 437, "Mitch Tinsley": 4363}
         rows, dropped = bna.build()
-        self.assertNotIn("Mitch Tinsley", [a for a, _ in rows])
-        self.assertIn("Mitch Tinsley", [a for a, _, _ in dropped])
+        for alias, key in expected.items():
+            self.assertIn((alias, key), rows)
+            self.assertIn(key, active["active_player_keys"])
+            self.assertNotIn(alias, [a for a, _, _ in dropped])
+
+    def test_a_spelling_that_is_another_players_name_is_left_out(self):
+        rows, dropped = _synthetic_build([
+            {"player_key": 4363, "full_name": "Mitchell Tinsley", "position": "WR"},
+            {"player_key": 4660, "full_name": "Mitch Tinsley", "position": "WR"},
+        ], [{"alias": "Mitch Tinsley", "player_key": 4363}])
+        self.assertEqual(rows, [])
+        self.assertEqual(dropped, [("Mitch Tinsley", 4363, "another player's name ([4660])")])
+
+    def test_two_players_sharing_an_alias_are_left_out(self):
+        rows, dropped = _synthetic_build([
+            {"player_key": 1, "full_name": "First Person", "position": "WR"},
+            {"player_key": 2, "full_name": "Second Person", "position": "WR"},
+        ], [{"alias": "Shared Alias", "player_key": 1}, {"alias": "Shared Alias", "player_key": 2}])
+        self.assertEqual(rows, [])
+        self.assertEqual(dropped, [("Shared Alias", 1, "names [1, 2]"),
+                                   ("Shared Alias", 2, "names [1, 2]")])
 
 
 @unittest.skipIf(shutil.which("node") is None, "node not installed")
@@ -102,6 +141,24 @@ console.log(JSON.stringify({
 }));
 """)
         self.assertEqual(r, {"alias": 868, "canonicalWins": 1, "notInPool": None})
+
+    def test_ambiguous_name_is_reported_without_picking_the_higher_value(self):
+        r = _node("""
+import { matchName } from "./supabase/functions/mcp/names.ts";
+import { createRequire } from "node:module";
+const P = createRequire(import.meta.url)("./app/v2/roster-paste.js");
+const rows = [
+  { player_key: 1, name: "John Smith", pos: "WR", team: "BUF", value: 100 },
+  { player_key: 2, name: "John Smith", pos: "WR", team: "DAL", value: 1 },
+];
+const chat = matchName(rows, "John Smith");
+console.log(JSON.stringify({ chat, paste: P.extractPlayers("John Smith", rows) }));
+""")
+        self.assertIsNone(r["chat"]["player"])
+        self.assertEqual(r["chat"]["match"], "ambiguous")
+        self.assertEqual([p["player_key"] for p in r["chat"]["suggestions"]], [1, 2])
+        self.assertEqual(r["paste"]["players"], [])
+        self.assertTrue(any(u["reason"].startswith("ambiguous:") for u in r["paste"]["unmatched"]))
 
 
 if __name__ == "__main__":
