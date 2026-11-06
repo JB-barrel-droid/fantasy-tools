@@ -35,6 +35,8 @@ concurrency:
 
 # Shared build/probe identity; an unset or empty variable retains the old slug.
 env:
+  # JEG-1523: staged health-pair channel; empty keeps the legacy writer.
+  MONITORING_PUBLICATION_URL: ${{ vars.MONITORING_PUBLICATION_URL }}
   DDF_GITHUB_REPOSITORY: ${{ vars.DDF_GITHUB_REPOSITORY }}
 
 jobs:
@@ -143,6 +145,7 @@ jobs:
         if: steps.build.outcome == 'success' && github.ref == 'refs/heads/main'
         env:
           SUPABASE_BYTES_CALLER: health-artifacts:publish
+          MONITORING_PUBLICATION_TOKEN: ${{ secrets.MONITORING_PUBLICATION_TOKEN }}
           MAIN_WRITER_TOKEN: ${{ steps.main-writer.outputs.token }}
           BRANCH_WRITER_TOKEN: ${{ github.token }}
           GIT_TERMINAL_PROMPT: '0'
@@ -171,9 +174,17 @@ jobs:
           }
           cp output/source-import-health.json dist/modules/source-import-health.json
           cp output/pipeline-checkpoints.json dist/modules/pipeline-checkpoints.json
+          # Stage both candidates before either publication path so a pause
+          # retains their bytes in the 14-day deferred recovery bundle.
+          git add dist/modules/source-import-health.json dist/modules/pipeline-checkpoints.json
+          if [ -n "$MONITORING_PUBLICATION_URL" ]; then
+            release_guard stage
+            python3 pipelines/monitoring_publication.py --directory output
+            echo "pushed=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add dist/modules/source-import-health.json dist/modules/pipeline-checkpoints.json
           if git diff --cached --quiet; then echo "pushed=false" >> $GITHUB_OUTPUT; exit 0; fi
           release_guard stage
           git commit -m "Health artifacts (CI, JEG-414)"

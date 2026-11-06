@@ -12,8 +12,10 @@ The publish script is executed for real against a throwaway repo with a local
 bare remote (same harness as test_rebuild_chain_workflow).
 """
 import re
+import json
 import tempfile
 import unittest
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from tests.test_rebuild_chain_workflow import find_step, git, run_script, write  # noqa: E402
@@ -64,6 +66,53 @@ def publish_run(text):
 
 
 class HealthArtifactsPublishTest(unittest.TestCase):
+    def test_paused_publication_retains_candidate_pair(self):
+        for channel in ('', 'https://publication.invalid'):
+            with self.subTest(channel=channel), tempfile.TemporaryDirectory() as td:
+                td = Path(td)
+                remote, work = td / 'remote.git', td / 'work'
+                git(td, 'init', '-q', '--bare', '-b', 'main', str(remote))
+                git(td, 'clone', '-q', str(remote), str(work))
+                now = datetime.now(timezone.utc)
+                write(work, '.github/main-write-pause.json', json.dumps({
+                    'paused': True, 'started_at': now.isoformat(),
+                    'expires_at': (now + timedelta(hours=1)).isoformat(),
+                    'reason': 'regression test', 'scope': ['health-artifacts']}))
+                for rel in (HEALTH, CHECKPOINTS, FIXTURE):
+                    write(work, rel, 'OLD')
+                git(work, 'add', '-A')
+                git(work, '-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', 'base')
+                git(work, 'push', '-qu', 'origin', 'main')
+                base = git(work, 'rev-parse', 'HEAD')
+                candidates = {HEALTH: b'{"health":"candidate"}\n',
+                              CHECKPOINTS: b'{"checkpoints":"candidate"}\n'}
+                for rel, body in candidates.items():
+                    write(work, 'output/' + Path(rel).name, body.decode())
+                write(work, FIXTURE, 'PARTIAL')
+                # Any attempted channel upload must fail this scenario.
+                write(work, 'pipelines/monitoring_publication.py',
+                      "from pathlib import Path\nPath('upload-attempted').touch()\nraise SystemExit(99)\n")
+                result = run_script(WORKFLOW, PUBLISH, work, {
+                    'MONITORING_PUBLICATION_URL': channel,
+                    'GITHUB_OUTPUT': str(td / 'outputs')})
+                self.assertEqual(0, result.returncode, result.stderr)
+                self.assertFalse((work / 'upload-attempted').exists())
+                self.assertEqual(base, git(work, 'rev-parse', 'HEAD'))
+                self.assertEqual(base, git(work, 'ls-remote', 'origin', 'refs/heads/main').split()[0])
+                self.assertEqual('', git(work, 'diff', '--cached', '--name-only'))
+                self.assertIn('publication_deferred=true', (td / 'outputs').read_text())
+                self.assertNotIn('pushed=true', (td / 'outputs').read_text())
+                bundle = work / 'output/release-publications/health-artifacts-1'
+                self.assertEqual(base, json.loads((bundle / 'stage.json').read_text())['base'])
+                patch = bundle / 'stage.patch'
+                self.assertNotIn(FIXTURE, patch.read_text())
+                verify = td / 'verify'
+                git(td, 'clone', '-q', str(remote), str(verify))
+                git(verify, 'apply', str(patch))
+                for rel, body in candidates.items():
+                    self.assertEqual(body, (verify / rel).read_bytes())
+                self.assertEqual('OLD', (verify / FIXTURE).read_text())
+
     def test_real_workflow(self):
         self.assertEqual([], static_problems(WORKFLOW))
         rc, changed, health = publish_run(WORKFLOW)

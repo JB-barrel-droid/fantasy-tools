@@ -129,6 +129,8 @@ The documentation-store work is tracked under JEG-583 in Linear. The consolidati
 
 | [jeg-1531-incident-reader.md](jeg-1531-incident-reader.md) | Record | JEG-1531 | 2026-11-05 | Trusted incident command, credential contract and live acceptance drill. |
 
+- [jeg-1523-monitoring-publication.md](jeg-1523-monitoring-publication.md) — Record: staged health channel contract, producer/consumer inventory, remaining cutover work.
+
 ## Week-transition implementation
 
 - [week-transition-readiness.md](week-transition-readiness.md) — Maintained; JEG-1526; verified 2026-11-05. Offline capture, queue and isolated diagnostic runner; staging remains blocked.
