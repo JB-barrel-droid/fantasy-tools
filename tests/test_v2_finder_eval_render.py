@@ -1,6 +1,6 @@
 """v2 Find a trade (JEG-988 commit 3, reworked by JEG-1019): ONE roster assessment table and the natural-fit headline, rendered.
 
-Two real roster pages (the Yahoo and ESPN team fixtures) go into the boxes at 1366x768, 1440 and 390 wide. Checked against
+Frozen 2026 inputs and labelled modeled rosters go into the boxes at all four viewports. Checked against
 the engine's own allocation and rows, computed here independently of finder.js:
 
   * a partial roster shows no table, only when it will appear;
@@ -15,10 +15,10 @@ the engine's own allocation and rows, computed here independently of finder.js:
     "Press Find trades to see fit" with both rosters, then "Natural fit found: N group(s)" with a jump link to the first
     natural group when the listed groups include natural ones (N = the listed natural groups), else "No natural fit
     between these rosters: ...". It is on screen without scrolling at 1366x768 and 390 after Find;
-  * the groups, their order and their fit labels are the same as before (see the PR: compared with origin/main);
   * 390 and 320: no sideways page scroll, the first column sticks.
 
-Two scenarios reach both headline branches: Yahoo as mine and ESPN as theirs has no natural group, the swap has natural ones.
+Two scenarios reach both headline branches: Yahoo as mine and ESPN as theirs has no natural group; the modeled pairing
+has a pinned Natural 1a witness (both teams' projections hold), checked before the rendered headline and in all scorings.
 
 Discrimination: test_guard_fails_on_broken_builds serves finder.js with the old sentence reappearing, a second assessment
 above the results, the headline missing, a "natural fit" headline when there is none, a "no natural fit" headline when
@@ -27,16 +27,68 @@ there is one, and table sums that differ from the lineup, and requires each to f
 from __future__ import annotations
 
 import functools
+import json
+import re
 import unittest
 from pathlib import Path
+from urllib.request import urlopen
 
 from tests import _render_env
 from tests.test_published_league_settings_render import _chromium_executable
 from tests.test_v2_finder_box_render import FIXTURE, OVER
-from tests.test_v2_finder_render import FINDER_JS, PICK, _built_dist, add
+from tests.test_v2_finder_render import FINDER_JS, _built_dist, add
 from tests.test_v2_modules_render import _serve
 
 ESPN = FIXTURE.with_name("espn-team.txt")
+EVAL_FIXTURE = Path(__file__).parent / "fixtures" / "finder_eval"
+NATURAL_FIXTURE = json.loads((EVAL_FIXTURE / "scenario.json").read_text(encoding="utf-8"))
+NATURAL_SCENARIO = "Modeled Natural 1a pairing (frozen 2026 inputs)"
+NATURAL_MUTATION = ('else if (naturalCount) setHeadline("natural",',
+                    'else if (false) setHeadline("natural",')
+
+
+def fixture_page(html):
+    """Replace data only: the current engine, finder, configuration and rules still run unchanged."""
+    players = (EVAL_FIXTURE / "players.json").read_text(encoding="utf-8")
+    html, count = re.subn(r'(<script id="players-data" type="application/json">).*?(</script>)',
+                          lambda m: m[1] + players + m[2], html, flags=re.S)
+    assert count == 1, f"finder eval fixture: expected one players-data island, found {count}"
+    return html
+
+
+# Prove the named trade clears search and BOTH sides of the current Natural 1a predicate. This is independent of
+# the rendered headline: breaking that branch must report the wrong headline, never an unreachable test scenario.
+PRECONDITION = """(fx) => {
+  const C = window.TradeValueCurveControls, F = window.TradeValueFinder;
+  const rows = C.getAllRows(), by = new Map(rows.map(r => [String(r.player_key), r]));
+  const problems = [];
+  for (const side of ['mine', 'theirs']) for (const p of fx[side]) {
+    if (by.get(p.key)?.name !== p.name || rows.filter(r => r.name === p.name).length !== 1)
+      problems.push(`not exactly one engine row: ${p.key} ${p.name}`);
+  }
+  if (problems.length) return {problems};
+  const charts = F.CHART_KEYS.filter(k => C.getSourceInfo().some(s => s.key === k && s.available));
+  const mine = F.withChartAverage(fx.mine.map(p => by.get(p.key)), charts);
+  const theirs = F.withChartAverage(fx.theirs.map(p => by.get(p.key)), charts);
+  const byKey = new Map(mine.concat(theirs).map(r => [String(r.player_key), r]));
+  const give = fx.witness.give.map(k => byKey.get(k)), receive = fx.witness.receive.map(k => byKey.get(k));
+  const shape = C.getRosterShape();
+  const ctx = {shape, expected: F.expectedDepth(C.getAdjustmentWeights().allocation, C.getState().teams),
+    weights: C.getBenchShareReadout(), ourKey: F.OUR_KEY, marketKey: F.MARKET_KEY, chartKeys: charts};
+  const fit = (give, receive) => F.tradeFit({mine: {roster: mine, leaving: give, arriving: receive},
+    theirs: {roster: theirs, leaving: receive, arriving: give}}, ctx);
+  const witness = fit(give, receive);
+  const found = F.findTrades(mine, theirs, {maxSize: 3, chartKeys: charts, limit: 1e7,
+    sanity: {shape, mine, theirs, keepMine: true, keepTheirs: true}});
+  const judged = F.evaluateCombo(give, receive, found.ctx);
+  const groups = F.groupTrades(found.trades, {ourKey: F.OUR_KEY});
+  const natural = groups.filter(g => fit(g.best.give, g.best.receive)?.label === 'natural').length;
+  if (charts.length < F.MIN_CHARTS) problems.push(`only ${charts.length} charts`);
+  if (!Object.values(judged.passes).every(Boolean)) problems.push(`witness fails search: ${JSON.stringify(judged.passes)}`);
+  if (!witness?.natural.ok) problems.push(`witness is not Natural 1a: ${JSON.stringify(witness)}`);
+  if (!natural) problems.push(`no Natural candidate among ${groups.length} groups`);
+  return {problems, natural, witness: witness?.natural};
+}"""
 
 
 def setUpModule():
@@ -110,7 +162,7 @@ def num(text):
 
 
 def check(page, tag, width, height, scenario) -> list[str]:
-    swap, expect_natural = SCENARIOS[scenario]
+    expect_natural = SCENARIOS[scenario]
     errors = []
     say = lambda what: errors.append(f"{tag}{scenario}: {what}")
     page.wait_for_function("() => window.TradeValueV2 && window.TradeValueV2.view() && document.getElementById('v2Find') && window.DDFRosterPaste", timeout=60000)
@@ -119,7 +171,7 @@ def check(page, tag, width, height, scenario) -> list[str]:
     start = page.evaluate(PAGE)
     if start["headline"] != "Add both rosters to see fit" or start["state"] != "missing":
         say(f"the headline before data reads {start['headline']!r}")
-    pick = page.evaluate(PICK)
+    pick = {side: [p["name"] for p in NATURAL_FIXTURE[side]] for side in ("mine", "theirs")}
     for name in pick["mine"][:3]:
         add(page, "Mine", name)
     for name in pick["theirs"][:2]:
@@ -127,8 +179,25 @@ def check(page, tag, width, height, scenario) -> list[str]:
     partial = page.evaluate(PAGE)
     if "shows once" not in partial["text"] or partial["assessTables"]:
         say(f"a partial roster reads {partial['text'][:100]!r} with {partial['assessTables']} tables")
-    page.fill("#v2FindMineSearch", (ESPN if swap else FIXTURE).read_text(encoding="utf-8"))
-    page.fill("#v2FindTheirsSearch", (FIXTURE if swap else ESPN).read_text(encoding="utf-8"))
+    # Name lists append; clear the partial rosters so the fixture is exactly the labelled pairing.
+    for side in ("Mine", "Theirs"):
+        page.click(f"#v2Find{side}Clear")
+    if expect_natural:
+        proof = page.evaluate(PRECONDITION, NATURAL_FIXTURE)
+        assert not proof["problems"], f"{tag}{scenario}: Natural fixture precondition failed: {proof}"
+        for side in ("Mine", "Theirs"):
+            page.fill(f"#v2Find{side}Search", "\n".join(pick[side.lower()]))
+        actual = page.evaluate("""() => Object.fromEntries(['Mine', 'Theirs'].map(s => [s.toLowerCase(),
+          [...document.querySelectorAll(`#v2Find${s}Players li.v2-find-row b`)].map(b => b.textContent)]))""")
+        for side in ("mine", "theirs"):
+            assert sorted(actual[side]) == sorted(pick[side]), \
+                f"{tag}{scenario}: pasted {side} differs from the proven fixture: {actual[side]}"
+        # Search knows K/DEF identities; a plain list of names carries no position for unmatched entries.
+        for name in ("Kansas City Chiefs", "Harrison Butker"):
+            add(page, "Mine", name)
+    else:
+        page.fill("#v2FindMineSearch", FIXTURE.read_text(encoding="utf-8"))
+        page.fill("#v2FindTheirsSearch", ESPN.read_text(encoding="utf-8"))
     page.wait_for_timeout(500)
     state = page.evaluate(PAGE)
     if state["headline"] != "Press Find trades to see fit":
@@ -215,32 +284,43 @@ def check(page, tag, width, height, scenario) -> list[str]:
     return errors
 
 
-# (ESPN and Yahoo swapped, natural groups expected): Yahoo vs ESPN has none of 7 groups natural, ESPN vs Yahoo has 8 of 11.
-SCENARIOS = {"Yahoo mine, ESPN theirs": (False, False), "ESPN mine, Yahoo theirs": (True, True)}
+# The old ESPN/Yahoo positive case drifted: Yahoo has only one RB after overlaps are removed. Keep the negative
+# branch, but use a modeled pairing with a proven witness for the positive branch (JEG-1352 / Natural 1a JEG-1324).
+SCENARIOS = {"Yahoo mine, ESPN theirs": False, NATURAL_SCENARIO: True}
 VIEWPORTS = ((1366, 768), (1440, 900), (390, 844), (320, 640))
 
 
-def run_checks(mutate=None, viewports=VIEWPORTS, scenarios=SCENARIOS) -> list[str]:
+def run_checks(mutate=None, viewports=VIEWPORTS, scenarios=SCENARIOS, scoring="ppr") -> list[str]:
     from playwright.sync_api import sync_playwright
     errors = []
     base_js = FINDER_JS.read_text(encoding="utf-8")
+    if mutate:
+        old, new = mutate
+        assert old in base_js, f"stale mutation anchor {old!r}"
+        base_js = base_js.replace(old, new, 1)
     with _built_dist() as base, sync_playwright() as playwright:
+        with urlopen(base) as response:
+            html = fixture_page(response.read().decode("utf-8"))
+        comparison = (EVAL_FIXTURE / "comparison.json").read_text(encoding="utf-8")
         browser = playwright.chromium.launch(args=_render_env.HERMETIC_ARGS, executable_path=_chromium_executable(playwright))
         try:
             for name in scenarios:
-                js = base_js
-                for old, new in ([mutate] if mutate else []):
-                    if old not in js:
-                        errors.append(f"stale mutation anchor {old!r}")
-                    js = js.replace(old, new, 1)
                 for width, height in viewports:
                     page = browser.new_page(viewport={"width": width, "height": height})
                     page_errors = []
                     page.on("pageerror", lambda e: page_errors.append(str(e)))
                     page.route(lambda u: not u.startswith("http://127.0.0.1"), lambda route: route.abort())
-                    page.route("**/v2/finder.js*", functools.partial(_serve, js, "text/javascript"))
+                    page.add_init_script(f"window.TRADE_VALUE_TODAY = {json.dumps(NATURAL_FIXTURE['fixture']['today'])};")
+                    page.route(base, functools.partial(_serve, html, "text/html"))
+                    page.route("**/assets/comparison-sources-data.json*", functools.partial(_serve, comparison, "application/json"))
+                    # Historical comparisons are outside this fixture; never borrow them from a moving weekly build.
+                    page.route("**/assets/history/index.json*", functools.partial(_serve,
+                        '{"schema":"week-history-index/1","season":2026,"weeks":{},"served":{}}', "application/json"))
+                    page.route("**/v2/finder.js*", functools.partial(_serve, base_js, "text/javascript"))
                     page.goto(base + "#find-trade", wait_until="networkidle")
-                    errors += check(page, f"[{width}x{height}] ", width, height, name)
+                    page.wait_for_function("window.TradeValueCurveControls && window.TradeValueCurveControls.isReady()")
+                    page.evaluate("s => window.TradeValueCurveControls.setScoring(s)", scoring)
+                    errors += check(page, f"[{scoring} {width}x{height}] ", width, height, name)
                     if page_errors:
                         errors.append(f"[{width}] page errors {page_errors}")
                     page.close()
@@ -250,23 +330,30 @@ def run_checks(mutate=None, viewports=VIEWPORTS, scenarios=SCENARIOS) -> list[st
 
 
 def broken(mutation) -> bool:
-    try:
-        return bool(run_checks(mutation, viewports=((1366, 768),)))
-    except Exception:
-        return True
+    # A stale anchor, broken fixture or browser outage is a test error, never evidence that a mutant was caught.
+    return bool(run_checks(mutation, viewports=((1366, 768),)))
 
 
 class FinderAssessmentRenderTest(unittest.TestCase):
     def test_assessment_and_headline(self):
         self.assertEqual(run_checks(), [])
 
+    def test_natural_fixture_all_scorings(self):
+        for scoring in ("standard", "half_ppr"):
+            with self.subTest(scoring=scoring):
+                self.assertEqual(run_checks(viewports=((1366, 768),), scenarios=(NATURAL_SCENARIO,), scoring=scoring), [])
+
+    def test_natural_headline_mutation_reports_wrong_headline(self):
+        errors = run_checks(NATURAL_MUTATION, viewports=((1366, 768),), scenarios=(NATURAL_SCENARIO,))
+        self.assertTrue(any("natural groups listed but the headline reads" in e for e in errors), errors)
+        self.assertFalse(any("branch under test is not reached" in e for e in errors), errors)
+
     def test_guard_fails_on_broken_builds(self):
         cases = {
             "the old sentence reappears": ("box.append(assessmentTable(a, b));", 'box.append(assessmentTable(a, b), el("p", {text: "Based on fundamentals, your roster is balanced by position."}));'),
-            "a second assessment above the results": ("    out.append(list);", '    out.append($("v2FindAssess").cloneNode(true)); out.append(list);'),
+            "a second assessment above the results": ("    out.append(list, tail);", '    out.append($("v2FindAssess").cloneNode(true)); out.append(list, tail);'),
             "headline missing": ('    const box = $("v2FindFit");\n    if (!box) return;\n    const h = fitHeadline', '    const box = $("v2FindFit");\n    if (box) return;\n    const h = fitHeadline'),
             "natural headline when there is none": ('else setHeadline("none");', 'else setHeadline("natural", {count: 1});'),
-            "no-natural headline when there is one": ('else if (naturalCount) setHeadline("natural", {count: naturalCount});', 'else if (false) setHeadline("natural", {count: naturalCount});'),
             "table bench cells read the starters": ("cell(money(posSum(part.lineup.bench, pos, v.key))", "cell(money(posSum(part.lineup.starters, pos, v.key))"),
             "table total differs from the lineup": ('money(part.lineup.total)) : el("td"', 'money(part.lineup.starterValue)) : el("td"'),
         }
