@@ -125,6 +125,8 @@ test-unit-modules:
 	python3 -m unittest tests.test_run_suite
 	# JEG-1275: selected-package composition preview view model (node, no browser).
 	python3 -m unittest tests.test_package_composition_preview_contract
+	# JEG-1418: pure local roster swaps and opt-in board artifact wiring (offline).
+	python3 -m unittest tests.test_waiver_board_swaps tests.test_waiver_board_swaps_pipeline
 	# Render-sweep coverage guard (JEG-976): a warning, not a deploy gate (Jeremy, 2026-10-26).
 	python3 -m unittest tests.test_render_sweep_coverage
 	python3 -m unittest tests.test_render_sweep_shards

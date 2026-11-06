@@ -1,0 +1,80 @@
+{
+  "setting": {
+    "scoring": "half_ppr",
+    "superflex": 0,
+    "teams": 12
+  },
+  "roster_keys": [
+    869,
+    2227,
+    1095,
+    217,
+    3247,
+    1370,
+    51,
+    786,
+    260
+  ],
+  "wire_keys": [
+    1110,
+    2730
+  ],
+  "wire_overrides": {
+    "add": [],
+    "remove": []
+  },
+  "context": {
+    "shape": {
+      "QB": 1,
+      "RB": 2,
+      "WR": 2,
+      "TE": 1,
+      "FLEX": 1,
+      "SUPERFLEX": 0,
+      "BENCH": 2,
+      "K": 0,
+      "DST": 0
+    },
+    "expected": {
+      "QB": {
+        "starters": 1,
+        "bench": 1.25,
+        "expected": 2.25,
+        "lo": 2,
+        "hi": 3
+      },
+      "RB": {
+        "starters": 2.25,
+        "bench": 2.3333333333333335,
+        "expected": 4.583333333333333,
+        "lo": 4,
+        "hi": 5
+      },
+      "WR": {
+        "starters": 2.75,
+        "bench": 2.9166666666666665,
+        "expected": 5.666666666666667,
+        "lo": 5,
+        "hi": 6
+      },
+      "TE": {
+        "starters": 1,
+        "bench": 0.5,
+        "expected": 1.5,
+        "lo": 1,
+        "hi": 2
+      }
+    },
+    "weights": {
+      "overall": 0.15,
+      "QB": 0.1,
+      "RB": 0.2,
+      "WR": 0.15,
+      "TE": 0.1
+    }
+  },
+  "gain_policy": {
+    "minimum": 0,
+    "comparison": "gt"
+  }
+}

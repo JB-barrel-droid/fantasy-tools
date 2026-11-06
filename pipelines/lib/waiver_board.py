@@ -27,8 +27,9 @@ Rules it enforces:
 * Rows are sorted by DDF Value, highest first, missing last, then player_key.
   The board sorts by Value only (design concept, "Sorting is by Value only").
 
-Version policy: 0.x while sections, verdicts and swaps are still unbuilt
-(JEG-1417, JEG-1418). A reader accepts 0.1.x only; 1.0.0 freezes the shape.
+Version policy: ordinary builds stay byte-compatible 0.1.0. An explicit local
+swap request opts into 0.2.0 (JEG-1418); populated swaps replay the shared JS rules
+when validated. This reader accepts 0.1.x and 0.2.x; 1.0.0 freezes the shape.
 
 Usage:
     python3 pipelines/lib/waiver_board.py FILE [FILE ...]
@@ -46,6 +47,8 @@ from typing import Any
 SCHEMA_NAME = "waiver-board"
 SCHEMA_VERSION = "0.1.0"
 READER_MAJOR, READER_MINOR = 0, 1
+SWAPS_SCHEMA_VERSION = "0.2.0"
+READER_MINORS = (1, 2)
 
 SCORINGS = ("standard", "half_ppr", "ppr")      # same keys as pipelines/lib/scoring.py
 TEAMS_RANGE = (4, 32)
@@ -137,8 +140,9 @@ def validate(doc: Any) -> list[str]:
     if doc["schema"] != SCHEMA_NAME:
         add("$.schema: not waiver-board")
     m = VERSION_RE.match(str(doc["schema_version"]))
-    if not m or (int(m.group(1)), int(m.group(2))) != (READER_MAJOR, READER_MINOR):
-        add(f"$.schema_version: {doc['schema_version']!r} is not {READER_MAJOR}.{READER_MINOR}.x")
+    version_ok = bool(m and int(m.group(1)) == READER_MAJOR and int(m.group(2)) in READER_MINORS)
+    if not version_ok:
+        add(f"$.schema_version: {doc['schema_version']!r} is not 0.1.x or 0.2.x")
     season_ok = _int(doc["season"]) and SEASON_RANGE[0] <= doc["season"] <= SEASON_RANGE[1]
     if not season_ok:
         add("$.season: not a season")
@@ -213,7 +217,16 @@ def validate(doc: Any) -> list[str]:
         for i, row in enumerate(doc["unresolved"]):
             if not isinstance(row, dict) or set(row) != set(UNRESOLVED_KEYS) or not _reason(row.get("unresolved_reason")):
                 add(f"$.unresolved[{i}]: needs {', '.join(UNRESOLVED_KEYS)} with a reason")
+    minor = int(m.group(2)) if version_ok else None
     for name in ("sections", "swaps"):
+        if name == "swaps" and minor == 2:
+            # A populated local artifact replays the same JS implementation;
+            # there is no Python copy of drop, depth, gain or ordering rules.
+            if not out:
+                from waiver_board_swaps import validate_block
+                for error in validate_block(doc[name], doc):
+                    add(f"$.swaps: {error}")
+            continue
         blk = doc[name]
         if not (isinstance(blk, dict) and set(blk) == {"available", "missing_reason"} and blk["available"] is False
                 and _reason(blk["missing_reason"])):

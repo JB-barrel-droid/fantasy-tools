@@ -31,8 +31,10 @@ with the source's reason. Missing stays null with a reason, never zero.
 
 Offline only: explicit local inputs, explicit output path, no network, no
 Supabase, no wall clock (`--built-at` is the clock). Same inputs give the same
-bytes. Rostered %, kickoff times, sections, verdicts and swaps are declared
-unavailable with a reason (JEG-1416 to JEG-1418).
+bytes. Rostered %, kickoff times, sections and verdicts remain unavailable
+(JEG-1416, JEG-1417). Swaps are unavailable in the default 0.1 output; an
+explicit --swap-request supplies a local roster, wire, league context and
+caller-chosen gain policy for an opt-in 0.2 output (requires Node, no network).
 
 Usage:
   python3 pipelines/build_waiver_board.py --weekly-inputs inputs-wk8.json \\
@@ -407,7 +409,7 @@ def _week_lane(wrow: dict | None, board_week: int, setting: dict, points_leg: st
 
 
 def build_board(weekly: dict, values: dict, setting: dict, built_at: str, points_leg: str = DEFAULT_POINTS_LEG,
-                inputs: dict | None = None) -> dict:
+                inputs: dict | None = None, swap_request: dict | None = None) -> dict:
     """The waiver-board document. weekly: a validated weekly-inputs doc. values: a checked snapshot."""
     if (not isinstance(setting, dict) or set(setting) != set(wb.SETTING_KEYS)
             or setting["scoring"] not in wb.SCORINGS or not wb.is_int(setting["teams"])
@@ -448,6 +450,13 @@ def build_board(weekly: dict, values: dict, setting: dict, built_at: str, points
         "sections": {"available": False, "missing_reason": SECTIONS_REASON},
         "swaps": {"available": False, "missing_reason": SWAPS_REASON},
     }
+    if swap_request is not None:
+        from waiver_board_swaps import evaluate_swaps
+        try:
+            doc["swaps"] = evaluate_swaps(doc, swap_request)
+        except ValueError as exc:
+            raise wb.BoardError(str(exc)) from exc
+        doc["schema_version"] = wb.SWAPS_SCHEMA_VERSION
     problems = wb.validate(doc)
     if problems:
         raise wb.BoardError("built board fails its own schema: " + "; ".join(problems[:5]))
@@ -490,6 +499,8 @@ def main(argv=None) -> int:
     p.add_argument("--history", type=Path, help="--from-reference: week history directory")
     p.add_argument("--points-leg", default=DEFAULT_POINTS_LEG, help="the weekly expert leg for This week points")
     p.add_argument("--values-out", type=Path, help="also write the values snapshot used")
+    p.add_argument("--swap-request", type=Path,
+                   help="optional local roster/wire/context JSON with an explicit gain policy; writes 0.2 swaps")
     a = p.parse_args(argv)
     setting = {"scoring": a.scoring, "teams": a.teams, "superflex": a.superflex}
     try:
@@ -505,7 +516,14 @@ def main(argv=None) -> int:
             vname = a.values.name
         inputs = {"weekly_inputs": {"name": a.weekly_inputs.name, "sha256": _sha256(wbytes)},
                   "values": {"name": vname, "sha256": _sha256(vbytes)}}
-        doc = build_board(weekly, values, setting, a.built_at, a.points_leg, inputs)
+        request = None
+        if a.swap_request:
+            request_bytes = a.swap_request.read_bytes()
+            request = json.loads(request_bytes)
+            if not isinstance(request, dict):
+                raise wb.BoardError("swap request must be a JSON object")
+            inputs["swap_request"] = {"name": a.swap_request.name, "sha256": _sha256(request_bytes)}
+        doc = build_board(weekly, values, setting, a.built_at, a.points_leg, inputs, swap_request=request)
     except (OSError, ValueError, wb.BoardError) as exc:
         print(f"build_waiver_board: refused, nothing written: {exc}", file=sys.stderr)
         return 2

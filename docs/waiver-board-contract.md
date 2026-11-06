@@ -1,6 +1,6 @@
-# Waiver-board artifact contract (`waiver-board` v0.1)
+# Waiver-board artifact contract (`waiver-board` v0.1; local swaps v0.2)
 
-Status: Maintained. Owner ticket: JEG-1415 (slice 1 of JEG-1196). Last updated: 2026-10-31.
+Status: Maintained. Owner tickets: JEG-1415, JEG-1418 (JEG-1196). Last updated: 2026-11-03.
 
 One computed board per league setting feeds the Waiver board view (JEG-1420)
 and Bench Churn (JEG-1197). Builder: `pipelines/build_waiver_board.py`. Schema
@@ -83,6 +83,65 @@ disabled source carries that source's own reason; reasons are non-empty strings.
 `sections` and `swaps` are `{available: false, missing_reason}` in v0.1
 (JEG-1417, JEG-1418).
 
+## Optional local swaps (v0.2, JEG-1418)
+
+Ordinary builds keep the exact v0.1 output, including its unavailable `swaps`
+placeholder. Passing `--swap-request PATH` (or `swap_request=` to `build_board`)
+opts that local artifact into v0.2.0. Site-build integration is not changed.
+There is no default gain cutoff: the caller must supply an explicit policy.
+
+The request is a JSON object with exactly these fields:
+
+| Field | Contract |
+| -- | -- |
+| `setting` | Exactly the board's scoring, teams and superflex setting. |
+| `roster_keys`, `wire_keys` | Unique resolved integer player keys, representable exactly in JavaScript. Names are resolved by the existing paste resolver before this boundary. The caller supplies its wire-selection policy. |
+| `wire_overrides` | `{add: [keys], remove: [keys]}`. A key cannot appear in both. Own players are excluded from the resulting wire. Unknown wire keys are reported; an unknown roster key disables swaps with a reason. |
+| `context` | Engine league context: `shape` (QB/RB/WR/TE/FLEX/SUPERFLEX/BENCH slots, optional K/DST), `expected` (the four positions' lo/hi bands, optionally the engine's starters/bench/expected fields), `weights` (the engine's per-position bench weights or overall fallback), and optional `rosterSize`. No weekly fields are accepted here. |
+| `gain_policy` | `{minimum: finite_number, comparison: "gt" or "gte"}`. Both fields are required. This records the caller's chosen cutoff and boundary; no policy is selected by this implementation. |
+
+The v0.2 `swaps` block has exactly `available`, `missing_reason`, `request`,
+`rows` and `unresolved_wire_keys`. Each row is `{add: player_key, drop:
+player_key_or_null, gain: number}`. The full request is retained so the artifact
+is inspectable and replayable. The CLI records the exact request-file bytes in
+`inputs.swap_request` with the file name and SHA-256.
+
+`gain` is the arriving player's DDF Value minus the departing bench player's
+DDF Value; an open roster slot has no drop and costs zero. Missing DDF Value
+never becomes zero. A disabled values source disables the swap block with its
+source reason. Other weekly fields never affect gain or selection.
+
+Subtraction uses the input numbers' canonical decimal forms, and the explicit
+gt/gte policy compares that decimal difference exactly against its minimum.
+Thus 3.35 minus 3.25 is equal to 0.1: gt excludes it and gte includes it. No
+epsilon or fixed rounding precision is added, and the input DDF Values are not
+changed. The reported gain remains a JSON number. Function callers' unary
+`acceptGain(gain)` callbacks remain supported; the adapter also supplies the
+source add and drop values as optional second and third callback arguments.
+
+`pipelines/waiver_board_swaps.cjs` invokes the same pure adapter as local JS
+callers, `app/v2/waiver-board-swaps.js`, which calls `waivers.js` and finder
+`rosterImpact`/depth rules. The adapter preserves Waivers' best-drop choice and
+ordering, reevaluates after each accepted move, and uses each player at most
+once. A proposed drop must be a priced bench player and cannot worsen a thin
+position. It omits an unsafe move rather than ranking an alternative drop.
+Both additions and priced drops must have an existing supported fantasy
+position (QB, RB, WR or TE); missing or unsupported positions are not eligible.
+
+The validator checks the block and replays that same JS implementation to
+verify the rows, gain, identities, order, availability and depth protection.
+No second Python roster-decision path is introduced. Node is required only
+when building or validating the opt-in v0.2 block; missing Node refuses it.
+The legacy v0.1 path requires no Node invocation.
+
+```
+python3 pipelines/build_waiver_board.py --weekly-inputs inputs-wk8.json \
+    --values values.json --scoring half_ppr --teams 12 --superflex 0 \
+    --built-at 2026-10-30T12:00:00Z --swap-request local-request.json \
+    --out /tmp/local-waiver-board.json
+python3 -m unittest tests.test_waiver_board_swaps tests.test_waiver_board_swaps_pipeline
+```
+
 ## Running it
 
 ```
@@ -100,5 +159,7 @@ Same inputs give the same bytes. A refused run exits 2 and writes nothing.
 
 ## Versions
 
-0.x until sections, verdicts and swaps land; a reader accepts 0.1.x only.
-1.0.0 freezes the shape for JEG-1197.
+0.x until the remaining sections and verdicts land. Default output stays 0.1.0;
+explicit local swaps use 0.2.0. The Python validator accepts both minor versions.
+A 0.1-only consumer needs explicit 0.2 support before reading populated local
+swap artifacts. 1.0.0 freezes the shape for JEG-1197.

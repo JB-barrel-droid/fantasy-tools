@@ -13,6 +13,7 @@ Skips with no browser unless RENDER_TESTS_REQUIRED=1 (browser tests only).
 """
 from __future__ import annotations
 
+import json
 import re
 import unittest
 from pathlib import Path
@@ -59,7 +60,7 @@ class ExplainerFieldnotesRenderTest(unittest.TestCase):
     def tearDownClass(cls):
         cls._cm.__exit__(None, None, None)
 
-    def open(self, flag, width, scheme="light", init_script=None):
+    def open(self, flag, width, scheme="light", init_script=None, commit_subject=None):
         ctx = self.browser.new_context(viewport={"width": width, "height": 900}, color_scheme=scheme)
         ctx.add_init_script(_render_env.pin_data_week_script())
         if init_script:
@@ -68,6 +69,15 @@ class ExplainerFieldnotesRenderTest(unittest.TestCase):
         self.errors = []
         page.on("pageerror", lambda e: self.errors.append(str(e)))
         page.route(lambda u: not u.startswith("http://127.0.0.1"), lambda route: route.abort())
+        if commit_subject is not None:
+            def with_subject(route):
+                response = route.fetch()
+                body, count = re.subn(
+                    r'("commit_subject"\s*:\s*)"(?:\\.|[^"\\])*"',
+                    lambda m: m[1] + json.dumps(commit_subject), response.text(), count=1)
+                self.assertEqual(count, 1, "expected embedded provenance metadata")
+                route.fulfill(response=response, body=body)
+            page.route("**/value-logic/", with_subject)
         page.goto(self.base + flag + "#writing/how-values", wait_until="domcontentloaded")
         # applyRoute reveals #v2How only after the engine is ready. A loaded
         # document inside a hidden frame cannot take focus (outline is 0px).
@@ -89,6 +99,28 @@ class ExplainerFieldnotesRenderTest(unittest.TestCase):
                     self.assertTrue(got["display"].startswith("Fraunces"), got["display"])
                     self.assertEqual(self.errors, [])
                     page.context.close()
+
+    def test_long_merge_subject_stays_inside_frame(self):
+        # Keep the real provenance renderer under test even when HEAD has a
+        # short subject: a merge's full SHA must wrap instead of widening its grid.
+        subject = "Merge commit 'd7881b1c105f33a51caecba74e76326987f802eb' into be/JEG-1418-release-prep"
+        for scheme in ("light", "dark"):
+            for width in (1280, 390):
+                with self.subTest(scheme=scheme, width=width):
+                    page = self.open("?design=fieldnotes", width, scheme, commit_subject=subject)
+                    try:
+                        got = _frame(page)
+                        provenance = page.evaluate("""() => {
+                          const d = document.getElementById('v2ValueLogicFrame').contentDocument;
+                          const p = d.querySelector('footer.prov p');
+                          return {text: p.textContent, overflow: p.scrollWidth - p.clientWidth};
+                        }""")
+                        self.assertIn(subject, provenance["text"])
+                        self.assertLessEqual(provenance["overflow"], 0)
+                        self.assertLessEqual(got["overflow"], 0)
+                        self.assertEqual(self.errors, [])
+                    finally:
+                        page.context.close()
 
     def test_frame_follows_a_theme_switch(self):
         # The frame's MutationObserver re-reads the parent's resolved tokens when data-theme changes.

@@ -1,0 +1,60 @@
+{
+  "kind": "JEG-1418 author integration acceptance; illustrative test roster and policy, not production activation",
+  "adapter_head": "a704715880d2dca50ff5d9bc6a4da867d6d20af7",
+  "source": {
+    "repository": "datadrivenfootball/fantasy-tools",
+    "pr": 1264,
+    "commit": "1eea6c340098863a1cbb3df149debcc70614d3fa",
+    "path": "data/weekly/waiver-boards-wk8.json.gz",
+    "blob_sha": "a8a3c4a64d93f2f915f04e0e3f470ab247825aad",
+    "sha256": "8a683ba75d614f9f0a66d3e31dacb5d53d29766d1aa176eabc1fa20b245a6f8a",
+    "member": "waiver-board-wk8-half_ppr-12-sf0.json"
+  },
+  "default_board_sha256": "a4ee3e9c01987a10ef50a9832f10ba5a1c805ddfe4fd21b0d822596d271238fd",
+  "opt_in_board_sha256": "c4d2d8ddcbe4b7a7e8e2baf07ba61c587f8161138a1903834d12511476f9f764",
+  "request_sha256": "cc79cdc4f54a110b9377f27c854174edeee03a4b87dfab0dac1880e23db17eb7",
+  "player_count": 741,
+  "expected_rows": [
+    {
+      "add": 1110,
+      "drop": 786,
+      "gain": 58.19165721595734
+    },
+    {
+      "add": 2730,
+      "drop": 260,
+      "gain": 52.51902503504703
+    }
+  ],
+  "boundary_case": {
+    "add": 3189,
+    "drop": 324,
+    "minimum": 53.81534496610199,
+    "gt_expected_rows": [],
+    "gte_expected_rows": [
+      {
+        "add": 3189,
+        "drop": 324,
+        "gain": 53.81534496610199
+      }
+    ]
+  },
+  "context_source": {
+    "path": "tests/fixtures/waiver-thin-rb.json",
+    "overrides": {
+      "K": 0,
+      "DST": 0
+    },
+    "reason": "Explicit tradable-position test league: stored board contains QB/RB/WR/TE only."
+  },
+  "renderer_contract": {
+    "api": "TradeValueWaiverBoardView.render(host, board, {onSettings})",
+    "checked_head": "d9d3d72873f5e439d3a6d68ec00e1edc871e86fc",
+    "current_support": "Backward-compatible 0.1 and explicit 0.2; 12 author DOM parity cases pass on the complete built board.",
+    "default": "0.1 available:false swaps with reason",
+    "opt_in": "0.2 available:true request + rows + unresolved_wire_keys; rows resolve labels from board.players",
+    "gain": "raw DDF gain; do not substitute weighted roster change",
+    "drop_null": "open slot; no zero-price player is invented",
+    "legacy_checked_head": "979bdedc48cecc545fc94ad0fcb5d3037cae1eca"
+  }
+}
