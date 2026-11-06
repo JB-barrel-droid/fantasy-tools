@@ -44,6 +44,8 @@ The durable docs live here as Markdown in GitHub (JEG-596 decision, Jeremy, 2026
 
 ## Architecture and data
 
+[JEG-1527 content observation ledger and scheduler audit](jeg-1527-content-observation-ledger.md) — Record, 2026-11-05; local store contract, repo scheduler evidence and outstanding production wiring.
+
 | Doc | Status | Owner | Verified | What it is |
 |---|---|---|---|---|
 | [architecture-current.md](architecture-current.md) | Maintained | JEG-599 | 2026-10-12 | Current state: every file the site reads, the job that writes it, pg_cron schedule, what Supabase is for (JEG-599). |

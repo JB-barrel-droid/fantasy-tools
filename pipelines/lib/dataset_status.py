@@ -286,7 +286,8 @@ def _comparison_entry(source_key, src, *, name, role, method,
 
 def build_dataset_status(meta, players, snapshot_dir=None,
                          comparison_asset=None, fc_cache=None,
-                         rz_live=True):
+                         rz_live=True, observation_ledger=None, observation_scopes=None,
+                         evaluated_at=None):
     """Build the dataset_status block from baked players.json content.
 
     rz_live: True when the bake emits Razzball leg fields (the repo bake
@@ -402,11 +403,7 @@ def build_dataset_status(meta, players, snapshot_dir=None,
                      "No expert blend fills the gap.")},
         "freshness": {
             "snapshot_date": espn_snapshot, "content_date": espn_snapshot,
-            "note": ("Daily morning pull. Content change vs the prior pull is "
-                     "not verifiable — only the current pull is retained. "
-                     "ESPN content is already rest-of-season, so no "
-                     "content-vintage gate applies here (unlike the retired "
-                     "ECR leg, which carried a 3-day content-staleness gate).")},
+            "note": "Native numeric-content freshness is evaluated from the observation ledger."},
         "prior": {"available": bool(espn_delta_full),
                   "prior_date": str(meta.get("prior_blend_snapshot") or "?"),
                   "delta_summary": (f"{espn_delta_full[1]} of "
@@ -526,6 +523,50 @@ def build_dataset_status(meta, players, snapshot_dir=None,
     datasets = [ddf_entry, espn_entry,
                 fc_entry, usatoday_entry, fantasypros_entry,
                 rz_entry]
+    cbs_entry = _comparison_entry(
+        "cbsros", src.get("cbsros"), name="CBS ROS",
+        role="Rest-of-season stat projection comparison.", method=_METHOD_TV,
+        method_description="CBS native ROS counting stats translated through our methodology.",
+        completeness_note="Missing source rows remain unavailable.",
+        ui_note="CBS ROS projection leg.")
+    cbs_entry["freshness"]["snapshot_date"] = meta.get("cbsros_snapshot")
+    if meta.get("n_cbsros_complete", 0):
+        cbs_entry["status"] = "live"
+        cbs_entry["shown_in_ui"] = True
+        cbs_entry["completeness"] = {
+            "priced": meta["n_cbsros_complete"], "universe": n,
+            "note": "CBS native ROS stat coverage from the bake."}
+    datasets.append(cbs_entry)
+
+    # Explicit complete scope keys, never a source-wide newest timestamp.
+    # Missing mappings fail closed; legacy date-only snapshots certify nothing.
+    try:
+        from .content_observations import Ledger, Scope, verdict
+    except ImportError:  # bake imports this module directly from pipelines/lib
+        from content_observations import Ledger, Scope, verdict
+    ledger = observation_ledger or Ledger()
+    scopes = observation_scopes or meta.get("content_observation_scopes", {})
+    for entry in datasets:
+        if entry["key"] == "our_value":
+            continue
+        configured = scopes.get(entry["key"], [])
+        observations = [verdict(ledger.latest(Scope(**key)), evaluated_at)
+                        for key in configured] or [verdict(None, evaluated_at)]
+        unhealthy = [v for v in observations if v["stale"]]
+        entry["stale"] = bool(unhealthy)
+        entry["stale_reason"] = "; ".join(dict.fromkeys(
+            reason for v in unhealthy for reason in v["reasons"])) or None
+        entry["freshness"]["observations"] = observations
+        entry["freshness"]["content_date"] = None
+        entry["freshness"]["note"] = "Fetch and numeric-change clocks are independent; unknown vintage is non-green."
+        if unhealthy and entry["status"] == "live":
+            entry["status"] = "stale"
+    # Primary values inherit ESPN's required input health, never bake time.
+    ddf_entry["stale"] = espn_entry["stale"]
+    ddf_entry["stale_reason"] = espn_entry["stale_reason"]
+    ddf_entry["freshness"] = dict(espn_entry["freshness"])
+    if ddf_entry["stale"]:
+        ddf_entry["status"] = "stale"
     summary = {
         "live": sum(1 for d in datasets if d["status"] == "live"),
         "stale": sum(1 for d in datasets if d["status"] == "stale"),
