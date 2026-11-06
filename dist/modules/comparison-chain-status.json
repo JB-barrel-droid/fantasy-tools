@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-11-06T05:02:02.193507+00:00",
+  "run_at": "2026-11-06T10:54:06.478354+00:00",
   "nfl_week": 9,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -14,6 +14,7 @@
   "success": true,
   "outcome": "published_with_holds",
   "held": [
+    "cbsros",
     "espn",
     "razzball",
     "usatoday"
@@ -46,6 +47,19 @@
       "hold_severity": "red",
       "week": 9
     },
+    "cbsros": {
+      "reason": "fidelity: publisher_vs_stored",
+      "held_series": [
+        "cbsros",
+        "cbsros_vorp"
+      ],
+      "sections": [
+        "cbsros"
+      ],
+      "detail": "1095/1095 values match exactly across 3 columns; 1 publisher names do not resolve to a canonical player; 4 players at the page's last listed value swapped in or out (ties at the row cap: Bauer Sharp, Carter Runyon, Dallen Bentley, Tip Reiman); parse notes: RB: 1 players listed with another position ",
+      "hold_severity": "amber",
+      "week": 9
+    },
     "razzball": {
       "reason": "fidelity: scrape_validity",
       "held_series": [
@@ -55,7 +69,7 @@
       "sections": [
         "razzball"
       ],
-      "detail": "player count dropped vs week 8: stored QB 101->88 (the publisher's own list dropped too (88)), stored TE 141->128, chart QB 101->85 (the publisher's own list dropped too (88)), chart RB 149->137, chart WR 206->178, chart TE 141->128",
+      "detail": "player count dropped vs week 8: stored QB 101->88 (the publisher's own list dropped too (88)), stored TE 141->128, chart QB 101->84 (the publisher's own list dropped too (88)), chart RB 149->137, chart WR 206->178, chart TE 141->126",
       "hold_severity": "red",
       "week": 9
     }
@@ -208,7 +222,7 @@
     "fantasycalc": {
       "served_week": 9,
       "label_week": 9,
-      "published_at": "2026-11-06T01:05:24+00:00",
+      "published_at": "2026-11-06T08:08:16+00:00",
       "basis": "section_label",
       "expected_week": 9,
       "weeks_behind": 0,
@@ -256,6 +270,7 @@
   "fidelity_holds": {
     "usatoday": "fidelity: publisher_vs_stored",
     "espn": "fidelity: scrape_validity",
+    "cbsros": "fidelity: publisher_vs_stored",
     "razzball": "fidelity: scrape_validity"
   }
 }

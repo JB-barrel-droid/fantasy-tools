@@ -117,7 +117,8 @@ def run_script(text, step_name, cwd, env_extra=None):
     # override the protected workflow ref explicitly rather than rely on a
     # production script treating an absent ref as main.
     env = {"PATH": "/usr/bin:/bin:/usr/local/bin", "HOME": str(cwd),
-           "GITHUB_REF": "refs/heads/main", **(env_extra or {})}
+           "GITHUB_REF": "refs/heads/main", "CAPTURE_OUTCOME": "success",
+           **(env_extra or {})}
     return subprocess.run(["bash", "-e", "-c", script], cwd=cwd, env=env,
                           capture_output=True, text=True)
 
@@ -393,6 +394,8 @@ def run_post_rebuild_scenario(text, validate_ok):
               f"pathlib.Path({OUT_STATUS!r}).write_text(json.dumps({{'success': True, 'failed': []}}))\n")
         write(work, "validate.out", PIN_FAILURE_LOG if not validate_ok else "OK\n")
         write(work, "Makefile", "validate:\n\t@cat validate.out; exit %d\n" % (0 if validate_ok else 1))
+        evidence = ROOT / "pipelines/candidate_evidence.py"
+        write(work, "pipelines/candidate_evidence.py", evidence.read_text(encoding="utf-8"))
         recorder = ROOT / "pipelines/record_post_rebuild_validation.py"
         write(work, "pipelines/record_post_rebuild_validation.py", recorder.read_text(encoding="utf-8"))
         env = {"PATH": f"{os.path.dirname(sys.executable)}:/usr/bin:/bin:/usr/local/bin",

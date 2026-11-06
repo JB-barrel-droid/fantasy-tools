@@ -16,7 +16,7 @@ Args:
     --started-at ISO timestamp of run start (usually `date -u +%FT%TZ`)
     --cron       Cron expression (e.g., "30 11 * * *"), or "" for dispatch
     --run-id     GitHub Actions run ID
-    --status     Final status ("success" or "failure")
+    --status     Final status ("success", "failure", "cancelled", or "unknown")
     --output     Path to comparison-chain-status.json (default: output/comparison-chain-status.json)
 """
 
@@ -98,7 +98,7 @@ def main() -> int:
     parser.add_argument("--run-id", required=True,
                         help="GitHub Actions run ID")
     parser.add_argument("--status", default="success",
-                        choices=["success", "failure", "unknown"],
+                        choices=["success", "failure", "cancelled", "unknown"],
                         help="Final job status")
     parser.add_argument("--output",
                         default="output/comparison-chain-status.json",
@@ -135,6 +135,9 @@ def main() -> int:
         "status": args.status,
         "slip_minutes": slip_minutes,
     }
+    if args.status == "cancelled":
+        # Job status identifies cancellation, but supplies no evidence of its cause.
+        runs[args.workflow]["cancellation_cause"] = "unknown"
     # Top-level mirrors the most recent scheduled run for the chain reader.
     if args.workflow == "Rebuild comparison chain":
         data["started_at"] = started_at.isoformat()

@@ -15,6 +15,13 @@ from pathlib import Path
 from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
 
+import sys as _sys  # noqa: E402
+
+# `lib` lives in pipelines/; make it importable whatever the CWD, checkout path or
+# import order (tests import this module as pipelines.X without pipelines/ on sys.path).
+_sys.path.insert(0, str(Path(__file__).resolve().parent))
+from lib.timestamps import parse_iso_timestamp  # noqa: E402
+
 SCHEMA = 1
 HEALTH = ('source-import-health.json', 'pipeline-checkpoints.json')
 
@@ -34,7 +41,7 @@ def build_bundle(directory):
         stamp = next((data.get(key) for key in fields if data.get(key)), None)
         if not isinstance(stamp, str):
             raise ValueError(f'{name}: missing source timestamp')
-        parsed = datetime.fromisoformat(stamp.replace('Z', '+00:00'))
+        parsed = parse_iso_timestamp(stamp)
         if parsed.tzinfo is None:
             raise ValueError(f'{name}: timestamp must include timezone')
         body = encode(data)
