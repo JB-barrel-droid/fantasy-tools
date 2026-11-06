@@ -246,25 +246,15 @@ jobs:
       # Supabase projection tables). One snapshot per source and week by the
       # week-over-week rule; other versions go to data/history/superseded/.
       # Past weeks are
-      # frozen; the no-relabel guard refuses any entry whose content evidence
-      # is another week. Non-blocking: a failed capture restores the committed
-      # history and the chain publishes without it (Risers & fallers then
-      # reads the last committed weeks). The chain's `make validate` copies
-      # the history beside the page and rebuilds its index for the new fixture.
+      # frozen; invalid provenance is a failed history dependency. Stop before
+      # chart evaluation so missing history cannot masquerade as all-source holds.
       - name: Capture week history
         id: history
-        continue-on-error: true
         env:
           SUPABASE_BYTES_CALLER: rebuild-chain:history
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-        run: python3 pipelines/build_week_history.py --supabase
-
-      - name: Restore committed week history (capture failed)
-        if: steps.history.outcome == 'failure'
-        run: |
-          echo "::warning title=week-history::capture failed; the committed history is kept"
-          git checkout -- data/history
+        run: python3 pipelines/build_week_history.py --supabase --status-file output/week-history-capture-status.json
 
       - name: Rebuild comparison chain (if fixture stale)
         id: chain
@@ -378,17 +368,16 @@ jobs:
       # capture ran before the chain, so a source the chain just promoted was
       # indexed against the old fixture. This one indexes the saved weeks
       # against the fixture being committed. Append-only and validated before
-      # it writes; a failure keeps the pre-chain capture (warning only).
+      # it writes; a failure stops publication with capture provenance.
       - name: Capture week history after promotion
+        id: capture-after-promotion
         if: steps.chain.outcome == 'success'
-        continue-on-error: true
         env:
           SUPABASE_BYTES_CALLER: rebuild-chain:capture-week-history-after-promotion
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: |
-          python3 pipelines/build_week_history.py --supabase \
-            || echo "::warning title=week-history::post-promotion capture failed; the pre-chain capture is kept"
+          python3 pipelines/build_week_history.py --supabase --status-file output/week-history-capture-status.json
 
       - name: Sync rebuilt fixture into dist (chain succeeded)
         if: steps.chain.outcome == 'success'
@@ -542,6 +531,7 @@ jobs:
           GIT_CONFIG_KEY_2: credential.useHttpPath
           GIT_CONFIG_VALUE_2: 'true'
           CHAIN_OUTCOME: ${{ steps.chain.outcome }}
+          CAPTURE_OUTCOME: ${{ steps.capture-after-promotion.outcome }}
           BAKE_OUTCOME: ${{ steps.bake.outcome }}
           CHAIN_ATTEMPT: ${{ inputs.attempt || '1' }}
           MAX_CHAIN_ATTEMPTS: "3"
@@ -553,6 +543,13 @@ jobs:
             echo "Branch run: rebuild publication disabled."
             echo "pushed=false" >> "$GITHUB_OUTPUT"
             exit 0
+          fi
+          # This step runs even after failures. A successful chain cannot
+          # publish any output unless its post-promotion capture succeeded.
+          if [ "$CHAIN_OUTCOME" = "success" ] && [ "${CAPTURE_OUTCOME:-}" != "success" ]; then
+            echo "Post-promotion history capture did not succeed; publication blocked."
+            echo "pushed=false" >> "$GITHUB_OUTPUT"
+            exit 1
           fi
           # JEG-1215: only publication pauses; upstream/downstream work continues.
           release_guard() {
@@ -748,6 +745,15 @@ jobs:
         with:
           name: deferred-rebuild-chain-1-${{ github.run_attempt }}
           path: output/release-publications/rebuild-chain-1/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Retain history capture provenance
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: week-history-capture
+          path: output/week-history-capture-status.json
           if-no-files-found: ignore
           retention-days: 14
 
