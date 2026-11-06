@@ -165,7 +165,10 @@ def evidence_week(entry: dict) -> int:
             for clock, day in (("UTC", moment.astimezone(timezone.utc).date()),
                                ("America/New_York", today_ny(moment))):
                 interpretations[clock] = {"date": day.isoformat(), "week": current_nfl_week(day)}
-            week = int(ev.get("week_column") or 0)
+            try:
+                week = int(ev.get("week_column") or 0)
+            except (TypeError, ValueError) as exc:
+                raise ValueError("week column must be an integer") from exc
             if str(ev.get("week_column")) != str(week):
                 raise ValueError("week column must be an integer")
         except (TypeError, ValueError) as exc:
@@ -281,6 +284,14 @@ def published_entries_from_rows(rows: list[dict]) -> list[dict]:
     rows = [r for r in rows if r.get("source") in PUBLISHED and r.get("week") is not None
             and int(r.get("qb_slots") or 1) == 1 and int(r.get("league_teams") or 12) == 12
             and (r.get("variant") or "as_published") == "as_published"]
+    # Validate the original label before any int() grouping can truncate it.
+    for row in rows:
+        if row["source"] == "fantasycalc":
+            evidence_week({"source": row["source"], "bake_ids": [row.get("bake_id")],
+                           "origin": "supabase:public.source_trade_values",
+                           "week_evidence": {"rule": "week_column_pull",
+                                             "week_column": row["week"],
+                                             "pulled_at": row.get("pulled_at")}})
     for row in _latest_pull_per_bake(rows):
         source = row["source"]
         if int(row.get("season") or SEASON) != SEASON:

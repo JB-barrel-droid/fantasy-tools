@@ -72,6 +72,12 @@ class CaptureProvenanceTest(unittest.TestCase):
         self.assertEqual(entries[0]["week"], 8)
         self.assertEqual(entries[0]["bake_ids"], ["fcwk8_2026-11-03t0305_v1"])
 
+    def test_candidate_construction_rejects_fractional_week_before_grouping(self):
+        for week in (8.5, "8.5", True, 8.0):
+            with self.subTest(week=week), self.assertRaisesRegex(
+                    H.HistoryError, "week column must be an integer"):
+                H.published_entries_from_rows(self.rows(week))
+
     def test_true_mislabel_names_bake_timestamp_calendars_and_rule(self):
         with self.assertRaises(H.HistoryError) as caught:
             H.published_entries_from_rows(self.rows(7))
