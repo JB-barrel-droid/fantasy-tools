@@ -1,0 +1,46 @@
+name: Versus Vegas offline tests
+
+on:
+  pull_request:
+    paths:
+      - 'app/versus-vegas/**'
+      - 'app/v2/v2.css'
+      - 'app/v2/fonts/**'
+      - 'pipelines/build_versus_vegas.py'
+      - 'pipelines/build_weekly_inputs.py'
+      - 'pipelines/lib/weekly_inputs_contract.py'
+      - 'tests/test_versus_vegas*.py'
+      - 'tests/fixtures/weekly_inputs/**'
+      - 'tests/fixtures/weekly_inputs_producer/**'
+      - '.github/workflows/versus-vegas-preview-tests.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  offline-view:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: python -m pip install playwright
+      - run: python -m playwright install --with-deps chromium-headless-shell
+      - run: python -m unittest tests.test_versus_vegas tests.test_versus_vegas_render
+        env:
+          RENDER_TESTS_REQUIRED: '1'
+          VERSUS_SCREENSHOT_PATH: versus-vegas-mobile.png
+          VERSUS_SCREENSHOT_DIR: versus-vegas-review
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: versus-vegas-mobile
+          path: |
+            versus-vegas-mobile.png
+            versus-vegas-review/
+          if-no-files-found: ignore

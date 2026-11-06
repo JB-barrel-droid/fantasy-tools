@@ -1,0 +1,81 @@
+/* Page-only layout. Foundation tokens/font/native components are read from v2.css. */
+.versus-vegas { margin: 0; color: var(--ddf-ink); background: var(--ddf-canvas); }
+.versus-vegas * { box-sizing: border-box; }
+.versus-vegas .vv-shell { background: var(--ddf-action-hover); color: var(--ddf-action-ink); }
+.versus-vegas .vv-shell-inner { max-width: var(--ddf-content-max); margin: auto; padding: var(--ddf-space-2) var(--ddf-page-pad-desktop); display: flex; gap: var(--ddf-space-5); align-items: center; }
+.versus-vegas .vv-brand { font: 600 30px/1 var(--ddf-font-display); }
+.versus-vegas nav { display: flex; gap: var(--ddf-space-4); align-items: center; min-width: 0; overflow-x: auto; }
+.versus-vegas nav span { display: flex; align-items: center; min-height: var(--ddf-hit); white-space: nowrap; font-size: var(--ddf-type-support); font-weight: 600; }
+.versus-vegas nav [aria-current] { border-bottom: 2px solid currentColor; }
+.versus-vegas main { max-width: var(--ddf-content-max); margin: auto; padding: var(--ddf-space-4) var(--ddf-page-pad-desktop) var(--ddf-space-5); }
+.versus-vegas .vv-heading { position: relative; margin-bottom: var(--ddf-space-4); }
+.versus-vegas .eyebrow, .versus-vegas .preview { color: var(--ddf-muted); font-size: var(--ddf-type-meta); margin: 0 0 var(--ddf-space-2); }
+.versus-vegas .eyebrow { letter-spacing: .08em; text-transform: uppercase; }
+.versus-vegas h1 { font-size: var(--ddf-type-hero); margin: 0 0 var(--ddf-space-2); }
+.versus-vegas h1 span { color: var(--ddf-action); }
+.versus-vegas .intro { margin: 0 0 var(--ddf-space-1); }
+.versus-vegas h2 { font: 600 22px/1.2 var(--ddf-font-display); margin: 0 0 var(--ddf-space-mid); }
+.versus-vegas .muted, .versus-vegas footer { color: var(--ddf-muted); font-size: var(--ddf-type-meta); }
+.versus-vegas #week { margin: 0; }
+.versus-vegas .health { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--ddf-space-3); }
+.versus-vegas .health article { border: 1px solid var(--ddf-line); border-radius: var(--ddf-radius-card); padding: var(--ddf-space-3); background: var(--ddf-surface); }
+.versus-vegas .health h3 { margin: 0 0 var(--ddf-space-1); font-size: var(--ddf-type-support); }
+.versus-vegas .health p { margin: 0; font-size: var(--ddf-type-meta); overflow-wrap: anywhere; }
+.versus-vegas .health .vintage { color: var(--ddf-muted); }
+.versus-vegas section { margin: 0 0 var(--ddf-space-4); min-width: 0; }
+.versus-vegas #warnings:empty { display: none; }
+.versus-vegas form { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--ddf-space-3); padding: var(--ddf-space-3); margin: 0 0 var(--ddf-space-4); background: var(--ddf-surface); border: 1px solid var(--ddf-line); border-radius: var(--ddf-radius-card); }
+.versus-vegas label { display: flex; flex-direction: column; gap: var(--ddf-space-1); min-width: 0; font-size: var(--ddf-type-meta); font-weight: 600; }
+.versus-vegas select { width: 100%; min-height: var(--ddf-hit); border: 1px solid var(--ddf-control); border-radius: var(--ddf-radius-control); background: var(--ddf-surface); color: var(--ddf-ink); padding: var(--ddf-space-2); font: 400 var(--ddf-type-support)/1.3 var(--ddf-font-ui); }
+.versus-vegas select:focus-visible, .versus-vegas .table-wrap:focus-visible { outline: 3px solid var(--ddf-focus); outline-offset: 3px; }
+.versus-vegas #summary { margin: 0 0 var(--ddf-space-2); font-size: var(--ddf-type-support); font-variant-numeric: tabular-nums; }
+.versus-vegas .vv-players > .muted { margin: 0 0 var(--ddf-space-mid); }
+.versus-vegas .table-wrap { overflow: auto; max-width: 100%; }
+.versus-vegas table { width: 100%; min-width: 650px; border-collapse: collapse; font-size: var(--ddf-type-support); }
+.versus-vegas th, .versus-vegas td { text-align: left; vertical-align: top; padding: var(--ddf-space-2) 10px; border-bottom: 1px solid var(--ddf-line); }
+.versus-vegas th { color: var(--ddf-muted); border-top: 1px solid var(--ddf-line); font-size: var(--ddf-type-meta); font-weight: 600; }
+.versus-vegas td:nth-child(2), .versus-vegas td:nth-child(3), .versus-vegas td:nth-child(4), .versus-vegas th:nth-child(2), .versus-vegas th:nth-child(3), .versus-vegas th:nth-child(4) { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.versus-vegas .player-name { display: block; font-weight: 600; }
+.versus-vegas .player-meta, .versus-vegas .cell-reason { display: block; color: var(--ddf-muted); font-size: var(--ddf-type-meta); white-space: normal; max-width: 230px; margin-top: var(--ddf-space-1); }
+.versus-vegas .direction { font-weight: 600; }
+.versus-vegas .identity { font-size: var(--ddf-type-meta); padding-top: 0; margin-top: var(--ddf-space-1); }
+.versus-vegas .identity > summary { font-weight: 400; color: var(--ddf-muted); }
+.versus-vegas .identity p { margin: var(--ddf-space-1) 0; }
+.versus-vegas pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: var(--ddf-type-meta); }
+.versus-vegas #plays { margin: 0; padding: var(--ddf-space-mid) var(--ddf-space-3); border: 1px solid var(--ddf-line); border-radius: var(--ddf-radius-card); background: var(--ddf-subtle); font-size: var(--ddf-type-support); }
+.versus-vegas #provenance { overflow-wrap: anywhere; }
+.versus-vegas footer { border-top: 1px solid var(--ddf-line); margin-top: var(--ddf-space-4); padding-top: var(--ddf-space-3); }
+@media (min-width: 1000px) {
+  .versus-vegas .preview { position: absolute; right: 0; top: 0; }
+  .versus-vegas[data-layout="analysis"] main { display: grid; grid-template-columns: minmax(0, 1fr) 280px; column-gap: var(--ddf-space-4); grid-template-areas: "heading heading" "filters sources" "players sources" "players plays" "provenance provenance" "footer footer"; }
+  .versus-vegas[data-layout="analysis"] .vv-heading { grid-area: heading; }
+  .versus-vegas[data-layout="analysis"] #filters { grid-area: filters; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .versus-vegas[data-layout="analysis"] .vv-sources { grid-area: sources; align-self: start; }
+  .versus-vegas[data-layout="analysis"] .health { grid-template-columns: 1fr; }
+  .versus-vegas[data-layout="analysis"] .vv-players { grid-area: players; }
+  .versus-vegas[data-layout="analysis"] .vv-plays { grid-area: plays; }
+  .versus-vegas[data-layout="analysis"] .vv-provenance { grid-area: provenance; }
+  .versus-vegas[data-layout="analysis"] footer { grid-area: footer; }
+}
+@media (max-width: 600px) {
+  .versus-vegas .vv-shell-inner { padding: var(--ddf-space-2) var(--ddf-page-pad-phone); gap: var(--ddf-space-3); }
+  .versus-vegas nav { flex: 1; gap: var(--ddf-space-3); }
+  .versus-vegas main { padding: var(--ddf-space-3) var(--ddf-page-pad-phone) var(--ddf-space-4); }
+  .versus-vegas .vv-heading { margin-bottom: var(--ddf-space-3); }
+  .versus-vegas .health { gap: var(--ddf-space-2); }
+  .versus-vegas .health article { padding: var(--ddf-space-mid); }
+  .versus-vegas form { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--ddf-space-mid); margin-bottom: var(--ddf-space-3); padding: var(--ddf-space-mid); }
+  .versus-vegas table { min-width: 0; }
+  .versus-vegas thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .versus-vegas tbody { display: block; }
+  .versus-vegas tbody tr { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--ddf-space-mid); padding: var(--ddf-space-mid) 0; border-top: 1px solid var(--ddf-line); }
+  .versus-vegas td { display: block; padding: 0; border: 0; min-width: 0; }
+  .versus-vegas td:first-child { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr) auto; }
+  .versus-vegas .player-name, .versus-vegas .player-meta { grid-column: 1; }
+  .versus-vegas .identity { grid-column: 2; grid-row: 1 / span 2; min-width: 110px; margin: 0; padding: 0; border: 0; }
+  .versus-vegas .identity[open] { grid-column: 1 / -1; grid-row: auto; }
+  .versus-vegas td:nth-child(2), .versus-vegas td:nth-child(3), .versus-vegas td:nth-child(4) { text-align: left; white-space: normal; }
+  .versus-vegas td[data-label]::before { content: attr(data-label); display: block; font-size: var(--ddf-type-meta); color: var(--ddf-muted); margin-bottom: var(--ddf-space-1); }
+  .versus-vegas td:last-child { grid-column: 1 / -1; }
+  .versus-vegas .cell-reason { max-width: none; overflow-wrap: anywhere; }
+}
