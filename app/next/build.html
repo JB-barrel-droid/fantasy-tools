@@ -1,0 +1,774 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="icon" href="data:,"><title>DDF · Build a Trade</title><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap"><link rel="stylesheet" href="styles.css"><link rel="stylesheet" href="tradechart.css"><style>
+.build-page{--build-ink:#12202c;--build-chart-alt:#c9ded0;scrollbar-color:#bec8c1 #f7f8f5}
+.build-page ::selection{background:#c9ded0;color:#142b25}
+.build-page main{max-width:1160px;padding:36px 32px 56px}
+.build-page .header-inner{max-width:1240px;gap:28px}
+.build-page .brand small{color:#c9d6cb}
+.build-page nav{gap:2px}.build-page nav a{font-size:13px}
+.build-page h1{font-size:44px;line-height:1.1;font-weight:800;letter-spacing:-.03em;margin:12px 0}
+.build-page h2{font-weight:800;letter-spacing:-.02em}.build-page h3{font-weight:700}
+.build-page .steps{margin:0 0 24px}.build-page .steps a{padding:5px 0}
+.build-page .steps .selected{color:#176c4d;background:#e8f5ee}
+.build-page .card,.build-page .section{border-radius:14px;padding:28px;margin:28px 0}
+.build-page .grid{grid-template-columns:1fr 1fr .95fr;gap:32px;margin-top:28px}
+.build-page .grid>div{min-width:0}
+.build-page .grid>div+div{border-left:1px solid #dbe0dc;padding-left:28px}
+.build-page [id$="-picker"] p{margin:0;border-bottom:1px solid #dbe0dc}
+.build-page [id$="-picker"] label{padding:15px 8px;display:flex;align-items:center;gap:9px;cursor:pointer}
+.build-page [id$="-picker"] label:has(:checked){background:#e8f5ee;color:#176c4d}
+.build-page [id$="-picker"] label small{margin-left:auto;color:inherit;font-family:"IBM Plex Mono",monospace;font-size:11px}
+.build-page input[type=checkbox]{width:17px;height:17px;flex-shrink:0;accent-color:#176c4d}
+.build-page .badge.selected{background:#e8f5ee;color:#176c4d;border:0}
+.build-page .badge{padding:5px 9px}.build-page #ddf-summary{font-family:"IBM Plex Mono",monospace;font-size:14px;margin-top:24px}
+.build-page .section>summary h2{font-size:23px;margin:0}
+.build-page .section>summary{flex-wrap:wrap;justify-content:flex-start;gap:12px}
+.build-page .section>summary:after{margin-left:auto}
+.build-page #checks{margin-top:24px}.build-page #checks p{display:flex;align-items:baseline;gap:12px}
+.build-page #checks .badge{flex-shrink:0;min-width:90px;text-align:center}
+.build-page .build-chart{padding:28px 0;border-top:1px solid #dbe0dc}
+.build-page .build-chart:first-child{margin-top:28px}
+.build-page .build-chart svg{display:block;max-width:760px;margin:18px auto 0;font-family:"IBM Plex Mono",monospace}
+.build-page .build-chart .row h3{margin:0}
+.build-page .build-chart p{max-width:75ch}
+.build-page .table-wrap{overflow:visible}.build-page table{table-layout:fixed}
+.build-page th{font-size:11px;padding:12px 8px}.build-page td{overflow-wrap:anywhere;padding:14px 8px}
+.build-page .build-short{display:none}.build-page th:first-child{width:24%}.build-page th:last-child{width:32%}
+.build-page td.number{font-family:"IBM Plex Mono",monospace}
+.build-page tr.selected{background:#e8f5ee;color:#176c4d}.build-page tr.selected small{color:#176c4d}
+.build-page .attention{border:1px solid #eccbb9;border-radius:10px;padding:20px;color:#a83e12}
+.build-page #styles{gap:10px;margin:24px 0}.build-page #styles button{border-radius:8px;padding:10px 14px}
+.build-page #styles [aria-pressed=true]{background:#e8f5ee;color:#176c4d;border-color:#176c4d}
+.build-page textarea{width:100%;max-width:100%;resize:vertical;border:1px solid #bec8c1;border-radius:10px;padding:18px;font:inherit;line-height:1.65;background:#f7f8f5;color:#12202c;caret-color:#176c4d}
+.build-page button:disabled{opacity:.45;cursor:not-allowed}.build-page button:hover:not(:disabled){border-color:#176c4d}
+.build-page :focus-visible{outline:3px solid #e96528;outline-offset:4px}
+.build-page p{max-width:75ch}.build-page .notice{font-size:13px}.build-page .sitemap h2{font:600 12px "IBM Plex Mono",monospace;letter-spacing:.1em;color:#5c6a76;margin:0 0 12px}
+.build-page .footer{margin:0;padding:20px max(20px,calc((100% - 1200px)/2))}
+@media(max-width:850px){.build-page .grid{grid-template-columns:1fr 1fr}.build-page .grid>div:last-child{grid-column:1/-1;border-left:0;border-top:1px solid #dbe0dc;padding:24px 0 0}.build-page .header-inner{flex-direction:column;align-items:flex-start;gap:14px}}
+@media(max-width:600px){.build-page main{padding:24px 16px 40px}.build-page h1{font-size:34px}.build-page .card,.build-page .section{padding:20px;margin:24px 0}.build-page .grid{grid-template-columns:1fr;gap:24px}.build-page .grid>div+div{border-left:0;border-top:1px solid #dbe0dc;padding:24px 0 0}.build-page .section>summary small{margin:0;font-size:12px}.build-page .build-wide{display:none}.build-page .build-short{display:inline}.build-page th{font-size:10px;padding:10px 2px;letter-spacing:-.03em}.build-page td{font-size:12px;padding:12px 3px}.build-page #checks p{display:block}.build-page #checks .badge{margin-right:6px;margin-bottom:6px}.build-page .build-chart .row{gap:8px}.build-page nav a{padding:8px 7px;font-size:11px}.build-page .morewrap>button{font-size:12px;padding:8px 7px}.build-page .morewrap .menu{right:auto;left:0}.build-page .build-chart svg{min-height:150px}}
+
+/* Trade workspace content */
+main .control-row{display:flex;gap:20px;flex-wrap:wrap;margin-bottom:20px}main .control-row label{display:flex;flex:1;min-width:150px;flex-direction:column;gap:8px;font-weight:600}main select,main input[type=search]{font:inherit;padding:10px 12px;border:1px solid #bec8c1;border-radius:8px;background:#fff;color:#12202c}main details>summary{cursor:pointer;font-weight:600}main .offer-boxes,main .chooser-panels{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}main .offer-boxes .card,main .chooser-panels .card{margin:14px 0}main .check-pass{background:#e8f5ee;color:#176c4d;padding:14px 18px;border-radius:8px;font-weight:700;max-width:none}main .trade-checks #checks p{display:block;margin:10px 0}main .chooser h2{font-size:21px}main .chooser input[type=search]{width:100%;height:auto;margin:8px 0 16px;box-sizing:border-box}main .player-scroll{max-height:420px;overflow:auto;border:1px solid #dbe0dc;border-radius:8px}main .chooser table{width:100%;table-layout:auto;border-collapse:collapse;min-width:440px}main .chooser th{position:sticky;top:0;background:#f7f8f5;z-index:1}main .chooser th,main .chooser td{padding:12px 8px;font-size:12px;width:auto;overflow-wrap:normal;text-align:left}main .chooser td:first-child{min-width:145px;font-weight:600}main .chooser td.number{font-family:'IBM Plex Mono',monospace;white-space:nowrap}main .chooser tr.selected{background:#e8f5ee;color:#176c4d}main .chooser button{font:inherit;padding:6px 8px}main .sr-action{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}main .source-chart{padding:20px 0;border-top:1px solid #dbe0dc}main .source-chart .row{margin-bottom:16px}main .source-chart h3{margin:0}main .winner-tag{font-size:12px;background:#e8f5ee;color:#176c4d;padding:5px 9px;border-radius:5px}main textarea{box-sizing:border-box;width:100%;resize:vertical;background:#f7f8f5;border:1px solid #bec8c1;border-radius:8px;padding:18px;font:inherit;line-height:1.65;color:#12202c}main #styles{gap:10px;margin:20px 0}main #styles [aria-pressed=true]{background:#e8f5ee;color:#176c4d;border-color:#176c4d}.trade main>.workspace-controls{background:white;border:1px solid #dbe0dc;padding:28px;border-radius:14px}main .chart-note{margin-top:-12px}@media(max-width:850px){main .chooser-panels{grid-template-columns:1fr}}@media(max-width:600px){main .offer-boxes{grid-template-columns:1fr;gap:0}main .control-row{gap:14px}}
+
+main .trade-charts svg{display:block;width:100%;height:auto}main .trade-winners{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}main .trade-winners .winner-tag{border-radius:999px;white-space:nowrap;font-size:11px}
+</style><style>
+
+.build-page .offer-boxes{gap:12px}.build-page .offer-boxes .card{margin:12px 0;padding:14px 18px}.build-page .offer-boxes h2{font-size:17px;margin:0 0 4px}.build-page .offer-boxes p{margin:0}
+.build-page .trade-checks{padding:0;border:0;background:transparent;margin:12px 0}.build-page .trade-checks .check-pass{border-radius:8px 8px 0 0;padding:10px 16px;margin:0;font-size:14px}.build-page .trade-checks #checks{margin:0;padding:8px 16px 10px;background:#f3f9f5;border:1px solid #dbe0dc;border-top:0;border-radius:0 0 8px 8px;font-size:13px}.build-page .trade-checks #checks p{margin:4px 0}
+.build-page #styles button{padding:8px 12px;font-size:14px}.build-page .workspace-controls{padding:20px;margin:20px 0}
+@media(max-width:600px){.build-page,.build-page main{overflow-x:hidden}.build-page .chooser-panels,.build-page .chooser{min-width:0;max-width:100%}.build-page .chooser .player-scroll{max-width:100%}.build-page .offer-boxes>*{min-width:0}.build-page .row{flex-wrap:wrap}}
+/* chooser final: one frame, fixed columns, stable scrollbar gutter, aligned panels */
+main .chooser-panels{align-items:stretch}
+main .chooser.card{display:flex;flex-direction:column;padding:18px 18px 0;overflow:hidden;margin:14px 0}
+main .chooser.card h2{margin:0 0 4px;min-height:27px}
+main .chooser.card label[for$="-search"]{font-size:13px;font-weight:600;color:#39413b}
+main .chooser.card input[type=search]{margin:6px 0 12px;min-height:44px}
+main .chooser.card .player-scroll{border:0;border-top:1px solid #dbe0dc;border-radius:0;margin:0 -18px;height:372px;max-height:none;overflow:auto;overflow-x:hidden;scrollbar-gutter:stable;overscroll-behavior:contain}
+main .chooser.card .player-scroll:focus-visible{outline:3px solid #176c4d;outline-offset:-3px}
+main .chooser.card .player-scroll table{width:100%;min-width:0;table-layout:fixed;margin-bottom:30px}
+main .chooser.card .player-scroll th,main .chooser.card .player-scroll td{padding:8px 6px;font-size:13px;overflow-wrap:normal}
+main .chooser.card .player-scroll th:first-child,main .chooser.card .player-scroll td:first-child{padding-left:18px;min-width:0;width:auto;white-space:normal;overflow-wrap:anywhere}
+main .chooser.card .player-scroll th{font-size:11px;background:#f2f5f1;box-shadow:0 1px 0 #dbe0dc;height:36px;padding-top:0;padding-bottom:0}
+main .chooser.card .player-scroll th:nth-child(2){width:48px}
+main .chooser.card .player-scroll th:nth-child(3),main .chooser.card .player-scroll th:nth-child(4){width:68px}
+main .chooser.card .player-scroll th:nth-child(5){width:98px;padding-right:12px}
+main .chooser.card .player-scroll td:nth-child(5){padding-right:12px;text-align:right}
+main .chooser.card .player-scroll td:nth-child(3),main .chooser.card .player-scroll td:nth-child(4){text-align:right}
+main .chooser.card .player-scroll th:nth-child(3),main .chooser.card .player-scroll th:nth-child(4){text-align:right}
+main .chooser.card .player-scroll td button{width:100%;min-height:36px;padding:4px 6px;font-size:13px;border-radius:8px}
+main .chooser.card .player-scroll .b-short{display:none}
+main .chooser.card .player-scroll td button[aria-pressed=true]{background:#176c4d;border-color:#176c4d;color:#fff}
+main .chooser.card .player-scroll::after{content:"";display:block;position:sticky;bottom:0;height:30px;margin-top:-30px;background:linear-gradient(rgba(255,255,255,0),#fff 85%);pointer-events:none}
+@media(max-width:600px){
+ main .chooser.card{padding:16px 12px 0}
+ main .chooser.card .player-scroll{margin:0 -12px;height:340px}
+ main .chooser.card .player-scroll th,main .chooser.card .player-scroll td{padding:4px 3px;font-size:13px}
+ main .chooser.card .player-scroll th{font-size:10px;letter-spacing:0}
+ main .chooser.card .player-scroll th:first-child,main .chooser.card .player-scroll td:first-child{padding-left:12px}
+ main .chooser.card .player-scroll th:nth-child(2){width:34px}
+ main .chooser.card .player-scroll th:nth-child(3),main .chooser.card .player-scroll th:nth-child(4){width:52px}
+ main .chooser.card .player-scroll th:nth-child(5){width:56px;padding-right:6px}
+ main .chooser.card .player-scroll td:nth-child(5){padding-right:6px}
+ main .chooser.card .player-scroll td:nth-child(3),main .chooser.card .player-scroll td:nth-child(4){font-size:12px}
+ main .chooser.card .player-scroll td button{min-height:44px;min-width:44px;padding:0;font-size:20px;font-weight:600;line-height:1}
+ main .chooser.card .player-scroll .b-full{display:none}
+ main .chooser.card .player-scroll .b-short{display:inline}
+}
+@media(max-width:760px),(pointer:coarse){main :is(button,select,summary):not(.tc-show),.ws-steps a,main a.button{min-height:44px}main summary{display:flex;align-items:center}.ws-steps a{display:inline-flex;align-items:center}}
+main :is(button,select,summary,input,a,textarea):focus-visible{outline:3px solid #176c4d;outline-offset:2px}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+
+/* One trade screen, two modes (Any players / My league) */
+.build-page [hidden]{display:none!important}
+/* the step trail is league context; hidden in Any players mode (site.js may move .ws-steps into .subnav) */
+body.build-page.mode-any .ws-steps,body.build-page.mode-any .subnav .ws-steps{display:none}
+.build-page .lede{margin:0 0 4px}
+.build-page .mode-bar{display:flex;align-items:center;flex-wrap:wrap;gap:10px 18px;margin:18px 0 6px}
+.build-page .mode-bar .segmented>button{min-height:44px;padding:8px 20px;font-size:15px}
+.build-page .mode-note{margin:0;font-size:14px;color:#5c6a76}
+.build-page .mode-note a{color:#176c4d;font-weight:600;text-underline-offset:3px}
+.build-page .pick-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}
+.build-page .pick-cards>.card{margin:14px 0;padding:20px 22px;min-width:0}
+.build-page .pick-card h2{font-size:21px;margin:0 0 10px}
+.build-page .pick-card label{font-size:13px;font-weight:600;color:#39413b}
+.build-page .pick-card input[type=search],.build-page .include-any input[type=search]{display:block;width:100%;min-height:44px;margin:6px 0 4px;box-sizing:border-box}
+.build-page .pick-count{margin:2px 0 6px;font-size:12.5px;color:#5c6a76;min-height:1em}
+.build-page .pick-results,.build-page .pick-chosen{list-style:none;margin:0;padding:0}
+.build-page .pick-results{border-top:1px solid #dbe0dc}
+.build-page .pick-results:empty{border-top:0}
+.build-page .pick-results button{display:flex;width:100%;align-items:center;justify-content:space-between;gap:12px;text-align:left;border:0;border-bottom:1px solid #dbe0dc;border-radius:0;background:#fff;color:#12202c;padding:10px 8px;min-height:44px;font-weight:600;font-size:14px}
+.build-page .pick-results button:hover{background:#f3f9f5}
+.build-page .pick-results small,.build-page .pick-chosen small{font-weight:500;color:#5c6a76;margin-left:4px}
+.build-page .pick-num{font:500 12.5px "IBM Plex Mono",monospace;color:#39413b;white-space:nowrap}
+.build-page .pick-results .pick-add{font-size:13px;color:#176c4d;margin-left:10px}
+.build-page .pick-chosen{margin-top:12px}
+.build-page .pick-chosen li{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 8px 8px 14px;background:#e8f5ee;color:#0f4c35;border:1px solid #b9dcc8;border-radius:10px;margin:0 0 8px;font-weight:600}
+.build-page .pick-chosen li.pick-none{background:transparent;border:1px dashed #cfd6d1;color:#5c6a76;font-weight:500;padding:12px 14px}
+.build-page .pick-chosen button{min-height:36px;padding:4px 12px;font-size:13px;background:#fff}
+.build-page .suggest{font-size:14px;color:#5c6a76;margin:0 0 12px;max-width:none}
+.build-page .flash-player{border:1.5px solid #176c4d;background:#e7f2ea;color:#12202c;border-radius:999px;padding:7px 14px;min-height:40px;font:600 14px "Archivo",system-ui,sans-serif;cursor:pointer}
+@media (prefers-reduced-motion:no-preference){.build-page .flash-player{animation:gentleflash 2.4s ease-in-out 3}}
+@keyframes gentleflash{0%,100%{background:#e7f2ea;box-shadow:0 0 0 0 rgba(23,108,77,0)}50%{background:#cfe6d4;box-shadow:0 0 0 6px rgba(23,108,77,.14)}}
+.build-page .lock-card{display:flex;align-items:center;flex-wrap:wrap;gap:12px 20px;background:#e8f5ee;color:#0f4c35;border:1px solid #b9dcc8;border-radius:12px;padding:16px 20px;margin:12px 0}
+.build-page .lock-card p{margin:0;flex:1 1 300px;display:flex;gap:10px;align-items:flex-start;font-weight:600}
+.build-page .lock-card svg{flex-shrink:0;margin-top:2px}
+.build-page .lock-card .button{white-space:nowrap}
+.build-page .empty-state{border:1.5px dashed #bec8c1;border-radius:14px;padding:30px 24px;text-align:center;color:#5c6a76;margin:20px 0;background:transparent}
+.build-page .empty-state p{margin:0 auto;max-width:52ch}
+.build-page .empty-state strong{display:block;color:#12202c;font-size:17px;margin-bottom:4px}
+.build-page .include-any{margin:-4px 0 10px}
+.build-page .linkish{border:0;background:none;padding:4px 0;min-height:0;color:#176c4d;font:600 13px "Archivo",system-ui,sans-serif;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.build-page .linkish:hover{background:none;color:#0b3524}
+.build-page .include-any [id$="-outside"]{padding:8px 0 4px}
+.build-page .outside-tag{display:block;font-size:11px;font-weight:500;color:inherit;opacity:.8}
+.build-page .next-steps .cluster{gap:10px;margin:14px 0 6px}
+.build-page .msg-actions{gap:14px;align-items:center;margin:10px 0 0}.build-page .message-card #copy-status{margin:8px 0 0;min-height:0}
+.build-page .chart-pick{margin:16px 0 4px}.build-page .chart-pick-row{display:flex;align-items:center;flex-wrap:wrap;gap:8px 12px;margin:0 0 6px}.build-page .chart-pick select{flex:1 1 280px;min-width:0;max-width:100%;padding:10px 12px}.build-page .chart-warn{color:#a83e12;font-weight:600;font-size:14px}.build-page #chart-live{margin:2px 0 0;max-width:72ch}.build-page #chart-live .linkish{margin-left:6px}
+.build-page details.info{display:inline-block;position:relative;font-weight:400}.build-page details.info summary{list-style:none;cursor:pointer;box-sizing:border-box;padding:0;min-height:0;min-width:0;flex:none;width:22px;height:22px;line-height:20px;text-align:center;border:1px solid #5c6a76;border-radius:50%;font-size:13px;color:#314451;background:#fff}.build-page details.info summary::-webkit-details-marker{display:none}.build-page details.info summary:focus-visible{outline:3px solid #7fbf9d;outline-offset:2px}.build-page details.info[open] span{position:fixed;left:50%;transform:translateX(-50%);z-index:60;width:min(340px,85vw);margin-top:8px;padding:10px 12px;background:#fff;color:#12202c;border:1px solid #c9d3da;border-radius:10px;box-shadow:0 8px 24px rgba(20,43,37,.18);font-size:13px;line-height:1.4;text-align:left;white-space:normal}.build-page details.info:not([open]) span{display:none}
+.build-page .ovr-link{font-size:13px;margin:6px 0 0}.build-page .ovr-link a{color:#5c6a76;text-decoration:underline;text-underline-offset:3px}.build-page .ovr-link a:hover{color:#176c4d}.build-page .ovr-link a:focus-visible{outline:3px solid #176c4d;outline-offset:2px}
+.build-page [data-style]:disabled{opacity:.45;cursor:default}
+.build-page .next-steps input[readonly]{width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #bec8c1;border-radius:8px;font:13px "IBM Plex Mono",monospace;background:#f7f8f5}
+.build-page .message-card .attention{margin:8px 0 4px;padding:14px 18px;max-width:none}
+.build-page .trade-charts{margin:20px 0}
+@media(max-width:760px){.build-page .pick-cards{grid-template-columns:1fr;gap:0}.build-page .lock-card .button{width:100%;text-align:center;justify-content:center}.build-page .next-steps .cluster button{flex:1 1 100%}.build-page .mode-bar .segmented{width:100%}.build-page .mode-bar .segmented>button{flex:1}}
+@media(max-width:760px),(pointer:coarse){.build-page .linkish{min-height:44px;display:inline-flex;align-items:center}.build-page .pick-chosen button{min-height:44px}.build-page .flash-player{min-height:44px}}
+
+/* Add from waivers: drop picker + ranked best-adds board; shares the verdict, charts and next steps */
+.build-page .mode-bar{gap:10px 14px}
+.build-page .wv-grid{display:grid;grid-template-columns:minmax(0,.82fr) minmax(0,1.4fr);gap:20px;align-items:start}
+.build-page .wv-grid>.card{margin:14px 0;padding:20px 22px;min-width:0}
+.build-page .wv-grid h2{font-size:21px;margin:0 0 6px}
+.build-page .wv-suggest{font-size:13.5px;color:#5c6a76;margin:0 0 8px}
+.build-page .wv-group{font:600 11px "IBM Plex Mono",monospace;letter-spacing:.08em;text-transform:uppercase;color:#5c6a76;margin:14px 0 2px;padding:0 10px}
+.build-page .wv-opt{display:flex;align-items:center;gap:10px;min-height:44px;padding:6px 10px;border-bottom:1px solid #dbe0dc;cursor:pointer;font-size:14px;font-weight:500;color:#12202c}
+.build-page .wv-opt:hover{background:#f7f8f5}
+.build-page .wv-opt:has(:checked){background:#fff0e8;color:#7a2e0c;font-weight:700}
+.build-page .wv-opt input{width:18px;height:18px;margin:0;flex-shrink:0;accent-color:#a83e12}
+.build-page .wv-opt small{color:#5c6a76;font-weight:500;margin-left:4px}
+.build-page .wv-opt-val{margin-left:auto;font:500 12.5px "IBM Plex Mono",monospace;white-space:nowrap}
+.build-page .wv-sugg-tag{font:600 11px "Archivo",system-ui,sans-serif;color:#a83e12;background:#fff;border:1px solid #eccbb9;border-radius:99px;padding:1px 8px;white-space:nowrap}
+.build-page .wv-board-head{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:4px 12px}
+.build-page .wv-count{margin:0;font-size:13px;color:#5c6a76}.build-page .wv-count a{color:#176c4d;font-weight:600}
+.build-page .wv-chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:8px 0 0}
+.build-page .wv-chip-label{font-size:13px;color:#5c6a76;min-width:98px}
+.build-page .wv-chips button{border-radius:99px;min-height:44px;padding:4px 14px;font-size:13px;font-weight:600;background:#fff;border:1px solid #dbe0dc;color:#39413b}
+.build-page .wv-chips button[aria-pressed=true]{background:#e8f5ee;color:#176c4d;border-color:#176c4d}
+.build-page .wv-filter-note{font-size:13px;color:#5c6a76;margin:10px 0 0;min-height:1em}
+.build-page .wv-adds{list-style:none;margin:12px 0 0;padding:0}
+.build-page .wv-add{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"main gain" "main act";gap:6px 18px;padding:14px 16px;border:1px solid #dbe0dc;border-radius:12px;margin:0 0 10px;background:#fbfdfb}
+.build-page .wv-add.is-best{border:2px solid #176c4d;background:#e8f5ee;padding:13px 15px}
+.build-page .wv-add.is-dim{background:#f7f8f5;border-style:dashed}
+.build-page .wv-add.is-dim .wv-gain{color:#5c6a76}
+.build-page .wv-add.is-picked{box-shadow:0 0 0 3px rgba(23,108,77,.28)}
+.build-page .wv-main{grid-area:main;min-width:0}
+.build-page .wv-tag{font:700 12px "Archivo",system-ui,sans-serif;letter-spacing:.05em;color:#176c4d;margin:0 0 3px}
+.build-page .wv-name{font:600 19px/1.25 var(--serif,Georgia,serif);margin:0;color:#0d120e}
+.build-page .wv-name small{font:500 13px "Archivo",system-ui,sans-serif;color:#5c6a76;margin-left:6px}
+.build-page .wv-meta{font-size:13px;color:#5c6a76;margin:5px 0 0}
+.build-page .wv-meta .linkish{font-size:13px}
+.build-page .wv-gainbox{grid-area:gain;text-align:right}
+.build-page .wv-gain{display:block;font:700 40px/1 var(--serif,Georgia,serif);color:#176c4d;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.build-page .wv-gain-lab{display:block;font:500 10.5px "IBM Plex Mono",monospace;letter-spacing:.06em;text-transform:uppercase;color:#5c6a76;margin-top:4px}
+.build-page .wv-act{grid-area:act;text-align:right;align-self:end}
+.build-page .wv-act button{min-height:44px;padding:8px 16px}
+.build-page .wv-act button[aria-pressed=true]{background:#e8f5ee;color:#176c4d;border-color:#176c4d}
+.build-page .wv-empty{margin:14px 0 0;padding:24px 20px}
+.build-page .wv-empty-actions{margin:14px auto 0!important}
+.build-page .wv-entry{text-align:left;margin:16px 0 0}
+.build-page .wv-entry label{font-size:13px;font-weight:600;color:#39413b}
+.build-page .wv-entry textarea{margin:6px 0 0;padding:12px;font-size:14px}
+.build-page .wv-entry-actions{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;margin:10px 0 0!important;max-width:none!important}
+.build-page .wv-entry-actions a{color:#176c4d;font-weight:600}
+.build-page .wv-howto{text-align:left;margin:20px 0 0;padding-top:16px;border-top:1px solid #dbe0dc}
+.build-page .wv-howto-title{font:600 11px "IBM Plex Mono",monospace;letter-spacing:.08em;text-transform:uppercase;color:#5c6a76;margin:0 0 8px!important}
+.build-page .wv-howto .slideshow{padding:12px;margin:10px 0 0}
+.build-page .wv-howto .slide:not([hidden]){display:grid;grid-template-columns:minmax(0,200px) minmax(0,1fr);gap:14px;align-items:center}
+.build-page .wv-howto .slide img{max-height:130px;width:100%;object-fit:cover;object-position:top}
+.build-page .wv-howto .slide-cap{font-size:14px;margin:0;color:#12202c}
+.build-page .wv-howto .slide-nav{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:10px}
+.build-page .wv-move{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;margin:0 0 8px}
+.build-page .wv-move p{margin:0}
+.build-page .wv-chart-note{margin:-4px 0 12px;font-size:14px}
+@media (prefers-reduced-motion:no-preference){.build-page .wv-add{animation:wvin .28s ease-out both}.build-page .wv-add.is-best{animation:wvin .28s ease-out both,wvbest .9s ease-out .2s 1}}
+@keyframes wvin{from{transform:translateY(6px);opacity:0}to{transform:none;opacity:1}}
+@keyframes wvbest{0%{box-shadow:0 0 0 0 rgba(23,108,77,.3)}100%{box-shadow:0 0 0 10px rgba(23,108,77,0)}}
+@media(max-width:860px){.build-page .wv-grid{grid-template-columns:1fr;gap:0}}
+@media(max-width:760px){.build-page .mode-bar .segmented>button{padding:8px 10px;font-size:14px}.build-page .wv-chips button{min-height:44px}.build-page .wv-add{grid-template-areas:"main gain" "act act";padding:12px}.build-page .wv-add.is-best{padding:11px}.build-page .wv-act{text-align:left}.build-page .wv-act button{width:100%}.build-page .wv-gain{font-size:34px}.build-page .wv-howto .slide:not([hidden]){grid-template-columns:1fr}.build-page .wv-grid>.card{padding:18px 14px}}
+</style><link rel="stylesheet" href="posweights.css"></head><body class="build-page"><header><div class="header-inner"><div class="brand">DDF<small>DATA DRIVEN FOOTBALL</small></div><nav aria-label="Main navigation"><a href="index.html">Home</a><a href="build.html" aria-current="page">Build a Trade</a><a href="find.html">Trade &amp; Waiver Recommendations</a><a href="values.html">Values</a><div class="morewrap"><button type="button" aria-expanded="false" aria-controls="build-more-menu">More ▾</button><div class="menu" id="build-more-menu"><a href="build.html">Build a Trade</a><a href="find.html">Trade &amp; Waiver Recommendations</a><a href="waivers.html">Waivers</a><a href="team.html">Team assessment</a><a href="explore.html">Pick players</a><a href="partners.html">Pick trading partners</a><a href="values.html">Values</a><a href="values.html#buy-sell">Buy / Sell</a><a href="values.html#overrides">Overrides</a><a href="learn.html">Learn</a><a href="learn.html#numbers/pie">How we get our numbers</a><a href="ai.html">Use DDF with AI</a><a href="connect.html">Paste my league</a><a href="setup.html">Your team</a><a href="settings.html">League settings</a></div></div></nav></div></header><div class="ctx-strip"><span>My league · Manually entered · Half PPR · 12 teams</span><a href="settings.html">Edit league</a></div><nav class="ws-steps" aria-label="Workspace progress"><a href="team.html">✓ Team assessment</a><a href="explore.html">✓ Pick players</a><a href="partners.html">✓ Pick trading partners</a><a href="find.html">✓ Trade &amp; Waiver Recommendations</a><strong class="selected" aria-current="step">Build a Trade</strong></nav><main><div class="row"><div><h1>Build a Trade</h1><p class="muted lede" id="lede">Pick players for each side to see who gets more, then propose it.</p></div><a class="button" href="find.html" data-only="league">Back to Trade &amp; Waiver Recommendations</a></div>
+<div class="mode-bar" id="mode-bar"><div class="segmented" id="kind-seg" role="group" aria-label="What to do"><button type="button" data-pick-kind="trade" aria-pressed="true">Trade with a team</button><button type="button" data-pick-kind="waivers" aria-pressed="false">Add from waivers</button></div><div class="segmented" id="mode-seg" role="group" aria-label="Players to use"><button type="button" data-mode="any" aria-pressed="true">Any players</button><button type="button" data-mode="league" aria-pressed="false">My league</button></div><p class="mode-note" id="roster-note" data-only="note"></p></div>
+<p class="notice" id="prefill-note" role="status" hidden></p>
+<section class="card workspace-controls" data-kind="trade" data-only="league"><div class="control-row"><label>Partner<select id="partner"></select></label><label>Your valuation<select id="your-valuation"><option value="DDF" selected>DDF</option><option value="DDF (Projection based)">DDF (Projection based)</option><option value="Market">Analyst charts</option><optgroup label="Single analyst charts"><option>CBS Sports</option><option>USA Today</option><option>FantasyPros</option></optgroup><optgroup label="Live market"><option value="FantasyCalc">Live market (FantasyCalc)</option></optgroup><optgroup label="Projection sources"><option>ESPN projections</option><option>CBS rest-of-season projections</option><option>Razzball projections</option></optgroup></select></label><label>Their valuation<select id="their-valuation"><option value="Market" selected>Analyst charts</option><option value="DDF">DDF</option><option value="DDF (Projection based)">DDF (Projection based)</option><optgroup label="Single analyst charts"><option>CBS Sports</option><option>USA Today</option><option>FantasyPros</option></optgroup><optgroup label="Live market"><option value="FantasyCalc">Live market (FantasyCalc)</option></optgroup><optgroup label="Projection sources"><option>ESPN projections</option><option>CBS rest-of-season projections</option><option>Razzball projections</option></optgroup></select></label></div><p class="muted ovr-link">Think a player is worth more or less? <a href="values.html#overrides">Set your own value</a></p><details id="advanced"><summary>Advanced trade filters</summary><p id="constraints">Players each side: 1, 2, 3, 4 · Minimum bench QB/RB/WR/TE: 0/0/0/0 · Repeat player cap: 20.</p><small id="constraints-note">Default search constraints shown.</small><div data-posweights></div></details></section>
+<div class="pick-cards" data-kind="trade" data-only="any"><section class="card pick-card" aria-labelledby="any-give-title"><h2 id="any-give-title">You give</h2><p class="suggest" id="suggest"><span>Start here:</span> <button type="button" class="flash-player" id="suggest-give">Rhamondre Stevenson · RB — add him</button></p><label for="any-give-search">Find a player</label><input id="any-give-search" type="search" placeholder="Search any player" autocomplete="off" aria-controls="any-give-results" aria-describedby="any-give-count"><p class="pick-count" id="any-give-count" role="status"></p><ul class="pick-results" id="any-give-results" aria-label="Matching players to give"></ul><ul class="pick-chosen" id="any-give-chosen" aria-label="Players you give"></ul></section><section class="card pick-card" aria-labelledby="any-get-title"><h2 id="any-get-title">You get</h2><label for="any-get-search">Find a player</label><input id="any-get-search" type="search" placeholder="Search any player" autocomplete="off" aria-controls="any-get-results" aria-describedby="any-get-count"><p class="pick-count" id="any-get-count" role="status"></p><ul class="pick-results" id="any-get-results" aria-label="Matching players to get"></ul><ul class="pick-chosen" id="any-get-chosen" aria-label="Players you get"></ul></section></div>
+<div class="chooser-panels" data-kind="trade" data-only="league"><section class="card chooser"><h2 id="give-title">My team · Choose players</h2><label for="give-search">Find a player</label><input id="give-search" type="search" placeholder="Find a player"><div class="include-any" data-only="full"><button type="button" class="linkish" aria-expanded="false" aria-controls="give-outside">Include any player</button><div id="give-outside" hidden><label for="give-outside-search">Any player, including ones outside your league</label><input id="give-outside-search" type="search" placeholder="Search any player" autocomplete="off"><ul class="pick-results" id="give-outside-results" aria-label="Matching players"></ul></div></div><div class="player-scroll" tabindex="0" role="region" aria-label="My team players"><table><thead><tr><th>PLAYER</th><th>POS</th><th>DDF</th><th title="Analyst charts: average of CBS Sports, USA Today and FantasyPros">ANALYST</th><th><span class="sr-action">Select</span></th></tr></thead><tbody id="give-picker"></tbody></table></div></section><section class="card chooser"><h2 id="get-title">Team 03 · Choose players</h2><label for="get-search">Find a player</label><input id="get-search" type="search" placeholder="Find a player"><div class="include-any" data-only="full"><button type="button" class="linkish" aria-expanded="false" aria-controls="get-outside">Include any player</button><div id="get-outside" hidden><label for="get-outside-search">Any player, including ones outside your league</label><input id="get-outside-search" type="search" placeholder="Search any player" autocomplete="off"><ul class="pick-results" id="get-outside-results" aria-label="Matching players"></ul></div></div><div class="player-scroll" tabindex="0" role="region" aria-label="Partner players" id="get-region"><table><thead><tr><th>PLAYER</th><th>POS</th><th>DDF</th><th title="Analyst charts: average of CBS Sports, USA Today and FantasyPros">ANALYST</th><th><span class="sr-action">Select</span></th></tr></thead><tbody id="get-picker"></tbody></table></div></section></div>
+<div class="lock-card" data-kind="trade" data-only="league-off"><p><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg><span>Add your roster and at least one other team to build a trade inside your league.</span></p><a class="button primary" href="connect.html">Paste my league →</a></div>
+<div class="offer-boxes" data-kind="trade"><section class="card"><h2>You give</h2><p id="give-names">No players</p></section><section class="card"><h2>You get</h2><p id="get-names">No players</p></section></div>
+<section class="card trade-checks" data-kind="trade" data-only="league" aria-label="Trade checks"><p class="check-pass" id="check-pass">✓ Trade checks pass</p><div id="checks"><p>✓ Your starters improve by +1.50 DDF</p><p>✓ Their starters improve by +1.36 on analyst charts</p><p>✓ Your roster construction passes</p><p>✓ Their roster construction passes</p><p>✓ Their analyst-charts coverage: 3 of 3 charts</p></div></section>
+<div class="lock-card" data-kind="trade" data-only="any"><p><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg><span>Add your league to see how this changes your starting lineup and roster.</span></p><a class="button primary" href="connect.html">Paste my league →</a></div>
+<div class="lock-card" data-kind="waivers" data-only="any"><p><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg><span>Adding from waivers uses your roster and the available players in your league.</span></p><button type="button" class="button primary" id="wv-to-league">Switch to My league</button></div>
+<div class="lock-card" data-kind="waivers" data-only="roster-off"><p><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg><span>Add your roster to find your best adds from waivers.</span></p><a class="button primary" href="connect.html">Paste my league →</a></div>
+<section id="waivers-ui" class="waivers-ui" data-kind="waivers" data-only="roster" aria-label="Add from waivers"><div class="wv-grid">
+<section class="card wv-drop" aria-labelledby="wv-drop-title"><h2 id="wv-drop-title" tabindex="-1">You drop</h2><p class="wv-suggest" id="wv-suggest"></p><div class="wv-roster" id="wv-roster" role="radiogroup" aria-labelledby="wv-drop-title"></div></section>
+<section class="card wv-board" aria-labelledby="wv-board-title"><div class="wv-board-head"><h2 id="wv-board-title" tabindex="-1">Best adds for you</h2><p class="wv-count" id="wv-count"></p></div>
+<div id="wv-filters"><div class="wv-chips" role="group" aria-label="Minimum gain"><span class="wv-chip-label" aria-hidden="true">Minimum gain</span><button type="button" data-min="0" aria-pressed="false" aria-label="Any gain over 0">Any</button><button type="button" data-min="2" aria-pressed="true">2 or more</button><button type="button" data-min="3" aria-pressed="false" aria-label="3 or more">3+</button><button type="button" data-min="5" aria-pressed="false" aria-label="5 or more">5+</button></div><div class="wv-chips" role="group" aria-label="Position" id="wv-pos"></div>
+<p class="wv-filter-note" id="wv-filter-note" role="status"></p></div>
+<ol class="wv-adds" id="wv-adds" aria-label="Available players ranked by gain"></ol>
+<div class="empty-state wv-empty" id="wv-empty" hidden><p><strong>No available players yet.</strong>Paste your league's Free Agents / Players page, or add a few by name.</p><p class="wv-empty-actions"><button type="button" class="primary" id="wv-open-entry" aria-expanded="false" aria-controls="wv-entry">Paste available players</button></p>
+<div id="wv-entry" class="wv-entry" hidden><label for="wv-paste">Paste from your league site, or type one player per line</label><textarea id="wv-paste" rows="5" placeholder="Brandon Aiyuk · WR"></textarea><p class="wv-entry-actions"><button type="button" class="primary" id="wv-paste-add">Add these players</button> <a href="waivers.html">Manage the list on Waivers</a></p><p id="wv-paste-status" class="notice" role="status"></p></div>
+<div class="wv-howto"><p class="wv-howto-title">Where to find them</p><div class="provider-toggle" role="group" aria-label="Provider"><button type="button" data-wv-provider="espn" aria-pressed="true">ESPN</button><button type="button" data-wv-provider="yahoo" aria-pressed="false">Yahoo</button></div>
+<div data-wv-walkthrough="espn"><div class="slideshow" data-slideshow><div class="slide is-active"><img src="assets/howto/slides/espn-players-1.jpg" alt="ESPN Free Agents page with the Players menu circled"><p class="slide-cap">Open Players, then Free Agents. Add all the available players, not a shortlist.</p></div><div class="slide" hidden><img src="assets/howto/slides/espn-players-2-select.jpg" alt="The ESPN Free Agents page with everything highlighted after Select All"><p class="slide-cap">Select everything: Ctrl+A (Mac: Cmd+A), then copy it: Ctrl+C (Mac: Cmd+C).</p></div><div class="slide" hidden><img src="assets/howto/slides/players-3-paste.jpg" alt="The pasted player text sitting in the paste box"><p class="slide-cap">Paste it into the box above: Ctrl+V (Mac: Cmd+V). It lands messy; we pick out the player names.</p></div><div class="slide-nav"><button type="button" data-prev>← Back</button><span class="slide-step" role="status" aria-atomic="true">Step 1 of 3</span><button type="button" data-next>Next →</button></div></div></div>
+<div data-wv-walkthrough="yahoo" hidden><div class="slideshow" data-slideshow><div class="slide is-active"><img src="assets/howto/slides/players-1-click.jpg" alt="Yahoo Players page with the Players link circled"><p class="slide-cap">Open the Players page and set Status to All Available Players.</p></div><div class="slide" hidden><img src="assets/howto/slides/players-2-select.jpg" alt="The Yahoo Players page with everything highlighted after Select All"><p class="slide-cap">Select everything: Ctrl+A (Mac: Cmd+A), then copy it: Ctrl+C (Mac: Cmd+C).</p></div><div class="slide" hidden><img src="assets/howto/slides/players-3-paste.jpg" alt="The pasted player list sitting in the paste box"><p class="slide-cap">Paste it into the box above: Ctrl+V (Mac: Cmd+V). It lands messy; we pick out the player names.</p></div><div class="slide-nav"><button type="button" data-prev>← Back</button><span class="slide-step" role="status" aria-atomic="true">Step 1 of 3</span><button type="button" data-next>Next →</button></div></div></div></div>
+</div></section></div>
+<div class="wv-move"><p id="wv-move-status" class="notice" role="status"></p><button type="button" id="wv-undo" hidden>Undo roster move</button></div></section>
+<div class="empty-state" id="empty-state" data-kind="trade"><p><strong>Add a player to each side.</strong>The verdict, trade charts and trade message appear once both sides have a player. To shop a player, pick only your side.</p></div>
+<div id="result" hidden>
+<section class="trade-charts" id="charts-section" aria-labelledby="charts-title"><h2 id="charts-title">Trade charts</h2><p class="muted wv-chart-note" data-kind="waivers">The drop counts as the give side and the add as the get side.</p><div id="charts"></div></section>
+<section class="card message-card" data-kind="trade" aria-labelledby="message-title"><h2 id="message-title">Propose the trade</h2><p class="attention"><strong>Leave room to negotiate.</strong> Consider starting with a slightly worse offer for the other manager than the trade you actually want to land on.</p><div class="cluster" id="styles" role="group" aria-label="Message style"><button type="button" data-style="Friendly" aria-pressed="true">Friendly</button><button type="button" data-style="Straightforward" aria-pressed="false">Straightforward</button><button type="button" data-style="Analytical" aria-pressed="false">Analytical</button><button type="button" data-style="Brief" aria-pressed="false">Brief</button><button type="button" data-style="Direct offer" aria-pressed="false">Direct offer</button><button type="button" data-style="Ask what they want" aria-pressed="false">Ask what they'd want</button><button type="button" data-style="2-for-1 consolidation" aria-pressed="false">2-for-1 consolidation</button><button type="button" data-style="Swap positions of need" aria-pressed="false">Swap positions of need</button><button type="button" data-style="Shop a player" aria-pressed="false">Shop a player</button></div><p id="shop-note" class="muted" hidden>Only your side is picked, so the message shops your player. Pick a player to receive to use the other styles.</p>
+<div class="chart-pick"><div class="chart-pick-row"><label for="ref-chart"><strong>Reference trade chart</strong></label><details class="info"><summary aria-label="About the trade chart labels">ⓘ</summary><span>Two kinds of source. Analyst charts: CBS Sports, USA Today and FantasyPros publish analysts' trade values. Live market: FantasyCalc reflects live market activity, what people actually pay in trades. Each chart uses its own published numbers, not adjusted to your league. The comparison is a percentage (what they receive minus what they send, divided by what they send), so charts with different scales are comparable. "Helps your pitch" means they receive more than they send by more than 1%, so the chart supports the message; "Works against you" means they send more by more than 1%, and the message then makes no chart claim. Up to 25% the label shows the exact percentage; above 25% it says "a lot more", and the exact figure appears under the picker when you choose that chart.</span></details></div><div class="chart-pick-row"><select id="ref-chart" aria-describedby="chart-live"></select><span class="chart-warn" id="chart-warn" role="status" hidden>This chart doesn't support the pitch</span></div><p id="chart-live" class="muted" aria-live="polite"></p><p class="muted ovr-link">Think a player is worth more or less? <a href="values.html#overrides">Set your own value</a></p></div>
+<p><label for="message"><strong>Editable message preview</strong></label></p><textarea id="message" rows="5" aria-describedby="message-help"></textarea><div class="cluster msg-actions"><button type="button" class="primary" id="copy">Copy message</button><button type="button" class="linkish" id="regenerate">Regenerate message</button></div><p id="copy-status" role="status" class="notice"></p><p id="message-help" class="muted">Choosing a style or chart, changing players or regenerating replaces your edits.</p></section>
+<section class="card message-card" data-kind="waivers" aria-labelledby="claim-title"><h2 id="claim-title">Claim note</h2><p class="muted">A short note listing the add and the drop, to keep or paste into your league chat.</p><p><label for="claim"><strong>Editable claim note</strong></label></p><textarea id="claim" rows="3" aria-describedby="claim-help"></textarea><p id="claim-help" class="muted">Changing the drop or the add replaces your edits.</p></section>
+<section class="card next-steps" data-kind="waivers" aria-labelledby="wv-next-title"><h2 id="wv-next-title">Next steps</h2><div class="cluster"><button type="button" class="primary" id="wv-confirm">Confirm roster move</button><button type="button" id="wv-copy">Copy claim note</button></div><p id="wv-copy-status" role="status" class="notice"></p><p class="muted">Confirm roster move updates your roster and available players on this device only. Nothing is submitted to your league site; make the claim there.</p></section>
+</div>
+</main><footer class="sitemap"><div class="in"><div><h2>TRADE</h2><a href="index.html">Home</a><a href="build.html">Build a Trade</a><a href="find.html">Trade &amp; Waiver Recommendations</a><a href="waivers.html">Waivers</a></div><div><h2>VALUES</h2><a href="values.html">Values</a><a href="values.html#buy-sell">Buy / Sell</a><a href="values.html#overrides">Overrides</a></div><div><h2>YOUR LEAGUE</h2><a href="connect.html">Paste my league</a><a href="setup.html">Your team</a><a href="settings.html">League settings</a><a href="team.html">Team assessment</a><a href="explore.html">Pick players</a><a href="partners.html">Pick trading partners</a></div><div><h2>LEARN</h2><a href="learn.html">Learn</a><a href="learn.html#numbers/pie">How we get our numbers</a><a href="ai.html">Use DDF with AI</a></div></div><div class="footer">Data Driven Football</div></footer><script src="site.js"></script><script src="tradechart.js"></script><script>(()=>{const $=id=>document.getElementById(id);
+/* Build a Trade: one screen, two modes.
+   any    = "Any players": search any player per side; roster checks replaced by a lock card.
+   league = "My league": partner + roster choosers + trade checks.
+   Mode: full rosters -> league (toggle hidden); else ?mode=any|league; else a ?partner from recommendations -> league;
+   else a chat link with rosters -> league; else any. */
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt=v=>typeof v==='number'?v.toFixed(2):'—';
+const present=v=>Array.isArray(v)&&v.length>0;
+
+/* Example dataset, original numbers: [name, pos, DDF Value, Market average] */
+const MY_ROSTER=[["Josh Allen","QB",41.53,25.87],["Bo Nix","QB",0,0.65],["Jahmyr Gibbs","RB",96.66,61.03],["Rachaad White","RB",7.24,12.99],["Rhamondre Stevenson","RB",21.22,21.71],["Keaton Mitchell","RB",0.55,3.01],["Jaxon Smith-Njigba","WR",79.04,54.29],["Stefon Diggs","WR",12.75,17.3],["George Pickens","WR",28.81,26.08],["Antonio Williams","WR",2.58,10.62],["Malachi Fields","WR",0.68,4.13],["Trey McBride","TE",36.93,25.22],["Dalton Schultz","TE",0,1.75]];
+const TEAM_03=[["Joe Burrow","QB",17.37,14.53],["Deshaun Watson","QB",0,1.23],["James Cook","RB",68.96,46.64],["Breece Hall","RB",29.94,25.19],["Brian Robinson","RB",1.32,5.05],["Amon-Ra St. Brown","WR",62.42,44.53],["Jeremiyah Love","RB",22.72,20.34]];
+/* Per-source values (check page). Market average for Reed and McLaurin = mean of the three, as the check page computed it. */
+const SOURCE_VALUES={'Rhamondre Stevenson':{cbs:22.63,fp:25.62,usa:16.87},'Jeremiyah Love':{cbs:16.79,fp:25.62,usa:18.62},'Jayden Reed':{cbs:22,fp:11,usa:18},'Terry McLaurin':{cbs:26,fp:13,usa:21}};
+const OUTSIDE=[['Jayden Reed','WR',null,17],['Terry McLaurin','WR',null,20]];
+/* DDF Value only, from the Values page. */
+const DDF_ONLY=[['Kenneth Walker III','RB',86.4],['Bijan Robinson','RB',86.3],["Ja'Marr Chase",'WR',74.6],['Puka Nacua','WR',71.2],['Justin Jefferson','WR',58],['Saquon Barkley','RB',55],['Ashton Jeanty','RB',50],['Brock Bowers','TE',44],['Jonathan Taylor','RB',26]];
+const CHECK_PICKS=['Rhamondre Stevenson','Jayden Reed','Jeremiyah Love','Terry McLaurin']; /* old check.html #trade= links index into this list */
+/* Waivers example data, same numbers as waivers.html / find.html: DDF gain to your starters for each evaluated drop|add pair. */
+const PICKUP_GAINS={'Dalton Schultz|Hunter Henry':2.4,'Antonio Williams|Brandon Aiyuk':2.9,'Antonio Williams|Darnell Mooney':1.6};
+const EXAMPLE_AVAILABLE=[['Brandon Aiyuk','WR'],['Darnell Mooney','WR'],['Hunter Henry','TE']];
+const EXAMPLE_BENCH=new Set(['Bo Nix','Keaton Mitchell','Malachi Fields','Antonio Williams','Dalton Schultz']);
+const POS_ORDER=['QB','RB','WR','TE','K','DEF'];
+
+const catalog=new Map();
+const addPlayer=(n,pos,ddf,market)=>{const c=catalog.get(n);if(c){if(!c.pos&&pos)c.pos=pos;return c}const p={n,pos:pos||'',ddf:typeof ddf==='number'?ddf:null,market:typeof market==='number'?market:null};catalog.set(n,p);return p};
+MY_ROSTER.concat(TEAM_03,OUTSIDE).forEach(p=>addPlayer(p[0],p[1],p[2],p[3]));DDF_ONLY.forEach(p=>addPlayer(p[0],p[1],p[2],null));
+const info=n=>catalog.get(n)||addPlayer(n,'',null,null);
+const SOURCES=[['DDF Value',p=>p.ddf],['CBS Sports',p=>(SOURCE_VALUES[p.n]||{}).cbs],['FantasyPros',p=>(SOURCE_VALUES[p.n]||{}).fp],['USA Today',p=>(SOURCE_VALUES[p.n]||{}).usa],['Analyst charts',p=>p.market]];
+const byValue=(a,b)=>(b.ddf??b.market??-1)-(a.ddf??a.market??-1)||a.n.localeCompare(b.n);
+
+/* ---- league state: chat link (DDF.link) or the example league ---- */
+function linkState(){try{return window.DDF&&DDF.link&&DDF.link.current()||null}catch(e){return null}}
+function nameOf(entry){try{const p=DDF.link.player(entry),n=typeof entry==='string'?entry:(p.name||DDF.link.playerName(entry));addPlayer(n,p.pos,null,null);return n}catch(e){return String(entry)}}
+function readLeague(){
+ const st=linkState();
+ if(st&&st.settings){
+  const teams=(Array.isArray(st.teams)?st.teams:[]).map((t,i)=>({name:(t&&t.name)||'Team '+(i+1),players:(t&&Array.isArray(t.players)?t.players:[]).map(nameOf)}));
+  const me=Number.isInteger(st.me)&&teams[st.me]?st.me:-1,want=+st.settings.teams||teams.length;
+  const entered=teams.filter(t=>t.players.length).length,partners=teams.map((t,i)=>i).filter(i=>i!==me&&teams[i].players.length);
+  const available=me>=0&&teams[me].players.length>0&&partners.length>0;
+  return {source:'link',st,teams,me,want,entered,partners,available,hasRoster:me>=0&&teams[me].players.length>0,full:available&&teams.length>=want&&entered===teams.length};
+ }
+ return {source:'example',st:null,teams:[{name:'Your team',players:MY_ROSTER.map(p=>p[0])},{name:'Team 03',players:TEAM_03.map(p=>p[0])}],me:0,want:12,entered:2,partners:[1],available:true,hasRoster:true,full:false};
+}
+/* ---- URL params (recommendations link here with partner/give/receive) ---- */
+function readParams(){
+ const q=new URLSearchParams(location.search);let saved=null;
+ try{saved=JSON.parse(sessionStorage.getItem('ddf-recommendation'))}catch(e){}
+ if(!saved||typeof saved!=='object')saved=null;
+ const list=v=>Array.isArray(v)?v.filter(x=>typeof x==='string'&&x.trim()).map(x=>x.trim()):typeof v==='string'?v.split(',').map(x=>x.trim()).filter(Boolean):[];
+ const fromQuery=['partner','give','get','receive'].some(k=>q.has(k));
+ const src=fromQuery?{partner:q.get('partner'),give:q.get('give'),get:q.get('get')??q.get('receive'),constraints:q.get('constraints'),yv:q.get('yv'),tv:q.get('tv')}:saved?{partner:saved.partner,give:saved.give,get:saved.get??saved.receive,constraints:saved.constraints,yv:saved.yourValuation,tv:saved.theirValuation}:{};
+ const mode=['any','league'].includes(q.get('mode'))?q.get('mode'):null;
+ const waivers=q.get('waivers')==='1'||q.get('tab')==='waivers';
+ return {mode,waivers,drop:q.get('drop'),add:q.get('add'),fromQuery,partner:typeof src.partner==='string'&&src.partner.trim()?src.partner.trim():null,give:list(src.give),get:list(src.get),constraints:typeof src.constraints==='string'?src.constraints:'',yourValuation:typeof src.yv==='string'?src.yv:null,theirValuation:typeof src.tv==='string'?src.tv:null};
+}
+/* ---- old check.html share links: #trade=<deflate(JSON)> ---- */
+async function readLegacyShare(){
+ if(!location.hash.startsWith('#trade='))return null;
+ try{
+  const encoded=location.hash.slice(7);if(encoded.length>4000)throw Error();
+  const raw=atob(encoded.replaceAll('-','+').replaceAll('_','/'));
+  const state=JSON.parse(await new Response(new Blob([Uint8Array.from(raw,c=>c.charCodeAt(0))]).stream().pipeThrough(new DecompressionStream('deflate'))).text());
+  if(state.version!==1||!Array.isArray(state.picks)||state.picks.length>4||!state.picks.every(i=>Number.isInteger(i)&&i>=0&&i<4)||new Set(state.picks).size!==state.picks.length)throw Error();
+  return {give:state.picks.filter(i=>i<2).map(i=>CHECK_PICKS[i]),get:state.picks.filter(i=>i>=2).map(i=>CHECK_PICKS[i])};
+ }catch(e){return {error:true}}
+}
+
+let L=null,S={style:'Friendly'},W=null,TABLE=null;const undoLog=[];
+const defaultConstraints=$('constraints').textContent;
+const partnerName=()=>S.partner>=0&&L.teams[S.partner]?L.teams[S.partner].name:'';
+function rosterNames(side){
+ if(side==='give')return L.me>=0?L.teams[L.me].players.concat(S.extras.give):S.extras.give.slice();
+ return S.partner>=0?L.teams[S.partner].players.concat(S.extras.get[S.partner]||[]):[];
+}
+const isExtra=(side,n)=>side==='give'?S.extras.give.includes(n):(S.extras.get[S.partner]||[]).includes(n);
+function addExtra(side,n){
+ if(rosterNames(side).includes(n))return;
+ if(side==='give')S.extras.give.push(n);else (S.extras.get[S.partner]=S.extras.get[S.partner]||[]).push(n);
+}
+const picked=side=>S.mode==='any'?S.any[side].slice():rosterNames(side).filter(n=>S.lg[side].has(n));
+const joinNames=list=>list.length<3?(list.join(' and ')||'No players'):list.slice(0,-1).join(', ')+' and '+list[list.length-1];
+const baseline=()=>{const g=picked('give'),r=picked('get');return S.mode==='league'&&L.source==='example'&&partnerName()==='Team 03'&&g.length===1&&g[0]==='Rhamondre Stevenson'&&r.length===1&&r[0]==='Jeremiyah Love'};
+
+async function init(){
+ L=readLeague();const P=readParams(),legacy=await readLegacyShare(),st=L.st;
+ W=loadWaivers();
+ if(W.roster&&L.me>=0){W.roster.forEach(r=>addPlayer(r.n,r.pos,null,null));L.teams[L.me].players=W.roster.map(r=>r.n)}
+ W.players.forEach(p=>addPlayer(p.n,p.pos,null,null));
+ L.hasRoster=L.me>=0&&L.teams[L.me].players.length>0;
+ const wv=S.wv||{min:2,pos:'All'};
+ S={mode:'any',kind:P.waivers||(st&&st.view==='waivers')?'waivers':'trade',any:{give:[],get:[]},lg:{give:new Set(),get:new Set()},partner:L.partners.length?L.partners[0]:-1,extras:{give:[],get:{}},style:S.style||'Friendly',chart:S.chart||'',prevStyle:null,dirty:false,
+  wv:{drop:P.drop,add:P.add,min:wv.min,pos:wv.pos,countKey:''},claimDirty:false};
+ let note='';
+ if(L.source==='example'){S.lg.give=new Set(['Rhamondre Stevenson']);S.lg.get=new Set(['Jeremiyah Love'])}
+ const trade=st&&st.trade&&(present(st.trade.give)||present(st.trade.get))?st.trade:null;
+ if(trade){
+  const g=(trade.give||[]).map(nameOf),r=(trade.get||[]).map(nameOf);
+  if(Number.isInteger(trade.partner)&&trade.partner!==L.me&&L.teams[trade.partner]){if(!L.partners.includes(trade.partner))L.partners.push(trade.partner);S.partner=trade.partner}
+  S.lg={give:new Set(g),get:new Set(r)};S.any={give:g.slice(),get:r.slice()};
+  note='Loaded from your chat: '+joinNames(g)+' for '+joinNames(r)+'.';
+ }
+ if(P.partner){
+  let idx=L.teams.findIndex(t=>t.name===P.partner);
+  if(idx<0&&/^\d+$/.test(P.partner)&&L.teams[+P.partner])idx=+P.partner;
+  if(idx<0&&L.source==='example'){L.teams.push({name:P.partner,players:P.get.slice()});idx=L.teams.length-1}
+  if(idx>=0&&idx!==L.me){if(!L.partners.includes(idx))L.partners.push(idx);S.partner=idx}
+ }
+ if(P.give.length||P.get.length){
+  S.lg={give:new Set(P.give),get:new Set(P.get)};S.any={give:P.give.slice(),get:P.get.slice()};
+  note=(P.partner?'Prefilled from Trade & Waiver Recommendations: ':'Prefilled: ')+joinNames(P.give)+' for '+joinNames(P.get)+'.';
+ }
+ if(legacy){if(legacy.error)note='That shared trade link could not be read, so nothing was loaded from it.';else{S.any=legacy;note='Shared trade loaded: '+joinNames(legacy.give)+' for '+joinNames(legacy.get)+'.'}}
+ for(const n of S.lg.give)addExtra('give',n);
+ if(S.partner>=0)for(const n of S.lg.get)addExtra('get',n);
+ S.mode=L.full?'league':P.mode||(P.partner&&P.fromQuery?'league':(L.source==='link'&&L.available?'league':(S.kind==='waivers'&&L.hasRoster?'league':'any')));
+ $('prefill-note').hidden=!note;$('prefill-note').textContent=note;
+ const relabel=s=>s.replace(/(valuation: )Market\b/g,'$1Analyst charts').replace(/(valuation: )FantasyCalc\b/g,'$1Live market (FantasyCalc)');
+ $('constraints').textContent=P.constraints?relabel(P.constraints):defaultConstraints;$('constraints-note').textContent=P.constraints?'Carried constraints: '+relabel(P.constraints):'Default search constraints shown.';
+ /* Source rename (Jeremy, 2026-11-06): option values keep the old tokens ('Market' = Analyst charts, 'FantasyCalc' = Live market); old links load as before and the new labels are accepted too. */
+ const VAL_ALIAS={'analyst charts':'Market','analyst':'Market','market':'Market','live market':'FantasyCalc','live market (fantasycalc)':'FantasyCalc','fantasycalc':'FantasyCalc'},valTok=v=>typeof v==='string'&&VAL_ALIAS[v.trim().toLowerCase()]||v;
+ const f=st&&st.filters||{},val=v=>v==='market'||v==='analyst'?'Market':v==='fantasycalc'||v==='live'?'FantasyCalc':v==='ddf'?'DDF':null;
+ if(val(f.yourValuation))$('your-valuation').value=val(f.yourValuation);
+ if(val(f.theirValuation))$('their-valuation').value=val(f.theirValuation);
+ /* F08: the Your/Their valuation picked on Trade & Waiver Recommendations travels with the offer, so the selects match the carried constraints text. */
+ const pick=(id,v)=>{v=valTok(v);if(v&&[...$(id).options].some(o=>o.value===v))$(id).value=v};pick('your-valuation',P.yourValuation);pick('their-valuation',P.theirValuation);
+ $('partner').innerHTML=L.partners.map(i=>`<option value="${i}"${i===S.partner?' selected':''}>${esc(L.teams[i].name)}</option>`).join('');
+ for(const side of ['give','get']){$('any-'+side+'-search').value='';$(side+'-search').value=''}
+ render();
+}
+
+/* ---- rendering ---- */
+function show(key){const any=S.mode==='any';return {any:any,league:!any&&L.available,'league-off':!any&&!L.available,full:!any&&L.full,note:!any&&!L.full,roster:!any&&L.hasRoster,'roster-off':!any&&!L.hasRoster}[key]}
+function rosterNote(){
+ if(L.source==='link'&&!L.teams.length)return 'No rosters entered yet · <a href="connect.html">add your league</a>';
+ const missing=Math.max(0,L.want-L.entered);
+ return `${L.entered} of ${L.want} rosters entered`+(missing?` · <a href="connect.html">${missing} ${missing===1?'team':'teams'} missing, add ${missing===1?'it':'them'}</a>`:'');
+}
+function render(){
+ const any=S.mode==='any',waivers=S.kind==='waivers';
+ document.body.classList.toggle('mode-any',any);document.body.classList.toggle('mode-league',!any);document.body.classList.toggle('kind-waivers',waivers);
+ document.querySelectorAll('[data-only],[data-kind]').forEach(el=>{el.hidden=(el.dataset.kind&&el.dataset.kind!==S.kind)||(el.dataset.only&&!show(el.dataset.only))});
+ $('mode-seg').hidden=L.full;
+ document.querySelectorAll('[data-mode]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.mode===S.mode)));
+ document.querySelectorAll('[data-pick-kind]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.pickKind===S.kind)));
+ $('roster-note').innerHTML=rosterNote();
+ $('charts-title').textContent=waivers?'Pickup charts':'Trade charts';
+ if(waivers){
+  $('lede').textContent=any?'Adding from waivers works with your league: your roster and its available players.':L.hasRoster?'Pick who to drop, then choose your best add from the available players.':'Add your roster to find your best adds from waivers.';
+  $('suggest').hidden=true;
+  if(!any&&L.hasRoster)renderWaivers();
+  const ready=!any&&L.hasRoster&&waiverReady();
+  $('empty-state').hidden=true;$('result').hidden=!ready;
+  if(ready){renderWaiverCharts();if(!S.claimDirty)writeClaim()}
+  return;
+ }
+ const ready=picked('give').length>0&&picked('get').length>0;
+ if(any)$('lede').textContent='Pick any players for each side to see who gets more, then propose it.';
+ else if(L.available)$('lede').innerHTML='Refine your offer to <span id="partner-name"></span>, then choose how to propose it.',$('partner-name').textContent=partnerName();
+ else $('lede').textContent='Add your league to build a trade with your leaguemates.';
+ $('suggest').hidden=!(any&&!S.any.give.length&&!S.any.get.length);
+ if(any){renderPick('give');renderPick('get')}
+ else if(L.available){renderChooser('give');renderChooser('get');$('get-title').textContent=partnerName()+' · Choose players';$('get-region').setAttribute('aria-label',partnerName()+' players');if(L.full){renderOutside('give');renderOutside('get')}}
+ for(const side of ['give','get'])$(side+'-names').textContent=joinNames(picked(side));
+ const standard=baseline();$('check-pass').textContent=standard?'✓ Trade checks pass':'Review trade checks';
+ $('checks').innerHTML=standard?initialChecks:'<p>Recheck starter improvement, roster construction, and source coverage for this selected package.</p>';
+ const shop=picked('give').length>0&&!picked('get').length; /* Shop a player: only your side picked */
+ $('empty-state').hidden=ready||shop;$('result').hidden=!(ready||shop);$('charts-section').hidden=shop;$('shop-note').hidden=!shop;
+ const SHOP='Shop a player',setPressed=()=>document.querySelectorAll('[data-style]').forEach(x=>x.setAttribute('aria-pressed',String(x.dataset.style===S.style)));
+ document.querySelectorAll('[data-style]').forEach(b=>{b.disabled=shop&&b.dataset.style!==SHOP});
+ if(shop&&S.style!==SHOP){S.prevStyle=S.style;S.style=SHOP;S.dirty=false;setPressed()}
+ else if(!shop&&S.prevStyle){S.style=S.prevStyle;S.prevStyle=null;S.dirty=false;setPressed()}
+ if(ready||shop){renderChartPick();if(ready)renderCharts();if(!S.dirty)writeMessage()}
+}
+const initialChecks=$('checks').innerHTML;
+function matchRow(p,label){
+ const v=typeof p.ddf==='number'?'DDF '+p.ddf.toFixed(2):typeof p.market==='number'?'Analyst charts '+p.market.toFixed(2):'';
+ return `<li><button type="button" data-add="${esc(p.n)}" aria-label="${esc(label+' '+p.n)}"><span>${esc(p.n)}<small>${esc(p.pos)}</small></span><span><span class="pick-num">${v}</span><span class="pick-add" aria-hidden="true">Add</span></span></button></li>`;
+}
+function search(query,exclude){const q=query.trim().toLowerCase();return q?Array.from(catalog.values()).filter(p=>!exclude.has(p.n)&&p.n.toLowerCase().includes(q)).sort(byValue).slice(0,6):[]}
+function countText(query,n){return query.trim()?(n?n+(n===1?' player matches.':' players match.'):'No players match. Check the spelling.'):''}
+function renderPick(side){
+ const query=$('any-'+side+'-search').value,taken=new Set(S.any.give.concat(S.any.get)),found=search(query,taken);
+ $('any-'+side+'-results').innerHTML=found.map(p=>matchRow(p,'Add')).join('');
+ $('any-'+side+'-count').textContent=countText(query,found.length);
+ $('any-'+side+'-chosen').innerHTML=S.any[side].length?S.any[side].map(n=>{const p=info(n);return `<li><span>${esc(n)}<small>${esc(p.pos)}</small> <span class="pick-num">${typeof p.ddf==='number'?'DDF '+p.ddf.toFixed(2):''}</span></span><button type="button" data-remove="${esc(n)}" aria-label="Remove ${esc(n)}">Remove</button></li>`}).join(''):'<li class="pick-none">No player added yet</li>';
+}
+function renderChooser(side){
+ const query=$(side+'-search').value.toLowerCase();
+ $(side+'-picker').innerHTML=rosterNames(side).map((n,i)=>{const p=info(n),chosen=S.lg[side].has(n);return `<tr class="${chosen?'selected':''}" ${n.toLowerCase().includes(query)?'':'hidden'}><td>${esc(n)}${isExtra(side,n)?'<small class="outside-tag">Added from any player</small>':''}</td><td>${esc(p.pos)}</td><td class="number">${fmt(p.ddf)}</td><td class="number">${fmt(p.market)}</td><td><button type="button" data-side="${side}" data-index="${i}" aria-pressed="${chosen}" aria-label="${chosen?'Remove':'Add'} ${esc(n)}"><span class="b-full">${chosen?'Remove':'Add'}</span><span class="b-short" aria-hidden="true">${chosen?'−':'+'}</span></button></td></tr>`}).join('');
+}
+function renderOutside(side){
+ const query=$(side+'-outside-search').value,found=search(query,new Set(rosterNames(side).concat(rosterNames(side==='give'?'get':'give'))));
+ $(side+'-outside-results').innerHTML=found.map(p=>matchRow(p,'Include')).join('')||(query.trim()?'<li class="pick-count">No players match.</li>':'');
+}
+function renderCharts(){
+ const give=picked('give').map(info),get=picked('get').map(info),sources=[],missing=[];
+ for(const [name,value] of SOURCES){const g=give.map(p=>({n:p.n,v:value(p)})),r=get.map(p=>({n:p.n,v:value(p)}));if(g.concat(r).every(x=>typeof x.v==='number'))sources.push({name,give:g,receive:r});else missing.push(name)}
+ const yv=S.mode==='league'?$('your-valuation').value:'DDF',want=yv==='Market'?'Analyst charts':yv==='DDF'?'DDF Value':yv==='CBS Sports'?'CBS Sports':yv;
+ let main=sources.findIndex(s=>s.name===want);
+ if(main<0)main=Math.max(0,['DDF Value','Analyst charts'].map(n=>sources.findIndex(x=>x.name===n)).find(i=>i>=0)??0);
+ window.DDF_TC.render($('charts'),{sources,mainSourceIndex:main,note:missing.length&&sources.length?'Not shown for this package: '+missing.join(', ')+' (values not available for every selected player).':'',emptyText:'None of the sources has a value for every player in this trade yet, so there is no chart to draw.'});
+}
+
+/* ---- Add from waivers: drop picker, ranked best-adds board, shared verdict/charts, claim note ---- */
+/* Shared with waivers.html via DDF.state 'waivers' = {source:'example'|'link', players:[{n,pos}], roster:[{n,pos,bench}]|null} */
+function loadWaivers(){
+ let saved=null;try{saved=DDF.state.get('waivers',null)}catch(e){}
+ const clean=list=>Array.isArray(list)?list.filter(p=>p&&typeof p.n==='string'&&p.n.trim()).map(p=>({n:p.n.trim(),pos:typeof p.pos==='string'?p.pos:'',bench:!!p.bench})):null;
+ if(saved&&saved.source===L.source&&clean(saved.players))return {players:clean(saved.players).map(({n,pos})=>({n,pos})),roster:clean(saved.roster)};
+ if(L.source==='link')return {players:(Array.isArray(L.st.waivers)?L.st.waivers:[]).map(e=>{const n=nameOf(e);return {n,pos:info(n).pos}}),roster:null};
+ return {players:EXAMPLE_AVAILABLE.map(([n,pos])=>({n,pos})),roster:null};
+}
+function saveWaivers(){try{DDF.state.set('waivers',{source:L.source,players:W.players,roster:W.roster})}catch(e){}}
+const gainFor=(drop,add)=>PICKUP_GAINS[drop+'|'+add];
+const lastName=n=>{const parts=String(n).trim().split(/\s+/);return parts.length>1?parts.slice(1).join(' '):parts[0]};
+function myRoster(){
+ if(W.roster)return W.roster;
+ return L.me>=0?L.teams[L.me].players.map(n=>({n,pos:info(n).pos,bench:L.source==='example'?EXAMPLE_BENCH.has(n):false})):[];
+}
+const availableNow=()=>{const mine=new Set(myRoster().map(p=>p.n));return W.players.filter(p=>!mine.has(p.n))};
+function suggestion(){
+ const roster=myRoster(),hasBench=roster.some(p=>p.bench),pool=hasBench?roster.filter(p=>p.bench):roster;
+ const ddf=p=>info(p.n).ddf??Infinity,mkt=p=>info(p.n).market??Infinity,evaluated=p=>W.players.some(a=>gainFor(p.n,a.n)!==undefined)?1:0;
+ const best=pool.slice().sort((a,b)=>ddf(a)-ddf(b)||evaluated(b)-evaluated(a)||mkt(a)-mkt(b)||a.n.localeCompare(b.n))[0];
+ return best?{n:best.n,label:hasBench?'your lowest-value bench player':'your lowest-value player'}:null;
+}
+const minText=()=>S.wv.min>0?S.wv.min+'+':'over 0';
+function reasonFor(add,drop){
+ const ap=add.pos,dp=info(drop).pos;if(!ap)return '';
+ if(ap===dp)return 'upgrades your '+ap+' depth';
+ const have=myRoster().filter(p=>p.n!==drop&&p.pos===ap).length;
+ return have?'adds '+ap+' depth (you have '+have+')':'fills your empty '+ap+' spot';
+}
+function boardRows(){
+ const drop=S.wv.drop,min=S.wv.min;
+ return availableNow().filter(p=>S.wv.pos==='All'||p.pos===S.wv.pos).map(p=>{
+  const gain=gainFor(drop,p.n),pass=gain!==undefined&&gain>0&&gain>=min;let alt=null;
+  if(gain===undefined)for(const r of myRoster()){const g=gainFor(r.n,p.n);if(g!==undefined&&(!alt||g>alt.gain))alt={n:r.n,gain:g}}
+  return {n:p.n,pos:p.pos,gain,pass,alt};
+ }).sort((a,b)=>(b.pass-a.pass)||((b.gain??-1e9)-(a.gain??-1e9))||a.n.localeCompare(b.n));
+}
+function waiverReady(){return !!(S.wv.drop&&S.wv.add&&myRoster().some(p=>p.n===S.wv.drop)&&availableNow().some(p=>p.n===S.wv.add))}
+function renderWaivers(){
+ const roster=myRoster(),sug=suggestion();
+ if(!S.wv.drop||!roster.some(r=>r.n===S.wv.drop))S.wv.drop=sug?sug.n:null;
+ if(S.wv.add&&!availableNow().some(p=>p.n===S.wv.add))S.wv.add=null;
+ const drop=S.wv.drop;
+ $('wv-suggest').textContent=sug?'Suggested: '+sug.label:'';
+ const opt=p=>{const v=info(p.n);return `<label class="wv-opt"><input type="radio" name="wv-drop" value="${esc(p.n)}"${p.n===drop?' checked':''}><span>${esc(p.n)}<small>${esc(p.pos)}</small></span>${sug&&p.n===sug.n?'<small class="wv-sugg-tag">Suggested</small>':''}<span class="wv-opt-val">${fmt(v.ddf)}<span class="sr-action"> DDF</span></span></label>`};
+ const byLow=(a,b)=>(info(a.n).ddf??1e9)-(info(b.n).ddf??1e9)||a.n.localeCompare(b.n);
+ const bench=roster.filter(p=>p.bench).sort(byLow),starters=roster.filter(p=>!p.bench).sort(byLow);
+ $('wv-roster').innerHTML=bench.length?`<p class="wv-group" aria-hidden="true">Bench · DDF</p>${bench.map(opt).join('')}<p class="wv-group" aria-hidden="true">Starters · DDF</p>${starters.map(opt).join('')}`:`<p class="wv-group" aria-hidden="true">Your roster · DDF</p>${starters.map(opt).join('')}`;
+ const avail=availableNow(),n=avail.length,empty=!n;
+ $('wv-count').innerHTML=empty?'':`${n} available player${n===1?'':'s'} entered · <a href="waivers.html">Manage list</a>`;
+ $('wv-empty').hidden=!empty;$('wv-filters').hidden=empty;$('wv-adds').hidden=empty;
+ if(empty){$('wv-adds').innerHTML='';return}
+ const present=POS_ORDER.filter(pos=>avail.some(p=>p.pos===pos));
+ if(S.wv.pos!=='All'&&!present.includes(S.wv.pos))S.wv.pos='All';
+ $('wv-pos').innerHTML='<span class="wv-chip-label" aria-hidden="true">Position</span>'+['All'].concat(present).map(pos=>`<button type="button" data-pos="${pos}" aria-pressed="${S.wv.pos===pos}">${pos}</button>`).join('');
+ document.querySelectorAll('[data-min]').forEach(b=>b.setAttribute('aria-pressed',String(+b.dataset.min===S.wv.min)));
+ const rows=boardRows(),best=rows.find(r=>r.pass),dropShort=lastName(drop),dv=info(drop);
+ $('wv-adds').innerHTML=rows.map(r=>{
+  const isBest=r===best,picked=S.wv.add===r.n,reason=reasonFor(r,drop);
+  let meta,hero,act='';
+  if(r.gain===undefined){
+   meta=`Not evaluated against ${esc(drop)} yet.`+(r.alt?` <button type="button" class="linkish" data-drop="${esc(r.alt.n)}">Drop ${esc(r.alt.n)} instead: +${r.alt.gain.toFixed(1)}</button>`:'');
+   hero='<span class="wv-gain" aria-hidden="true">—</span><span class="wv-gain-lab">Not evaluated</span>';
+  }else{
+   meta=(r.pass?'':`<strong>${r.gain>0?'Below your '+minText()+' filter':'No gain over '+esc(dropShort)}</strong> · `)+`Value vs ${esc(dropShort)} (DDF ${fmt(dv.ddf)}): +${r.gain.toFixed(1)} DDF to your starters · DDF only, no analyst-charts value for this add yet`+(reason&&!isBest?' · '+esc(reason):'');
+   hero=`<span class="wv-gain">+<span data-gain="${r.gain.toFixed(1)}">${r.gain.toFixed(1)}</span></span><span class="wv-gain-lab">gain vs ${esc(dropShort)}</span>`;
+   act=`<div class="wv-act"><button type="button" class="${r.pass&&!picked?'primary':''}" data-pick="${esc(r.n)}" aria-pressed="${picked}" aria-label="${picked?'Picked':r.pass?'Pick this add':'Check anyway'}: ${esc(r.n)}">${picked?'✓ Picked':r.pass?'Pick this add':'Check anyway'}</button></div>`;
+  }
+  return `<li class="wv-add${isBest?' is-best':''}${r.pass?'':' is-dim'}${picked?' is-picked':''}"><div class="wv-main">${isBest?`<p class="wv-tag">★ BEST ADD${reason?' · '+esc(reason):''}</p>`:''}<h3 class="wv-name">${esc(r.n)}<small>${esc(r.pos)} · available</small></h3><p class="wv-meta">${meta}</p></div><div class="wv-gainbox">${hero}</div>${act}</li>`;
+ }).join('')||'<li class="wv-meta">No available players at this position.</li>';
+ const pass=rows.filter(r=>r.pass).length,below=rows.filter(r=>r.gain!==undefined&&!r.pass).length,unrated=rows.filter(r=>r.gain===undefined).length;
+ $('wv-filter-note').textContent=(pass?`${pass} add${pass===1?' clears':'s clear'} your ${minText()} filter for ${drop}`:`No add clears your ${minText()} filter for ${drop}. Lower the minimum gain or try another drop`)+(below?` · ${below} below it`:'')+(unrated?` · ${unrated} not evaluated against ${dropShort}`:'')+'.';
+ const key=drop+'|'+S.wv.pos;
+ if(S.wv.countKey!==key){S.wv.countKey=key;if(window.DDF&&DDF.countUp)$('wv-adds').querySelectorAll('[data-gain]').forEach(el=>DDF.countUp(el,el.dataset.gain,{decimals:1,duration:800}))}
+}
+function renderWaiverCharts(){
+ const drop=info(S.wv.drop),add=info(S.wv.add),gain=gainFor(drop.n,add.n);
+ if(gain===undefined||typeof drop.ddf!=='number'){window.DDF_TC.render($('charts'),{sources:[],emptyText:`There is no DDF value yet for dropping ${drop.n} to add ${add.n}, so there is no chart to draw.`});return}
+ const worth=gain>0&&gain>=S.wv.min;
+ const tail=worth?'value above waivers: worth the move':'value above waivers: not worth the move'+(gain>0?` (below your ${minText()} filter)`:'');
+ window.DDF_TC.render($('charts'),{sources:[{name:'DDF Value',give:[{n:drop.n,v:drop.ddf}],receive:[{n:add.n,v:+(drop.ddf+gain).toFixed(2)}]}],mainSourceIndex:0,
+  verdict:{tail,tone:worth?'pos':gain>0?'even':'neg'},
+  note:`${add.n}'s DDF value here is ${drop.n}'s ${drop.ddf.toFixed(2)} plus the +${gain.toFixed(1)} pickup gain. Not shown for this pickup: CBS Sports, FantasyPros, USA Today, Analyst charts (values not available for every player in it).`});
+}
+const posTag=n=>{const p=info(n).pos;return p?' ('+p+')':''};
+function writeClaim(){$('claim').value=`Waiver claim: add ${S.wv.add}${posTag(S.wv.add)}, drop ${S.wv.drop}${posTag(S.wv.drop)}.`;S.claimDirty=false}
+
+/* paste parsing, same rules as waivers.html: "Name · POS" lines, otherwise known player names found in messy site text */
+async function playerTable(){
+ if(TABLE)return TABLE;
+ try{const rows=await (await fetch('players-table-1.json')).json();TABLE=rows.map(r=>{const [n,pos]=String(r).split('|');return {n:(n||'').trim(),pos:(pos||'').trim()}}).filter(p=>p.n.length>=5).sort((a,b)=>b.n.length-a.n.length)}catch(e){TABLE=[]}
+ return TABLE;
+}
+function parseAvailable(text,table){
+ const found=new Map();let skipped=0;const norm=p=>{p=(p||'').toUpperCase();return p==='D/ST'?'DEF':p};
+ const add=(n,pos)=>{n=n.trim();if(n&&!found.has(n))found.set(n,{n,pos:norm(pos)||((table.find(t=>t.n===n)||{}).pos||'')})};
+ for(const raw of String(text).split(/\r?\n/)){
+  const line=raw.trim();if(!line)continue;
+  const m=/^([A-Za-z][A-Za-z.'’\- ]+?)\s*(?:·|,|\||\t| - | – )\s*(QB|RB|WR|TE|K|DEF|D\/ST)\b/i.exec(line);
+  if(m){add(m[1],m[2]);continue}
+  let rest=line,hit=false;
+  for(const p of table)if(rest.includes(p.n)){add(p.n,p.pos);rest=rest.split(p.n).join(' | ');hit=true}
+  if(!hit&&/^[A-Z][A-Za-z.'’\-]+(?: [A-Z][A-Za-z.'’\-]+){1,3}$/.test(line)){add(line,'');hit=true}
+  if(!hit)skipped++;
+ }
+ return {players:[...found.values()],skipped};
+}
+
+/* ---- reference trade charts ----
+   Data: tradecharts-published.json = {chart:{player:published value}}, each chart's own published units (CBS/USA Today/FantasyPros points, FantasyCalc trade value),
+   no indexing, no league adjustment. Captured 2026-11-06, week 9, half PPR, 12 teams, 1 QB / 2 RB / 3 WR / 1 TE / 1 FLEX / 6 bench, from learn/data/raw-week9/src_*.json.
+   Players a chart only "fills in" (estimates, not published) are left out, so they read "Not on this chart".
+   Charts use different scales, so every comparison is a percentage: pct = (value they RECEIVE - value they SEND) / value they SEND x 100.
+   "Even" band: |pct| <= 1%. Options are ranked by pct, descending (scale-free). */
+const CHARTS=[['cbs','CBS Sports'],['usatoday','USA Today'],['fantasypros','FantasyPros'],['fantasycalc','FantasyCalc']];
+let CH=null;
+const chartName=k=>(CHARTS.find(c=>c[0]===k)||[])[1]||'';
+const chartGroup=k=>k==='fantasycalc'?'live':'analyst',CHART_GROUPS=[['analyst','Analyst charts'],['live','Live market']];
+const chartFull=k=>k==='fantasycalc'?'Live market ('+chartName(k)+')':chartName(k);
+/* claim source: "CBS Sports' trade chart shows" / "FantasyCalc's live market values show" */
+const chartSrc=k=>k==='fantasycalc'?poss(chartName(k))+' live market values':poss(chartName(k))+' trade chart';
+const poss=n=>/s$/i.test(n)?n+"'":n+"'s";
+const cval=(k,n)=>CH&&CH[k]&&typeof CH[k][n]==='number'?CH[k][n]:null;
+const cfmt=(k,v)=>k==='fantasycalc'?Math.round(v).toLocaleString('en-US'):v.toFixed(1);
+const csum=a=>a.reduce((t,v)=>t+v,0);
+/* give = value the other team RECEIVES (what you give), get = value it SENDS (what you get); diff = give - get */
+function chartEval(k){
+ const g=picked('give'),r=picked('get'),gv=g.map(n=>cval(k,n)),rv=r.map(n=>cval(k,n));
+ const e={k,name:chartName(k),give:null,get:null,diff:null,tol:null,status:'missing'};
+ if(!g.length||gv.some(v=>v===null))return e;
+ e.give=csum(gv);
+ if(!r.length){e.status='giveonly';return e}
+ if(rv.some(v=>v===null))return e;
+ e.get=csum(rv);if(!(e.get>0))return e;
+ e.diff=+(e.give-e.get).toFixed(4);e.pct=e.diff/e.get*100;e.tol=1;
+ e.status=e.pct>e.tol?'helps':e.pct>=-e.tol?'even':'against';
+ return e;
+}
+/* Plain words above the cap (2026-11-06, Jeremy: "Cap with plain words"): labels and claims show the exact percent up to 25%,
+   "a lot more" above it. The exact percent stays in the option's title and the live line under the picker. Ranking still uses e.pct. */
+const PCT_CAP=25;
+const pctWords=p=>Math.round(p)<=PCT_CAP?Math.round(p)+'% more':'a lot more';
+const pctExact=e=>e.diff===null?'':e.status==='even'?'Within 1% (exact '+(Math.round(e.pct*10)/10)+'%)':Math.round(Math.abs(e.pct))+'%';
+function chartLabel(e){
+ if(e.status==='helps')return `Helps your pitch (they get ${pctWords(e.pct)})`;
+ if(e.status==='even')return 'Even (within 1%)';
+ if(e.status==='against')return `Works against you (they give up ${pctWords(-e.pct)})`;
+ if(e.status==='giveonly')return `Lists your player${picked('give').length>1?'s':''} at ${cfmt(e.k,e.give)}`;
+ return 'Not on this chart';
+}
+function chartRank(){
+ const all=CH?CHARTS.map(c=>chartEval(c[0])):[];
+ const scored=all.filter(e=>e.diff!==null).sort((a,b)=>b.pct-a.pct),rest=all.filter(e=>e.diff===null).sort((a,b)=>(a.status==='giveonly'?0:1)-(b.status==='giveonly'?0:1));
+ const best=scored.length&&scored[0].status==='helps'?scored[0].k:null; /* tag only a chart whose gap beats the even band */
+ return {list:scored.concat(rest),best};
+}
+function renderChartPick(){
+ const sel=$('ref-chart');if(!CH){sel.innerHTML='<option value="">None</option>';sel.disabled=true;$('chart-live').textContent='Trade chart values did not load.';return}
+ sel.disabled=false;
+ const {list,best}=chartRank();
+ const opt=e=>`<option value="${e.k}"${e.diff!==null?` title="${esc(pctExact(e))}"`:''}>${e.k===best?'Best for your pitch · ':''}${esc(e.name)}: ${esc(chartLabel(e))}</option>`;
+ /* grouped by kind (Jeremy, 2026-11-06): analyst opinion vs live market activity; ranked within each group */
+ sel.innerHTML='<option value="">None</option>'+CHART_GROUPS.map(([g,lab])=>{const items=list.filter(e=>chartGroup(e.k)===g);return items.length?`<optgroup label="${lab}">${items.map(opt).join('')}</optgroup>`:''}).join('');
+ sel.value=S.chart;if(sel.value!==S.chart)S.chart='';
+ chartLive(best);
+}
+function chartLive(best){
+ const live=$('chart-live'),warn=$('chart-warn');warn.hidden=true;
+ if(S.chart){
+  const e=chartEval(S.chart);warn.hidden=e.status!=='against';
+  if(e.diff!==null)live.textContent=`${chartFull(e.k)}: they receive ${cfmt(e.k,e.give)} and send ${cfmt(e.k,e.get)}, ${e.status==='even'?'about even value':e.pct>0?`about ${Math.round(e.pct)}% more than they send`:`about ${Math.round(-e.pct)}% less than they send`}. ${chartLabel(e)}.`;
+  else if(e.status==='giveonly')live.textContent=`${chartFull(e.k)}: ${chartLabel(e)}.`;
+  else live.textContent=`${chartFull(e.k)}: Not on this chart. The message makes no chart claim.`;
+ }else{
+  if(best===undefined)best=chartRank().best;
+  if(best){const e=chartEval(best);live.innerHTML=`Best for your pitch: ${esc(chartFull(e.k))} (${esc(chartLabel(e))}). <button type="button" class="linkish" id="chart-best" data-chart="${e.k}">Use ${esc(chartFull(e.k))}</button>`}
+  else live.textContent='No chart is selected, so the message makes no chart claim.';
+}}
+function chartClaim(){
+ if(!S.chart)return null;const e=chartEval(S.chart);
+ if(e.status!=='helps'&&e.status!=='even')return null; /* claims only when the chart's numbers support them */
+ const nums=`${e.k==='fantasycalc'?'they have':'it has'} it at ${cfmt(e.k,e.give)} for ${cfmt(e.k,e.get)}`,pct=Math.round(e.pct);
+ const line=e.status==='even'?'you get about even value':pct<=PCT_CAP?`you get about ${pct}% more value than you give`:'you get a lot more value than you give';
+ const src=chartSrc(e.k);return {e,text:`${src[0].toUpperCase()+src.slice(1)} ${e.k==='fantasycalc'?'show':'shows'} ${line} (${nums}).`};
+}
+async function loadCharts(){
+ try{CH=await (await fetch('tradecharts-published.json')).json()}catch(e){CH=null}
+ if(L&&S.lg)render();
+}
+
+/* ---- trade message (9 styles in both modes; league mode addresses the partner; no message text mentions the site name) ---- */
+const NEAR_ZERO=1.0; /* a player whose analyst-charts value is under 1.0 is an add-in: he carries no trade value, so he is named as a throw-in and an uneven offer is allowed */
+function message(){
+ const give=picked('give'),get=picked('get'),league=S.mode==='league';
+ const nz=n=>{const m=info(n).market;return typeof m==='number'&&m<NEAR_ZERO};
+ const split=list=>{const add=list.filter(nz);return add.length&&add.length<list.length?{core:list.filter(n=>!nz(n)),add}:{core:list,add:[]}};
+ const G=split(give),R=split(get),uneven=G.add.length>0||R.add.length>0;
+ const gAll=joinNames(give),rAll=joinNames(get);
+ const addNote=a=>`${joinNames(a)} as ${a.length>1?'add-ins':'an add-in'}`;
+ const giveText=joinNames(G.core)+(G.add.length?` (plus ${addNote(G.add)})`:'');
+ const getText=joinNames(R.core)+(R.add.length?`, plus ${addNote(R.add)}`:'');
+ const tag=`${G.core.length}-for-${R.core.length}`+(G.core.length===R.core.length?' with an add-in':'');
+ const terms=uneven?(league?`${tag}: I send ${giveText} for ${getText}.`:`Would you do a ${tag}? I send ${giveText} for ${getText}.`)
+  :(league?`I send ${gAll}; you send ${rAll}.`:`Would you trade ${rAll} for ${gAll}?`);
+ const hi='Hi! '; /* team names are not manager names, so never greet by team name (Jeremy, 2026-11-06) */
+ const claim=chartClaim(),cl=claim?' '+claim.text:'';
+ const mkt=list=>list.map(n=>info(n).market).reduce((t,x)=>t===null||typeof x!=='number'?null:t+x,0);
+ const gm=mkt(give),rm=mkt(get);
+ const analytic=(claim?cl:'')+(baseline()?' My starting lineup improves by 1.50 and yours by 1.36.':(!claim&&gm!==null&&rm!==null?` On the average of the CBS Sports, FantasyPros and USA Today trade charts that is ${gm.toFixed(2)} for ${rm.toFixed(2)}.`:(claim?'':' How does this fit your roster?')));
+ const consolidate=G.core.length>R.core.length?"I'd rather have fewer, better players in my lineup, and you'd get useful depth.":G.core.length<R.core.length?"I'd be taking more pieces, and you'd get the stronger player in one spot.":"It simplifies both lineups.";
+ const shopVal=(()=>{if(!S.chart)return '';const vs=give.map(n=>cval(S.chart,n));if(!vs.length||vs.some(v=>v===null))return '';
+  return ` By ${chartSrc(S.chart)} ${give.length>1?"they're":"he's"} about ${cfmt(S.chart,csum(vs))}${give.length>1?' together':''}, so I'm looking for something close.`})();
+ const shop=`${hi}I'm looking to move ${gAll}. Is there someone on your roster you'd part with for ${give.length>1?'them':'him'}?`+(get.length?` ${rAll} would interest me.`:'')+shopVal;
+ if(!get.length)return shop; /* only the shop style works with an empty receive side */
+ return {Friendly:`Hey! Interested in a trade? ${terms}${cl} Let me know what you think.`,
+  Straightforward:(league?hi:'')+terms+cl+(league?' Would that work for you?':''),
+  Analytical:(league?hi:'')+terms+analytic,
+  Brief:`${giveText} for ${getText}?`,
+  'Direct offer':`${hi}I'd like to make you a direct offer. ${terms}${cl} I think it helps both of us. Open to it?`,
+  'Ask what they want':`${hi}I'm interested in ${rAll}. What would it take to get a deal done? To start, I could send ${gAll}.`,
+  '2-for-1 consolidation':`${hi}Would you consider ${G.core.length>R.core.length?'a consolidation':uneven?`a ${tag}`:'a swap'}? ${uneven?`I send ${giveText} for ${getText}.`:terms}${cl} ${consolidate}`,
+  'Swap positions of need':`${hi}Looks like we're deep where the other is thin. ${terms}${cl} It fills a need on both sides. Interested?`,
+  'Shop a player':shop}[S.style];
+}
+function writeMessage(){$('message').value=message();S.dirty=false}
+
+/* ---- copy ---- */
+$('copy').onclick=()=>DDF.copyText($('message').value,$('copy-status'),'Message copied. Ready to paste into your league chat.');
+
+/* ---- events ---- */
+function changed(){$('copy-status').textContent='';render()}
+document.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>{
+ if(S.mode===b.dataset.mode)return;S.mode=b.dataset.mode;S.dirty=false;
+ try{const u=new URL(location.href);u.searchParams.set('mode',S.mode);history.replaceState(history.state,'',u)}catch(e){}
+ changed();
+});
+for(const side of ['give','get']){
+ $('any-'+side+'-search').oninput=()=>renderPick(side);
+ $('any-'+side+'-search').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();const first=$('any-'+side+'-results').querySelector('button');if(first)first.click()}};
+ $('any-'+side+'-results').onclick=e=>{const b=e.target.closest('[data-add]');if(!b)return;S.any[side].push(b.dataset.add);$('any-'+side+'-search').value='';changed();$('any-'+side+'-search').focus()};
+ $('any-'+side+'-chosen').onclick=e=>{const b=e.target.closest('[data-remove]');if(!b)return;S.any[side]=S.any[side].filter(n=>n!==b.dataset.remove);changed();$('any-'+side+'-search').focus()};
+ $(side+'-search').oninput=()=>renderChooser(side);
+ $(side+'-picker').onclick=e=>{const b=e.target.closest('button[data-index]');if(!b)return;const n=rosterNames(side)[Number(b.dataset.index)];if(S.lg[side].has(n))S.lg[side].delete(n);else S.lg[side].add(n);changed();const again=$(side+'-picker').querySelector(`button[data-index="${b.dataset.index}"]`);if(again)again.focus()};
+ const toggle=document.querySelector(`[aria-controls="${side}-outside"]`);
+ toggle.onclick=()=>{const panel=$(side+'-outside'),open=panel.hidden;panel.hidden=!open;toggle.setAttribute('aria-expanded',String(open));if(open)$(side+'-outside-search').focus()};
+ $(side+'-outside-search').oninput=()=>renderOutside(side);
+ $(side+'-outside-results').onclick=e=>{const b=e.target.closest('[data-add]');if(!b)return;addExtra(side,b.dataset.add);S.lg[side].add(b.dataset.add);$(side+'-outside-search').value='';changed()};
+}
+$('suggest-give').onclick=()=>{if(!S.any.give.includes('Rhamondre Stevenson'))S.any.give.push('Rhamondre Stevenson');changed();$('any-get-search').focus()};
+$('partner').onchange=()=>{S.partner=Number($('partner').value);S.lg.get=new Set();$('get-search').value='';changed()};
+$('your-valuation').onchange=()=>{if(!$('result').hidden)renderCharts()};
+document.querySelectorAll('[data-style]').forEach(b=>b.onclick=()=>{S.style=b.dataset.style;document.querySelectorAll('[data-style]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));writeMessage()});
+$('ref-chart').onchange=()=>{S.chart=$('ref-chart').value;chartLive();writeMessage()};
+$('chart-live').onclick=e=>{const b=e.target.closest('#chart-best');if(!b)return;S.chart=b.dataset.chart;$('ref-chart').value=S.chart;chartLive();writeMessage();$('ref-chart').focus()};
+document.addEventListener('keydown',e=>{if(e.key==='Escape')document.querySelectorAll('details.info[open]').forEach(d=>{d.open=false;d.querySelector('summary').focus()})});
+document.addEventListener('click',e=>{document.querySelectorAll('details.info[open]').forEach(d=>{if(!d.contains(e.target))d.open=false})});
+$('message').oninput=()=>{S.dirty=true};$('regenerate').onclick=writeMessage;
+
+/* ---- waivers events ---- */
+function setUrl(fn){try{const u=new URL(location.href);fn(u.searchParams);history.replaceState(history.state,'',u)}catch(e){}}
+document.querySelectorAll('[data-pick-kind]').forEach(b=>b.onclick=()=>{
+ if(S.kind===b.dataset.pickKind)return;S.kind=b.dataset.pickKind;
+ setUrl(q=>{q.delete('tab');if(S.kind==='waivers')q.set('waivers','1');else q.delete('waivers')});
+ changed();
+});
+$('wv-to-league').onclick=()=>{S.mode='league';setUrl(q=>q.set('mode','league'));changed();$('wv-drop-title').focus()};
+$('wv-roster').onchange=e=>{if(e.target.name!=='wv-drop')return;S.wv.drop=e.target.value;S.wv.add=null;S.claimDirty=false;changed();const again=$('wv-roster').querySelector('input:checked');if(again)again.focus()};
+document.querySelectorAll('[data-min]').forEach(b=>b.onclick=()=>{S.wv.min=+b.dataset.min;changed();b.focus()});
+$('wv-pos').onclick=e=>{const b=e.target.closest('[data-pos]');if(!b)return;S.wv.pos=b.dataset.pos;changed();const again=$('wv-pos').querySelector(`[data-pos="${b.dataset.pos}"]`);if(again)again.focus()};
+$('wv-adds').onclick=e=>{
+ const d=e.target.closest('[data-drop]');if(d){S.wv.drop=d.dataset.drop;S.wv.add=null;changed();const r=$('wv-roster').querySelector('input:checked');if(r)r.focus();return}
+ const b=e.target.closest('[data-pick]');if(!b)return;
+ S.wv.add=S.wv.add===b.dataset.pick?null:b.dataset.pick;S.claimDirty=false;changed();
+ const again=$('wv-adds').querySelector(`[data-pick="${CSS.escape(b.dataset.pick)}"]`);if(again)again.focus();
+};
+$('claim').oninput=()=>{S.claimDirty=true};
+$('wv-copy').onclick=()=>DDF.copyText($('claim').value,$('wv-copy-status'),'Claim note copied.');
+$('wv-confirm').onclick=()=>{
+ if(!waiverReady())return;const drop=S.wv.drop,add=S.wv.add;
+ undoLog.push({players:W.players.map(p=>({...p})),roster:W.roster?W.roster.map(p=>({...p})):null,league:L.teams[L.me].players.slice(),drop,add});
+ W.roster=myRoster().filter(p=>p.n!==drop).map(p=>({...p})).concat([{n:add,pos:info(add).pos,bench:true}]);
+ W.players=W.players.filter(p=>p.n!==add).concat([{n:drop,pos:info(drop).pos}]);
+ L.teams[L.me].players=W.roster.map(p=>p.n);S.lg.give.delete(drop);saveWaivers();
+ S.wv.add=null;S.wv.drop=null;$('wv-copy-status').textContent='';
+ $('wv-move-status').textContent=`Roster updated on this device: added ${add}, dropped ${drop}. ${drop} is now in your available players.`;
+ $('wv-undo').hidden=false;changed();$('wv-undo').focus();
+};
+$('wv-undo').onclick=()=>{
+ const last=undoLog.pop();if(!last)return;
+ W.players=last.players;W.roster=last.roster;L.teams[L.me].players=last.league;saveWaivers();
+ S.wv.drop=last.drop;S.wv.add=last.add;S.claimDirty=false;
+ $('wv-move-status').textContent=`Undone: ${last.add} is back in your available players and ${last.drop} is back on your roster.`;
+ $('wv-undo').hidden=!undoLog.length;changed();($('wv-confirm').offsetParent?$('wv-confirm'):$('wv-drop-title')).focus();
+};
+$('wv-open-entry').onclick=()=>{const panel=$('wv-entry'),open=panel.hidden;panel.hidden=!open;$('wv-open-entry').setAttribute('aria-expanded',String(open));if(open){$('wv-paste').focus();playerTable()}};
+$('wv-paste-add').onclick=async()=>{
+ const text=$('wv-paste').value;if(!text.trim()){$('wv-paste-status').textContent='Paste or type at least one player.';return}
+ const {players,skipped}=parseAvailable(text,await playerTable()),mine=new Set(myRoster().map(p=>p.n)),have=new Set(W.players.map(p=>p.n));
+ const fresh=players.filter(p=>!mine.has(p.n)&&!have.has(p.n)),onRoster=players.filter(p=>mine.has(p.n)).length;
+ if(!fresh.length){$('wv-paste-status').textContent='No new players found'+(onRoster?` (${onRoster} already on your roster)`:'')+'. Check the text and try again.';return}
+ W.players=W.players.concat(fresh);fresh.forEach(p=>addPlayer(p.n,p.pos,null,null));saveWaivers();
+ $('wv-paste').value='';$('wv-paste-status').textContent='';
+ $('wv-move-status').textContent=`${fresh.length} available player${fresh.length===1?'':'s'} added`+(skipped?`, ${skipped} line${skipped===1?'':'s'} skipped`:'')+(onRoster?`, ${onRoster} already on your roster`:'')+'.';
+ changed();$('wv-board-title').focus();
+};
+document.querySelectorAll('[data-wv-provider]').forEach(b=>b.onclick=()=>{
+ document.querySelectorAll('[data-wv-provider]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));
+ document.querySelectorAll('[data-wv-walkthrough]').forEach(w=>{w.hidden=w.dataset.wvWalkthrough!==b.dataset.wvProvider});
+});
+
+init();loadCharts();
+/* a chat link in the URL (#s=) is decoded after load; rebuild once it lands */
+if(window.DDF&&DDF.link&&DDF.link.ready)DDF.link.ready.then(r=>{if(r&&r.source==='link'&&!r.error)init()});
+
+const wrap=document.querySelector('.morewrap'),menuButton=wrap.querySelector('button');
+new MutationObserver(()=>menuButton.setAttribute('aria-expanded',String(wrap.classList.contains('open')))).observe(wrap,{attributes:true,attributeFilter:['class']});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&wrap.classList.contains('open')){wrap.classList.remove('open');menuButton.focus()}});
+})();</script><script src="posweights.js"></script></body></html>

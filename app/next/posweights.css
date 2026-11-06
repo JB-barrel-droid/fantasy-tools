@@ -1,0 +1,34 @@
+/* Position weights module (posweights.js). Scoped to .pw so it works on any page. */
+.pw{margin-top:16px;border-top:1px solid #dbe0dc;padding-top:14px;font-size:14px;color:#39413b}
+.pw *{box-sizing:border-box}
+.pw-head{display:flex;align-items:center;justify-content:space-between;gap:10px 16px;flex-wrap:wrap}
+.pw-title{margin:0;font-size:17px;display:flex;align-items:center;gap:8px}
+.pw-state{margin:0;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.pw-chip{display:inline-block;padding:5px 12px;border-radius:99px;background:#e8f5ee;color:#14563c;font-weight:600;font-size:13px}
+.pw-chip.custom{background:#fff0e8;color:#a83e12}
+.pw-reset{min-height:44px;padding:8px 14px;border:1px solid #176c4d;border-radius:9px;background:#fff;color:#176c4d;font:inherit;font-weight:600;cursor:pointer}
+.pw-reset:disabled{color:#5c6a76;background:#eef1ec;border-color:#dbe0dc;cursor:default}
+.pw-grid{display:grid;grid-template-columns:1fr;gap:10px;margin-top:12px}
+.pw-rowlbl{font-weight:700;font-size:14px;color:#142b25;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.pw-row{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.pw-box{align-content:start;display:grid;gap:6px;font-weight:600;font-size:13px;color:#39413b;min-width:0}
+.pw-box input{min-height:44px;width:100%;min-width:0;padding:6px 8px;font:inherit;border:1px solid #9aa7a0;border-radius:8px;background:#fff}
+.pw-box.edited input{border-color:#176c4d;background:#e8f5ee}
+.pw-tag{visibility:hidden;height:14px;line-height:14px;font-size:11px;font-weight:700;color:#14563c;letter-spacing:.04em;text-transform:uppercase}
+.pw-box.edited .pw-tag{visibility:visible}
+.pw-note{margin:12px 0 0;font-size:13px;color:#5c6a76}
+/* info (i) pattern, same look as find.html details.info */
+.pw details.info{display:inline-block;position:relative;font-weight:400}
+.pw details.info summary{box-sizing:border-box;min-height:0;min-width:0;padding:0;margin:0;display:block;list-style:none;cursor:pointer;width:18px;height:18px;line-height:16px;text-align:center;border:1px solid #5c6a76;border-radius:50%;font-size:12px;color:#314451;background:#fff}
+.pw details.info summary::-webkit-details-marker{display:none}
+.pw details.info summary:focus-visible{outline:3px solid #7fbf9d;outline-offset:2px}
+.pw details.info[open] span{position:fixed;left:50%;transform:translateX(-50%);z-index:60;width:min(320px,85vw);margin-top:8px;padding:10px 12px;background:#fff;color:#12202c;border:1px solid #c9d3da;border-radius:10px;box-shadow:0 8px 24px rgba(20,43,37,.18);font-size:13px;line-height:1.4;text-align:left}
+.pw details.info:not([open]) span{display:none}
+/* "Custom weights" flag near the recommendations header */
+.pw-flag{display:inline-flex;align-items:center;min-height:44px;margin:4px 0;padding:6px 14px;border:1px solid #e3b79c;border-radius:99px;background:#fff0e8;color:#a83e12;font:inherit;font-size:13px;font-weight:600;cursor:pointer}
+.pw-flag[hidden]{display:none}
+@media (max-width:480px){.pw-row{gap:8px}}
+/* host pages style bare label/input/h3 (find.html, build.html); pin the layout */
+.pw label.pw-box{display:grid!important;grid-template-columns:minmax(0,1fr);justify-content:stretch;align-items:start;gap:6px;margin:0;width:auto}
+.pw label.pw-box>input{display:block;width:100%!important;max-width:none!important;margin:0}
+.pw .pw-tag{margin:0}

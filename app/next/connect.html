@@ -1,0 +1,504 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>DDF · Add your league</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=Newsreader:opsz,wght@6..72,700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css"><style>
+body.connect{scrollbar-color:#176c4d #eef1ec;caret-color:#176c4d}.connect ::selection{background:#d7ecd9;color:#142b25}.connect main{max-width:1120px;padding:28px 40px 40px}.connect h1{margin:22px 0 12px;text-wrap:balance}.connect h3{font-size:19px;line-height:1.35}.connect p{max-width:72ch}.connect .connect-steps{list-style:none;display:flex;flex-wrap:wrap;gap:0;margin:0 0 32px;padding:0;border-bottom:1px solid #dbe0dc}.connect .connect-steps li{flex:1 1 130px;min-width:0}.connect .connect-steps a{display:block;padding:12px 10px;font-size:12px;text-decoration:none;color:#5c6a76;border-bottom:2px solid transparent}.connect .connect-steps [aria-current=step] a{color:#176c4d;border-color:#176c4d;background:#e8f5ee;font-weight:700}.connect .connect-steps a:hover{background:#eef1ec;color:#142b25}.connect .connect-context{display:flex;gap:12px 20px;align-items:center;flex-wrap:wrap;margin:24px 0;color:#3d4a55;font-size:13px}.connect .connect-context strong{color:#12202c}.connect .card,.connect .section{padding:28px;margin:24px 0}.connect #entry{margin-top:0}.connect textarea{display:block;width:100%;resize:vertical;min-height:170px;padding:16px;margin:10px 0 16px;font:inherit;line-height:1.6;color:#12202c;background:#fbfcfa;border:1.5px dashed #8fa496;border-radius:12px;transition:background .2s,border-color .2s,box-shadow .2s}.connect textarea::placeholder,.connect input::placeholder{color:#5c6a76;opacity:1}.connect input{padding:11px 12px;min-width:0;max-width:100%;border:1px solid #bec8c1;border-radius:8px;background:#fff}.connect form .cluster{margin-top:10px}.connect button{padding:11px 18px;border-radius:8px}.connect .section>summary h2{font-size:21px;margin:0}.connect [id]{scroll-margin-top:170px}.connect .section>summary{font-size:21px;line-height:1.4}.connect #tutorial .grid{gap:28px;margin-top:28px}.connect .connect-instruction{padding:0;background:none;border:0}.connect #tutorial .notice,.connect #number-status{padding:14px 16px;background:#fff0e8;color:#a83e12;border-radius:8px}.connect .notice:empty{display:none}.connect .notice{margin-bottom:0}.connect #link-result a{font-weight:700;overflow-wrap:anywhere}.connect .morewrap .menu{max-height:70vh;overflow:auto}.connect .sitemap h2{font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.1em;color:#5c6a76;margin:0 0 10px}.connect .sitemap .in{max-width:1120px;padding:32px 40px;grid-template-columns:repeat(4,minmax(0,1fr))}.connect .footer{max-width:1040px;margin:0 auto;padding:20px 0 28px}@media(max-width:760px){.connect main{padding:20px}.connect .card,.connect .section{padding:20px}.connect h1{font-size:34px}.connect .connect-steps{margin-bottom:24px}.connect .connect-steps li{flex-basis:45%}.connect #tutorial .grid{grid-template-columns:1fr;gap:22px}.connect .connect-instruction+section{padding-top:22px;border-top:1px solid #dbe0dc}.connect .sitemap .in{padding:28px 20px;grid-template-columns:repeat(2,minmax(0,1fr))}.connect .footer{padding:20px}.connect nav a,.connect .morewrap>button{font-size:12px;padding:8px}.connect .header-inner{gap:12px}.connect #entry .row{gap:12px}}
+.connect .connect-recognition caption{text-align:left;font-size:13px;color:var(--muted);padding-bottom:12px}.connect .connect-recognition table{table-layout:fixed}.connect .connect-recognition td{overflow-wrap:anywhere}.connect .connect-recognition .recognition-ok{background:var(--selected);color:var(--primary)}.connect .connect-recognition .recognition-attention{background:var(--attention);color:var(--attention-text)}
+
+.journey-steps{list-style:none;display:flex;flex-wrap:wrap;gap:8px 0;padding:0;margin:0 0 28px;font-size:12px;line-height:1.8}.journey-steps li{display:flex;align-items:baseline}.journey-steps li+li::before{content:"·";margin:0 10px}.journey-steps a{color:#176c4d;text-underline-offset:4px}.journey-steps [aria-current="step"]{color:#176c4d;font-weight:700}
+.connect .provider-field{margin:24px 0}.connect .provider-field label,.connect .manual-fields label{display:block;margin-bottom:8px}.connect select{padding:11px 12px;border:1px solid #bec8c1;border-radius:8px;background:#fff;font:inherit;color:#12202c}.connect .manual-link{display:block;margin-top:14px}.connect .entry-actions{align-items:flex-start}.connect #manual{margin-top:40px}.connect [hidden]{display:none!important}
+.connect .provider-label{display:block;margin-bottom:8px}.connect #one-team-error{padding:16px;margin-bottom:16px;border:1px solid #a83e12;border-radius:10px;background:#fff0e8;color:#a83e12}.connect #one-team-error h3{margin-top:0}
+.connect .cn-foot{max-width:1120px;margin:0 auto;padding:18px 40px 30px;font-weight:700;font-size:15px;color:#142b25;letter-spacing:.01em}.connect .cn-foot:before{content:"";display:block;border-top:1px solid #dbe0dc;margin-bottom:16px}@media(max-width:760px){.connect .cn-foot{padding:16px 20px 24px}}
+</style><style>
+.aiband{max-width:1180px;margin:56px auto 0;background:#f5efe1;border-radius:12px;padding:26px 32px}
+.aiband .ai-in{display:flex;align-items:center;gap:34px}
+.aiband h2{font-family:"Newsreader",Georgia,serif;font-size:25px;font-weight:600;margin:0;color:#10130f;white-space:nowrap}
+.aiband p{margin:0;font-size:16px;color:#333a34;flex:1}
+.aiband .copybtn{flex:none;background:transparent;border:1.6px solid #4a554c;color:#17211a;font:inherit;font-size:16px;font-weight:600;padding:11px 20px;border-radius:9px;cursor:pointer}
+.aiband .copybtn:hover{background:#fff}
+.aiband #copy-status{font-size:13.5px;color:#176c4d;margin-left:10px}
+@media (max-width:900px){.aiband{padding:22px 20px}.aiband .ai-in{flex-direction:column;align-items:flex-start;gap:14px}.aiband h2{white-space:normal}}
+</style><style>
+.connect .paste-link{margin-top:32px}.connect .paste-link textarea{display:block;width:100%;margin:8px 0 14px;font:14px/1.4 "IBM Plex Mono",monospace}.connect .paste-link-error{color:#8a3b12;background:#fbeee3;border-radius:8px;padding:10px 14px}.connect #paste-link-status{margin-left:12px;font-size:14px;color:#8a3b12}.connect .aiband{margin-top:40px}
+</style><style>
+/* ddf polish: provider pill, dashed paste box, slideshow pager + crossfade, secondary manual button */
+.connect .provider-toggle{position:relative;isolation:isolate}
+.connect .provider-toggle button{position:relative;background:transparent;font:inherit;font-weight:600;padding:10px 20px;cursor:pointer;z-index:1}
+.connect .provider-toggle button[aria-pressed=true]{background:transparent;color:#176c4d}
+.connect .provider-toggle .pill-slide{position:absolute;top:0;bottom:0;left:0;width:0;background:#e8f5ee;box-shadow:inset 0 0 0 1px #176c4d;border-radius:inherit;z-index:0;pointer-events:none}
+.connect .provider-toggle .pill-slide.ready{transition:none}
+@media (prefers-reduced-motion:no-preference){.connect .provider-toggle .pill-slide.ready{transition:transform .25s cubic-bezier(.3,.9,.3,1),width .25s cubic-bezier(.3,.9,.3,1)}}
+.connect textarea:focus{background:#e8f5ee;border-color:#176c4d;border-style:dashed}
+.connect textarea.paste-ok{border-style:solid;border-color:#176c4d;background:#e8f5ee;box-shadow:0 0 0 4px rgba(23,108,77,.18)}
+.connect #entry-status.ok{display:block;background:transparent;color:#176c4d;font-weight:600;padding:0;margin-top:12px}
+.connect .entry-actions{align-items:flex-start}
+.connect .entry-right{display:flex;flex-direction:column;align-items:flex-end;gap:10px}
+.connect .entry-right .manual-link{display:inline-block;margin-top:0;text-decoration:none}
+.connect .slideshow{position:relative;display:grid;grid-template-columns:100%;border:0;padding:0;background:transparent;margin:16px 0 0}
+.connect .slideshow .slide{grid-area:1/1;margin:0}
+.connect .slideshow .slide img{border-radius:12px}
+.connect .slideshow .slide[hidden]{display:block!important;visibility:hidden;opacity:0;position:absolute;top:0;left:0;width:100%;pointer-events:none}
+.connect .slideshow .slide{opacity:1}
+@media (prefers-reduced-motion:no-preference){.connect .slideshow .slide{transition:opacity .28s ease,visibility 0s .28s}.connect .slideshow .slide.is-active{transition:opacity .28s ease,visibility 0s}}
+.connect .slideshow .slide-nav{grid-area:2/1;display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:14px}
+.connect .slide-dots{display:flex;gap:10px;align-items:center}
+.connect .slide-dots button{width:11px;height:11px;padding:0;border-radius:50%;border:1.5px solid #176c4d;background:#fff;cursor:pointer;min-height:0;transition:background .2s,transform .2s}
+.connect .slide-dots button[aria-current=true]{background:#176c4d;transform:scale(1.2)}
+.connect .slide-step{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:12px;color:#5c6a76}
+@media(max-width:760px){.connect .entry-actions{flex-direction:column-reverse;align-items:stretch}.connect .entry-right{align-items:stretch}.connect .entry-right .button,.connect .entry-right button{text-align:center;justify-content:center}.connect .entry-actions>.button{text-align:center}}
+</style>
+<link rel="icon" href="data:,"><style id="qa-pass">
+:focus-visible{outline:3px solid #176c4d;outline-offset:2px}
+header :focus-visible,.entry-head :focus-visible{outline-color:#fff}
+.aiband :focus-visible{outline-color:#176c4d}
+
+.entry-head-inner{max-width:1040px;padding:14px 28px}
+.entry-wordmark{display:inline-flex;align-items:center;min-height:44px}
+.connect main{max-width:1040px;padding:28px 28px 40px}
+.setup main{padding:32px 28px 48px}
+.connect .cn-foot,.setup .su-foot,.team-shell .st-foot{max-width:1040px;padding:18px 28px 30px}
+@media(max-width:760px){
+ .entry-head-inner{padding:14px 20px}
+ .connect main,.setup main{padding-left:20px;padding-right:20px}
+ .team-page{padding-left:20px;padding-right:20px}
+ .connect .cn-foot,.setup .su-foot,.team-shell .st-foot{padding:16px 20px 24px}
+ .connect .provider-toggle button,.connect .slide-nav button,.connect summary,.connect .button{min-height:44px}
+ .team-page .segmented button,.team-page .stepper button,.team-page .stepper input,.team-page summary,.team-page .button{min-height:44px}
+ .team-page .stepper button{min-width:44px}
+}
+
+.connect .slide-dots{gap:24px}
+.connect .slide-dots button{position:relative;overflow:visible}
+.connect .slide-dots button::after{content:"";position:absolute;inset:-17px -12px}
+.connect .slide-step{color:#4a5864}
+@media(min-width:761px){.connect .entry-right{display:flex;flex-direction:row-reverse;align-items:center;gap:12px}.connect .entry-right .manual-link{margin-top:0}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}}
+.connect .slide-nav .slide-dots button{min-height:0;height:11px;width:11px}
+</style><style id="connect-steps">
+/* two-step layout: routes to the rosters page, carousel tutorial */
+.connect section.step{margin:44px 0 0!important}
+.connect .step h2{display:flex;align-items:baseline;gap:12px;font-size:24px;line-height:1.25;margin:0 0 14px}
+.connect .step-num{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#176c4d;background:#e8f5ee;border-radius:999px;padding:4px 10px;white-space:nowrap}
+.connect .step-help{margin:0 0 14px;color:var(--muted)}
+.connect .routes{display:grid;grid-template-columns:minmax(0,1fr) 44px minmax(0,1fr);align-items:start;width:100%}
+.connect .way{border:1px solid #cfd8d2;border-radius:12px;background:#fff;padding:20px 22px;min-width:0}
+.connect .way h3{margin:0 0 8px;font-size:18px}
+.connect .way>p{font-size:15px;margin:0 0 14px}
+.connect .way .cluster{flex-wrap:wrap}
+.connect .way input[type=text]{flex:1 1 180px;min-width:0;min-height:44px;padding:10px 12px;border:1px solid #bec8c1;border-radius:8px;font:inherit}
+.connect .way button{min-height:44px}
+.connect .way label{display:block;margin-bottom:6px;font-size:14px;font-weight:600}
+.connect .way-or{display:flex;align-items:center;justify-content:center;color:#5c6a76;font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:13px;text-transform:uppercase;letter-spacing:.08em}
+.connect .routes.how-open{grid-template-columns:minmax(0,1fr)}
+.connect .connect .routes.how-open .way-how{margin-top:16px}
+.connect .tutorial{margin:0}
+.connect .tutorial>summary{list-style:none;display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:48px;padding:10px 16px;border:1.5px solid #176c4d;border-radius:10px;background:#f4faf6;color:#176c4d;font-weight:700;font-size:16px;cursor:pointer}
+.connect .tutorial>summary::-webkit-details-marker{display:none}
+.connect .tutorial>summary::after{content:"";flex:none;width:9px;height:9px;border-right:2.5px solid currentColor;border-bottom:2.5px solid currentColor;transform:translateY(-2px) rotate(45deg);transition:transform .2s}
+.connect .tutorial[open]>summary::after{transform:translateY(2px) rotate(-135deg)}
+.connect .tutorial>summary:hover{background:#e8f5ee}
+.connect .tutorial>summary:focus-visible,.connect .carousel:focus-visible,.connect .car-btn:focus-visible,.connect .car-dots button:focus-visible{outline:3px solid #176c4d;outline-offset:3px}
+.connect .carousel{margin-top:16px;max-width:720px;margin-left:auto;margin-right:auto;border-radius:12px}
+.connect .car-viewport{overflow:hidden;touch-action:pan-y;border-radius:12px}
+.connect .car-track{display:flex;transition:transform .45s cubic-bezier(.3,.8,.3,1)}
+.connect .cslide{flex:0 0 100%;min-width:0;margin:0}
+.connect .cslide .slide-title{margin:0 0 4px;font-size:18px;line-height:1.3;color:#142b25}
+.connect .cslide .slide-cap{margin:0 0 12px;font-size:15px;line-height:1.45;max-width:none}
+.connect .cslide img{display:block;width:100%;height:auto;aspect-ratio:3/2;border:1px solid #cfd8d2;border-radius:10px}
+.connect .car-nav{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:12px}
+.connect .car-btn{min-width:88px;padding:0 14px}
+.connect .car-mid{display:flex;flex-direction:column;align-items:center;gap:2px}
+.connect .car-dots{display:flex;align-items:center}
+.connect .car-dots button{width:28px;height:44px;min-height:44px;padding:0;border:0;background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.connect .car-dots button::before{content:"";width:11px;height:11px;border-radius:50%;border:1.5px solid #176c4d;background:#fff;transition:background .2s,transform .2s}
+.connect .car-dots button[aria-current=true]::before{background:#176c4d;transform:scale(1.2)}
+.connect .car-mid .slide-step{margin-top:-8px}
+@media (prefers-reduced-motion:reduce){.connect .car-track{transition:none}.connect .tutorial>summary::after{transition:none}}
+@media (max-width:760px){
+ .connect .step h2{font-size:21px;flex-wrap:wrap;gap:8px}
+ .connect .routes{grid-template-columns:minmax(0,1fr)}
+ .connect .way-or{padding:10px 0}
+ .connect .way{padding:16px}
+ .connect .car-dots button{width:44px}
+ .connect .car-btn{min-width:72px}
+ .connect .cslide .slide-title{font-size:17px}
+}
+</style>
+<style id="advance-pass">.connect .advance-end{margin:32px 0 8px;display:flex;justify-content:space-between;align-items:center;gap:16px}@media(max-width:760px){.connect .advance-end{flex-direction:column-reverse;align-items:stretch}.connect .advance-end .button{text-align:center}}</style><link rel="stylesheet" href="actionbar.css"><script src="actionbar.js"></script><style id="gating-pass">.connect a.button.primary[aria-disabled="true"],.connect a.button.primary[aria-disabled="true"]:hover,.connect a.button.primary[aria-disabled="true"]:active{background:#e3e7e4;color:#59666f;border-color:#e3e7e4;box-shadow:none;transform:none;filter:none;cursor:not-allowed}.connect .gate-reason{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}</style></head><body class="connect"><header class="entry-head"><div class="entry-head-inner"><a class="entry-wordmark" href="index.html">DDF</a><ol class="entry-steps" aria-label="League entry progress"><li aria-current="step">1. League rosters</li><li>2. Your team</li><li>3. League settings</li></ol></div></header><main>
+<h1>Add your league rosters</h1>
+<p class="muted">Two steps: find the page that lists every team's roster, then copy and paste it here.</p>
+<div class="provider-field"><span class="provider-label">Provider</span><div class="provider-toggle" role="group" aria-label="Provider"><button type="button" data-provider="espn" aria-pressed="true" class="selected">ESPN</button><button type="button" data-provider="yahoo" aria-pressed="false">Yahoo</button><button type="button" data-provider="sleeper" aria-pressed="false">Sleeper</button></div></div>
+<details class="section paste-link" id="paste-link" hidden><summary><h2>Paste your link or DDF block</h2></summary>
+<p>Already added your league in an AI chat? Paste the DDF link or the ddf-state block it gave you and we will pick up where you left off.</p>
+<p id="paste-link-error" class="paste-link-error" role="alert" hidden>That link looks incomplete. Paste the block from your chat instead.</p>
+<label for="paste-link-input">Link or DDF block</label><textarea id="paste-link-input" rows="4" placeholder="Paste a DDF link or a ```ddf-state block" spellcheck="false"></textarea>
+<div class="row"><button type="button" class="button primary" id="paste-link-go">Load my league</button><span id="paste-link-status" role="status"></span></div>
+</details>
+<section class="step" id="step-1" aria-labelledby="step1-title">
+<h2 id="step1-title"><span class="step-num">Step 1</span>Find the page that lists every team's roster</h2>
+<div class="routes" id="routes">
+<div class="way way-link"><h3>Have a link or league ID?</h3><p>League numbers only work on Sleeper. For ESPN or Yahoo, paste any page link from your league, or just the league ID, and we'll hand back the link to your rosters page.</p><label for="league-ref">League link or ID</label><div class="cluster"><input type="text" id="league-ref"><button type="button" id="get-link">Get my rosters link</button></div><p id="link-result" aria-live="polite"></p></div>
+<div class="way-or" aria-hidden="true"><span>or</span></div>
+<div class="way way-how"><h3>Prefer to click through yourself?</h3>
+<details class="tutorial" id="tutorial"><summary>Show me how to copy every team's roster</summary>
+<div data-walkthrough="espn"><div class="carousel" data-carousel role="group" aria-roledescription="carousel" aria-label="ESPN: how to copy your rosters" tabindex="0">
+<div class="car-viewport"><div class="car-track">
+<figure class="cslide"><h4 class="slide-title">Step 1 of 3: Open League, then Rosters</h4><p class="slide-cap">That's the page with every team's players.</p><img src="assets/howto/slides/espn-rosters-1-click-clean.jpg" alt="ESPN league page with the Rosters link circled" width="720" height="480"></figure>
+<figure class="cslide"><h4 class="slide-title">Step 2 of 3: Select everything, then copy</h4><p class="slide-cap">Click the page, then select everything: Ctrl+A (Mac: Cmd+A). It all highlights, like this. Copy it: Ctrl+C (Mac: Cmd+C).</p><img src="assets/howto/slides/espn-rosters-2-select-clean.jpg" alt="The ESPN League Rosters page with everything highlighted after Select All" width="720" height="480" loading="lazy"></figure>
+<figure class="cslide"><h4 class="slide-title">Step 3 of 3: Paste into the box below</h4><p class="slide-cap">Paste into the League rosters box in step 2: Ctrl+V (Mac: Cmd+V). It lands messy, with extra columns and stray headers. That's expected. We clean it up.</p><img src="assets/howto/slides/espn-rosters-3-paste-clean.jpg" alt="Pasted roster text sitting in the League rosters box" width="720" height="480" loading="lazy"></figure>
+</div></div>
+<div class="car-nav"><button type="button" class="car-btn" data-cprev>&larr; Back</button><div class="car-mid"><div class="car-dots" role="group" aria-label="Steps"></div><span class="slide-step" role="status" aria-atomic="true">Step 1 of 3</span></div><button type="button" class="car-btn" data-cnext>Next &rarr;</button></div>
+</div></div>
+<div data-walkthrough="yahoo" hidden><div class="carousel" data-carousel role="group" aria-roledescription="carousel" aria-label="Yahoo: how to copy your rosters" tabindex="0">
+<div class="car-viewport"><div class="car-track">
+<figure class="cslide"><h4 class="slide-title">Step 1 of 3: Open League, then Rosters</h4><p class="slide-cap">That's the page with every team's players.</p><img src="assets/howto/slides/yahoo-rosters-1-click-clean.jpg" alt="Yahoo team page with the League menu circled" width="720" height="480"></figure>
+<figure class="cslide"><h4 class="slide-title">Step 2 of 3: Select everything, then copy</h4><p class="slide-cap">Click the page, then select everything: Ctrl+A (Mac: Cmd+A). It all highlights, like this. Copy it: Ctrl+C (Mac: Cmd+C).</p><img src="assets/howto/slides/yahoo-rosters-2-select-clean.jpg" alt="The Yahoo roster page with everything highlighted after Select All" width="720" height="480" loading="lazy"></figure>
+<figure class="cslide"><h4 class="slide-title">Step 3 of 3: Paste into the box below</h4><p class="slide-cap">Paste into the League rosters box in step 2: Ctrl+V (Mac: Cmd+V). It lands messy, with extra columns and stray headers. That's expected. We clean it up.</p><img src="assets/howto/slides/yahoo-rosters-3-paste-clean.jpg" alt="Pasted roster text sitting in the League rosters box" width="720" height="480" loading="lazy"></figure>
+</div></div>
+<div class="car-nav"><button type="button" class="car-btn" data-cprev>&larr; Back</button><div class="car-mid"><div class="car-dots" role="group" aria-label="Steps"></div><span class="slide-step" role="status" aria-atomic="true">Step 1 of 3</span></div><button type="button" class="car-btn" data-cnext>Next &rarr;</button></div>
+</div></div>
+<div data-walkthrough="sleeper" hidden><p>On Sleeper, open your league and go to Rosters. Select everything on the page (Ctrl+A, or Cmd+A on a Mac), copy it, and paste it into the box in step 2. Sleeper also takes a league number: use the box on the left.</p></div>
+</details></div>
+</div>
+</section>
+<section id="entry" class="step" aria-labelledby="step2-title"><h2 id="step2-title"><span class="step-num">Step 2</span>Copy and paste every team's roster</h2><p class="step-help">We need all the teams in your league, not just yours. On the page that lists every team's roster, select everything (Ctrl+A, or Cmd+A on a Mac), copy it (Ctrl+C or Cmd+C), then paste it here (Ctrl+V or Cmd+V).</p><form id="roster-form"><label for="rosters"><strong>Every team's roster</strong></label><textarea aria-describedby="entry-help entry-status one-team-error-text" id="rosters" rows="6" placeholder="Paste the rosters for all teams in your league here. Messy is fine, we will clean it up."></textarea><div id="one-team-error" role="alert" hidden><h3>That looks like one team, not the whole league</h3><p id="one-team-error-text">We need every team's roster to value trades. Either copy the full rosters page (League, then Rosters) or add the teams by hand.</p><a class="button" id="error-manual" href="#manual">Enter teams manually</a></div><span id="entry-help" hidden></span><div class="row entry-actions"><a class="button" href="index.html">Back</a><div class="entry-right"><button class="primary" aria-controls="recognized" aria-expanded="false" id="recognize-button">Check my rosters</button><a class="button manual-link" id="manual-toggle" href="#manual" aria-controls="manual" aria-expanded="false">Enter rosters manually</a></div></div><p id="entry-status" role="status" class="notice"></p></form></section>
+<section class="card connect-recognition" id="recognized" hidden aria-labelledby="recognition-title">
+<div class="row"><h2 id="recognition-title" tabindex="-1">Here's what we read from your paste</h2></div>
+<p class="muted" id="recognition-summary">12 teams found. 164 players matched, 3 need a look.</p>
+<div class="table-wrap"><table><caption>Pasted lines and what we matched</caption><thead><tr><th scope="col">Pasted line</th><th scope="col">Status</th><th scope="col">What we matched</th></tr></thead><tbody>
+<tr><td>Jordan Love</td><td><span class="badge recognition-ok">Matched</span></td><td>Jordan Love · QB</td></tr>
+<tr><td>Robinson</td><td><span class="badge recognition-attention">Needs a look</span></td><td>Confirm which player you mean.</td></tr>
+<tr><td>—</td><td><span class="badge recognition-attention">Not found</span></td><td>No player found. Edit or leave this line out.</td></tr>
+<tr><td>K / DEF</td><td><span class="badge">Not evaluated</span></td><td>Handled separately from players evaluated for trades.</td></tr>
+</tbody></table></div>
+<p>Partial rosters are fine. You can continue with matched players while lines that need a look or were not found remain.</p>
+</section>
+<section id="manual" hidden aria-labelledby="manual-title">
+<h2 id="manual-title" tabindex="-1">Enter your league rosters</h2><p class="muted">Add each team and its players.</p>
+<div class="cluster manual-fields"><div><label for="manual-team">Team</label><select id="manual-team"><option>My team</option><option>Team 02</option><option>Team 03</option><option>Team 04</option><option>Team 05</option><option>Team 06</option><option>Team 07</option><option>Team 08</option><option>Team 09</option><option>Team 10</option><option>Team 11</option><option>Team 12</option></select></div><div><label for="find-player">Find a player</label><input id="find-player" type="text" placeholder="Find a player"></div></div>
+<section class="card"><h3>My team · 15 players</h3><div class="table-wrap"><table><thead><tr><th scope="col">PLAYER</th><th scope="col">POSITION</th><th scope="col">ROLE</th></tr></thead><tbody><tr><td>Josh Allen</td><td>QB</td><td>QB</td></tr><tr><td>Bo Nix</td><td>QB</td><td>Bench</td></tr><tr><td>Jahmyr Gibbs</td><td>RB</td><td>RB</td></tr><tr><td>Rachaad White</td><td>RB</td><td>FLEX</td></tr><tr><td>Rhamondre Stevenson</td><td>RB</td><td>RB</td></tr><tr><td>Keaton Mitchell</td><td>RB</td><td>Bench</td></tr><tr><td>Jaxon Smith-Njigba</td><td>WR</td><td>WR</td></tr><tr><td>Stefon Diggs</td><td>WR</td><td>WR</td></tr><tr><td>George Pickens</td><td>WR</td><td>WR</td></tr><tr><td>Malachi Fields</td><td>WR</td><td>Bench</td></tr><tr><td>Antonio Williams</td><td>WR</td><td>Bench</td></tr><tr><td>Trey McBride</td><td>TE</td><td>TE</td></tr><tr><td>Dalton Schultz</td><td>TE</td><td>Bench</td></tr><tr><td>Brandon Aubrey</td><td>K</td><td>K/DST</td></tr><tr><td>ARI D/ST</td><td>DEF</td><td>K/DST</td></tr></tbody></table></div></section>
+<p class="muted">Player values appear once your league's settings are confirmed in step 3.</p>
+<div class="row"><button type="button" id="manual-back">Back</button></div>
+<section class="card"><h3>Just checking one trade?</h3><p>You can evaluate a one-off trade with only your roster. Add the players you want to compare.</p><button type="button" data-copy="Help me prepare fantasy football roster text for DDF. Ask me for each team name and its players, then format the rosters as plain text with team names, player names, and positions.">Copy AI prompt</button><p class="muted">A desktop or laptop is easier for league entry. Your AI chat can help prepare the roster text.</p></section>
+</section>
+<section class="aiband" aria-label="Use DDF in your AI chat">
+<div class="ai-in">
+<h2>Take DDF into your AI chat</h2>
+<p>Copy a ready-to-paste prompt for your preferred AI chatbot.</p>
+<span><button class="copybtn" id="copy-prompt" type="button">⧉ Copy AI prompt</button><span id="copy-status" role="status"></span></span>
+</div>
+<script type="text/plain" id="prompt-text">You are my Data Driven Football (DDF) trade assistant. These instructions work in any AI app (Claude, ChatGPT, Codex, Gemini, Grok, Muse, others); adapt wording to the tools you actually have. Your job: get the DDF tool connected in this chat, then walk me through the same steps as the DDF website, one step at a time, in plain language. DDF shows every serious value view of a player on one scale, priced for my league. Never tell me what to do; make the evidence legible and let me make my own call.
+
+STEP 0 - CONNECT THE DDF TOOL (works in any AI app; do this first)
+DDF is a free remote MCP server, no sign-in: https://iskiybsimubiujwuchsl.supabase.co/functions/v1/mcp  (name it "ddf").
+1. Check whether you already have DDF tools (get_values, get_player_value, trade_targets, compare_trade, find_trades, read_state, make_state, explain). If yes, say "DDF is connected" and go to Step 1.
+2. If not, work out which app you are running in and give me only the steps for it, one click at a time. Do not guess menu names you are unsure of: say so and point me to the app's own help page for adding a custom MCP connector.
+   - Claude.ai / Claude Desktop: Settings > Connectors > Add custom connector, paste the URL. Optional skill: https://datadrivenfootball.github.io/fantasy-tools/ddf-skill.zip under Settings > Capabilities > Skills.
+   - ChatGPT: enable developer mode in Settings > Apps/Connectors, add an MCP server with the URL, authentication none.
+   - Codex CLI: codex mcp add ddf --url https://iskiybsimubiujwuchsl.supabase.co/functions/v1/mcp   (or add [mcp_servers.ddf] url = "..." to ~/.codex/config.toml).
+   - Gemini CLI: gemini mcp add --transport http ddf https://iskiybsimubiujwuchsl.supabase.co/functions/v1/mcp   (verify with /mcp). In the Gemini web app, custom connectors are only available to some accounts; check Google's help page.
+   - Claude Code: claude mcp add --transport http ddf https://iskiybsimubiujwuchsl.supabase.co/functions/v1/mcp
+   - Grok: grok.com Connectors > New connector > Custom, paste the URL (paid plans may be required; check xAI's help page).
+   - Muse, or any other assistant: look for "MCP", "connectors", "tools" or "apps" in settings and add the URL as a remote MCP server with no authentication.
+3. If you can use a browser, computer-use, or agent tool, offer to do the clicking for me and ask permission first. Never ask me for passwords, cookies, or tokens, and never type credentials for me.
+4. After I confirm, test with one call (for example get_values or explain). If it fails, say exactly what failed and the next fix. Retry once after I refresh or start a new chat.
+5. NO-TOOLS MODE: if my app cannot add MCP tools, do not stop and do not invent numbers or values. Do Step 1 only: collect my league settings and rosters, clean them into a tidy list (one team per block, one player per line, position and NFL team), then send me to the site to continue: https://datadrivenfootball.github.io/fantasy-tools/connect/ . Tell me to paste the clean list there; the site prices everything. Say which parts of this chat would be better with a tool-enabled app, in one sentence.
+
+STEP 1 - MY LEAGUE (about 5 minutes)
+- Ask for: number of teams, scoring (PPR / half PPR / standard), superflex yes/no, and roster slots (default QB 1, RB 2, WR 3, TE 1, FLEX 1, bench 6). Offer these defaults.
+- Get every team's roster. Best case: I paste my league's Rosters page. Tell me where it lives: ESPN fantasy.espn.com/football/league/rosters?leagueId=YOURID ; Yahoo football.fantasysports.yahoo.com/f1/YOURID/starters ; Sleeper: just my username. Tell me to select all on that page, copy, and paste here; messy text is expected and you clean it up. If I give you a league link or ID, hand me back the rosters link. If a league-data connector (for example Flaim) is available, you may offer to pull rosters from it instead.
+- If the paste looks like only one team, say so and offer manual entry. Keep names as provided; list anything you could not match and ask me.
+- Ask which team is mine.
+
+STEP 2 - TEAM ASSESSMENT
+Price my roster and every team with DDF. Show whole numbers, rank my team on each field, and add a short note on where my team stands. Explain any column I ask about. Other teams can be shown for an overview.
+
+STEP 3 - PICK PLAYERS
+List my players with DDF value, Analyst charts value, Live market (FantasyCalc) value and an initial strategy (for example: sell high, buy low, hold, depth). I will tell you who I would move or want to target.
+
+STEP 4 - PICK PARTNERS
+Let me include or skip each other team. Skipped teams stay out of the search. Waivers are separate from teams: never call waivers a trade partner.
+
+STEP 5 - Trade & Waiver Recommendations
+Use find_trades / find_trades_league / trade_targets. Show natural-fit trades first, then partner-neutral packages, then waiver pickups with a minimum-gain filter (default: gain of 2 or more; options >0, 3+, 5+). A package only appears if at least one trade chart has it even or better for the other team; averages use 3 sources, label "2 of 3" when fewer. If rosters are missing, say so and ask for them. If waivers are missing, say so and ask me to paste the available players (ESPN Free Agents page, Yahoo Players page); always call them "available players".
+
+STEP 6 - BUILD A TRADE (any players, or my league)
+Use compare_trade. Show each source's give / receive / net with the original numbers (do not rescale), and the winner per source. Run the checks: my starters, their starters, roster construction. Then draft the message to the other manager in several styles I can choose (direct offer, ask what they would want, 2-for-1 consolidation, swap by need, pick sweetener, friendly, brief). Suggest I open slightly worse than what I would accept. When a message cites a chart, word it by source: "CBS Sports' trade chart shows ..." for an analyst chart, "FantasyCalc's live market values show ..." for FantasyCalc. Nothing is sent; I copy it myself.
+
+STEP 7 - VALUES AND TARGETS (when I ask)
+Use get_values, get_player_value, risers_fallers, audit_values, trade_targets, explain. Show value above waivers when relevant.
+
+STEP 8 - SEND ME BACK TO THE SITE (the goal of this whole chat)
+The chat is for reading your league and quick answers. The site is where I explore, compare and decide. Once my league settings and rosters are in (end of Step 1), and again at every milestone after it, move me to the site:
+1. Call make_state with everything gathered so far. League settings (scoring, number of teams, superflex, roster slots) are required in every link, so ask me for any that are missing first; the site opens already set to my league. Include: my roster, other teams' rosters, available players, my team, and the best trade or target so far. Use the view that fits (team assessment, recommendations, build a trade, values, waivers).
+2. Give me the link on its own line, then one sentence on what I will find there that this chat cannot show as well (sortable team assessment, side-by-side trade charts for every source, filters for partners and fit, the waiver gain filter, the value chart to inspect any player).
+3. Offer a short "when you are there, try this" list of two or three actions.
+4. Do not wait for me to ask. After finishing Step 1, give the link before starting Step 2, and say I can keep going here or continue on the site. Repeat the link after each later step with the updated state.
+5. If I come back from the site with a pasted link or ddf-state block, call read_state, say what changed, and continue from there.
+6. If make_state fails or cannot hold something (for example some rosters), say so, still give the closest link, and tell me what to re-enter on the site.
+
+ALWAYS
+- Cite Data Driven Football for numbers. End every result with the matching Data Driven Football site link from make_state and say what I will find there (see Step 8). Never finish a turn about my league without that link. If I paste a ```ddf-state block or a site link, call read_state first and continue from it.
+- Ask one question at a time. Show progress ("Step 3 of 6"). I can go back to any earlier step.
+- Never invent values or players. If a name is ambiguous or not found, ask me.
+- Do not give personalized financial or betting advice.
+- Source names: "Analyst charts" = the average of the CBS Sports, USA Today and FantasyPros published values (analyst opinion, not trades). "Live market" (full label "Live market (FantasyCalc)") = FantasyCalc, live market activity: what people actually pay in trades. DDF Value = the mean of the four adjusted charts (never call it market). Do not use the bare word "market" for any of these. If a tool result says "market", name what it is instead: in trade checks and find_trades it is the four trade charts' average; in risers_fallers it is DDF Value.
+</script><script type="text/plain" id="prompt-text-short">You are my Data Driven Football (DDF) trade assistant, in any AI app. Show every value view of a player priced for my league; never tell me what to do.
+
+1) CONNECT: if you lack DDF tools (get_values, compare_trade, find_trades, read_state, make_state), have me add a remote MCP server, no sign-in: https://iskiybsimubiujwuchsl.supabase.co/functions/v1/mcp . Give only the steps for my app (Claude: Settings > Connectors; ChatGPT: developer mode > add MCP server; Codex: codex mcp add ddf --url <URL>; Gemini CLI: gemini mcp add --transport http ddf <URL>; Grok: Connectors > Custom). If unsure of menus, say so and point to the app's help. Never ask for passwords or tokens. Test with one call. No tool support? Do step 2 only, give me a clean roster list, and send me to https://datadrivenfootball.github.io/fantasy-tools/connect/ to paste it.
+
+2) MY LEAGUE: ask one question at a time: teams, scoring (PPR/half/standard), superflex, roster slots (default QB1 RB2 WR3 TE1 FLEX1 bench 6), my team, and every roster (paste the league Rosters page; messy is fine, you clean it).
+
+3) GO TO THE SITE: right after step 2 call make_state (it must include my league settings: scoring, teams, superflex, roster slots) and give me the link on its own line, with one sentence on what I will find there (team assessment, partner filters, trade charts for every source, waiver filter). Say I can continue here or there.
+
+4) THEN, if I stay: team assessment, pick players, pick trading partners (waivers are never a partner), Trade & Waiver Recommendations, build a trade (any players, or with my league) (original numbers, winner per source, several message styles, open slightly worse than you would accept). Name sources "Analyst charts" (CBS Sports, USA Today, FantasyPros average) and "Live market" (FantasyCalc: what people actually pay in trades), never plain "market". Say "available players", never invent values, cite Data Driven Football, and end every league answer with the make_state link. If I paste a ddf-state block or site link, call read_state first.
+</script>
+</section>
+<div class="row advance-end"><a class="button" href="index.html">Back</a><a class="button primary" id="connect-next" href="setup.html" data-sticky-next data-back-href="index.html" data-back-label="Back" data-next-label="Next: confirm your team" data-summary="Paste rosters, enter them manually or add a link first">Next: confirm your team</a><span id="gate-reason" class="gate-reason" role="status"></span></div>
+</main><footer class="cn-foot">Data Driven Football</footer><script src="site.js"></script><script>
+(() => {
+const page = document.querySelector('main');
+page.querySelector('#roster-form').addEventListener('submit', event => {
+ event.preventDefault();
+ page.querySelector('#recognized').hidden = false;
+ page.querySelector('#recognize-button').setAttribute('aria-expanded', 'true');
+ page.querySelector('#recognition-title').focus();
+});
+page.querySelector('#manual-toggle').addEventListener('click', event => {
+ event.preventDefault();
+ page.querySelector('#manual').hidden = false;
+ event.currentTarget.setAttribute('aria-expanded', 'true');
+ page.querySelector('#manual-title').focus();
+});
+page.querySelector('#error-manual').addEventListener('click', event => {
+ event.preventDefault();
+ page.querySelector('#manual-toggle').click();
+});
+page.querySelector('#manual-back').addEventListener('click', () => {
+ page.querySelector('#manual').hidden = true;
+ page.querySelector('#manual-toggle').setAttribute('aria-expanded', 'false');
+ page.querySelector('#manual-toggle').focus();
+});
+let selectedProvider = 'espn';
+page.querySelectorAll('[data-provider]').forEach(button => {
+ button.addEventListener('click', () => {
+  selectedProvider = button.dataset.provider;
+  page.querySelectorAll('[data-provider]').forEach(option => {
+   const selected = option === button;
+   option.setAttribute('aria-pressed', String(selected));
+   option.classList.toggle('selected', selected);
+  });
+  page.querySelectorAll('[data-walkthrough]').forEach(walkthrough => {
+   walkthrough.hidden = walkthrough.dataset.walkthrough !== selectedProvider;
+  });
+ });
+});
+page.querySelector('#get-link').addEventListener('click', () => {
+ const value = page.querySelector('#league-ref').value;
+ const match = selectedProvider === 'espn' ? (value.match(/leagueId=(\d+)/) || value.match(/\d{5,}/))
+  : selectedProvider === 'yahoo' ? (value.match(/\/f1\/(\d+)/) || value.match(/\d{5,}/))
+  : (value.match(/\d{10,}/) || value.match(/\d+/));
+ const out = page.querySelector('#link-result');
+ if (!match) {
+  out.textContent = "That doesn't look like it has a league ID in it. Copy the address from any page in your league and paste that here.";
+  return;
+ }
+ const id = match[1] || match[0];
+ const link = selectedProvider === 'espn' ? 'https://fantasy.espn.com/football/league/rosters?leagueId=' + id
+  : selectedProvider === 'yahoo' ? 'https://football.fantasysports.yahoo.com/f1/' + id + '/starters'
+  : 'https://sleeper.com/leagues/' + id + '/rosters';
+ out.innerHTML = 'Your rosters page: <a href="' + link + '" target="_blank" rel="noopener">' + link + '</a><br>Open it, copy the whole page, and paste it into the box in step 2 below.';
+});
+page.querySelector('#rosters').addEventListener('input', event => {
+ event.target.removeAttribute('aria-invalid');
+});
+page.querySelector('#recognize-button').addEventListener('click', event => {
+ const value = page.querySelector('#rosters').value;
+ const error = page.querySelector('#one-team-error');
+ if (value.trim() && (value.match(/\bTeam\s+\d+\b/g) || []).length <= 1) {
+  event.preventDefault();
+  error.hidden = false;
+  page.querySelector('#rosters').setAttribute('aria-invalid', 'true');
+  error.scrollIntoView({block: 'center'});
+ } else {
+  error.hidden = true;
+  page.querySelector('#rosters').removeAttribute('aria-invalid');
+ }
+}, true);
+const wrap = document.querySelector('.morewrap');
+if (!wrap) return;
+const button = wrap.querySelector('button');
+new MutationObserver(() => button.setAttribute('aria-expanded', String(wrap.classList.contains('open')))).observe(wrap, {attributes:true, attributeFilter:['class']});
+document.addEventListener('keydown', event => { if (event.key === 'Escape' && wrap.classList.contains('open')) {wrap.classList.remove('open');button.focus();} });
+})();
+</script><script>
+(function(){
+  var btn=document.getElementById('copy-prompt'); if(!btn) return;
+  btn.addEventListener('click',function(){
+    var phone=window.matchMedia('(pointer: coarse)').matches||window.matchMedia('(max-width: 768px)').matches;
+    var src=document.getElementById(phone?'prompt-text-short':'prompt-text').textContent;
+    if(window.DDF&&window.DDF.copyText) window.DDF.copyText(src,document.getElementById('copy-status'),'Prompt copied.');
+  });
+})();
+</script><script>
+(function(){
+  var L=window.DDF.link;
+  var box=document.getElementById('paste-link'),input=document.getElementById('paste-link-input'),err=document.getElementById('paste-link-error'),status=document.getElementById('paste-link-status');
+  var LINES={
+    checksum:'That link looks incomplete. Paste the block from your chat instead.',
+    format:'That link looks incomplete. Paste the block from your chat instead.',
+    settings:'That link is missing your league settings. Paste the block from your chat, or enter your settings below.',
+    unsupported:'This browser cannot open links from your chat. Paste the block from your chat instead.'
+  };
+  function showError(code){
+    err.textContent=LINES[code]||LINES.format;
+    err.hidden=false; box.hidden=false; box.open=true;
+  }
+  document.addEventListener('ddf:link',function(e){
+    if(e.detail&&e.detail.error){e.preventDefault();showError(e.detail.error);}
+  });
+  var busy=false;
+  function go(){
+    var text=input.value.trim(); err.hidden=true; status.textContent='';
+    if(!text||busy) return;
+    busy=true;
+    L.decodeBlock(text).then(function(state){
+      if(state&&state.error){busy=false;showError(state.error);return;}
+      status.style.color='#176c4d';status.textContent='League loaded. Continuing...';
+      return L.go(state);
+    }).catch(function(){busy=false;showError('format');});
+  }
+  document.getElementById('paste-link-go').addEventListener('click',go);
+  input.addEventListener('paste',function(){setTimeout(go,0);});
+  if(location.hash==='#paste'){box.hidden=false;box.open=true;}
+  /* entering a league by hand replaces any league carried from a chat link */
+  document.getElementById('roster-form').addEventListener('submit',function(){L.clear();});
+  var manualGo=document.querySelector('#manual a.button.primary[href="setup.html"]');
+  if(manualGo) manualGo.addEventListener('click',function(){L.clear();});
+})();
+</script><script>
+/* connect polish: provider pill slide, slide dots, paste flash */
+(function(){
+  var tg=document.querySelector('.provider-toggle');
+  if(tg){
+    var pill=document.createElement('span');pill.className='pill-slide';pill.setAttribute('aria-hidden','true');tg.prepend(pill);
+    var place=function(){var b=tg.querySelector('[aria-pressed=true]');if(!b)return;pill.style.width=b.offsetWidth+'px';pill.style.transform='translateX('+b.offsetLeft+'px)';};
+    place();setTimeout(function(){place();pill.classList.add('ready');},60);
+    tg.addEventListener('click',function(){setTimeout(place,0);});
+    window.addEventListener('resize',place);
+    if(document.fonts&&document.fonts.ready)document.fonts.ready.then(place);
+  }
+  var ta=document.getElementById('rosters'),st=document.getElementById('entry-status');
+  if(ta&&st)ta.addEventListener('paste',function(){
+    setTimeout(function(){
+      var v=ta.value.trim();if(!v)return;
+      var names={};(v.match(/\bTeam\s+\d+\b/g)||[]).forEach(function(t){names[t]=1;});
+      var n=Object.keys(names).length,lines=v.split(/\n+/).length;
+      st.textContent=n>1?n+' teams found. Continue when you are ready.':'Pasted '+lines+' lines. Continue and we will sort them out.';
+      st.className='notice ok';
+      ta.classList.add('paste-ok');setTimeout(function(){ta.classList.remove('paste-ok');},1400);
+    },0);
+  });
+})();
+</script>
+<script>document.querySelectorAll(".table-wrap").forEach(function(w){if(w.scrollWidth>w.clientWidth+1||matchMedia("(max-width:760px)").matches){w.tabIndex=0;w.setAttribute("role","region");w.setAttribute("aria-label","Roster recognition table, scrolls sideways")}});</script><script>
+/* connect: step layout, carousel tutorial (slide, swipe, dots, one-loop autoplay after open) */
+(function(){
+  var routes=document.getElementById('routes'),det=document.getElementById('tutorial');
+  var reduce=window.matchMedia('(prefers-reduced-motion: reduce)');
+  var cars=Array.prototype.map.call(document.querySelectorAll('[data-carousel]'),function(root){
+    var track=root.querySelector('.car-track'),slides=root.querySelectorAll('.cslide'),step=root.querySelector('.slide-step'),
+        dotsBox=root.querySelector('.car-dots'),viewport=root.querySelector('.car-viewport');
+    var i=0,timer=null,loops=0,stopped=false,hold=false,n=slides.length;
+    var dots=Array.prototype.map.call(slides,function(sl,k){
+      var b=document.createElement('button');b.type='button';b.setAttribute('aria-label','Go to step '+(k+1)+' of '+n);
+      b.addEventListener('click',function(){stop();go(k);});dotsBox.appendChild(b);return b;});
+    function go(k){
+      i=(k+n)%n;
+      track.style.transform='translateX(-'+(i*100)+'%)';
+      step.textContent='Step '+(i+1)+' of '+n;
+      slides.forEach(function(sl,j){sl.setAttribute('aria-hidden',String(j!==i));});
+      dots.forEach(function(d,j){d.setAttribute('aria-current',String(j===i));});
+    }
+    function stop(){stopped=true;clearTimeout(timer);}
+    function visible(){return root.offsetParent!==null;}
+    function schedule(){
+      clearTimeout(timer);
+      if(stopped||reduce.matches||!det.open||!visible()||i>=n-1)return;
+      timer=setTimeout(function(){
+        if(hold||!visible()){schedule();return;}
+        go(i+1);
+        if(i>=n-1){stopped=true;return;}  /* one loop: stop on the last step */
+        schedule();
+      },5500);
+    }
+    root.querySelector('[data-cprev]').addEventListener('click',function(){stop();go(i-1);});
+    root.querySelector('[data-cnext]').addEventListener('click',function(){stop();go(i+1);});
+    root.addEventListener('keydown',function(e){
+      if(e.key==='ArrowRight'){stop();go(i+1);}else if(e.key==='ArrowLeft'){stop();go(i-1);}
+    });
+    root.addEventListener('mouseenter',function(){hold=true;});
+    root.addEventListener('mouseleave',function(){hold=false;});
+    root.addEventListener('focusin',function(){hold=true;});
+    root.addEventListener('focusout',function(){hold=false;});
+    var sx=null,sy=null;
+    viewport.addEventListener('touchstart',function(e){hold=true;stop();sx=e.touches[0].clientX;sy=e.touches[0].clientY;},{passive:true});
+    viewport.addEventListener('touchend',function(e){
+      hold=false;if(sx===null)return;
+      var dx=e.changedTouches[0].clientX-sx,dy=e.changedTouches[0].clientY-sy;sx=null;
+      if(Math.abs(dx)>40&&Math.abs(dx)>Math.abs(dy)*1.3)go(dx<0?i+1:i-1);
+    },{passive:true});
+    go(0);
+    return {go:go,restart:function(){stopped=false;go(0);schedule();},schedule:schedule,stop:stop};
+  });
+  function currentCar(){
+    var w=document.querySelector('[data-walkthrough]:not([hidden])');
+    var idx=w?Array.prototype.indexOf.call(document.querySelectorAll('[data-carousel]'),w.querySelector('[data-carousel]')):-1;
+    return idx>=0?cars[idx]:null;
+  }
+  if(det){
+    det.addEventListener('toggle',function(){
+      if(routes)routes.classList.toggle('how-open',det.open);
+      var c=currentCar();
+      if(det.open){if(c)c.restart();}else cars.forEach(function(x){x.stop();});
+    });
+  }
+  document.querySelectorAll('[data-provider]').forEach(function(b){
+    b.addEventListener('click',function(){
+      setTimeout(function(){
+        cars.forEach(function(x){x.stop();});
+        var c=currentCar();
+        if(c){c.go(0);if(det&&det.open)c.restart();}
+      },0);
+    });
+  });
+  if(reduce.addEventListener)reduce.addEventListener('change',function(){if(reduce.matches)cars.forEach(function(x){x.stop();});});
+})();
+</script><script>
+(function(){
+  var ta=document.getElementById('rosters'),manual=document.getElementById('manual'),linked=false;
+  try{linked=!!(window.DDF&&DDF.state&&DDF.state.get('league',null))}catch(e){}
+  function ddfGate(btns,ok,reason,rid){
+    var r=document.getElementById(rid);if(r)r.textContent=ok?'':reason;
+    btns.forEach(function(b){
+      if(!b)return;
+      if(!b.hasAttribute('data-href'))b.setAttribute('data-href',b.getAttribute('href')||'');
+      if(ok){b.setAttribute('href',b.getAttribute('data-href'));b.removeAttribute('aria-disabled');b.removeAttribute('aria-describedby');b.removeAttribute('role');b.removeAttribute('tabindex')}
+      else{b.removeAttribute('href');b.setAttribute('aria-disabled','true');b.setAttribute('aria-describedby',rid);b.setAttribute('role','link');b.tabIndex=0}
+    });
+    if(window.DDF&&DDF.actionBar)DDF.actionBar.setDisabled(!ok,ok?null:reason);
+  }
+  document.addEventListener('click',function(e){var b=e.target.closest&&e.target.closest('a[aria-disabled="true"][data-href]');if(b){e.preventDefault();e.stopImmediatePropagation()}},true);
+  
+  function upd(){
+    var has=!!((ta&&ta.value.trim())||linked||(manual&&!manual.hidden));
+    ddfGate([document.getElementById('connect-next')],has,'Paste rosters, enter them manually or add a link first','gate-reason');
+    if(window.DDF&&DDF.actionBar&&has)DDF.actionBar.setSummary('Rosters added, next: confirm your team');
+  }
+  if(ta)ta.addEventListener('input',upd);
+  document.addEventListener('ddf:link',function(e){var d=e.detail||{};linked=!!(d.state&&!d.error&&d.source!=='none');upd()});
+  if(manual)new MutationObserver(upd).observe(manual,{attributes:true,attributeFilter:['hidden']});
+  upd();
+})();
+</script></body></html>

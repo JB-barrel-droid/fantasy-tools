@@ -1,0 +1,422 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="icon" href="data:,"><title>DDF · Learn</title><link rel="stylesheet" href="styles.css"><style>@import url('https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap');
+body.learn{scrollbar-color:#176c4d #eef1ec;caret-color:#176c4d}
+.learn ::selection{background:#d7ecd9;color:#142b25}
+.learn main{padding-top:48px;max-width:1040px}
+.learn :focus-visible{outline:3px solid #e96528;outline-offset:4px}
+.learn [hidden]{display:none!important}
+.learn .kicker{font:600 12px 'IBM Plex Mono',ui-monospace,monospace;letter-spacing:.14em;text-transform:uppercase;color:#176c4d;margin:0 0 10px}
+.learn .meta{font:13px 'IBM Plex Mono',ui-monospace,monospace;color:#5c6a76;display:flex;flex-wrap:wrap;gap:4px 14px;margin:0}
+/* Index */
+.learn .index-head h1{font-size:clamp(34px,4.2vw,48px);line-height:1.1;margin:0 0 8px}
+.learn .group-label{font:600 12px 'IBM Plex Mono',ui-monospace,monospace;letter-spacing:.12em;text-transform:uppercase;color:#5c6a76;margin:44px 0 14px}
+.learn .featured{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:18px}
+.learn .feature-card{display:block;position:relative;background:#fff;border:1px solid #dbe0dc;border-radius:12px;padding:28px 30px;text-decoration:none;color:inherit;transition:border-color .15s,transform .15s}
+.learn .feature-card:hover{border-color:#176c4d;transform:translateY(-2px)}
+.learn .feature-card h2{font-family:var(--serif);font-size:clamp(26px,3vw,32px);line-height:1.15;margin:0 0 12px;color:#0d120e}
+.learn .feature-card p.excerpt{font-family:var(--serif);font-size:18px;line-height:1.6;color:#2b3a33;margin:0 0 16px;max-width:60ch}
+.learn .feature-card .go{font:600 14px 'IBM Plex Mono',monospace;color:#176c4d}
+.learn .post-list{list-style:none;margin:0;padding:0;border-top:1px solid #dbe0dc}
+.learn .post-list li{border-bottom:1px solid #dbe0dc}
+.learn .post-list a{display:grid;grid-template-columns:130px minmax(0,1fr);gap:6px 24px;padding:20px 4px;text-decoration:none;color:inherit}
+.learn .post-list a:hover h3{color:#176c4d}
+.learn .post-list h3{font-family:var(--serif);font-size:22px;margin:0 0 4px}
+.learn .post-list p{margin:0;color:#4a5852;font-size:16px;line-height:1.55}
+.learn .empty-note{color:#5c6a76;margin:0}
+/* Reader */
+.learn .reader{max-width:680px;margin:0 auto}
+.learn .crumb{display:inline-block;font:600 14px 'IBM Plex Mono',monospace;color:#176c4d;text-decoration:none;margin-bottom:28px;padding:6px 0}
+.learn .crumb:hover{text-decoration:underline}
+.learn .post-actions{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;margin:18px 0 32px;padding-bottom:22px;border-bottom:1px solid #dbe0dc;line-height:1.4}
+.learn .copy-link{font:600 13px 'IBM Plex Mono',monospace;border:1px solid #dbe0dc;background:#fff;border-radius:99px;padding:7px 14px;min-height:36px}
+.learn .copy-link:hover{border-color:#176c4d}
+.learn .copy-status{font:13px 'IBM Plex Mono',monospace;color:#176c4d;min-height:1em}
+.learn .post-body{font-family:var(--serif);font-size:18px;line-height:1.72;color:#16201b;overflow-wrap:break-word}
+.learn .post-body>h1:first-child{font-size:clamp(34px,5vw,46px);line-height:1.1;margin:0;font-weight:600}
+.learn .post-body h1 strong,.learn .post-body h2 strong,.learn .post-body h3 strong{font-weight:inherit}
+.learn .post-body h1{font-size:34px;margin:1.4em 0 .5em}
+.learn .post-body h2{font-size:26px;line-height:1.25;margin:2em 0 .5em;scroll-margin-top:24px}
+.learn .post-body h3{font-size:21px;margin:1.6em 0 .4em}
+.learn .post-body h4,.learn .post-body h5,.learn .post-body h6{font-size:18px;margin:1.4em 0 .4em}
+.learn .post-body p{margin:0 0 1.1em;max-width:none;font-size:inherit;line-height:inherit}
+.learn .post-body ul,.learn .post-body ol{margin:0 0 1.2em;padding-left:1.4em}
+.learn .post-body li{margin:.35em 0}
+.learn .post-body li::marker{color:#176c4d}
+.learn .post-body a{color:#176c4d;text-decoration-thickness:1px}
+.learn .post-body blockquote{margin:1.4em 0;padding:2px 0 2px 20px;border-left:3px solid #9fd4ae;color:#33443b;font-style:italic}
+.learn .post-body code{font:.86em 'IBM Plex Mono',monospace;background:#eef1ec;border-radius:4px;padding:1px 5px}
+.learn .post-body pre{background:#142b25;color:#e8f5ee;border-radius:10px;padding:16px 18px;overflow-x:auto;margin:0 0 1.3em}
+.learn .post-body pre code{background:none;padding:0;color:inherit;font-size:14px}
+.learn .post-body img{max-width:100%;height:auto;border-radius:8px}
+.learn .post-body figure{margin:1.5em 0}
+.learn .post-body hr{border:0;border-top:1px solid #dbe0dc;margin:2.2em 0}
+.learn .post-body .post-table{overflow-x:auto;margin:0 0 1.3em}
+.learn .post-body table{font:15px 'Archivo',system-ui,sans-serif}
+.learn .post-pager{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin:52px 0 0;padding-top:26px;border-top:1px solid #dbe0dc}
+.learn .post-pager a{display:block;border:1px solid #dbe0dc;border-radius:10px;padding:14px 16px;text-decoration:none;color:inherit;background:#fff}
+.learn .post-pager a:hover{border-color:#176c4d}
+.learn .post-pager .next{grid-column:2;text-align:right}
+.learn .post-pager small{display:block;font:600 12px 'IBM Plex Mono',monospace;letter-spacing:.08em;text-transform:uppercase;color:#5c6a76;margin-bottom:4px}
+.learn .post-pager span{font-family:var(--serif);font-size:18px;font-weight:600}
+.learn .reader-foot{margin-top:32px}
+.learn .sitemap h2{font:12px 'IBM Plex Mono',monospace;color:#5c6a76;letter-spacing:.1em;margin-bottom:10px}
+.learn .sitemap .in{grid-template-columns:repeat(4,minmax(0,1fr))}
+.learn nav{align-items:center}
+.learn .morewrap .menu{max-height:70vh;overflow:auto}
+main a:focus-visible,main button:focus-visible{outline:3px solid #176c4d;outline-offset:2px}
+@media(pointer:coarse){.learn .crumb,.learn .copy-link{min-height:44px}}
+/* How we get our numbers (nx-) */
+.learn .nx-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.learn .nx-area-tabs{display:flex;flex-wrap:wrap;gap:4px;border-bottom:1px solid #dbe0dc;margin:-20px 0 36px}
+.learn .nx-area-tabs a,.learn .nx-tabs a{display:inline-flex;align-items:center;min-height:44px;padding:10px 16px;font-weight:600;color:#39413b;text-decoration:none;border-bottom:3px solid transparent;margin-bottom:-1px}
+.learn .nx-area-tabs a[aria-selected=true],.learn .nx-tabs a[aria-selected=true]{color:#176c4d;border-bottom-color:#176c4d}
+.learn .nx-area-tabs a:hover,.learn .nx-tabs a:hover{color:#176c4d}
+.learn .nx-head h1{font-size:clamp(34px,4.2vw,48px);line-height:1.1;margin:0 0 12px}
+.learn .nx-method{font-family:var(--serif);font-size:18px;line-height:1.6;color:#2b3a33;max-width:68ch;margin:0 0 10px}
+.learn .nx-method.nx-muted{font-size:16px}
+.learn .nx-muted{color:#5c6a76}
+.learn .nx-snap{margin:14px 0 26px;flex-direction:column;gap:2px}
+.learn .nx-tabs{display:flex;flex-wrap:wrap;gap:4px;border-bottom:1px solid #dbe0dc;margin:0 0 22px}
+.learn .nx-view{min-width:0}
+.learn .nx-pick{display:flex;flex-wrap:wrap;align-items:center;gap:10px 12px;margin:0 0 18px}
+.learn .nx-pick label,.learn .nx-label{font:600 12px 'IBM Plex Mono',monospace;letter-spacing:.1em;text-transform:uppercase;color:#5c6a76}
+.learn .nx-pick input{min-height:44px;width:min(100%,320px);padding:8px 12px;border:1px solid #c9d1cb;border-radius:9px;background:#fff;font-size:16px}
+.learn .nx-pick input:focus{border-color:#176c4d;outline:2px solid #176c4d;outline-offset:1px}
+.learn .nx-quick{display:flex;flex-wrap:wrap;gap:8px}
+.learn .nx-chip{display:inline-flex;align-items:center;min-height:44px;padding:8px 14px;border:1px solid #dbe0dc;border-radius:99px;background:#fff;color:#142b25;text-decoration:none;font-weight:600;font-size:14px}
+.learn .nx-chip:hover{border-color:#176c4d}
+.learn .nx-chip[aria-current]{background:#e8f5ee;border-color:#176c4d;color:#176c4d}
+.learn .nx-hint{font-size:14px;color:#5c6a76;margin:6px 0 0;flex-basis:100%}
+.learn .nx-hint:empty{display:none}
+.learn .nx-card{background:#fff;border:1px solid #dbe0dc;border-radius:12px;padding:24px 26px;min-width:0}
+.learn .nx-card h2{font-family:var(--serif);font-size:clamp(22px,2.6vw,28px);line-height:1.2;margin:0 0 16px}
+.learn .nx-n{font-family:'IBM Plex Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums}
+.learn .nx-pie-grid{display:grid;grid-template-columns:minmax(0,260px) minmax(0,1fr);gap:28px;align-items:center}
+.learn .nx-donut{width:100%;max-width:260px;height:auto;display:block;margin:auto}
+.learn .nx-donut-val{font:700 34px Newsreader,Georgia,serif;fill:#0d120e}
+.learn .nx-donut-cap{font:500 11px 'IBM Plex Mono',monospace;fill:#5c6a76;letter-spacing:.08em;text-transform:uppercase}
+.learn .nx-legend{list-style:none;padding:0;margin:0 0 14px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 18px;font-size:14px}
+.learn .nx-legend li{display:flex;align-items:center;gap:8px}
+.learn .nx-legend b{margin-left:auto;font-weight:600}
+.learn .nx-sw{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:8px;vertical-align:-1px;flex:none}
+.learn .nx-legend .nx-sw{margin-right:0}
+.learn .nx-scroll{overflow-x:auto;max-width:100%;-webkit-overflow-scrolling:touch}
+.learn .nx-scroll:focus-visible{outline:3px solid #176c4d;outline-offset:2px}
+.learn .nx-table{width:100%;border-collapse:collapse;font-size:14px;background:#fff}
+.learn .nx-table th,.learn .nx-table td{padding:9px 10px;border-bottom:1px solid #e6e9e6;text-align:right;white-space:nowrap;background:none}
+.learn .nx-table thead th{font:500 11px 'IBM Plex Mono',monospace;letter-spacing:.06em;text-transform:uppercase;color:#5c6a76;vertical-align:bottom}
+.learn .nx-table tbody th,.learn .nx-table tfoot th,.learn .nx-table thead th:first-child{text-align:left;font-weight:600}
+.learn .nx-table tfoot td,.learn .nx-table tfoot th{background:#e8f5ee;font-weight:700;border-bottom:0}
+.learn .nx-bu thead th:nth-child(-n+4),.learn .nx-bu td:nth-child(-n+4){text-align:left}
+.learn .nx-bu .nx-explain-row td{font:12px Archivo,system-ui,sans-serif;color:#5c6a76;white-space:normal;text-align:right;background:#f7f8f5;text-transform:none;letter-spacing:0}
+.learn .nx-bu .nx-explain-row td:nth-child(2){text-align:left}
+.learn .nx-th2,.learn .nx-th3{display:block}
+.learn .nx-th3{text-transform:none;letter-spacing:0;font-size:10.5px;color:#7a8690}
+.learn .nx-strong{font-weight:700}
+.learn .nx-ddf{background:#e8f5ee!important}
+.learn .nx-ddf a{color:#176c4d;font-weight:700;text-decoration:underline;text-underline-offset:3px;display:inline-block;padding:6px 2px}
+.learn .nx-est{font:500 11px 'IBM Plex Mono',monospace;color:#a83e12;background:#fff0e8;border-radius:99px;padding:1px 6px}
+.learn .nx-formula{background:#f0f2ee;border-radius:9px;padding:12px 14px;margin:18px 0 0;font-size:15px;overflow-wrap:anywhere}
+.learn .nx-link{color:#176c4d;font-weight:600;display:inline-block;padding:12px 0}
+.learn .nx-explain{list-style:none;padding:0;margin:0 0 18px;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,210px),1fr));gap:10px}
+.learn .nx-explain li{border:1px solid #e6e9e6;border-radius:10px;padding:12px 14px;background:#f7f8f5;font-size:14px;line-height:1.5}
+.learn .nx-explain b{display:block;font-family:var(--serif);font-size:18px;color:#176c4d;margin-bottom:4px}
+.learn .nx-btn{min-height:44px;padding:10px 16px;border:1px solid #176c4d;border-radius:10px;background:#fff;color:#176c4d;font:600 14px Archivo,system-ui,sans-serif;cursor:pointer;margin-top:12px}
+.learn .nx-btn.nx-primary{background:#176c4d;color:#fff}
+.learn .nx-big{font:700 56px Newsreader,Georgia,serif;color:#176c4d;line-height:1;margin:2px 0 4px}
+.learn .nx-trace h2{margin-bottom:8px}
+.learn .nx-steps{list-style:none;counter-reset:nx;padding:0;margin:18px 0 0}
+.learn .nx-steps>li{counter-increment:nx;position:relative;padding:0 0 18px 44px;min-width:0}
+.learn .nx-steps>li::before{content:counter(nx);position:absolute;left:0;top:0;width:30px;height:30px;border-radius:50%;background:#176c4d;color:#fff;display:grid;place-items:center;font:700 13px Archivo,sans-serif}
+.learn .nx-steps>li>b{display:block;margin:4px 0 8px}
+.learn .nx-steps .nx-formula{margin-top:0}
+.learn .nx-actions{display:flex;flex-wrap:wrap;align-items:center;gap:0 10px;border-top:1px solid #e6e9e6;padding-top:6px}
+.learn .nx-details{margin-top:16px}
+.learn .nx-details summary{cursor:pointer;font-weight:600;color:#176c4d;min-height:44px;display:flex;align-items:center}
+.learn .nx-pre{background:#142b25;color:#e8f5ee;border-radius:10px;padding:14px 16px;font:12.5px/1.55 'IBM Plex Mono',monospace;white-space:pre-wrap;overflow-wrap:anywhere;margin:6px 0 0}
+.learn .nx-gl-intro{margin:-6px 0 14px}
+.learn .nx-gl{margin:0;display:grid;gap:0}
+.learn .nx-term{padding:14px 12px;border-top:1px solid #e6e9e6;border-radius:8px;scroll-margin-top:96px}
+.learn .nx-term:first-child{border-top:0}
+.learn .nx-term:focus{outline:none}
+.learn .nx-term.is-current{background:#e8f5ee;box-shadow:inset 3px 0 0 #176c4d}
+.learn .nx-term dt{margin:0 0 4px}
+.learn .nx-term dt a{font-family:var(--serif);font-size:19px;font-weight:700;color:#176c4d;text-decoration:none;display:inline-flex;align-items:center;min-height:32px}
+.learn .nx-term dt a:hover{text-decoration:underline;text-underline-offset:3px}
+.learn .nx-term dd{margin:0;font-size:16px;line-height:1.55;color:#2b3a33;max-width:70ch}
+.learn .nx-term dd a{color:#176c4d;font-weight:600}
+.learn .nx-foot{margin:26px 0 0;gap:4px 22px}
+.learn .nx-foot a{color:#176c4d;display:inline-flex;align-items:center;min-height:44px}
+@media(max-width:560px){.learn .nx-fac{display:none}.learn .nx-table thead th{white-space:normal}.learn .nx-table th,.learn .nx-table td{padding:9px 6px}.learn .nx-bu tr>:nth-child(1),.learn .nx-bu tr>:nth-child(3),.learn .nx-bu tr>:nth-child(4),.learn .nx-bu tr>:nth-child(8){display:none}.learn .nx-bu{font-size:13px}.learn .nx-bu tbody th,.learn .nx-bu tfoot th{white-space:normal;min-width:84px}.learn .nx-bu thead th{letter-spacing:0}.learn .nx-bu th,.learn .nx-bu td{padding:8px 4px}.learn .nx-bu .nx-explain-row td{font-size:11px}.learn .nx-bu tbody th,.learn .nx-bu tfoot th{min-width:72px}.learn .nx-card:has(.nx-bu){padding:16px 10px}}
+@media(max-width:760px){.learn .nx-area-tabs{margin:-8px 0 24px}.learn .nx-area-tabs a,.learn .nx-tabs a{padding:10px 10px;font-size:14px}.learn .nx-card{padding:18px 16px}.learn .nx-pie-grid{grid-template-columns:1fr;gap:18px}.learn .nx-donut{max-width:220px}.learn .nx-legend{grid-template-columns:1fr}.learn .nx-big{font-size:46px}.learn .nx-steps>li{padding-left:38px}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}.learn .feature-card:hover{transform:none}}
+@media(max-width:760px){.learn main{padding-top:28px}.learn .feature-card{padding:22px 20px}.learn .post-list a{grid-template-columns:1fr}.learn .post-body{font-size:18px}.learn .post-body h2{font-size:23px}.learn .post-pager{grid-template-columns:1fr}.learn .post-pager .next{grid-column:1}.learn .sitemap .in{grid-template-columns:repeat(2,minmax(0,1fr))}.learn nav a,.learn .morewrap>button{font-size:12px;padding:8px}}
+</style><script src="site.js" defer></script><script src="learn/render.js" defer></script><script src="learn/numbers/numbers.js" defer></script></head><body class="learn">
+<header><div class="header-inner"><div class="brand">DDF<small>DATA DRIVEN FOOTBALL</small></div><nav aria-label="Main navigation"><a href="index.html">Home</a><a href="build.html">Build a Trade</a><a href="find.html">Trade &amp; Waiver Recommendations</a><a href="values.html">Values</a><div class="morewrap"><button type="button" aria-expanded="false" aria-controls="learn-more">More ▾</button><div class="menu" id="learn-more"><a href="build.html">Build a Trade</a><a href="find.html">Trade &amp; Waiver Recommendations</a><a href="waivers.html">Waivers</a><a href="team.html">Team assessment</a><a href="explore.html">Pick players</a><a href="partners.html">Pick trading partners</a><a href="values.html">Values</a><a href="values.html#buy-sell">Buy / Sell</a><a href="values.html#overrides">Overrides</a><a href="learn.html" aria-current="page">Learn</a><a href="learn.html#numbers/pie">How we get our numbers</a><a href="ai.html">Use DDF with AI</a><a href="connect.html">Paste my league</a><a href="setup.html">Your team</a><a href="settings.html">League settings</a></div></div></nav></div></header>
+<main id="learn-main">
+  <div class="nx-area-tabs" role="tablist" aria-label="Learn" id="learn-area-tabs">
+    <a role="tab" id="tab-writing" href="#/" aria-controls="panel-writing" aria-selected="true">Writing</a>
+    <a role="tab" id="tab-numbers" href="#numbers/pie" aria-controls="panel-numbers" aria-selected="false" tabindex="-1">How we get our numbers</a>
+  </div>
+  <div id="panel-writing" role="tabpanel" aria-labelledby="tab-writing">
+  <section id="learn-index" aria-labelledby="learn-index-title">
+    <div class="index-head"><p class="kicker">Learn</p><h1 id="learn-index-title" tabindex="-1">Writing</h1></div>
+    <div id="learn-featured-wrap"><h2 class="group-label">Pinned</h2><div class="featured" id="learn-featured"></div></div>
+    <div id="learn-posts-wrap"><h2 class="group-label">Posts</h2><ul class="post-list" id="learn-posts"></ul><p class="empty-note" id="learn-posts-empty" hidden>No posts yet.</p></div>
+  </section>
+  <article class="reader" id="learn-reader" hidden aria-live="polite">
+    <a class="crumb" href="#/">← All writing</a>
+    <p class="kicker" id="post-kind"></p>
+    <div class="post-body" id="post-body"></div>
+    <div class="post-actions" id="post-actions"><p class="meta" id="post-meta"></p><button type="button" class="copy-link" id="copy-link">Copy link</button><span class="copy-status" id="copy-status" role="status"></span></div>
+    <nav class="post-pager" id="post-pager" aria-label="More writing"></nav>
+    <p class="reader-foot"><a class="crumb" href="#/">← All writing</a></p>
+  </article>
+  <section id="learn-missing" hidden><a class="crumb" href="#/">← All writing</a><h1 tabindex="-1">Post not found</h1></section>
+  <p id="learn-error" class="empty-note" hidden role="alert">Writing could not be loaded.</p>
+  </div>
+  <section id="panel-numbers" role="tabpanel" aria-labelledby="tab-numbers" hidden>
+    <div class="nx-head">
+      <p class="kicker">Learn</p>
+      <h1 id="nx-title">How we get our numbers</h1>
+      <p class="nx-method" id="nx-method"></p>
+      <p class="nx-method nx-muted" id="nx-sources"></p>
+      <p class="meta nx-snap"><span id="nx-snapshot"></span><span id="nx-settings"></span></p>
+    </div>
+    <div class="nx-tabs" role="tablist" aria-label="How we get our numbers" id="nx-tabs">
+      <a role="tab" id="nx-tab-pie" href="#numbers/pie" aria-controls="nx-view-pie" aria-selected="true">Value pie</a>
+      <a role="tab" id="nx-tab-build-up" href="#numbers/build-up" aria-controls="nx-view-build-up" aria-selected="false" tabindex="-1">Source build-up</a>
+      <a role="tab" id="nx-tab-trace" href="#numbers/trace" aria-controls="nx-view-trace" aria-selected="false" tabindex="-1">Trace any number</a>
+      <a role="tab" id="nx-tab-glossary" href="#numbers/glossary" aria-controls="nx-view-glossary" aria-selected="false" tabindex="-1">Glossary</a>
+    </div>
+    <p class="nx-sr" id="nx-live" aria-live="polite"></p>
+    <p id="nx-error" class="empty-note" hidden role="alert">The week 9 numbers could not be loaded.</p>
+
+    <div id="nx-view-pie" role="tabpanel" aria-labelledby="nx-tab-pie" class="nx-view">
+      <div class="nx-pick">
+        <label for="pie-pick">Player</label>
+        <input id="pie-pick" type="search" list="nx-players" autocomplete="off" spellcheck="false" aria-describedby="pie-pick-hint">
+        <div class="nx-quick" id="pie-quick" aria-label="Quick picks"></div>
+        <p class="nx-hint" id="pie-pick-hint" role="status"></p>
+      </div>
+      <div class="nx-card">
+        <h2 id="pie-title"></h2>
+        <div class="nx-pie-grid">
+          <div class="nx-pie-chart" id="pie-chart"></div>
+          <div class="nx-pie-side">
+            <div class="nx-scroll"><table class="nx-table" id="pie-table"></table></div>
+          </div>
+        </div>
+        <p class="nx-formula nx-n" id="pie-formula"></p>
+        <p class="nx-hint" id="pie-round" hidden></p>
+        <p><a class="nx-link" id="pie-trace" href="#numbers/trace">Trace this number step by step →</a></p>
+      </div>
+    </div>
+
+    <div id="nx-view-build-up" role="tabpanel" aria-labelledby="nx-tab-build-up" class="nx-view" hidden>
+      <div class="nx-pick"><span class="nx-label" id="bu-src-label">Source</span><div class="nx-quick" id="bu-sources" role="group" aria-labelledby="bu-src-label"></div></div>
+      <div class="nx-card">
+        <h2 id="bu-title"></h2>
+        <ul class="nx-explain" id="bu-explain"></ul>
+        <div class="nx-scroll" tabindex="0" role="region" aria-labelledby="bu-title"><table class="nx-table nx-bu" id="bu-table"></table></div>
+        <p class="nx-hint" id="bu-meta"></p>
+        <button type="button" class="nx-btn" id="bu-more" aria-controls="bu-table" aria-expanded="false" hidden></button>
+      </div>
+    </div>
+
+    <div id="nx-view-trace" role="tabpanel" aria-labelledby="nx-tab-trace" class="nx-view" hidden>
+      <div class="nx-pick">
+        <label for="tr-pick">Player</label>
+        <input id="tr-pick" type="search" list="nx-players" autocomplete="off" spellcheck="false" aria-describedby="tr-pick-hint">
+        <div class="nx-quick" id="tr-quick" aria-label="Quick picks"></div>
+        <p class="nx-hint" id="tr-pick-hint" role="status"></p>
+      </div>
+      <article class="nx-card nx-trace" aria-labelledby="tr-name">
+        <h2 id="tr-name"></h2>
+        <div class="nx-big nx-n" id="tr-big"></div>
+        <p class="nx-hint" id="tr-sub"></p>
+        <ol class="nx-steps">
+          <li><b>Four charts publish a value, it is indexed onto one scale, then adjusted for your league</b>
+            <div class="nx-scroll"><table class="nx-table" id="tr-pub"></table></div></li>
+          <li><b>Average of the four adjusted values</b><p class="nx-formula nx-n" id="tr-avg"></p><p class="nx-hint" id="tr-round" hidden></p></li>
+          <li><b>Pinned to</b><p class="nx-hint" id="tr-pin"></p></li>
+        </ol>
+        <div class="nx-actions">
+          <button type="button" class="nx-btn nx-primary" id="tr-copy-llm">Copy for an LLM</button>
+          <button type="button" class="nx-btn" id="tr-copy-link">Copy permalink</button>
+          <button type="button" class="nx-btn" id="tr-copy-json">Copy JSON</button>
+          <span class="copy-status" id="tr-status" role="status"></span>
+        </div>
+        <details class="nx-details"><summary>What gets copied for an LLM</summary><pre class="nx-pre" id="tr-llm"></pre></details>
+      </article>
+    </div>
+    <div id="nx-view-glossary" role="tabpanel" aria-labelledby="nx-tab-glossary" class="nx-view" hidden>
+      <div class="nx-card">
+        <h2 id="gl-title">Glossary</h2>
+        <p class="nx-hint nx-gl-intro">The terms this site uses for its numbers. Each term name is a link you can copy.</p>
+        <dl class="nx-gl" aria-labelledby="gl-title">
+          <div class="nx-term" id="g-published" tabindex="-1"><dt><a href="#numbers/glossary/published">Published</a></dt><dd>A trade chart’s own number for a player, in that chart’s own units. In week 9, CBS Sports lists Jahmyr Gibbs at 56.5 and FantasyCalc lists him at 10,685.</dd></div>
+          <div class="nx-term" id="g-indexed" tabindex="-1"><dt><a href="#numbers/glossary/indexed">Indexed</a></dt><dd>Published × one factor for the chart (indexed total ÷ published total), so all four charts sit on one scale. One factor per chart means indexing never changes that chart’s player order.</dd></div>
+          <div class="nx-term" id="g-adjusted" tabindex="-1"><dt><a href="#numbers/glossary/adjusted">Adjusted</a></dt><dd>The indexed value fitted to your league settings: each chart’s value above waivers, weighted at starter or bench level by where the player ranks at his position for your league’s roster sizes and team count, then rescaled so each chart’s total equals the league’s value pie (2,688 points in the week 9 example: 28 × 12 teams × 8 starting slots).</dd></div>
+          <div class="nx-term" id="g-ddf-value" tabindex="-1"><dt><a href="#numbers/glossary/ddf-value">DDF Value</a></dt><dd>The mean of the four adjusted charts: the three analyst charts (CBS Sports, USA Today, FantasyPros) and the live market (FantasyCalc). A player your league leaves on the waiver wire is worth about 0.</dd></div>
+          <div class="nx-term" id="g-ddf-projection" tabindex="-1"><dt><a href="#numbers/glossary/ddf-projection">DDF (Projection based)</a></dt><dd>An alternate version of DDF Value built from projected points (ESPN, CBS rest of season, Razzball) instead of trade charts.</dd></div>
+          <div class="nx-term" id="g-analyst-charts" tabindex="-1"><dt><a href="#numbers/glossary/analyst-charts">Analyst charts</a></dt><dd>The average of the CBS Sports, USA Today and FantasyPros published values, with no adjustment for your league. These three are analysts’ trade charts: opinions of what players are worth, not trades. Trade &amp; Waiver Recommendations and Build a Trade use it as the default Their valuation.</dd></div>
+          <div class="nx-term" id="g-live-market" tabindex="-1"><dt><a href="#numbers/glossary/live-market">Live market</a></dt><dd>FantasyCalc, shown as Live market (FantasyCalc): live market activity, what people actually pay in trades. It is one of the four charts in DDF Value and is never averaged into Analyst charts.</dd></div>
+          <div class="nx-term" id="g-roles" tabindex="-1"><dt><a href="#numbers/glossary/roles">Starter / Bench / Waiver</a></dt><dd>Where a player ranks at his position across the whole league, given its roster sizes and team count: starters are the players good enough to fill the league’s starting slots, bench players are the next ones expected to sit on benches, and waiver players are the available players left over. It does not depend on whose team he is on or on your own lineup. DDF Value values starters at starter level and bench players at bench level. Source build-up shows it in the Role column.</dd></div>
+          <div class="nx-term" id="g-override" tabindex="-1"><dt><a href="#numbers/glossary/override">Override</a></dt><dd>Your own value for a player. It replaces DDF Value on every tab, is applied after DDF’s numbers, and leaves the analyst charts and the live market unchanged. <a href="values.html#overrides">Set one on Values</a>.</dd></div>
+          <div class="nx-term" id="g-basis" tabindex="-1"><dt><a href="#numbers/glossary/basis">Basis</a></dt><dd>Which sources DDF Value is built from. The default is the four trade charts, weighted equally; the week 9 numbers here use it.</dd></div>
+          <div class="nx-term" id="g-position-weights" tabindex="-1"><dt><a href="#numbers/glossary/position-weights">Position weights</a></dt><dd>How much each position counts toward player value: a relative weight for each position’s starters (1 is the default) and each position’s bench share of value. Change them under Advanced in <a href="find.html">Trade &amp; Waiver Recommendations</a> or <a href="build.html">Build a Trade</a>.</dd></div>
+          <div class="nx-term" id="g-value-above-waivers" tabindex="-1"><dt><a href="#numbers/glossary/value-above-waivers">Value above waivers</a></dt><dd>How much better a player is than the best one you could pick up for free at his position, counting all his points: each trade chart’s value minus that chart’s waiver line at the position (never below 0), on the same value-pie scale as DDF Value, averaged over the four charts. It comes before DDF’s starter and bench weighting. DDF Value starts from this and adjusts it for where he ranks in your league: players good enough to start at their position, given roster sizes and team count, are valued at starter level, and players expected to sit on benches at bench level. So top starters have a higher DDF Value than value above waivers, and bench players a lower one (week 9: Jahmyr Gibbs 71.9 above waivers, DDF Value 84.3). <a href="values.html">Turn it on in Values</a> (Customize, Advanced).</dd></div>
+        </dl>
+      </div>
+    </div>
+    <datalist id="nx-players"></datalist>
+    <p class="nx-foot meta"><a href="learn/data/lineage-week9.json">Snapshot data (JSON)</a><a href="learn/data/README.md">How it was captured</a></p>
+  </section>
+</main>
+<footer class="sitemap"><div class="in"><div><h2>TRADE</h2><a href="index.html">Home</a><a href="build.html">Build a Trade</a><a href="find.html">Trade &amp; Waiver Recommendations</a><a href="waivers.html">Waivers</a></div><div><h2>VALUES</h2><a href="values.html">Values</a><a href="values.html#buy-sell">Buy / Sell</a><a href="values.html#overrides">Overrides</a></div><div><h2>YOUR LEAGUE</h2><a href="connect.html">Paste my league</a><a href="setup.html">Your team</a><a href="settings.html">League settings</a><a href="team.html">Team assessment</a><a href="explore.html">Pick players</a><a href="partners.html">Pick trading partners</a></div><div><h2>LEARN</h2><a href="learn.html">Learn</a><a href="learn.html#numbers/pie">How we get our numbers</a><a href="ai.html">Use DDF with AI</a></div></div><div class="footer">Data Driven Football</div></footer>
+<script>(()=>{const wrap=document.querySelector('.morewrap'),button=wrap.querySelector('button');new MutationObserver(()=>button.setAttribute('aria-expanded',String(wrap.classList.contains('open')))).observe(wrap,{attributes:true,attributeFilter:['class']});document.addEventListener('keydown',e=>{if(e.key==='Escape'&&wrap.classList.contains('open')){wrap.classList.remove('open');button.focus()}});})();</script>
+<script>
+window.addEventListener('DOMContentLoaded', () => {
+  const L = window.DDFLearn;
+  const $ = id => document.getElementById(id);
+  const KIND = { manifesto: 'Manifesto', methodology: 'Methodology', post: 'Post' };
+  const WPM = 230;
+  const cache = {};
+  let posts = [];
+
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const fmtDate = iso => {
+    const d = new Date(iso + 'T12:00:00');
+    return isNaN(d) ? iso : d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+  };
+  const readMins = words => Math.max(1, Math.round(words / WPM)) + ' min read';
+
+  async function load(post) {
+    if (!cache[post.slug]) {
+      cache[post.slug] = fetch('learn/' + post.file).then(r => {
+        if (!r.ok) throw new Error(post.file + ' ' + r.status);
+        return r.text();
+      }).then(text => {
+        const { meta, body } = L.parseFrontmatter(text);
+        const html = L.renderMarkdown(body);
+        const tmp = document.createElement('div');
+        tmp.innerHTML = html;
+        const firstP = tmp.querySelector('p');
+        return { meta, body, html, words: L.wordCount(tmp.textContent), excerpt: firstP ? firstP.textContent : '' };
+      });
+    }
+    return cache[post.slug];
+  }
+
+  const excerptOf = (post, doc) => {
+    const text = post.summary || doc.meta.summary || doc.excerpt;
+    return text.length > 220 ? text.slice(0, 220).replace(/\s+\S*$/, '') + '…' : text;
+  };
+
+  async function renderIndex() {
+    const pinned = posts.filter(p => p.pinned);
+    const rest = posts.filter(p => !p.pinned);
+    const docs = await Promise.all(posts.map(load));
+    const docOf = p => docs[posts.indexOf(p)];
+    $('learn-featured-wrap').hidden = !pinned.length;
+    $('learn-featured').innerHTML = pinned.map(p => {
+      const d = docOf(p);
+      return `<a class="feature-card" href="#/${esc(p.slug)}"><p class="kicker">${esc(KIND[p.kind] || p.kind)}</p><h2>${esc(p.title)}</h2>` +
+        `<p class="excerpt">${esc(excerptOf(p, d))}</p><p class="meta"><span>${esc(fmtDate(p.date))}</span><span>${readMins(d.words)}</span></p>` +
+        `<p class="go" aria-hidden="true">Read →</p></a>`;
+    }).join('');
+    $('learn-posts').innerHTML = rest.map(p => {
+      const d = docOf(p);
+      return `<li><a href="#/${esc(p.slug)}"><p class="meta"><span>${esc(fmtDate(p.date))}</span></p><div><h3>${esc(p.title)}</h3>` +
+        `<p>${esc(excerptOf(p, d))}</p><p class="meta"><span>${esc(KIND[p.kind] || p.kind)}</span><span>${readMins(d.words)}</span></p></div></a></li>`;
+    }).join('');
+    $('learn-posts-empty').hidden = rest.length > 0;
+  }
+
+  async function renderPost(post) {
+    const doc = await load(post);
+    $('post-kind').textContent = KIND[post.kind] || post.kind;
+    const body = $('post-body');
+    const actions = $('post-actions');
+    body.before(actions);
+    body.innerHTML = doc.html;
+    if (!/^\s*<h1[\s>]/.test(doc.html)) {
+      const h1 = document.createElement('h1');
+      h1.textContent = post.title;
+      body.prepend(h1);
+    }
+    const h1 = body.querySelector('h1');
+    h1.tabIndex = -1;
+    h1.id = 'post-title';
+    h1.after(actions);
+    $('learn-reader').setAttribute('aria-labelledby', 'post-title');
+    $('post-meta').innerHTML = `<time datetime="${esc(post.date)}">${esc(fmtDate(post.date))}</time><span>${readMins(doc.words)}</span>`;
+    $('copy-status').textContent = '';
+    const i = posts.indexOf(post);
+    const prev = posts[i - 1], next = posts[i + 1];
+    const pager = $('post-pager');
+    pager.innerHTML = (prev ? `<a class="prev" href="#/${esc(prev.slug)}" rel="prev"><small>← Previous</small><span>${esc(prev.title)}</span></a>` : '') +
+      (next ? `<a class="next" href="#/${esc(next.slug)}" rel="next"><small>Next →</small><span>${esc(next.title)}</span></a>` : '');
+    pager.hidden = !prev && !next;
+    document.title = post.title + ' · Learn · DDF';
+    return h1;
+  }
+
+  function show(view) {
+    ['learn-index', 'learn-reader', 'learn-missing'].forEach(id => { $(id).hidden = id !== view; });
+  }
+
+  let first = true;
+  async function route() {
+    if (window.DDFNumbers && window.DDFNumbers.isNumbersHash()) { first = false; return; }
+    const slug = decodeURIComponent(location.hash.replace(/^#\/?/, '')).trim();
+    let focusEl;
+    if (!slug) {
+      show('learn-index');
+      document.title = 'DDF · Learn';
+      focusEl = $('learn-index-title');
+    } else {
+      const post = posts.find(p => p.slug === slug);
+      if (post) {
+        focusEl = await renderPost(post);
+        show('learn-reader');
+      } else {
+        show('learn-missing');
+        document.title = 'Post not found · Learn · DDF';
+        focusEl = $('learn-missing').querySelector('h1');
+      }
+    }
+    window.scrollTo(0, 0);
+    if (!first && focusEl) focusEl.focus({ preventScroll: true });
+    first = false;
+  }
+
+  $('copy-link').addEventListener('click', async () => {
+    const url = location.href;
+    let ok = false;
+    try { await navigator.clipboard.writeText(url); ok = true; } catch (e) {
+      const ta = document.createElement('textarea');
+      ta.value = url; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      try { ok = document.execCommand('copy'); } catch (e2) { ok = false; }
+      ta.remove();
+    }
+    $('copy-status').textContent = ok ? 'Link copied' : url;
+  });
+
+  fetch('learn/posts.json').then(r => r.json()).then(async data => {
+    const list = data.posts || [];
+    const pinned = list.filter(p => p.pinned);
+    const rest = list.filter(p => !p.pinned).sort((a, b) => b.date.localeCompare(a.date));
+    posts = pinned.concat(rest);
+    await renderIndex();
+    window.addEventListener('hashchange', route);
+    route();
+  }).catch(err => {
+    console.warn('Learn: ', err);
+    show('');
+    $('learn-error').hidden = false;
+  });
+});
+</script></body></html>

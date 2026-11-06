@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Add Data Driven Football to Claude, ChatGPT, Codex, Gemini, Grok or Muse. Your assistant prices your league and sends you back to the site.">
+<title>DDF · Use DDF in your AI assistant</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="styles.css">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Newsreader:opsz,wght@6..72,500;6..72,600;6..72,700&display=swap');
+body.aipage{scrollbar-color:#176c4d #eef1ec;caret-color:#176c4d}
+.aipage ::selection{background:#d7ecd9;color:#142b25}
+.aipage main{max-width:1040px;margin:0 auto;padding:44px 24px 24px}
+.aipage h1{max-width:20ch;text-wrap:balance;margin:0 0 16px}
+.aipage .lede{font-size:19px;line-height:1.55;max-width:62ch;color:#2b332e;margin:0 0 28px}
+.aipage p,.aipage li{line-height:1.6}
+.aipage section{margin:52px 0 0}
+.aipage section>h2{margin:0 0 10px}
+.aipage .sec-intro{max-width:66ch;margin:0 0 20px;color:#39413b;font-size:17px}
+.aipage code{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:.92em}
+.aipage a{color:#0a5a36}
+.aipage :focus-visible{outline:3px solid #176c4d;outline-offset:2px}
+.aipage header :focus-visible{outline-color:#fff}
+/* hero copy module (same look as the home AI band) */
+.aipage .aiband{margin:0;background:#f5efe1;border-radius:12px;padding:26px 32px;box-shadow:inset 0 3px 0 #176c4d,0 8px 24px rgba(23,108,77,.08)}
+.aipage .aiband .ai-in{display:flex;align-items:center;gap:34px}
+.aipage .aiband h2{font-family:"Newsreader",Georgia,serif;font-size:25px;font-weight:600;margin:0;color:#10130f;white-space:nowrap}
+.aipage .aiband p{margin:0;font-size:16px;color:#333a34;flex:1}
+.aipage .copybtn{flex:none;background:#fff;border:1.6px solid #176c4d;color:#176c4d;font:inherit;font-size:16px;font-weight:600;padding:11px 20px;min-height:44px;border-radius:9px;cursor:pointer}
+.aipage .copybtn:hover{background:#e8f5ee}
+.aipage .aiband #copy-status{font-size:14px;color:#176c4d;margin-left:10px}
+.aipage .aiband .copy-wrap{display:flex;align-items:center;flex-wrap:wrap;gap:6px}
+.aipage .band-note{margin:12px 0 0;font-size:14px;color:#5c6a76}
+/* URL bar */
+.aipage .urlbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#fff;border:1px solid #dbe0dc;border-radius:12px;padding:12px 14px;margin:0 0 22px}
+.aipage .urlbar code{flex:1 1 280px;min-width:0;overflow-wrap:anywhere;font-size:14px;color:#142b25}
+.aipage .urlbar .lbl{font:600 11px "IBM Plex Mono",monospace;letter-spacing:.06em;color:#5c6a76;flex:none}
+.aipage .status{font-size:14px;color:#176c4d;min-height:1.2em}
+/* tabs */
+.aipage .tabs{position:relative;display:flex;flex-wrap:wrap;gap:6px;border-bottom:1px solid #dbe0dc}
+.aipage .tabs [role=tab]{min-height:44px;padding:8px 16px;border:0;border-bottom:3px solid transparent;margin-bottom:-1px;border-radius:8px 8px 0 0;background:none;font:inherit;font-weight:600;color:#39413b;cursor:pointer}
+.aipage .tabs [role=tab]:hover{background:#eef1ec}
+.aipage .tabs [role=tab][aria-selected=true]{background:var(--green-soft,#e8f5ee);color:#176c4d;border-bottom-color:#176c4d}
+.aipage .tabpanel{background:#fff;border:1px solid #dbe0dc;border-top:0;border-radius:0 0 12px 12px;padding:24px}
+.aipage .tabpanel[hidden]{display:none}
+.aipage .tabpanel h3{margin:0 0 12px}
+.aipage .tabpanel h3:not(:first-child){margin-top:24px}
+.aipage .howto{margin:0;padding-left:1.3em;max-width:68ch}
+.aipage .howto li{margin:0 0 8px;font-size:16.5px}
+.aipage .tabpanel p,.aipage .pcard p{font-size:16.5px}
+.aipage .cmd{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#f4f6f3;border:1px solid #dbe0dc;border-radius:10px;padding:8px 8px 8px 14px;margin:10px 0 14px}
+.aipage .cmd code{flex:1 1 260px;min-width:0;overflow-wrap:anywhere;font-size:13.5px}
+.aipage .btn-sm{min-height:44px;min-width:44px;padding:8px 16px;border:1px solid #176c4d;border-radius:9px;background:#fff;color:#176c4d;font:inherit;font-weight:600;cursor:pointer}
+.aipage .btn-sm:hover{background:#e8f5ee}
+.aipage .caveat{background:#fff0e8;border-radius:10px;padding:12px 16px;margin:16px 0 0;color:#6b2f10;max-width:68ch}
+.aipage .skill{display:flex;align-items:center;gap:14px;flex-wrap:wrap;background:#e8f5ee;border:1px solid #bfe0c9;border-radius:10px;padding:14px 16px;margin:18px 0 0}
+.aipage .skill p{margin:0;flex:1 1 260px}
+.aipage .dl{display:inline-flex;align-items:center;min-height:44px;padding:8px 18px;border-radius:9px;background:#176c4d;color:#fff;font-weight:700;text-decoration:none}
+.aipage .dl:hover{background:#0f5a3f}
+.aipage a.dl{color:#fff}
+/* tools */
+.aipage .tools{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.aipage .tools li{background:#fff;border:1px solid #dbe0dc;border-radius:12px;padding:14px 16px;margin:0}
+.aipage .tools code{display:block;font-weight:600;color:#176c4d;margin-bottom:4px}
+.aipage .tools span{font-size:15.5px;color:#2b332e;line-height:1.5}
+/* two-col cards */
+.aipage .cols{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.aipage .pcard{background:#fff;border:1px solid #dbe0dc;border-radius:12px;padding:20px 22px}
+.aipage .pcard h3{margin:0 0 8px}
+.aipage .pcard p{margin:0 0 10px;max-width:60ch}
+.aipage .pcard p:last-child{margin-bottom:0}
+.aipage .go{display:inline-flex;align-items:center;min-height:44px;font-weight:700;text-decoration:underline;text-underline-offset:3px}
+.aipage .linebox{font-family:"IBM Plex Mono",monospace;font-size:13px;background:#f4f6f3;border:1px solid #dbe0dc;border-radius:10px;padding:10px 12px;overflow-wrap:anywhere;margin:0 0 12px}
+@media(max-width:820px){
+ .aipage .aiband .ai-in{flex-direction:column;align-items:flex-start;gap:14px}
+ .aipage .aiband h2{white-space:normal}
+ .aipage .tools,.aipage .cols{grid-template-columns:1fr}
+}
+@media(max-width:600px){
+ .aipage main{padding:28px 16px 16px}
+ .aipage .lede{font-size:17px}
+ .aipage .aiband{padding:18px 20px}
+ .aipage section{margin-top:40px}
+ .aipage .tabs{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:thin}
+ .aipage .tabs [role=tab]{flex:none;padding:8px 14px}
+ .aipage .tabpanel{padding:18px 16px}
+}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}}
+</style>
+<script src="site.js" defer></script>
+</head>
+<body class="aipage">
+<header><div class="header-inner"><div class="brand">DDF<small>DATA DRIVEN FOOTBALL</small></div><nav aria-label="Main navigation"><a href="index.html">Home</a><a href="build.html">Build a Trade</a><a href="find.html">Trade &amp; Waiver Recommendations</a><a href="values.html">Values</a><div class="morewrap"><button type="button" aria-expanded="false" aria-controls="ai-more">More ▾</button><div class="menu" id="ai-more"><a href="build.html">Build a Trade</a><a href="find.html">Trade &amp; Waiver Recommendations</a><a href="waivers.html">Waivers</a><a href="team.html">Team assessment</a><a href="explore.html">Pick players</a><a href="partners.html">Pick trading partners</a><a href="values.html">Values</a><a href="values.html#buy-sell">Buy / Sell</a><a href="values.html#overrides">Overrides</a><a href="learn.html">Learn</a><a href="learn.html#numbers/pie">How we get our numbers</a><a href="ai.html">Use DDF with AI</a><a href="connect.html">Paste my league</a><a href="setup.html">Your team</a><a href="settings.html">League settings</a></div></div></nav></div></header>
+<main>
+<h1>Use DDF in your AI assistant</h1>
+<p class="lede">Add Data Driven Football to the AI assistant you already use, and ask it about your own league in plain words. It prices your players and trades with DDF values set for your league, then sends you back to the site to explore, compare and decide. Connecting is one step, with no sign-in.</p>
+
+<section class="aiband" aria-label="Copy the DDF prompt">
+<div class="ai-in">
+<h2>Take DDF into your AI chat</h2>
+<p>Copy a ready-to-paste prompt for your preferred AI chatbot. It walks you through connecting the tool, then your league.</p>
+<span class="copy-wrap"><button class="copybtn" id="copy-prompt" type="button">⧉ Copy AI prompt</button><span id="copy-status" role="status"></span></span>
+</div>
+<p class="band-note">On a phone you get a shorter version of the prompt.</p>
+<script type="text/plain" id="prompt-text">You are my Data Driven Football (DDF) trade assistant. These instructions work in any AI app (Claude, ChatGPT, Codex, Gemini, Grok, Muse, others); adapt wording to the tools you actually have. Your job: get the DDF tool connected in this chat, then walk me through the same steps as the DDF website, one step at a time, in plain language. DDF shows every serious value view of a player on one scale, priced for my league. Never tell me what to do; make the evidence legible and let me make my own call.
+
+STEP 0 - CONNECT THE DDF TOOL (works in any AI app; do this first)
+DDF is a free remote MCP server, no sign-in: https://iskiybsimubiujwuchsl.supabase.co/functions/v1/mcp  (name it "ddf").
+1. Check whether you already have DDF tools (get_values, get_player_value, trade_targets, compare_trade, find_trades, read_state, make_state, explain). If yes, say "DDF is connected" and go to Step 1.
+2. If not, work out which app you are running in and give me only the steps for it, one click at a time. Do not guess menu names you are unsure of: say so and point me to the app's own help page for adding a custom MCP connector.
+   - Claude.ai / Claude Desktop: Settings > Connectors > Add custom connector, paste the URL. Optional skill: https://datadrivenfootball.github.io/fantasy-tools/ddf-skill.zip under Settings > Capabilities > Skills.
+   - ChatGPT: enable developer mode in Settings > Apps/Connectors, add an MCP server with the URL, authentication none.
+   - Codex CLI: codex mcp add ddf --url https://iskiybsimubiujwuchsl.supabase.co/functions/v1/mcp   (or add [mcp_servers.ddf] url = "..." to ~/.codex/config.toml).
+   - Gemini CLI: gemini mcp add --transport http ddf https://iskiybsimubiujwuchsl.supabase.co/functions/v1/mcp   (verify with /mcp). In the Gemini web app, custom connectors are only available to some accounts; check Google's help page.
+   - Claude Code: claude mcp add --transport http ddf https://iskiybsimubiujwuchsl.supabase.co/functions/v1/mcp
+   - Grok: grok.com Connectors > New connector > Custom, paste the URL (paid plans may be required; check xAI's help page).
+   - Muse, or any other assistant: look for "MCP", "connectors", "tools" or "apps" in settings and add the URL as a remote MCP server with no authentication.
+3. If you can use a browser, computer-use, or agent tool, offer to do the clicking for me and ask permission first. Never ask me for passwords, cookies, or tokens, and never type credentials for me.
+4. After I confirm, test with one call (for example get_values or explain). If it fails, say exactly what failed and the next fix. Retry once after I refresh or start a new chat.
+5. NO-TOOLS MODE: if my app cannot add MCP tools, do not stop and do not invent numbers or values. Do Step 1 only: collect my league settings and rosters, clean them into a tidy list (one team per block, one player per line, position and NFL team), then send me to the site to continue: https://datadrivenfootball.github.io/fantasy-tools/connect/ . Tell me to paste the clean list there; the site prices everything. Say which parts of this chat would be better with a tool-enabled app, in one sentence.
+
+STEP 1 - MY LEAGUE (about 5 minutes)
+- Ask for: number of teams, scoring (PPR / half PPR / standard), superflex yes/no, and roster slots (default QB 1, RB 2, WR 3, TE 1, FLEX 1, bench 6). Offer these defaults.
+- Get every team's roster. Best case: I paste my league's Rosters page. Tell me where it lives: ESPN fantasy.espn.com/football/league/rosters?leagueId=YOURID ; Yahoo football.fantasysports.yahoo.com/f1/YOURID/starters ; Sleeper: just my username. Tell me to select all on that page, copy, and paste here; messy text is expected and you clean it up. If I give you a league link or ID, hand me back the rosters link. If a league-data connector (for example Flaim) is available, you may offer to pull rosters from it instead.
+- If the paste looks like only one team, say so and offer manual entry. Keep names as provided; list anything you could not match and ask me.
+- Ask which team is mine.
+
+STEP 2 - TEAM ASSESSMENT
+Price my roster and every team with DDF. Show whole numbers, rank my team on each field, and add a short note on where my team stands. Explain any column I ask about. Other teams can be shown for an overview.
+
+STEP 3 - PICK PLAYERS
+List my players with DDF value, Analyst charts value, Live market (FantasyCalc) value and an initial strategy (for example: sell high, buy low, hold, depth). I will tell you who I would move or want to target.
+
+STEP 4 - PICK PARTNERS
+Let me include or skip each other team. Skipped teams stay out of the search. Waivers are separate from teams: never call waivers a trade partner.
+
+STEP 5 - Trade & Waiver Recommendations
+Use find_trades / find_trades_league / trade_targets. Show natural-fit trades first, then partner-neutral packages, then waiver pickups with a minimum-gain filter (default: gain of 2 or more; options >0, 3+, 5+). A package only appears if at least one trade chart has it even or better for the other team; averages use 3 sources, label "2 of 3" when fewer. If rosters are missing, say so and ask for them. If waivers are missing, say so and ask me to paste the available players (ESPN Free Agents page, Yahoo Players page); always call them "available players".
+
+STEP 6 - BUILD A TRADE (any players, or my league)
+Use compare_trade. Show each source's give / receive / net with the original numbers (do not rescale), and the winner per source. Run the checks: my starters, their starters, roster construction. Then draft the message to the other manager in several styles I can choose (direct offer, ask what they would want, 2-for-1 consolidation, swap by need, pick sweetener, friendly, brief). Suggest I open slightly worse than what I would accept. When a message cites a chart, word it by source: "CBS Sports' trade chart shows ..." for an analyst chart, "FantasyCalc's live market values show ..." for FantasyCalc. Nothing is sent; I copy it myself.
+
+STEP 7 - VALUES AND TARGETS (when I ask)
+Use get_values, get_player_value, risers_fallers, audit_values, trade_targets, explain. Show value above waivers when relevant.
+
+STEP 8 - SEND ME BACK TO THE SITE (the goal of this whole chat)
+The chat is for reading your league and quick answers. The site is where I explore, compare and decide. Once my league settings and rosters are in (end of Step 1), and again at every milestone after it, move me to the site:
+1. Call make_state with everything gathered so far. League settings (scoring, number of teams, superflex, roster slots) are required in every link, so ask me for any that are missing first; the site opens already set to my league. Include: my roster, other teams' rosters, available players, my team, and the best trade or target so far. Use the view that fits (team assessment, recommendations, build a trade, values, waivers).
+2. Give me the link on its own line, then one sentence on what I will find there that this chat cannot show as well (sortable team assessment, side-by-side trade charts for every source, filters for partners and fit, the waiver gain filter, the value chart to inspect any player).
+3. Offer a short "when you are there, try this" list of two or three actions.
+4. Do not wait for me to ask. After finishing Step 1, give the link before starting Step 2, and say I can keep going here or continue on the site. Repeat the link after each later step with the updated state.
+5. If I come back from the site with a pasted link or ddf-state block, call read_state, say what changed, and continue from there.
+6. If make_state fails or cannot hold something (for example some rosters), say so, still give the closest link, and tell me what to re-enter on the site.
+
+ALWAYS
+- Cite Data Driven Football for numbers. End every result with the matching Data Driven Football site link from make_state and say what I will find there (see Step 8). Never finish a turn about my league without that link. If I paste a ```ddf-state block or a site link, call read_state first and continue from it.
+- Ask one question at a time. Show progress ("Step 3 of 6"). I can go back to any earlier step.
+- Never invent values or players. If a name is ambiguous or not found, ask me.
+- Do not give personalized financial or betting advice.
+- Source names: "Analyst charts" = the average of the CBS Sports, USA Today and FantasyPros published values (analyst opinion, not trades). "Live market" (full label "Live market (FantasyCalc)") = FantasyCalc, live market activity: what people actually pay in trades. DDF Value = the mean of the four adjusted charts (never call it market). Do not use the bare word "market" for any of these. If a tool result says "market", name what it is instead: in trade checks and find_trades it is the four trade charts' average; in risers_fallers it is DDF Value.
+</script><script type="text/plain" id="prompt-text-short">You are my Data Driven Football (DDF) trade assistant, in any AI app. Show every value view of a player priced for my league; never tell me what to do.
+
+1) CONNECT: if you lack DDF tools (get_values, compare_trade, find_trades, read_state, make_state), have me add a remote MCP server, no sign-in: https://iskiybsimubiujwuchsl.supabase.co/functions/v1/mcp . Give only the steps for my app (Claude: Settings > Connectors; ChatGPT: developer mode > add MCP server; Codex: codex mcp add ddf --url <URL>; Gemini CLI: gemini mcp add --transport http ddf <URL>; Grok: Connectors > Custom). If unsure of menus, say so and point to the app's help. Never ask for passwords or tokens. Test with one call. No tool support? Do step 2 only, give me a clean roster list, and send me to https://datadrivenfootball.github.io/fantasy-tools/connect/ to paste it.
+
+2) MY LEAGUE: ask one question at a time: teams, scoring (PPR/half/standard), superflex, roster slots (default QB1 RB2 WR3 TE1 FLEX1 bench 6), my team, and every roster (paste the league Rosters page; messy is fine, you clean it).
+
+3) GO TO THE SITE: right after step 2 call make_state (it must include my league settings: scoring, teams, superflex, roster slots) and give me the link on its own line, with one sentence on what I will find there (team assessment, partner filters, trade charts for every source, waiver filter). Say I can continue here or there.
+
+4) THEN, if I stay: team assessment, pick players, pick trading partners (waivers are never a partner), Trade & Waiver Recommendations, build a trade (any players, or with my league) (original numbers, winner per source, several message styles, open slightly worse than you would accept). Name sources "Analyst charts" (CBS Sports, USA Today, FantasyPros average) and "Live market" (FantasyCalc: what people actually pay in trades), never plain "market". Say "available players", never invent values, cite Data Driven Football, and end every league answer with the make_state link. If I paste a ddf-state block or site link, call read_state first.
+</script>
+</section>
+
+<section id="connect" aria-labelledby="connect-h">
+<h2 id="connect-h">Connect the tool</h2>
+<p class="sec-intro">DDF is a free remote MCP server. Add this address to your assistant as a custom connector, with authentication set to none. Menu names change between app updates; if yours differ from the steps below, open the app's own help page on adding a custom MCP connector.</p>
+<div class="urlbar"><span class="lbl">MCP URL</span><code id="mcp-url">https://iskiybsimubiujwuchsl.supabase.co/functions/v1/mcp</code><button class="btn-sm" type="button" data-copy-from="mcp-url" data-status="url-status">Copy URL</button><span class="status" id="url-status" role="status"></span></div>
+
+<div class="tabs" role="tablist" aria-label="Choose your assistant">
+<button type="button" role="tab" id="tab-claude" aria-controls="panel-claude" aria-selected="true">Claude</button>
+<button type="button" role="tab" id="tab-chatgpt" aria-controls="panel-chatgpt" aria-selected="false" tabindex="-1">ChatGPT</button>
+<button type="button" role="tab" id="tab-codex" aria-controls="panel-codex" aria-selected="false" tabindex="-1">Codex</button>
+<button type="button" role="tab" id="tab-gemini" aria-controls="panel-gemini" aria-selected="false" tabindex="-1">Gemini</button>
+<button type="button" role="tab" id="tab-grok" aria-controls="panel-grok" aria-selected="false" tabindex="-1">Grok</button>
+<button type="button" role="tab" id="tab-other" aria-controls="panel-other" aria-selected="false" tabindex="-1">Muse and others</button>
+</div>
+
+<div class="tabpanel" role="tabpanel" id="panel-claude" aria-labelledby="tab-claude" tabindex="0">
+<h3>Claude.ai and Claude Desktop</h3>
+<ol class="howto">
+<li>Open Settings, then Connectors.</li>
+<li>Choose Add custom connector and paste the MCP URL above.</li>
+<li>Optional: add the DDF skill under Settings, Capabilities, Skills.</li>
+</ol>
+<div class="skill"><p><strong>DDF skill (optional).</strong> A small add-on that tells Claude how to use the DDF tools and hand your work back to the site.</p><a class="dl" href="https://datadrivenfootball.github.io/fantasy-tools/ddf-skill.zip" download>Download ddf-skill.zip</a></div>
+<h3>Claude Code</h3>
+<div class="cmd"><code id="cmd-claudecode">claude mcp add --transport http ddf https://iskiybsimubiujwuchsl.supabase.co/functions/v1/mcp</code><button class="btn-sm" type="button" data-copy-from="cmd-claudecode" data-status="s-claudecode">Copy</button><span class="status" id="s-claudecode" role="status"></span></div>
+</div>
+
+<div class="tabpanel" role="tabpanel" id="panel-chatgpt" aria-labelledby="tab-chatgpt" tabindex="0" hidden>
+<h3>ChatGPT</h3>
+<ol class="howto">
+<li>Enable developer mode in Settings, under Apps or Connectors.</li>
+<li>Add an MCP server and paste the MCP URL above.</li>
+<li>Set authentication to none.</li>
+</ol>
+<p class="caveat">ChatGPT has no skills feature, so the prompt above is how you point it at the DDF tools. Which plans and workspaces can add custom MCP servers is set by OpenAI; check its help page if you do not see the option.</p>
+</div>
+
+<div class="tabpanel" role="tabpanel" id="panel-codex" aria-labelledby="tab-codex" tabindex="0" hidden>
+<h3>Codex CLI</h3>
+<p>Run this command in your terminal:</p>
+<div class="cmd"><code id="cmd-codex">codex mcp add ddf --url https://iskiybsimubiujwuchsl.supabase.co/functions/v1/mcp</code><button class="btn-sm" type="button" data-copy-from="cmd-codex" data-status="s-codex">Copy</button><span class="status" id="s-codex" role="status"></span></div>
+<p>Or add it to <code>~/.codex/config.toml</code> yourself:</p>
+<div class="cmd"><code id="cmd-codex-toml">[mcp_servers.ddf]
+url = "https://iskiybsimubiujwuchsl.supabase.co/functions/v1/mcp"</code><button class="btn-sm" type="button" data-copy-from="cmd-codex-toml" data-status="s-codex-toml">Copy</button><span class="status" id="s-codex-toml" role="status"></span></div>
+</div>
+
+<div class="tabpanel" role="tabpanel" id="panel-gemini" aria-labelledby="tab-gemini" tabindex="0" hidden>
+<h3>Gemini CLI</h3>
+<div class="cmd"><code id="cmd-gemini">gemini mcp add --transport http ddf https://iskiybsimubiujwuchsl.supabase.co/functions/v1/mcp</code><button class="btn-sm" type="button" data-copy-from="cmd-gemini" data-status="s-gemini">Copy</button><span class="status" id="s-gemini" role="status"></span></div>
+<p>Then type <code>/mcp</code> in Gemini CLI to confirm the ddf server is listed.</p>
+<h3>Gemini web app</h3>
+<p class="caveat">Custom connectors in the Gemini web app are only available to some accounts. Check Google's help page for your account. If you do not have them, use paste mode below.</p>
+</div>
+
+<div class="tabpanel" role="tabpanel" id="panel-grok" aria-labelledby="tab-grok" tabindex="0" hidden>
+<h3>Grok</h3>
+<ol class="howto">
+<li>On grok.com, open Connectors and choose New connector, then Custom.</li>
+<li>Paste the MCP URL above.</li>
+</ol>
+<p class="caveat">Paid plans may be required for custom connectors. Check xAI's help page for your plan. If it is not available to you, use paste mode below.</p>
+</div>
+
+<div class="tabpanel" role="tabpanel" id="panel-other" aria-labelledby="tab-other" tabindex="0" hidden>
+<h3>Muse, or any other assistant</h3>
+<ol class="howto">
+<li>Look for MCP, connectors, tools or apps in the assistant's settings.</li>
+<li>Add the MCP URL above as a remote MCP server, with no authentication.</li>
+</ol>
+<p>If the assistant has no place to add one, use paste mode below.</p>
+</div>
+<p class="sec-intro" style="margin-top:16px">Once connected, the assistant tests the connection with one call. If it fails, it tells you what failed. Refresh or start a new chat and try once more. The DDF prompt never asks for passwords, cookies or tokens.</p>
+</section>
+
+<section id="tools" aria-labelledby="tools-h">
+<h2 id="tools-h">What your assistant can do</h2>
+<p class="sec-intro">Ask in plain words, for example which of two players is worth more in a 10-team half-PPR superflex league. The assistant calls these tools with your league settings.</p>
+<ul class="tools">
+<li><code>get_values</code><span>Ranked players with DDF value and tier for your league, filtered by position if you like.</span></li>
+<li><code>get_player_value</code><span>Value and tier for the players you name, with a note when a name could mean more than one player.</span></li>
+<li><code>trade_targets</code><span>Players close in value to one you name, within a range you set, so you can see who is a fair ask.</span></li>
+<li><code>compare_trade</code><span>Adds up both sides of a trade and gives a verdict, or shows each trade chart's give, receive and net.</span></li>
+<li><code>find_trades</code><span>Looks for trades between your roster and one other team, with a fit label and checks on whether it works for both sides.</span></li>
+<li><code>find_trades_league</code><span>Ranks trades across your leaguemates' rosters, up to 15 teams, and builds a package.</span></li>
+<li><code>risers_fallers</code><span>Who moved most in value since the previous update, and where the sources disagree.</span></li>
+<li><code>audit_values</code><span>Health checks on the values, and how each source builds up to the DDF number.</span></li>
+<li><code>explain</code><span>Plain-language explanations of how DDF values and the site's tools work.</span></li>
+<li><code>make_state</code><span>Packs your league settings, rosters, a trade or a target into a link to the site, plus a block you can paste.</span></li>
+<li><code>read_state</code><span>Reads a link or DDF block you bring back from the site and picks up where you left off.</span></li>
+<li><code>site_next_steps</code><span>Suggests two or three things to try on the site for where you are now.</span></li>
+</ul>
+</section>
+
+<section id="handoff" aria-labelledby="handoff-h">
+<h2 id="handoff-h">From chat to the site</h2>
+<p class="sec-intro">The chat is for reading your league and quick answers. The site is where you explore, compare and decide. After your league settings and rosters are in, the assistant gives you a link that opens the site already set to your league, and gives you a fresh one after each later step.</p>
+<div class="cols">
+<div class="pcard">
+<h3>The link holds your league</h3>
+<p>Your league settings (scoring, team count, superflex, roster slots), rosters, and the trade or player you were working on are packed into the link itself, after the <code>#</code>. Nothing is stored on a server, and that part of a link is never sent to one.</p>
+<p>The link ends with a short checksum, so the site can tell if a chat app garbled it.</p>
+<p>Links open the page that fits: team assessment, recommendations, Build a Trade, values or waivers. Safari older than 16.4 cannot read them.</p>
+</div>
+<div class="pcard">
+<h3>Link got mangled? Paste it</h3>
+<p>Long links are sometimes cut or re-wrapped by chat apps, so the assistant also gives you a DDF block. Paste either one on the site and it picks up where you left off, with your league loaded.</p>
+<p>Going the other way, a link or block you bring back from the site is read by the assistant, which continues from your changes.</p>
+<a class="go" href="connect.html#paste">Paste your link or DDF block →</a>
+</div>
+</div>
+</section>
+
+<section id="paste-mode" aria-labelledby="paste-h">
+<h2 id="paste-h">No tools? Paste mode</h2>
+<p class="sec-intro">If your assistant cannot add MCP tools, you can still use it for the tedious part. It will not make up values.</p>
+<div class="pcard">
+<ol class="howto">
+<li>Paste the DDF prompt into the chat. It collects your league settings and every roster, and tidies messy copied text into one team per block, one player per line.</li>
+<li>Open the site's Connect page and paste that clean list. The site prices everything for your league.</li>
+</ol>
+<p>You will not get live pricing inside the chat, since that needs the tools. Where a tool-enabled app is available, the chat can do more.</p>
+<a class="go" href="connect.html">Paste my league →</a>
+</div>
+</section>
+</main>
+<footer class="sitemap"><div class="in"><div><h2>TRADE</h2><a href="index.html">Home</a><a href="build.html">Build a Trade</a><a href="find.html">Trade &amp; Waiver Recommendations</a><a href="waivers.html">Waivers</a></div><div><h2>VALUES</h2><a href="values.html">Values</a><a href="values.html#buy-sell">Buy / Sell</a><a href="values.html#overrides">Overrides</a></div><div><h2>YOUR LEAGUE</h2><a href="connect.html">Paste my league</a><a href="setup.html">Your team</a><a href="settings.html">League settings</a><a href="team.html">Team assessment</a><a href="explore.html">Pick players</a><a href="partners.html">Pick trading partners</a></div><div><h2>LEARN</h2><a href="learn.html">Learn</a><a href="learn.html#numbers/pie">How we get our numbers</a><a href="ai.html">Use DDF with AI</a></div></div><div class="footer">Data Driven Football</div></footer>
+<script>
+(function(){
+  var wrap=document.querySelector('.morewrap'),menuBtn=wrap.querySelector('button');
+  new MutationObserver(function(){menuBtn.setAttribute('aria-expanded',String(wrap.classList.contains('open')))}).observe(wrap,{attributes:true,attributeFilter:['class']});
+  document.addEventListener('keydown',function(e){if(e.key==='Escape'&&wrap.classList.contains('open')){wrap.classList.remove('open');menuBtn.focus()}});
+
+  document.getElementById('copy-prompt').addEventListener('click',function(){
+    var phone=window.matchMedia('(pointer: coarse)').matches||window.matchMedia('(max-width: 768px)').matches;
+    var src=document.getElementById(phone?'prompt-text-short':'prompt-text').textContent;
+    window.DDF.copyText(src,document.getElementById('copy-status'),'Prompt copied.');
+  });
+
+  document.querySelectorAll('[data-copy-from]').forEach(function(b){
+    b.addEventListener('click',function(){
+      var text=document.getElementById(b.getAttribute('data-copy-from')).textContent;
+      window.DDF.copyText(text,document.getElementById(b.getAttribute('data-status')),'Copied.');
+    });
+  });
+
+  var tabs=[].slice.call(document.querySelectorAll('.tabs [role=tab]'));
+  function select(tab,focus){
+    tabs.forEach(function(t){
+      var on=t===tab;
+      t.setAttribute('aria-selected',String(on));
+      t.tabIndex=on?0:-1;
+      document.getElementById(t.getAttribute('aria-controls')).hidden=!on;
+    });
+    var l=tab.parentNode;l.scrollLeft=tab.offsetLeft-(l.clientWidth-tab.offsetWidth)/2;
+    if(focus)tab.focus({preventScroll:true});
+  }
+  tabs.forEach(function(t,i){
+    t.addEventListener('click',function(){select(t)});
+    t.addEventListener('keydown',function(e){
+      var n=null;
+      if(e.key==='ArrowRight')n=tabs[(i+1)%tabs.length];
+      else if(e.key==='ArrowLeft')n=tabs[(i+tabs.length-1)%tabs.length];
+      else if(e.key==='Home')n=tabs[0];
+      else if(e.key==='End')n=tabs[tabs.length-1];
+      if(n){e.preventDefault();select(n,true)}
+    });
+  });
+  var h=(location.hash||'').replace('#','');
+  var pick=tabs.filter(function(t){return t.id==='tab-'+h})[0];
+  if(pick)select(pick);
+})();
+</script>
+</body>
+</html>

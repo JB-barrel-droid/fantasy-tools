@@ -1,0 +1,7824 @@
+{
+ "as_of": "2026-11-06",
+ "week": 9,
+ "build": "tv-20261106-0341-62dfe5b",
+ "captured": "2026-11-05 via DDF MCP server (iskiybsimubiujwuchsl, fn mcp): audit_values view=source (limit 50, all + each position), get_values limit 200, get_player_value, explain, audit_values view=health",
+ "settings": {
+  "scoring": "half_ppr",
+  "scoring_label": "Half PPR",
+  "teams": 12,
+  "superflex": false,
+  "slots": {
+   "QB": 1,
+   "RB": 2,
+   "WR": 3,
+   "TE": 1,
+   "FLEX": 1,
+   "BENCH": 6
+  },
+  "roster_label": "QB1 RB2 WR3 TE1 FLEX1 BENCH6"
+ },
+ "site_url": "https://datadrivenfootball.github.io/fantasy-tools/#player-values?scoring=half_ppr&teams=12&roster=QB1.RB2.WR3.TE1.FLEX1.SF0.BN6&v=1",
+ "overrides": "none",
+ "basis": [
+  "cbs",
+  "usatoday",
+  "fantasypros",
+  "fantasycalc"
+ ],
+ "rule": "DDF Value = mean of the four adjusted trade charts (CBS Sports, USA Today, FantasyPros, FantasyCalc)",
+ "explain": {
+  "methodology": [
+   "Values are 'value above waivers': how much more a player is expected to produce than a freely available replacement at the same position, in the user's league (scoring, team count, superflex). The headline value (DDF Value) is the average of the four published trade charts, each adjusted to the user's league (position and bench weighting); the projection sources are an alternate version. A stale or held source is left out of the average rather than counted as zero. Full method: the site's methodology pages."
+  ],
+  "sources": [
+   "Projection sources: ESPN, CBS rest-of-season, Razzball. Published trade charts: FantasyCalc, USA Today, FantasyPros, CBS. The get_values response lists which sources are included and excluded for the current week."
+  ],
+  "value_scale": [
+   "Value is points above a replacement-level player in that league. There is no fixed maximum: read values against each other, with the top of the list setting the scale. Players the league leaves on the waiver wire are worth about 0, and a value near 0 means replacement level in that league, not worthless. Always quote the value the tool returned."
+  ]
+ },
+ "sources_included_by_get_values": [
+  "espn",
+  "cbsros",
+  "razzball",
+  "fantasycalc",
+  "usatoday",
+  "fantasypros",
+  "cbs"
+ ],
+ "health": {
+  "text": [
+   "Health check: 1 of 7 checks flagged. Value pie 2688 points, 7 sources.",
+   "PASS | Starter totals | All 7 sources agree (spread 4.6%, limit 17%).",
+   "PASS | RB, WR and TE starters | RB 4.4%, WR 8.3%, TE 3.9%: all within the 24% limit.",
+   "INFO | QB starters | Spread 4.8% (FantasyPros high, CBS rest of season low). Expected; never flagged.",
+   "INFO | Bench totals | Spread 55.7%. Expected: sources price bench differently.",
+   "FLAG | Totals vs the value pie | CBS rest of season, all positions: adds up to 2686.7, not the value pie 2688.0.",
+   "PASS | Filled-in players | At most 45% of any position's slots filled in (limit 75%).",
+   "PASS | Player values vs DDF Value | Projections add up to the value pie, and charts match DDF Value on the players they list.",
+   "https://datadrivenfootball.github.io/fantasy-tools/#values-auditing?scoring=half_ppr&teams=12&roster=QB1.RB2.WR3.TE1.FLEX1.SF0.BN6&v=1"
+  ]
+ },
+ "value_pie": {
+  "points": 2688,
+  "formula": "28 x 12 teams x 8 starting slots (QB1 RB2 WR3 TE1 FLEX1)",
+  "note": "every chart's adjusted total equals the value pie"
+ },
+ "sources": {
+  "cbs": {
+   "label": "CBS Sports",
+   "kind": "trade chart",
+   "players_listed": 177,
+   "filled_in": 67,
+   "totals": {
+    "published": 1870,
+    "indexed": 2824.5,
+    "adjusted": 2688
+   },
+   "index_factor": {
+    "value": 1.510428,
+    "derived": "indexed total / published total (computed from the two totals above, not returned by the tool)"
+   },
+   "rows": [
+    {
+     "rank": 1,
+     "player_key": 2227,
+     "name": "Jahmyr Gibbs",
+     "pos": "RB",
+     "role": "starter",
+     "estimated": false,
+     "published": 56.5,
+     "indexed": 85.3,
+     "adjusted": 99.6
+    },
+    {
+     "rank": 2,
+     "player_key": 1095,
+     "name": "Kenneth Walker III",
+     "pos": "RB",
+     "role": "starter",
+     "estimated": false,
+     "published": 51.5,
+     "indexed": 77.8,
+     "adjusted": 90.6
+    },
+    {
+     "rank": 3,
+     "player_key": 3247,
+     "name": "Jaxon Smith-Njigba",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 51,
+     "indexed": 77,
+     "adjusted": 82.5
+    },
+    {
+     "rank": 4,
+     "player_key": 1370,
+     "name": "Puka Nacua",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 50.5,
+     "indexed": 76.3,
+     "adjusted": 81.7
+    },
+    {
+     "rank": 5,
+     "player_key": 217,
+     "name": "Bijan Robinson",
+     "pos": "RB",
+     "role": "starter",
+     "estimated": false,
+     "published": 45.5,
+     "indexed": 68.7,
+     "adjusted": 79.9
+    },
+    {
+     "rank": 6,
+     "player_key": 303,
+     "name": "CeeDee Lamb",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 42.5,
+     "indexed": 64.2,
+     "adjusted": 68.5
+    },
+    {
+     "rank": 7,
+     "player_key": 2730,
+     "name": "Ja'Marr Chase",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 41,
+     "indexed": 61.9,
+     "adjusted": 66
+    },
+    {
+     "rank": 8,
+     "player_key": 1110,
+     "name": "James Cook",
+     "pos": "RB",
+     "role": "starter",
+     "estimated": false,
+     "published": 39.5,
+     "indexed": 59.7,
+     "adjusted": 69.1
+    },
+    {
+     "rank": 9,
+     "player_key": 2279,
+     "name": "Malik Nabers",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 39,
+     "indexed": 58.9,
+     "adjusted": 62.7
+    },
+    {
+     "rank": 10,
+     "player_key": 3289,
+     "name": "Amon-Ra St. Brown",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 36,
+     "indexed": 54.4,
+     "adjusted": 57.7
+    },
+    {
+     "rank": 11,
+     "player_key": 3189,
+     "name": "Christian McCaffrey",
+     "pos": "RB",
+     "role": "starter",
+     "estimated": false,
+     "published": 34,
+     "indexed": 51.4,
+     "adjusted": 59.3
+    },
+    {
+     "rank": 12,
+     "player_key": 4048,
+     "name": "Chuba Hubbard",
+     "pos": "RB",
+     "role": "starter",
+     "estimated": false,
+     "published": 32,
+     "indexed": 48.3,
+     "adjusted": 55.7
+    },
+    {
+     "rank": 13,
+     "player_key": 547,
+     "name": "Jonathan Taylor",
+     "pos": "RB",
+     "role": "starter",
+     "estimated": false,
+     "published": 30.5,
+     "indexed": 46.1,
+     "adjusted": 53
+    },
+    {
+     "rank": 14,
+     "player_key": 807,
+     "name": "Javonte Williams",
+     "pos": "RB",
+     "role": "starter",
+     "estimated": false,
+     "published": 30,
+     "indexed": 45.3,
+     "adjusted": 52.1
+    },
+    {
+     "rank": 15,
+     "player_key": 1063,
+     "name": "Kyren Williams",
+     "pos": "RB",
+     "role": "starter",
+     "estimated": false,
+     "published": 28,
+     "indexed": 42.3,
+     "adjusted": 48.5
+    },
+    {
+     "rank": 16,
+     "player_key": 4474,
+     "name": "Tee Higgins",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 27,
+     "indexed": 40.8,
+     "adjusted": 42.8
+    },
+    {
+     "rank": 17,
+     "player_key": 2606,
+     "name": "D'Andre Swift",
+     "pos": "RB",
+     "role": "starter",
+     "estimated": false,
+     "published": 26.5,
+     "indexed": 40,
+     "adjusted": 45.8
+    },
+    {
+     "rank": 18,
+     "player_key": 3993,
+     "name": "Chris Olave",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 26,
+     "indexed": 39.3,
+     "adjusted": 41.1
+    },
+    {
+     "rank": 19,
+     "player_key": 4589,
+     "name": "Jaylen Warren",
+     "pos": "RB",
+     "role": "starter",
+     "estimated": false,
+     "published": 24.5,
+     "indexed": 37,
+     "adjusted": 42.2
+    },
+    {
+     "rank": 20,
+     "player_key": 51,
+     "name": "Brock Bowers",
+     "pos": "TE",
+     "role": "starter",
+     "estimated": false,
+     "published": 24,
+     "indexed": 36.3,
+     "adjusted": 33.7
+    },
+    {
+     "rank": 21,
+     "player_key": 471,
+     "name": "Drake London",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 23,
+     "indexed": 34.7,
+     "adjusted": 36.2
+    },
+    {
+     "rank": 22,
+     "player_key": 337,
+     "name": "Bucky Irving",
+     "pos": "RB",
+     "role": "starter",
+     "estimated": false,
+     "published": 22.5,
+     "indexed": 34,
+     "adjusted": 38.6
+    },
+    {
+     "rank": 23,
+     "player_key": 319,
+     "name": "Bhayshul Tuten",
+     "pos": "RB",
+     "role": "starter",
+     "estimated": false,
+     "published": 21.5,
+     "indexed": 32.5,
+     "adjusted": 36.8
+    },
+    {
+     "rank": 24,
+     "player_key": 3843,
+     "name": "Christian Watson",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 21.5,
+     "indexed": 32.5,
+     "adjusted": 33.7
+    },
+    {
+     "rank": 25,
+     "player_key": 3892,
+     "name": "Justin Jefferson",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 21.5,
+     "indexed": 32.5,
+     "adjusted": 33.7
+    },
+    {
+     "rank": 26,
+     "player_key": 869,
+     "name": "Josh Allen",
+     "pos": "QB",
+     "role": "starter",
+     "estimated": false,
+     "published": 21,
+     "indexed": 31.7,
+     "adjusted": 30
+    },
+    {
+     "rank": 27,
+     "player_key": 2126,
+     "name": "Matthew Golden",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 18.5,
+     "indexed": 27.9,
+     "adjusted": 28.6
+    },
+    {
+     "rank": 28,
+     "player_key": 2140,
+     "name": "Luther Burden III",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 18,
+     "indexed": 27.2,
+     "adjusted": 27.8
+    },
+    {
+     "rank": 29,
+     "player_key": 3133,
+     "name": "Trey McBride",
+     "pos": "TE",
+     "role": "starter",
+     "estimated": false,
+     "published": 18,
+     "indexed": 27.2,
+     "adjusted": 24.4
+    },
+    {
+     "rank": 30,
+     "player_key": 4614,
+     "name": "Josh Jacobs",
+     "pos": "RB",
+     "role": "starter",
+     "estimated": false,
+     "published": 18,
+     "indexed": 27.2,
+     "adjusted": 30.5
+    },
+    {
+     "rank": 31,
+     "player_key": 560,
+     "name": "Derrick Henry",
+     "pos": "RB",
+     "role": "starter",
+     "estimated": false,
+     "published": 17,
+     "indexed": 25.7,
+     "adjusted": 28.6
+    },
+    {
+     "rank": 32,
+     "player_key": 1311,
+     "name": "Joe Burrow",
+     "pos": "QB",
+     "role": "starter",
+     "estimated": false,
+     "published": 17,
+     "indexed": 25.7,
+     "adjusted": 23.6
+    },
+    {
+     "rank": 33,
+     "player_key": 243,
+     "name": "Parker Washington",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 16.5,
+     "indexed": 24.9,
+     "adjusted": 25.3
+    },
+    {
+     "rank": 34,
+     "player_key": 1381,
+     "name": "Zay Flowers",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 16.5,
+     "indexed": 24.9,
+     "adjusted": 25.3
+    },
+    {
+     "rank": 35,
+     "player_key": 4493,
+     "name": "Nico Collins",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 16.5,
+     "indexed": 24.9,
+     "adjusted": 25.3
+    },
+    {
+     "rank": 36,
+     "player_key": 1730,
+     "name": "Drake Maye",
+     "pos": "QB",
+     "role": "starter",
+     "estimated": false,
+     "published": 16,
+     "indexed": 24.2,
+     "adjusted": 21.9
+    },
+    {
+     "rank": 37,
+     "player_key": 325,
+     "name": "DJ Moore",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 15.5,
+     "indexed": 23.4,
+     "adjusted": 23.6
+    },
+    {
+     "rank": 38,
+     "player_key": 751,
+     "name": "Rhamondre Stevenson",
+     "pos": "RB",
+     "role": "starter",
+     "estimated": false,
+     "published": 15.5,
+     "indexed": 23.4,
+     "adjusted": 25.9
+    },
+    {
+     "rank": 39,
+     "player_key": 2795,
+     "name": "George Kittle",
+     "pos": "TE",
+     "role": "starter",
+     "estimated": false,
+     "published": 15.5,
+     "indexed": 23.4,
+     "adjusted": 20.6
+    },
+    {
+     "rank": 40,
+     "player_key": 885,
+     "name": "George Pickens",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 15,
+     "indexed": 22.7,
+     "adjusted": 22.7
+    },
+    {
+     "rank": 41,
+     "player_key": 2862,
+     "name": "Garrett Wilson",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 15,
+     "indexed": 22.7,
+     "adjusted": 22.7
+    },
+    {
+     "rank": 42,
+     "player_key": 3862,
+     "name": "Chase Brown",
+     "pos": "RB",
+     "role": "starter",
+     "estimated": false,
+     "published": 15,
+     "indexed": 22.7,
+     "adjusted": 25
+    },
+    {
+     "rank": 43,
+     "player_key": 3082,
+     "name": "Mike Evans",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 14.5,
+     "indexed": 21.9,
+     "adjusted": 21.9
+    },
+    {
+     "rank": 44,
+     "player_key": 4573,
+     "name": "Tetairoa McMillan",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 14.5,
+     "indexed": 21.9,
+     "adjusted": 21.9
+    },
+    {
+     "rank": 45,
+     "player_key": 764,
+     "name": "DeVonta Smith",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 14,
+     "indexed": 21.1,
+     "adjusted": 21.1
+    },
+    {
+     "rank": 46,
+     "player_key": 1891,
+     "name": "Ollie Gordon II",
+     "pos": "RB",
+     "role": "starter",
+     "estimated": false,
+     "published": 14,
+     "indexed": 21.1,
+     "adjusted": 23.1
+    },
+    {
+     "rank": 47,
+     "player_key": 3225,
+     "name": "Trevor Lawrence",
+     "pos": "QB",
+     "role": "starter",
+     "estimated": false,
+     "published": 14,
+     "indexed": 21.1,
+     "adjusted": 18.7
+    },
+    {
+     "rank": 48,
+     "player_key": 3716,
+     "name": "Rashee Rice",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 14,
+     "indexed": 21.1,
+     "adjusted": 21.1
+    },
+    {
+     "rank": 49,
+     "player_key": 3942,
+     "name": "Emeka Egbuka",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 14,
+     "indexed": 21.1,
+     "adjusted": 21.1
+    },
+    {
+     "rank": 50,
+     "player_key": 313,
+     "name": "Saquon Barkley",
+     "pos": "RB",
+     "role": "starter",
+     "estimated": false,
+     "published": 13.5,
+     "indexed": 20.4,
+     "adjusted": 22.2
+    }
+   ]
+  },
+  "usatoday": {
+   "label": "USA Today",
+   "kind": "trade chart",
+   "players_listed": 273,
+   "filled_in": 2,
+   "totals": {
+    "published": 4647,
+    "indexed": 2687.9,
+    "adjusted": 2688
+   },
+   "index_factor": {
+    "value": 0.578416,
+    "derived": "indexed total / published total (computed from the two totals above, not returned by the tool)"
+   },
+   "rows": [
+    {
+     "rank": 1,
+     "player_key": 2227,
+     "name": "Jahmyr Gibbs",
+     "pos": "RB",
+     "role": "starter",
+     "estimated": false,
+     "published": 79,
+     "indexed": 45.7,
+     "adjusted": 71.9
+    },
+    {
+     "rank": 2,
+     "player_key": 3247,
+     "name": "Jaxon Smith-Njigba",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 79,
+     "indexed": 45.7,
+     "adjusted": 66.5
+    },
+    {
+     "rank": 3,
+     "player_key": 1370,
+     "name": "Puka Nacua",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 75,
+     "indexed": 43.4,
+     "adjusted": 62.7
+    },
+    {
+     "rank": 4,
+     "player_key": 1095,
+     "name": "Kenneth Walker III",
+     "pos": "RB",
+     "role": "starter",
+     "estimated": false,
+     "published": 73,
+     "indexed": 42.2,
+     "adjusted": 65.9
+    },
+    {
+     "rank": 5,
+     "player_key": 217,
+     "name": "Bijan Robinson",
+     "pos": "RB",
+     "role": "starter",
+     "estimated": false,
+     "published": 68,
+     "indexed": 39.3,
+     "adjusted": 60.9
+    },
+    {
+     "rank": 6,
+     "player_key": 2730,
+     "name": "Ja'Marr Chase",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 68,
+     "indexed": 39.3,
+     "adjusted": 56.1
+    },
+    {
+     "rank": 7,
+     "player_key": 1110,
+     "name": "James Cook",
+     "pos": "RB",
+     "role": "starter",
+     "estimated": false,
+     "published": 65,
+     "indexed": 37.6,
+     "adjusted": 57.8
+    },
+    {
+     "rank": 8,
+     "player_key": 303,
+     "name": "CeeDee Lamb",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 64,
+     "indexed": 37,
+     "adjusted": 52.3
+    },
+    {
+     "rank": 9,
+     "player_key": 51,
+     "name": "Brock Bowers",
+     "pos": "TE",
+     "role": "starter",
+     "estimated": false,
+     "published": 63,
+     "indexed": 36.4,
+     "adjusted": 30.6
+    },
+    {
+     "rank": 10,
+     "player_key": 2279,
+     "name": "Malik Nabers",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 63,
+     "indexed": 36.4,
+     "adjusted": 51.4
+    },
+    {
+     "rank": 11,
+     "player_key": 3189,
+     "name": "Christian McCaffrey",
+     "pos": "RB",
+     "role": "starter",
+     "estimated": false,
+     "published": 63,
+     "indexed": 36.4,
+     "adjusted": 55.8
+    },
+    {
+     "rank": 12,
+     "player_key": 3289,
+     "name": "Amon-Ra St. Brown",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 61,
+     "indexed": 35.3,
+     "adjusted": 49.5
+    },
+    {
+     "rank": 13,
+     "player_key": 547,
+     "name": "Jonathan Taylor",
+     "pos": "RB",
+     "role": "starter",
+     "estimated": false,
+     "published": 58,
+     "indexed": 33.5,
+     "adjusted": 50.8
+    },
+    {
+     "rank": 14,
+     "player_key": 3133,
+     "name": "Trey McBride",
+     "pos": "TE",
+     "role": "starter",
+     "estimated": false,
+     "published": 58,
+     "indexed": 33.5,
+     "adjusted": 27.4
+    },
+    {
+     "rank": 15,
+     "player_key": 2606,
+     "name": "D'Andre Swift",
+     "pos": "RB",
+     "role": "starter",
+     "estimated": false,
+     "published": 56,
+     "indexed": 32.4,
+     "adjusted": 48.7
+    },
+    {
+     "rank": 16,
+     "player_key": 1063,
+     "name": "Kyren Williams",
+     "pos": "RB",
+     "role": "starter",
+     "estimated": false,
+     "published": 52,
+     "indexed": 30.1,
+     "adjusted": 44.7
+    },
+    {
+     "rank": 17,
+     "player_key": 4048,
+     "name": "Chuba Hubbard",
+     "pos": "RB",
+     "role": "starter",
+     "estimated": false,
+     "published": 52,
+     "indexed": 30.1,
+     "adjusted": 44.7
+    },
+    {
+     "rank": 18,
+     "player_key": 4474,
+     "name": "Tee Higgins",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 52,
+     "indexed": 30.1,
+     "adjusted": 40.8
+    },
+    {
+     "rank": 19,
+     "player_key": 319,
+     "name": "Bhayshul Tuten",
+     "pos": "RB",
+     "role": "starter",
+     "estimated": false,
+     "published": 51,
+     "indexed": 29.5,
+     "adjusted": 43.7
+    },
+    {
+     "rank": 20,
+     "player_key": 337,
+     "name": "Bucky Irving",
+     "pos": "RB",
+     "role": "starter",
+     "estimated": false,
+     "published": 51,
+     "indexed": 29.5,
+     "adjusted": 43.7
+    },
+    {
+     "rank": 21,
+     "player_key": 471,
+     "name": "Drake London",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 51,
+     "indexed": 29.5,
+     "adjusted": 39.9
+    },
+    {
+     "rank": 22,
+     "player_key": 2140,
+     "name": "Luther Burden III",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 51,
+     "indexed": 29.5,
+     "adjusted": 39.9
+    },
+    {
+     "rank": 23,
+     "player_key": 3993,
+     "name": "Chris Olave",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 51,
+     "indexed": 29.5,
+     "adjusted": 39.9
+    },
+    {
+     "rank": 24,
+     "player_key": 4589,
+     "name": "Jaylen Warren",
+     "pos": "RB",
+     "role": "starter",
+     "estimated": false,
+     "published": 51,
+     "indexed": 29.5,
+     "adjusted": 43.7
+    },
+    {
+     "rank": 25,
+     "player_key": 2126,
+     "name": "Matthew Golden",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 49,
+     "indexed": 28.3,
+     "adjusted": 37.9
+    },
+    {
+     "rank": 26,
+     "player_key": 3843,
+     "name": "Christian Watson",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 49,
+     "indexed": 28.3,
+     "adjusted": 37.9
+    },
+    {
+     "rank": 27,
+     "player_key": 807,
+     "name": "Javonte Williams",
+     "pos": "RB",
+     "role": "starter",
+     "estimated": false,
+     "published": 48,
+     "indexed": 27.8,
+     "adjusted": 40.6
+    },
+    {
+     "rank": 28,
+     "player_key": 4614,
+     "name": "Josh Jacobs",
+     "pos": "RB",
+     "role": "starter",
+     "estimated": false,
+     "published": 47,
+     "indexed": 27.2,
+     "adjusted": 39.6
+    },
+    {
+     "rank": 29,
+     "player_key": 3892,
+     "name": "Justin Jefferson",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 45,
+     "indexed": 26,
+     "adjusted": 34.1
+    },
+    {
+     "rank": 30,
+     "player_key": 560,
+     "name": "Derrick Henry",
+     "pos": "RB",
+     "role": "starter",
+     "estimated": false,
+     "published": 44,
+     "indexed": 25.5,
+     "adjusted": 36.5
+    },
+    {
+     "rank": 31,
+     "player_key": 4493,
+     "name": "Nico Collins",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 43,
+     "indexed": 24.9,
+     "adjusted": 32.1
+    },
+    {
+     "rank": 32,
+     "player_key": 869,
+     "name": "Josh Allen",
+     "pos": "QB",
+     "role": "starter",
+     "estimated": false,
+     "published": 42,
+     "indexed": 24.3,
+     "adjusted": 29.4
+    },
+    {
+     "rank": 33,
+     "player_key": 2795,
+     "name": "George Kittle",
+     "pos": "TE",
+     "role": "starter",
+     "estimated": false,
+     "published": 42,
+     "indexed": 24.3,
+     "adjusted": 17.4
+    },
+    {
+     "rank": 34,
+     "player_key": 243,
+     "name": "Parker Washington",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 40,
+     "indexed": 23.1,
+     "adjusted": 29.2
+    },
+    {
+     "rank": 35,
+     "player_key": 3716,
+     "name": "Rashee Rice",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 40,
+     "indexed": 23.1,
+     "adjusted": 29.2
+    },
+    {
+     "rank": 36,
+     "player_key": 885,
+     "name": "George Pickens",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 39,
+     "indexed": 22.6,
+     "adjusted": 28.2
+    },
+    {
+     "rank": 37,
+     "player_key": 1381,
+     "name": "Zay Flowers",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 39,
+     "indexed": 22.6,
+     "adjusted": 28.2
+    },
+    {
+     "rank": 38,
+     "player_key": 3364,
+     "name": "Ashton Jeanty",
+     "pos": "RB",
+     "role": "starter",
+     "estimated": false,
+     "published": 36,
+     "indexed": 20.8,
+     "adjusted": 28.1
+    },
+    {
+     "rank": 39,
+     "player_key": 1311,
+     "name": "Joe Burrow",
+     "pos": "QB",
+     "role": "starter",
+     "estimated": false,
+     "published": 35,
+     "indexed": 20.2,
+     "adjusted": 23.4
+    },
+    {
+     "rank": 40,
+     "player_key": 2756,
+     "name": "Jameson Williams",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 34,
+     "indexed": 19.7,
+     "adjusted": 23.2
+    },
+    {
+     "rank": 41,
+     "player_key": 3871,
+     "name": "Colston Loveland",
+     "pos": "TE",
+     "role": "starter",
+     "estimated": false,
+     "published": 34,
+     "indexed": 19.7,
+     "adjusted": 12.4
+    },
+    {
+     "rank": 42,
+     "player_key": 325,
+     "name": "DJ Moore",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 33,
+     "indexed": 19.1,
+     "adjusted": 22.2
+    },
+    {
+     "rank": 43,
+     "player_key": 1107,
+     "name": "Breece Hall",
+     "pos": "RB",
+     "role": "starter",
+     "estimated": false,
+     "published": 33,
+     "indexed": 19.1,
+     "adjusted": 24.9
+    },
+    {
+     "rank": 44,
+     "player_key": 1205,
+     "name": "Michael Wilson",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 33,
+     "indexed": 19.1,
+     "adjusted": 22.2
+    },
+    {
+     "rank": 45,
+     "player_key": 4023,
+     "name": "Jonah Coleman",
+     "pos": "RB",
+     "role": "starter",
+     "estimated": false,
+     "published": 33,
+     "indexed": 19.1,
+     "adjusted": 24.9
+    },
+    {
+     "rank": 46,
+     "player_key": 1354,
+     "name": "Tucker Kraft",
+     "pos": "TE",
+     "role": "starter",
+     "estimated": false,
+     "published": 32,
+     "indexed": 18.5,
+     "adjusted": 11.1
+    },
+    {
+     "rank": 47,
+     "player_key": 1730,
+     "name": "Drake Maye",
+     "pos": "QB",
+     "role": "starter",
+     "estimated": false,
+     "published": 32,
+     "indexed": 18.5,
+     "adjusted": 20.7
+    },
+    {
+     "rank": 48,
+     "player_key": 1891,
+     "name": "Ollie Gordon II",
+     "pos": "RB",
+     "role": "starter",
+     "estimated": false,
+     "published": 32,
+     "indexed": 18.5,
+     "adjusted": 23.8
+    },
+    {
+     "rank": 49,
+     "player_key": 2862,
+     "name": "Garrett Wilson",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 32,
+     "indexed": 18.5,
+     "adjusted": 21.2
+    },
+    {
+     "rank": 50,
+     "player_key": 3664,
+     "name": "Cam Skattebo",
+     "pos": "RB",
+     "role": "starter",
+     "estimated": false,
+     "published": 32,
+     "indexed": 18.5,
+     "adjusted": 23.8
+    }
+   ]
+  },
+  "fantasypros": {
+   "label": "FantasyPros",
+   "kind": "trade chart",
+   "players_listed": 203,
+   "filled_in": 25,
+   "totals": {
+    "published": 3484.6,
+    "indexed": 2697.4,
+    "adjusted": 2688
+   },
+   "index_factor": {
+    "value": 0.774092,
+    "derived": "indexed total / published total (computed from the two totals above, not returned by the tool)"
+   },
+   "rows": [
+    {
+     "rank": 1,
+     "player_key": 2227,
+     "name": "Jahmyr Gibbs",
+     "pos": "RB",
+     "role": "starter",
+     "estimated": false,
+     "published": 75.1,
+     "indexed": 58.1,
+     "adjusted": 71.2
+    },
+    {
+     "rank": 2,
+     "player_key": 217,
+     "name": "Bijan Robinson",
+     "pos": "RB",
+     "role": "starter",
+     "estimated": false,
+     "published": 67.5,
+     "indexed": 52.3,
+     "adjusted": 63.6
+    },
+    {
+     "rank": 3,
+     "player_key": 1110,
+     "name": "James Cook",
+     "pos": "RB",
+     "role": "starter",
+     "estimated": false,
+     "published": 60.9,
+     "indexed": 47.1,
+     "adjusted": 57.1
+    },
+    {
+     "rank": 4,
+     "player_key": 1095,
+     "name": "Kenneth Walker III",
+     "pos": "RB",
+     "role": "starter",
+     "estimated": false,
+     "published": 59.3,
+     "indexed": 45.9,
+     "adjusted": 55.5
+    },
+    {
+     "rank": 5,
+     "player_key": 3247,
+     "name": "Jaxon Smith-Njigba",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 57.1,
+     "indexed": 44.2,
+     "adjusted": 55
+    },
+    {
+     "rank": 6,
+     "player_key": 1370,
+     "name": "Puka Nacua",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 55.4,
+     "indexed": 42.9,
+     "adjusted": 53.1
+    },
+    {
+     "rank": 7,
+     "player_key": 2730,
+     "name": "Ja'Marr Chase",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 54,
+     "indexed": 41.8,
+     "adjusted": 51.6
+    },
+    {
+     "rank": 8,
+     "player_key": 1063,
+     "name": "Kyren Williams",
+     "pos": "RB",
+     "role": "starter",
+     "estimated": false,
+     "published": 52.3,
+     "indexed": 40.5,
+     "adjusted": 48.5
+    },
+    {
+     "rank": 9,
+     "player_key": 3289,
+     "name": "Amon-Ra St. Brown",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 51.3,
+     "indexed": 39.7,
+     "adjusted": 48.7
+    },
+    {
+     "rank": 10,
+     "player_key": 3189,
+     "name": "Christian McCaffrey",
+     "pos": "RB",
+     "role": "starter",
+     "estimated": false,
+     "published": 50.5,
+     "indexed": 39.1,
+     "adjusted": 46.7
+    },
+    {
+     "rank": 11,
+     "player_key": 2606,
+     "name": "D'Andre Swift",
+     "pos": "RB",
+     "role": "starter",
+     "estimated": false,
+     "published": 48.9,
+     "indexed": 37.9,
+     "adjusted": 45
+    },
+    {
+     "rank": 12,
+     "player_key": 807,
+     "name": "Javonte Williams",
+     "pos": "RB",
+     "role": "starter",
+     "estimated": false,
+     "published": 46.8,
+     "indexed": 36.2,
+     "adjusted": 42.9
+    },
+    {
+     "rank": 13,
+     "player_key": 547,
+     "name": "Jonathan Taylor",
+     "pos": "RB",
+     "role": "starter",
+     "estimated": false,
+     "published": 45.9,
+     "indexed": 35.5,
+     "adjusted": 42
+    },
+    {
+     "rank": 14,
+     "player_key": 4048,
+     "name": "Chuba Hubbard",
+     "pos": "RB",
+     "role": "starter",
+     "estimated": false,
+     "published": 43.7,
+     "indexed": 33.8,
+     "adjusted": 39.8
+    },
+    {
+     "rank": 15,
+     "player_key": 4589,
+     "name": "Jaylen Warren",
+     "pos": "RB",
+     "role": "starter",
+     "estimated": false,
+     "published": 42.4,
+     "indexed": 32.8,
+     "adjusted": 38.4
+    },
+    {
+     "rank": 16,
+     "player_key": 319,
+     "name": "Bhayshul Tuten",
+     "pos": "RB",
+     "role": "starter",
+     "estimated": false,
+     "published": 41.6,
+     "indexed": 32.2,
+     "adjusted": 37.6
+    },
+    {
+     "rank": 17,
+     "player_key": 303,
+     "name": "CeeDee Lamb",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 41.3,
+     "indexed": 32,
+     "adjusted": 37.9
+    },
+    {
+     "rank": 18,
+     "player_key": 560,
+     "name": "Derrick Henry",
+     "pos": "RB",
+     "role": "starter",
+     "estimated": false,
+     "published": 40.8,
+     "indexed": 31.6,
+     "adjusted": 36.8
+    },
+    {
+     "rank": 19,
+     "player_key": 3843,
+     "name": "Christian Watson",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 40.5,
+     "indexed": 31.4,
+     "adjusted": 37
+    },
+    {
+     "rank": 20,
+     "player_key": 2279,
+     "name": "Malik Nabers",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 40.4,
+     "indexed": 31.3,
+     "adjusted": 36.9
+    },
+    {
+     "rank": 21,
+     "player_key": 337,
+     "name": "Bucky Irving",
+     "pos": "RB",
+     "role": "starter",
+     "estimated": false,
+     "published": 40.3,
+     "indexed": 31.2,
+     "adjusted": 36.3
+    },
+    {
+     "rank": 22,
+     "player_key": 4614,
+     "name": "Josh Jacobs",
+     "pos": "RB",
+     "role": "starter",
+     "estimated": false,
+     "published": 39.6,
+     "indexed": 30.7,
+     "adjusted": 35.6
+    },
+    {
+     "rank": 23,
+     "player_key": 471,
+     "name": "Drake London",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 39.1,
+     "indexed": 30.3,
+     "adjusted": 35.5
+    },
+    {
+     "rank": 24,
+     "player_key": 3862,
+     "name": "Chase Brown",
+     "pos": "RB",
+     "role": "starter",
+     "estimated": false,
+     "published": 38.6,
+     "indexed": 29.9,
+     "adjusted": 34.5
+    },
+    {
+     "rank": 25,
+     "player_key": 4474,
+     "name": "Tee Higgins",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 38.3,
+     "indexed": 29.6,
+     "adjusted": 34.6
+    },
+    {
+     "rank": 26,
+     "player_key": 751,
+     "name": "Rhamondre Stevenson",
+     "pos": "RB",
+     "role": "starter",
+     "estimated": false,
+     "published": 37.6,
+     "indexed": 29.1,
+     "adjusted": 33.5
+    },
+    {
+     "rank": 27,
+     "player_key": 3993,
+     "name": "Chris Olave",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 37.2,
+     "indexed": 28.8,
+     "adjusted": 33.4
+    },
+    {
+     "rank": 28,
+     "player_key": 243,
+     "name": "Parker Washington",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 36.6,
+     "indexed": 28.3,
+     "adjusted": 32.7
+    },
+    {
+     "rank": 29,
+     "player_key": 1107,
+     "name": "Breece Hall",
+     "pos": "RB",
+     "role": "starter",
+     "estimated": false,
+     "published": 36.6,
+     "indexed": 28.3,
+     "adjusted": 32.4
+    },
+    {
+     "rank": 30,
+     "player_key": 2126,
+     "name": "Matthew Golden",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 36.1,
+     "indexed": 27.9,
+     "adjusted": 32.1
+    },
+    {
+     "rank": 31,
+     "player_key": 1891,
+     "name": "Ollie Gordon II",
+     "pos": "RB",
+     "role": "starter",
+     "estimated": false,
+     "published": 34.7,
+     "indexed": 26.9,
+     "adjusted": 30.4
+    },
+    {
+     "rank": 32,
+     "player_key": 4493,
+     "name": "Nico Collins",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 33.8,
+     "indexed": 26.2,
+     "adjusted": 29.6
+    },
+    {
+     "rank": 33,
+     "player_key": 3892,
+     "name": "Justin Jefferson",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 33.5,
+     "indexed": 25.9,
+     "adjusted": 29.2
+    },
+    {
+     "rank": 34,
+     "player_key": 3070,
+     "name": "Tony Pollard",
+     "pos": "RB",
+     "role": "starter",
+     "estimated": false,
+     "published": 33.1,
+     "indexed": 25.6,
+     "adjusted": 28.8
+    },
+    {
+     "rank": 35,
+     "player_key": 3364,
+     "name": "Ashton Jeanty",
+     "pos": "RB",
+     "role": "starter",
+     "estimated": false,
+     "published": 33.1,
+     "indexed": 25.6,
+     "adjusted": 28.8
+    },
+    {
+     "rank": 36,
+     "player_key": 1381,
+     "name": "Zay Flowers",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 32,
+     "indexed": 24.8,
+     "adjusted": 27.5
+    },
+    {
+     "rank": 37,
+     "player_key": 4023,
+     "name": "Jonah Coleman",
+     "pos": "RB",
+     "role": "starter",
+     "estimated": false,
+     "published": 31.7,
+     "indexed": 24.5,
+     "adjusted": 27.3
+    },
+    {
+     "rank": 38,
+     "player_key": 2140,
+     "name": "Luther Burden III",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 31.5,
+     "indexed": 24.4,
+     "adjusted": 27
+    },
+    {
+     "rank": 39,
+     "player_key": 2862,
+     "name": "Garrett Wilson",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 31.4,
+     "indexed": 24.3,
+     "adjusted": 26.8
+    },
+    {
+     "rank": 40,
+     "player_key": 2756,
+     "name": "Jameson Williams",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 31,
+     "indexed": 24,
+     "adjusted": 26.4
+    },
+    {
+     "rank": 41,
+     "player_key": 885,
+     "name": "George Pickens",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 29.9,
+     "indexed": 23.1,
+     "adjusted": 25.1
+    },
+    {
+     "rank": 42,
+     "player_key": 4573,
+     "name": "Tetairoa McMillan",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 29.5,
+     "indexed": 22.8,
+     "adjusted": 24.7
+    },
+    {
+     "rank": 43,
+     "player_key": 325,
+     "name": "DJ Moore",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 29.2,
+     "indexed": 22.6,
+     "adjusted": 24.3
+    },
+    {
+     "rank": 44,
+     "player_key": 869,
+     "name": "Josh Allen",
+     "pos": "QB",
+     "role": "starter",
+     "estimated": false,
+     "published": 29.1,
+     "indexed": 22.5,
+     "adjusted": 27.8
+    },
+    {
+     "rank": 45,
+     "player_key": 1311,
+     "name": "Joe Burrow",
+     "pos": "QB",
+     "role": "starter",
+     "estimated": false,
+     "published": 28.6,
+     "indexed": 22.1,
+     "adjusted": 27.3
+    },
+    {
+     "rank": 46,
+     "player_key": 1663,
+     "name": "Blake Corum",
+     "pos": "RB",
+     "role": "starter",
+     "estimated": false,
+     "published": 28.2,
+     "indexed": 21.8,
+     "adjusted": 23.5
+    },
+    {
+     "rank": 47,
+     "player_key": 51,
+     "name": "Brock Bowers",
+     "pos": "TE",
+     "role": "starter",
+     "estimated": false,
+     "published": 28,
+     "indexed": 21.7,
+     "adjusted": 28.6
+    },
+    {
+     "rank": 48,
+     "player_key": 3082,
+     "name": "Mike Evans",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 27.2,
+     "indexed": 21.1,
+     "adjusted": 22
+    },
+    {
+     "rank": 49,
+     "player_key": 3133,
+     "name": "Trey McBride",
+     "pos": "TE",
+     "role": "starter",
+     "estimated": false,
+     "published": 26.2,
+     "indexed": 20.3,
+     "adjusted": 26.3
+    },
+    {
+     "rank": 50,
+     "player_key": 3716,
+     "name": "Rashee Rice",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 26.2,
+     "indexed": 20.3,
+     "adjusted": 20.8
+    }
+   ]
+  },
+  "fantasycalc": {
+   "label": "FantasyCalc",
+   "kind": "trade chart",
+   "players_listed": 213,
+   "filled_in": 18,
+   "totals": {
+    "published": 346622,
+    "indexed": 2686.4,
+    "adjusted": 2688
+   },
+   "index_factor": {
+    "value": 0.00775,
+    "derived": "indexed total / published total (computed from the two totals above, not returned by the tool)"
+   },
+   "rows": [
+    {
+     "rank": 1,
+     "player_key": 2227,
+     "name": "Jahmyr Gibbs",
+     "pos": "RB",
+     "role": "starter",
+     "estimated": false,
+     "published": 10685,
+     "indexed": 82.8,
+     "adjusted": 94.4
+    },
+    {
+     "rank": 2,
+     "player_key": 3247,
+     "name": "Jaxon Smith-Njigba",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 10094,
+     "indexed": 78.2,
+     "adjusted": 85.9
+    },
+    {
+     "rank": 3,
+     "player_key": 1095,
+     "name": "Kenneth Walker III",
+     "pos": "RB",
+     "role": "starter",
+     "estimated": false,
+     "published": 9245,
+     "indexed": 71.6,
+     "adjusted": 81.6
+    },
+    {
+     "rank": 4,
+     "player_key": 217,
+     "name": "Bijan Robinson",
+     "pos": "RB",
+     "role": "starter",
+     "estimated": false,
+     "published": 9239,
+     "indexed": 71.6,
+     "adjusted": 81.6
+    },
+    {
+     "rank": 5,
+     "player_key": 1370,
+     "name": "Puka Nacua",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 9221,
+     "indexed": 71.5,
+     "adjusted": 78.4
+    },
+    {
+     "rank": 6,
+     "player_key": 2730,
+     "name": "Ja'Marr Chase",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 8605,
+     "indexed": 66.7,
+     "adjusted": 73.2
+    },
+    {
+     "rank": 7,
+     "player_key": 303,
+     "name": "CeeDee Lamb",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 8042,
+     "indexed": 62.3,
+     "adjusted": 68.3
+    },
+    {
+     "rank": 8,
+     "player_key": 3189,
+     "name": "Christian McCaffrey",
+     "pos": "RB",
+     "role": "starter",
+     "estimated": false,
+     "published": 7991,
+     "indexed": 61.9,
+     "adjusted": 70.5
+    },
+    {
+     "rank": 9,
+     "player_key": 3289,
+     "name": "Amon-Ra St. Brown",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 7645,
+     "indexed": 59.2,
+     "adjusted": 64.9
+    },
+    {
+     "rank": 10,
+     "player_key": 547,
+     "name": "Jonathan Taylor",
+     "pos": "RB",
+     "role": "starter",
+     "estimated": false,
+     "published": 7178,
+     "indexed": 55.6,
+     "adjusted": 63.3
+    },
+    {
+     "rank": 11,
+     "player_key": 1110,
+     "name": "James Cook",
+     "pos": "RB",
+     "role": "starter",
+     "estimated": false,
+     "published": 7043,
+     "indexed": 54.6,
+     "adjusted": 62.1
+    },
+    {
+     "rank": 12,
+     "player_key": 51,
+     "name": "Brock Bowers",
+     "pos": "TE",
+     "role": "starter",
+     "estimated": false,
+     "published": 6538,
+     "indexed": 50.7,
+     "adjusted": 39.5
+    },
+    {
+     "rank": 13,
+     "player_key": 869,
+     "name": "Josh Allen",
+     "pos": "QB",
+     "role": "starter",
+     "estimated": false,
+     "published": 6352,
+     "indexed": 49.2,
+     "adjusted": 46.6
+    },
+    {
+     "rank": 14,
+     "player_key": 3133,
+     "name": "Trey McBride",
+     "pos": "TE",
+     "role": "starter",
+     "estimated": false,
+     "published": 6076,
+     "indexed": 47.1,
+     "adjusted": 36.6
+    },
+    {
+     "rank": 15,
+     "player_key": 807,
+     "name": "Javonte Williams",
+     "pos": "RB",
+     "role": "starter",
+     "estimated": false,
+     "published": 5778,
+     "indexed": 44.8,
+     "adjusted": 50.8
+    },
+    {
+     "rank": 16,
+     "player_key": 2279,
+     "name": "Malik Nabers",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 5737,
+     "indexed": 44.5,
+     "adjusted": 48.6
+    },
+    {
+     "rank": 17,
+     "player_key": 4474,
+     "name": "Tee Higgins",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 5365,
+     "indexed": 41.6,
+     "adjusted": 45.4
+    },
+    {
+     "rank": 18,
+     "player_key": 1063,
+     "name": "Kyren Williams",
+     "pos": "RB",
+     "role": "starter",
+     "estimated": false,
+     "published": 5167,
+     "indexed": 40,
+     "adjusted": 45.4
+    },
+    {
+     "rank": 19,
+     "player_key": 2606,
+     "name": "D'Andre Swift",
+     "pos": "RB",
+     "role": "starter",
+     "estimated": false,
+     "published": 5114,
+     "indexed": 39.6,
+     "adjusted": 44.9
+    },
+    {
+     "rank": 20,
+     "player_key": 3892,
+     "name": "Justin Jefferson",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 4953,
+     "indexed": 38.4,
+     "adjusted": 41.9
+    },
+    {
+     "rank": 21,
+     "player_key": 337,
+     "name": "Bucky Irving",
+     "pos": "RB",
+     "role": "starter",
+     "estimated": false,
+     "published": 4934,
+     "indexed": 38.2,
+     "adjusted": 43.3
+    },
+    {
+     "rank": 22,
+     "player_key": 4048,
+     "name": "Chuba Hubbard",
+     "pos": "RB",
+     "role": "starter",
+     "estimated": false,
+     "published": 4883,
+     "indexed": 37.8,
+     "adjusted": 42.9
+    },
+    {
+     "rank": 23,
+     "player_key": 3993,
+     "name": "Chris Olave",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 4824,
+     "indexed": 37.4,
+     "adjusted": 40.8
+    },
+    {
+     "rank": 24,
+     "player_key": 471,
+     "name": "Drake London",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 4752,
+     "indexed": 36.8,
+     "adjusted": 40.1
+    },
+    {
+     "rank": 25,
+     "player_key": 3843,
+     "name": "Christian Watson",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 4697,
+     "indexed": 36.4,
+     "adjusted": 39.7
+    },
+    {
+     "rank": 26,
+     "player_key": 560,
+     "name": "Derrick Henry",
+     "pos": "RB",
+     "role": "starter",
+     "estimated": false,
+     "published": 4696,
+     "indexed": 36.4,
+     "adjusted": 41.2
+    },
+    {
+     "rank": 27,
+     "player_key": 4589,
+     "name": "Jaylen Warren",
+     "pos": "RB",
+     "role": "starter",
+     "estimated": false,
+     "published": 4507,
+     "indexed": 34.9,
+     "adjusted": 39.5
+    },
+    {
+     "rank": 28,
+     "player_key": 4493,
+     "name": "Nico Collins",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 4498,
+     "indexed": 34.9,
+     "adjusted": 38
+    },
+    {
+     "rank": 29,
+     "player_key": 319,
+     "name": "Bhayshul Tuten",
+     "pos": "RB",
+     "role": "starter",
+     "estimated": false,
+     "published": 4443,
+     "indexed": 34.4,
+     "adjusted": 39
+    },
+    {
+     "rank": 30,
+     "player_key": 3862,
+     "name": "Chase Brown",
+     "pos": "RB",
+     "role": "starter",
+     "estimated": false,
+     "published": 4098,
+     "indexed": 31.8,
+     "adjusted": 35.9
+    },
+    {
+     "rank": 31,
+     "player_key": 1381,
+     "name": "Zay Flowers",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 3921,
+     "indexed": 30.4,
+     "adjusted": 33
+    },
+    {
+     "rank": 32,
+     "player_key": 2126,
+     "name": "Matthew Golden",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 3888,
+     "indexed": 30.1,
+     "adjusted": 32.7
+    },
+    {
+     "rank": 33,
+     "player_key": 4614,
+     "name": "Josh Jacobs",
+     "pos": "RB",
+     "role": "starter",
+     "estimated": false,
+     "published": 3796,
+     "indexed": 29.4,
+     "adjusted": 33.2
+    },
+    {
+     "rank": 34,
+     "player_key": 2140,
+     "name": "Luther Burden III",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 3712,
+     "indexed": 28.8,
+     "adjusted": 31.2
+    },
+    {
+     "rank": 35,
+     "player_key": 3364,
+     "name": "Ashton Jeanty",
+     "pos": "RB",
+     "role": "starter",
+     "estimated": false,
+     "published": 3708,
+     "indexed": 28.7,
+     "adjusted": 32.4
+    },
+    {
+     "rank": 36,
+     "player_key": 1311,
+     "name": "Joe Burrow",
+     "pos": "QB",
+     "role": "starter",
+     "estimated": false,
+     "published": 3514,
+     "indexed": 27.2,
+     "adjusted": 24.2
+    },
+    {
+     "rank": 37,
+     "player_key": 2795,
+     "name": "George Kittle",
+     "pos": "TE",
+     "role": "starter",
+     "estimated": false,
+     "published": 3338,
+     "indexed": 25.9,
+     "adjusted": 19.2
+    },
+    {
+     "rank": 38,
+     "player_key": 243,
+     "name": "Parker Washington",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 3320,
+     "indexed": 25.7,
+     "adjusted": 27.8
+    },
+    {
+     "rank": 39,
+     "player_key": 2862,
+     "name": "Garrett Wilson",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 3140,
+     "indexed": 24.3,
+     "adjusted": 26.3
+    },
+    {
+     "rank": 40,
+     "player_key": 313,
+     "name": "Saquon Barkley",
+     "pos": "RB",
+     "role": "starter",
+     "estimated": false,
+     "published": 3044,
+     "indexed": 23.6,
+     "adjusted": 26.5
+    },
+    {
+     "rank": 41,
+     "player_key": 4573,
+     "name": "Tetairoa McMillan",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 3020,
+     "indexed": 23.4,
+     "adjusted": 25.3
+    },
+    {
+     "rank": 42,
+     "player_key": 885,
+     "name": "George Pickens",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 3013,
+     "indexed": 23.4,
+     "adjusted": 25.2
+    },
+    {
+     "rank": 43,
+     "player_key": 3082,
+     "name": "Mike Evans",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 2837,
+     "indexed": 22,
+     "adjusted": 23.7
+    },
+    {
+     "rank": 44,
+     "player_key": 1107,
+     "name": "Breece Hall",
+     "pos": "RB",
+     "role": "starter",
+     "estimated": false,
+     "published": 2680,
+     "indexed": 20.8,
+     "adjusted": 23.3
+    },
+    {
+     "rank": 45,
+     "player_key": 3716,
+     "name": "Rashee Rice",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 2586,
+     "indexed": 20,
+     "adjusted": 21.5
+    },
+    {
+     "rank": 46,
+     "player_key": 1730,
+     "name": "Drake Maye",
+     "pos": "QB",
+     "role": "starter",
+     "estimated": false,
+     "published": 2449,
+     "indexed": 19,
+     "adjusted": 15.7
+    },
+    {
+     "rank": 47,
+     "player_key": 3225,
+     "name": "Trevor Lawrence",
+     "pos": "QB",
+     "role": "starter",
+     "estimated": false,
+     "published": 2387,
+     "indexed": 18.5,
+     "adjusted": 15.2
+    },
+    {
+     "rank": 48,
+     "player_key": 3871,
+     "name": "Colston Loveland",
+     "pos": "TE",
+     "role": "starter",
+     "estimated": false,
+     "published": 2263,
+     "indexed": 17.5,
+     "adjusted": 12.4
+    },
+    {
+     "rank": 49,
+     "player_key": 2756,
+     "name": "Jameson Williams",
+     "pos": "WR",
+     "role": "starter",
+     "estimated": false,
+     "published": 2192,
+     "indexed": 17,
+     "adjusted": 18.1
+    },
+    {
+     "rank": 50,
+     "player_key": 4561,
+     "name": "Brock Purdy",
+     "pos": "QB",
+     "role": "starter",
+     "estimated": false,
+     "published": 2190,
+     "indexed": 17,
+     "adjusted": 13.6
+    }
+   ]
+  }
+ },
+ "players": [
+  {
+   "player_key": 2227,
+   "name": "Jahmyr Gibbs",
+   "pos": "RB",
+   "tier": "starter",
+   "ddf_rank": 1,
+   "ddf_value": 84.3,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 56.5,
+     "indexed": 85.3,
+     "adjusted": 99.6
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 79,
+     "indexed": 45.7,
+     "adjusted": 71.9
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 75.1,
+     "indexed": 58.1,
+     "adjusted": 71.2
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 10685,
+     "indexed": 82.8,
+     "adjusted": 94.4
+    }
+   },
+   "check": {
+    "sum_adjusted": 337.1,
+    "mean_of_shown_adjusted": 84.275,
+    "ties_out": true,
+    "gap": 0.025
+   }
+  },
+  {
+   "player_key": 1095,
+   "name": "Kenneth Walker III",
+   "pos": "RB",
+   "tier": "starter",
+   "ddf_rank": 2,
+   "ddf_value": 73.4,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 51.5,
+     "indexed": 77.8,
+     "adjusted": 90.6
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 73,
+     "indexed": 42.2,
+     "adjusted": 65.9
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 59.3,
+     "indexed": 45.9,
+     "adjusted": 55.5
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 9245,
+     "indexed": 71.6,
+     "adjusted": 81.6
+    }
+   },
+   "check": {
+    "sum_adjusted": 293.6,
+    "mean_of_shown_adjusted": 73.4,
+    "ties_out": true,
+    "gap": 0.0
+   }
+  },
+  {
+   "player_key": 3247,
+   "name": "Jaxon Smith-Njigba",
+   "pos": "WR",
+   "tier": "starter",
+   "ddf_rank": 3,
+   "ddf_value": 72.5,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 51,
+     "indexed": 77,
+     "adjusted": 82.5
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 79,
+     "indexed": 45.7,
+     "adjusted": 66.5
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 57.1,
+     "indexed": 44.2,
+     "adjusted": 55
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 10094,
+     "indexed": 78.2,
+     "adjusted": 85.9
+    }
+   },
+   "check": {
+    "sum_adjusted": 289.9,
+    "mean_of_shown_adjusted": 72.475,
+    "ties_out": true,
+    "gap": 0.025
+   }
+  },
+  {
+   "player_key": 217,
+   "name": "Bijan Robinson",
+   "pos": "RB",
+   "tier": "starter",
+   "ddf_rank": 4,
+   "ddf_value": 71.5,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 45.5,
+     "indexed": 68.7,
+     "adjusted": 79.9
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 68,
+     "indexed": 39.3,
+     "adjusted": 60.9
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 67.5,
+     "indexed": 52.3,
+     "adjusted": 63.6
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 9239,
+     "indexed": 71.6,
+     "adjusted": 81.6
+    }
+   },
+   "check": {
+    "sum_adjusted": 286.0,
+    "mean_of_shown_adjusted": 71.5,
+    "ties_out": true,
+    "gap": 0.0
+   }
+  },
+  {
+   "player_key": 1370,
+   "name": "Puka Nacua",
+   "pos": "WR",
+   "tier": "starter",
+   "ddf_rank": 5,
+   "ddf_value": 69,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 50.5,
+     "indexed": 76.3,
+     "adjusted": 81.7
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 75,
+     "indexed": 43.4,
+     "adjusted": 62.7
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 55.4,
+     "indexed": 42.9,
+     "adjusted": 53.1
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 9221,
+     "indexed": 71.5,
+     "adjusted": 78.4
+    }
+   },
+   "check": {
+    "sum_adjusted": 275.9,
+    "mean_of_shown_adjusted": 68.975,
+    "ties_out": true,
+    "gap": 0.025
+   }
+  },
+  {
+   "player_key": 2730,
+   "name": "Ja'Marr Chase",
+   "pos": "WR",
+   "tier": "starter",
+   "ddf_rank": 6,
+   "ddf_value": 61.7,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 41,
+     "indexed": 61.9,
+     "adjusted": 66
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 68,
+     "indexed": 39.3,
+     "adjusted": 56.1
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 54,
+     "indexed": 41.8,
+     "adjusted": 51.6
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 8605,
+     "indexed": 66.7,
+     "adjusted": 73.2
+    }
+   },
+   "check": {
+    "sum_adjusted": 246.9,
+    "mean_of_shown_adjusted": 61.725,
+    "ties_out": true,
+    "gap": -0.025
+   }
+  },
+  {
+   "player_key": 1110,
+   "name": "James Cook",
+   "pos": "RB",
+   "tier": "starter",
+   "ddf_rank": 7,
+   "ddf_value": 61.5,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 39.5,
+     "indexed": 59.7,
+     "adjusted": 69.1
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 65,
+     "indexed": 37.6,
+     "adjusted": 57.8
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 60.9,
+     "indexed": 47.1,
+     "adjusted": 57.1
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 7043,
+     "indexed": 54.6,
+     "adjusted": 62.1
+    }
+   },
+   "check": {
+    "sum_adjusted": 246.1,
+    "mean_of_shown_adjusted": 61.525,
+    "ties_out": true,
+    "gap": -0.025
+   }
+  },
+  {
+   "player_key": 3189,
+   "name": "Christian McCaffrey",
+   "pos": "RB",
+   "tier": "starter",
+   "ddf_rank": 8,
+   "ddf_value": 58.1,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 34,
+     "indexed": 51.4,
+     "adjusted": 59.3
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 63,
+     "indexed": 36.4,
+     "adjusted": 55.8
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 50.5,
+     "indexed": 39.1,
+     "adjusted": 46.7
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 7991,
+     "indexed": 61.9,
+     "adjusted": 70.5
+    }
+   },
+   "check": {
+    "sum_adjusted": 232.3,
+    "mean_of_shown_adjusted": 58.075,
+    "ties_out": true,
+    "gap": 0.025
+   }
+  },
+  {
+   "player_key": 303,
+   "name": "CeeDee Lamb",
+   "pos": "WR",
+   "tier": "starter",
+   "ddf_rank": 9,
+   "ddf_value": 56.7,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 42.5,
+     "indexed": 64.2,
+     "adjusted": 68.5
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 64,
+     "indexed": 37,
+     "adjusted": 52.3
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 41.3,
+     "indexed": 32,
+     "adjusted": 37.9
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 8042,
+     "indexed": 62.3,
+     "adjusted": 68.3
+    }
+   },
+   "check": {
+    "sum_adjusted": 227.0,
+    "mean_of_shown_adjusted": 56.75,
+    "ties_out": false,
+    "gap": -0.05
+   }
+  },
+  {
+   "player_key": 3289,
+   "name": "Amon-Ra St. Brown",
+   "pos": "WR",
+   "tier": "starter",
+   "ddf_rank": 10,
+   "ddf_value": 55.2,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 36,
+     "indexed": 54.4,
+     "adjusted": 57.7
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 61,
+     "indexed": 35.3,
+     "adjusted": 49.5
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 51.3,
+     "indexed": 39.7,
+     "adjusted": 48.7
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 7645,
+     "indexed": 59.2,
+     "adjusted": 64.9
+    }
+   },
+   "check": {
+    "sum_adjusted": 220.8,
+    "mean_of_shown_adjusted": 55.2,
+    "ties_out": true,
+    "gap": 0.0
+   }
+  },
+  {
+   "player_key": 547,
+   "name": "Jonathan Taylor",
+   "pos": "RB",
+   "tier": "starter",
+   "ddf_rank": 11,
+   "ddf_value": 52.3,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 30.5,
+     "indexed": 46.1,
+     "adjusted": 53
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 58,
+     "indexed": 33.5,
+     "adjusted": 50.8
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 45.9,
+     "indexed": 35.5,
+     "adjusted": 42
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 7178,
+     "indexed": 55.6,
+     "adjusted": 63.3
+    }
+   },
+   "check": {
+    "sum_adjusted": 209.1,
+    "mean_of_shown_adjusted": 52.275,
+    "ties_out": true,
+    "gap": 0.025
+   }
+  },
+  {
+   "player_key": 2279,
+   "name": "Malik Nabers",
+   "pos": "WR",
+   "tier": "starter",
+   "ddf_rank": 12,
+   "ddf_value": 49.9,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 39,
+     "indexed": 58.9,
+     "adjusted": 62.7
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 63,
+     "indexed": 36.4,
+     "adjusted": 51.4
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 40.4,
+     "indexed": 31.3,
+     "adjusted": 36.9
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 5737,
+     "indexed": 44.5,
+     "adjusted": 48.6
+    }
+   },
+   "check": {
+    "sum_adjusted": 199.6,
+    "mean_of_shown_adjusted": 49.9,
+    "ties_out": true,
+    "gap": 0.0
+   }
+  },
+  {
+   "player_key": 1063,
+   "name": "Kyren Williams",
+   "pos": "RB",
+   "tier": "starter",
+   "ddf_rank": 13,
+   "ddf_value": 46.8,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 28,
+     "indexed": 42.3,
+     "adjusted": 48.5
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 52,
+     "indexed": 30.1,
+     "adjusted": 44.7
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 52.3,
+     "indexed": 40.5,
+     "adjusted": 48.5
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 5167,
+     "indexed": 40,
+     "adjusted": 45.4
+    }
+   },
+   "check": {
+    "sum_adjusted": 187.1,
+    "mean_of_shown_adjusted": 46.775,
+    "ties_out": true,
+    "gap": 0.025
+   }
+  },
+  {
+   "player_key": 807,
+   "name": "Javonte Williams",
+   "pos": "RB",
+   "tier": "starter",
+   "ddf_rank": 14,
+   "ddf_value": 46.6,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 30,
+     "indexed": 45.3,
+     "adjusted": 52.1
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 48,
+     "indexed": 27.8,
+     "adjusted": 40.6
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 46.8,
+     "indexed": 36.2,
+     "adjusted": 42.9
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 5778,
+     "indexed": 44.8,
+     "adjusted": 50.8
+    }
+   },
+   "check": {
+    "sum_adjusted": 186.4,
+    "mean_of_shown_adjusted": 46.6,
+    "ties_out": true,
+    "gap": 0.0
+   }
+  },
+  {
+   "player_key": 2606,
+   "name": "D'Andre Swift",
+   "pos": "RB",
+   "tier": "starter",
+   "ddf_rank": 15,
+   "ddf_value": 46.1,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 26.5,
+     "indexed": 40,
+     "adjusted": 45.8
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 56,
+     "indexed": 32.4,
+     "adjusted": 48.7
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 48.9,
+     "indexed": 37.9,
+     "adjusted": 45
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 5114,
+     "indexed": 39.6,
+     "adjusted": 44.9
+    }
+   },
+   "check": {
+    "sum_adjusted": 184.4,
+    "mean_of_shown_adjusted": 46.1,
+    "ties_out": true,
+    "gap": 0.0
+   }
+  },
+  {
+   "player_key": 4048,
+   "name": "Chuba Hubbard",
+   "pos": "RB",
+   "tier": "starter",
+   "ddf_rank": 16,
+   "ddf_value": 45.8,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 32,
+     "indexed": 48.3,
+     "adjusted": 55.7
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 52,
+     "indexed": 30.1,
+     "adjusted": 44.7
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 43.7,
+     "indexed": 33.8,
+     "adjusted": 39.8
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 4883,
+     "indexed": 37.8,
+     "adjusted": 42.9
+    }
+   },
+   "check": {
+    "sum_adjusted": 183.1,
+    "mean_of_shown_adjusted": 45.775,
+    "ties_out": true,
+    "gap": 0.025
+   }
+  },
+  {
+   "player_key": 4589,
+   "name": "Jaylen Warren",
+   "pos": "RB",
+   "tier": "starter",
+   "ddf_rank": 17,
+   "ddf_value": 41,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 24.5,
+     "indexed": 37,
+     "adjusted": 42.2
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 51,
+     "indexed": 29.5,
+     "adjusted": 43.7
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 42.4,
+     "indexed": 32.8,
+     "adjusted": 38.4
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 4507,
+     "indexed": 34.9,
+     "adjusted": 39.5
+    }
+   },
+   "check": {
+    "sum_adjusted": 163.8,
+    "mean_of_shown_adjusted": 40.95,
+    "ties_out": true,
+    "gap": 0.05
+   }
+  },
+  {
+   "player_key": 4474,
+   "name": "Tee Higgins",
+   "pos": "WR",
+   "tier": "starter",
+   "ddf_rank": 18,
+   "ddf_value": 40.9,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 27,
+     "indexed": 40.8,
+     "adjusted": 42.8
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 52,
+     "indexed": 30.1,
+     "adjusted": 40.8
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 38.3,
+     "indexed": 29.6,
+     "adjusted": 34.6
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 5365,
+     "indexed": 41.6,
+     "adjusted": 45.4
+    }
+   },
+   "check": {
+    "sum_adjusted": 163.6,
+    "mean_of_shown_adjusted": 40.9,
+    "ties_out": true,
+    "gap": 0.0
+   }
+  },
+  {
+   "player_key": 337,
+   "name": "Bucky Irving",
+   "pos": "RB",
+   "tier": "starter",
+   "ddf_rank": 19,
+   "ddf_value": 40.5,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 22.5,
+     "indexed": 34,
+     "adjusted": 38.6
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 51,
+     "indexed": 29.5,
+     "adjusted": 43.7
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 40.3,
+     "indexed": 31.2,
+     "adjusted": 36.3
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 4934,
+     "indexed": 38.2,
+     "adjusted": 43.3
+    }
+   },
+   "check": {
+    "sum_adjusted": 161.9,
+    "mean_of_shown_adjusted": 40.475,
+    "ties_out": true,
+    "gap": 0.025
+   }
+  },
+  {
+   "player_key": 319,
+   "name": "Bhayshul Tuten",
+   "pos": "RB",
+   "tier": "starter",
+   "ddf_rank": 20,
+   "ddf_value": 39.3,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 21.5,
+     "indexed": 32.5,
+     "adjusted": 36.8
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 51,
+     "indexed": 29.5,
+     "adjusted": 43.7
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 41.6,
+     "indexed": 32.2,
+     "adjusted": 37.6
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 4443,
+     "indexed": 34.4,
+     "adjusted": 39
+    }
+   },
+   "check": {
+    "sum_adjusted": 157.1,
+    "mean_of_shown_adjusted": 39.275,
+    "ties_out": true,
+    "gap": 0.025
+   }
+  },
+  {
+   "player_key": 3993,
+   "name": "Chris Olave",
+   "pos": "WR",
+   "tier": "starter",
+   "ddf_rank": 21,
+   "ddf_value": 38.8,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 26,
+     "indexed": 39.3,
+     "adjusted": 41.1
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 51,
+     "indexed": 29.5,
+     "adjusted": 39.9
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 37.2,
+     "indexed": 28.8,
+     "adjusted": 33.4
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 4824,
+     "indexed": 37.4,
+     "adjusted": 40.8
+    }
+   },
+   "check": {
+    "sum_adjusted": 155.2,
+    "mean_of_shown_adjusted": 38.8,
+    "ties_out": true,
+    "gap": 0.0
+   }
+  },
+  {
+   "player_key": 471,
+   "name": "Drake London",
+   "pos": "WR",
+   "tier": "starter",
+   "ddf_rank": 22,
+   "ddf_value": 37.9,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 23,
+     "indexed": 34.7,
+     "adjusted": 36.2
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 51,
+     "indexed": 29.5,
+     "adjusted": 39.9
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 39.1,
+     "indexed": 30.3,
+     "adjusted": 35.5
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 4752,
+     "indexed": 36.8,
+     "adjusted": 40.1
+    }
+   },
+   "check": {
+    "sum_adjusted": 151.7,
+    "mean_of_shown_adjusted": 37.925,
+    "ties_out": true,
+    "gap": -0.025
+   }
+  },
+  {
+   "player_key": 3843,
+   "name": "Christian Watson",
+   "pos": "WR",
+   "tier": "starter",
+   "ddf_rank": 23,
+   "ddf_value": 37.1,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 21.5,
+     "indexed": 32.5,
+     "adjusted": 33.7
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 49,
+     "indexed": 28.3,
+     "adjusted": 37.9
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 40.5,
+     "indexed": 31.4,
+     "adjusted": 37
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 4697,
+     "indexed": 36.4,
+     "adjusted": 39.7
+    }
+   },
+   "check": {
+    "sum_adjusted": 148.3,
+    "mean_of_shown_adjusted": 37.075,
+    "ties_out": true,
+    "gap": 0.025
+   }
+  },
+  {
+   "player_key": 560,
+   "name": "Derrick Henry",
+   "pos": "RB",
+   "tier": "starter",
+   "ddf_rank": 24,
+   "ddf_value": 35.8,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 17,
+     "indexed": 25.7,
+     "adjusted": 28.6
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 44,
+     "indexed": 25.5,
+     "adjusted": 36.5
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 40.8,
+     "indexed": 31.6,
+     "adjusted": 36.8
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 4696,
+     "indexed": 36.4,
+     "adjusted": 41.2
+    }
+   },
+   "check": {
+    "sum_adjusted": 143.1,
+    "mean_of_shown_adjusted": 35.775,
+    "ties_out": true,
+    "gap": 0.025
+   }
+  },
+  {
+   "player_key": 3892,
+   "name": "Justin Jefferson",
+   "pos": "WR",
+   "tier": "starter",
+   "ddf_rank": 25,
+   "ddf_value": 34.7,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 21.5,
+     "indexed": 32.5,
+     "adjusted": 33.7
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 45,
+     "indexed": 26,
+     "adjusted": 34.1
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 33.5,
+     "indexed": 25.9,
+     "adjusted": 29.2
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 4953,
+     "indexed": 38.4,
+     "adjusted": 41.9
+    }
+   },
+   "check": {
+    "sum_adjusted": 138.9,
+    "mean_of_shown_adjusted": 34.725,
+    "ties_out": true,
+    "gap": -0.025
+   }
+  },
+  {
+   "player_key": 4614,
+   "name": "Josh Jacobs",
+   "pos": "RB",
+   "tier": "starter",
+   "ddf_rank": 26,
+   "ddf_value": 34.7,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 18,
+     "indexed": 27.2,
+     "adjusted": 30.5
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 47,
+     "indexed": 27.2,
+     "adjusted": 39.6
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 39.6,
+     "indexed": 30.7,
+     "adjusted": 35.6
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 3796,
+     "indexed": 29.4,
+     "adjusted": 33.2
+    }
+   },
+   "check": {
+    "sum_adjusted": 138.9,
+    "mean_of_shown_adjusted": 34.725,
+    "ties_out": true,
+    "gap": -0.025
+   }
+  },
+  {
+   "player_key": 869,
+   "name": "Josh Allen",
+   "pos": "QB",
+   "tier": "starter",
+   "ddf_rank": 27,
+   "ddf_value": 33.4,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 21,
+     "indexed": 31.7,
+     "adjusted": 30
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 42,
+     "indexed": 24.3,
+     "adjusted": 29.4
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 29.1,
+     "indexed": 22.5,
+     "adjusted": 27.8
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 6352,
+     "indexed": 49.2,
+     "adjusted": 46.6
+    }
+   },
+   "check": {
+    "sum_adjusted": 133.8,
+    "mean_of_shown_adjusted": 33.45,
+    "ties_out": false,
+    "gap": -0.05
+   }
+  },
+  {
+   "player_key": 51,
+   "name": "Brock Bowers",
+   "pos": "TE",
+   "tier": "starter",
+   "ddf_rank": 28,
+   "ddf_value": 33.1,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 24,
+     "indexed": 36.3,
+     "adjusted": 33.7
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 63,
+     "indexed": 36.4,
+     "adjusted": 30.6
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 28,
+     "indexed": 21.7,
+     "adjusted": 28.6
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 6538,
+     "indexed": 50.7,
+     "adjusted": 39.5
+    }
+   },
+   "check": {
+    "sum_adjusted": 132.4,
+    "mean_of_shown_adjusted": 33.1,
+    "ties_out": true,
+    "gap": 0.0
+   }
+  },
+  {
+   "player_key": 2126,
+   "name": "Matthew Golden",
+   "pos": "WR",
+   "tier": "starter",
+   "ddf_rank": 29,
+   "ddf_value": 32.9,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 18.5,
+     "indexed": 27.9,
+     "adjusted": 28.6
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 49,
+     "indexed": 28.3,
+     "adjusted": 37.9
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 36.1,
+     "indexed": 27.9,
+     "adjusted": 32.1
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 3888,
+     "indexed": 30.1,
+     "adjusted": 32.7
+    }
+   },
+   "check": {
+    "sum_adjusted": 131.3,
+    "mean_of_shown_adjusted": 32.825,
+    "ties_out": false,
+    "gap": 0.075
+   }
+  },
+  {
+   "player_key": 2140,
+   "name": "Luther Burden III",
+   "pos": "WR",
+   "tier": "starter",
+   "ddf_rank": 30,
+   "ddf_value": 31.5,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 18,
+     "indexed": 27.2,
+     "adjusted": 27.8
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 51,
+     "indexed": 29.5,
+     "adjusted": 39.9
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 31.5,
+     "indexed": 24.4,
+     "adjusted": 27
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 3712,
+     "indexed": 28.8,
+     "adjusted": 31.2
+    }
+   },
+   "check": {
+    "sum_adjusted": 125.9,
+    "mean_of_shown_adjusted": 31.475,
+    "ties_out": true,
+    "gap": 0.025
+   }
+  },
+  {
+   "player_key": 4493,
+   "name": "Nico Collins",
+   "pos": "WR",
+   "tier": "starter",
+   "ddf_rank": 31,
+   "ddf_value": 31.2,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 16.5,
+     "indexed": 24.9,
+     "adjusted": 25.3
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 43,
+     "indexed": 24.9,
+     "adjusted": 32.1
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 33.8,
+     "indexed": 26.2,
+     "adjusted": 29.6
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 4498,
+     "indexed": 34.9,
+     "adjusted": 38
+    }
+   },
+   "check": {
+    "sum_adjusted": 125.0,
+    "mean_of_shown_adjusted": 31.25,
+    "ties_out": false,
+    "gap": -0.05
+   }
+  },
+  {
+   "player_key": 3862,
+   "name": "Chase Brown",
+   "pos": "RB",
+   "tier": "starter",
+   "ddf_rank": 32,
+   "ddf_value": 29.5,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 15,
+     "indexed": 22.7,
+     "adjusted": 25
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 31,
+     "indexed": 17.9,
+     "adjusted": 22.8
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 38.6,
+     "indexed": 29.9,
+     "adjusted": 34.5
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 4098,
+     "indexed": 31.8,
+     "adjusted": 35.9
+    }
+   },
+   "check": {
+    "sum_adjusted": 118.2,
+    "mean_of_shown_adjusted": 29.55,
+    "ties_out": false,
+    "gap": -0.05
+   }
+  },
+  {
+   "player_key": 243,
+   "name": "Parker Washington",
+   "pos": "WR",
+   "tier": "starter",
+   "ddf_rank": 33,
+   "ddf_value": 28.7,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 16.5,
+     "indexed": 24.9,
+     "adjusted": 25.3
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 40,
+     "indexed": 23.1,
+     "adjusted": 29.2
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 36.6,
+     "indexed": 28.3,
+     "adjusted": 32.7
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 3320,
+     "indexed": 25.7,
+     "adjusted": 27.8
+    }
+   },
+   "check": {
+    "sum_adjusted": 115.0,
+    "mean_of_shown_adjusted": 28.75,
+    "ties_out": false,
+    "gap": -0.05
+   }
+  },
+  {
+   "player_key": 3133,
+   "name": "Trey McBride",
+   "pos": "TE",
+   "tier": "starter",
+   "ddf_rank": 34,
+   "ddf_value": 28.7,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 18,
+     "indexed": 27.2,
+     "adjusted": 24.4
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 58,
+     "indexed": 33.5,
+     "adjusted": 27.4
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 26.2,
+     "indexed": 20.3,
+     "adjusted": 26.3
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 6076,
+     "indexed": 47.1,
+     "adjusted": 36.6
+    }
+   },
+   "check": {
+    "sum_adjusted": 114.7,
+    "mean_of_shown_adjusted": 28.675,
+    "ties_out": true,
+    "gap": 0.025
+   }
+  },
+  {
+   "player_key": 1381,
+   "name": "Zay Flowers",
+   "pos": "WR",
+   "tier": "starter",
+   "ddf_rank": 35,
+   "ddf_value": 28.5,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 16.5,
+     "indexed": 24.9,
+     "adjusted": 25.3
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 39,
+     "indexed": 22.6,
+     "adjusted": 28.2
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 32,
+     "indexed": 24.8,
+     "adjusted": 27.5
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 3921,
+     "indexed": 30.4,
+     "adjusted": 33
+    }
+   },
+   "check": {
+    "sum_adjusted": 114.0,
+    "mean_of_shown_adjusted": 28.5,
+    "ties_out": true,
+    "gap": 0.0
+   }
+  },
+  {
+   "player_key": 3364,
+   "name": "Ashton Jeanty",
+   "pos": "RB",
+   "tier": "starter",
+   "ddf_rank": 36,
+   "ddf_value": 26,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 9.5,
+     "indexed": 14.3,
+     "adjusted": 14.7
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 36,
+     "indexed": 20.8,
+     "adjusted": 28.1
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 33.1,
+     "indexed": 25.6,
+     "adjusted": 28.8
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 3708,
+     "indexed": 28.7,
+     "adjusted": 32.4
+    }
+   },
+   "check": {
+    "sum_adjusted": 104.0,
+    "mean_of_shown_adjusted": 26.0,
+    "ties_out": true,
+    "gap": 0.0
+   }
+  },
+  {
+   "player_key": 885,
+   "name": "George Pickens",
+   "pos": "WR",
+   "tier": "starter",
+   "ddf_rank": 37,
+   "ddf_value": 25.3,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 15,
+     "indexed": 22.7,
+     "adjusted": 22.7
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 39,
+     "indexed": 22.6,
+     "adjusted": 28.2
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 29.9,
+     "indexed": 23.1,
+     "adjusted": 25.1
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 3013,
+     "indexed": 23.4,
+     "adjusted": 25.2
+    }
+   },
+   "check": {
+    "sum_adjusted": 101.2,
+    "mean_of_shown_adjusted": 25.3,
+    "ties_out": true,
+    "gap": 0.0
+   }
+  },
+  {
+   "player_key": 1311,
+   "name": "Joe Burrow",
+   "pos": "QB",
+   "tier": "starter",
+   "ddf_rank": 38,
+   "ddf_value": 24.6,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 17,
+     "indexed": 25.7,
+     "adjusted": 23.6
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 35,
+     "indexed": 20.2,
+     "adjusted": 23.4
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 28.6,
+     "indexed": 22.1,
+     "adjusted": 27.3
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 3514,
+     "indexed": 27.2,
+     "adjusted": 24.2
+    }
+   },
+   "check": {
+    "sum_adjusted": 98.5,
+    "mean_of_shown_adjusted": 24.625,
+    "ties_out": true,
+    "gap": -0.025
+   }
+  },
+  {
+   "player_key": 1107,
+   "name": "Breece Hall",
+   "pos": "RB",
+   "tier": "starter",
+   "ddf_rank": 39,
+   "ddf_value": 24.3,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 10.5,
+     "indexed": 15.9,
+     "adjusted": 16.6
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 33,
+     "indexed": 19.1,
+     "adjusted": 24.9
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 36.6,
+     "indexed": 28.3,
+     "adjusted": 32.4
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 2680,
+     "indexed": 20.8,
+     "adjusted": 23.3
+    }
+   },
+   "check": {
+    "sum_adjusted": 97.2,
+    "mean_of_shown_adjusted": 24.3,
+    "ties_out": true,
+    "gap": 0.0
+   }
+  },
+  {
+   "player_key": 2862,
+   "name": "Garrett Wilson",
+   "pos": "WR",
+   "tier": "starter",
+   "ddf_rank": 40,
+   "ddf_value": 24.3,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 15,
+     "indexed": 22.7,
+     "adjusted": 22.7
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 32,
+     "indexed": 18.5,
+     "adjusted": 21.2
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 31.4,
+     "indexed": 24.3,
+     "adjusted": 26.8
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 3140,
+     "indexed": 24.3,
+     "adjusted": 26.3
+    }
+   },
+   "check": {
+    "sum_adjusted": 97.0,
+    "mean_of_shown_adjusted": 24.25,
+    "ties_out": true,
+    "gap": 0.05
+   }
+  },
+  {
+   "player_key": 751,
+   "name": "Rhamondre Stevenson",
+   "pos": "RB",
+   "tier": "starter",
+   "ddf_rank": 41,
+   "ddf_value": 24.1,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 15.5,
+     "indexed": 23.4,
+     "adjusted": 25.9
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 29,
+     "indexed": 16.8,
+     "adjusted": 20.6
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 37.6,
+     "indexed": 29.1,
+     "adjusted": 33.5
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 1937,
+     "indexed": 15,
+     "adjusted": 16.6
+    }
+   },
+   "check": {
+    "sum_adjusted": 96.6,
+    "mean_of_shown_adjusted": 24.15,
+    "ties_out": false,
+    "gap": -0.05
+   }
+  },
+  {
+   "player_key": 3716,
+   "name": "Rashee Rice",
+   "pos": "WR",
+   "tier": "starter",
+   "ddf_rank": 42,
+   "ddf_value": 23.1,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 14,
+     "indexed": 21.1,
+     "adjusted": 21.1
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 40,
+     "indexed": 23.1,
+     "adjusted": 29.2
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 26.2,
+     "indexed": 20.3,
+     "adjusted": 20.8
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 2586,
+     "indexed": 20,
+     "adjusted": 21.5
+    }
+   },
+   "check": {
+    "sum_adjusted": 92.6,
+    "mean_of_shown_adjusted": 23.15,
+    "ties_out": false,
+    "gap": -0.05
+   }
+  },
+  {
+   "player_key": 313,
+   "name": "Saquon Barkley",
+   "pos": "RB",
+   "tier": "starter",
+   "ddf_rank": 43,
+   "ddf_value": 23,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 13.5,
+     "indexed": 20.4,
+     "adjusted": 22.2
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 31,
+     "indexed": 17.9,
+     "adjusted": 22.8
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 25.7,
+     "indexed": 19.9,
+     "adjusted": 20.7
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 3044,
+     "indexed": 23.6,
+     "adjusted": 26.5
+    }
+   },
+   "check": {
+    "sum_adjusted": 92.2,
+    "mean_of_shown_adjusted": 23.05,
+    "ties_out": false,
+    "gap": -0.05
+   }
+  },
+  {
+   "player_key": 4573,
+   "name": "Tetairoa McMillan",
+   "pos": "WR",
+   "tier": "starter",
+   "ddf_rank": 44,
+   "ddf_value": 23,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 14.5,
+     "indexed": 21.9,
+     "adjusted": 21.9
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 31,
+     "indexed": 17.9,
+     "adjusted": 20.1
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 29.5,
+     "indexed": 22.8,
+     "adjusted": 24.7
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 3020,
+     "indexed": 23.4,
+     "adjusted": 25.3
+    }
+   },
+   "check": {
+    "sum_adjusted": 92.0,
+    "mean_of_shown_adjusted": 23.0,
+    "ties_out": true,
+    "gap": 0.0
+   }
+  },
+  {
+   "player_key": 1891,
+   "name": "Ollie Gordon II",
+   "pos": "RB",
+   "tier": "starter",
+   "ddf_rank": 45,
+   "ddf_value": 22.8,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 14,
+     "indexed": 21.1,
+     "adjusted": 23.1
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 32,
+     "indexed": 18.5,
+     "adjusted": 23.8
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 34.7,
+     "indexed": 26.9,
+     "adjusted": 30.4
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 1626,
+     "indexed": 12.6,
+     "adjusted": 13.8
+    }
+   },
+   "check": {
+    "sum_adjusted": 91.1,
+    "mean_of_shown_adjusted": 22.775,
+    "ties_out": true,
+    "gap": 0.025
+   }
+  },
+  {
+   "player_key": 4023,
+   "name": "Jonah Coleman",
+   "pos": "RB",
+   "tier": "starter",
+   "ddf_rank": 46,
+   "ddf_value": 22.3,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 11.5,
+     "indexed": 17.4,
+     "adjusted": 18.5
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 33,
+     "indexed": 19.1,
+     "adjusted": 24.9
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 31.7,
+     "indexed": 24.5,
+     "adjusted": 27.3
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 2166,
+     "indexed": 16.8,
+     "adjusted": 18.7
+    }
+   },
+   "check": {
+    "sum_adjusted": 89.4,
+    "mean_of_shown_adjusted": 22.35,
+    "ties_out": false,
+    "gap": -0.05
+   }
+  },
+  {
+   "player_key": 3082,
+   "name": "Mike Evans",
+   "pos": "WR",
+   "tier": "starter",
+   "ddf_rank": 47,
+   "ddf_value": 21.9,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 14.5,
+     "indexed": 21.9,
+     "adjusted": 21.9
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 31,
+     "indexed": 17.9,
+     "adjusted": 20.1
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 27.2,
+     "indexed": 21.1,
+     "adjusted": 22
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 2837,
+     "indexed": 22,
+     "adjusted": 23.7
+    }
+   },
+   "check": {
+    "sum_adjusted": 87.7,
+    "mean_of_shown_adjusted": 21.925,
+    "ties_out": true,
+    "gap": -0.025
+   }
+  },
+  {
+   "player_key": 2756,
+   "name": "Jameson Williams",
+   "pos": "WR",
+   "tier": "starter",
+   "ddf_rank": 48,
+   "ddf_value": 21.8,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 13,
+     "indexed": 19.6,
+     "adjusted": 19.3
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 34,
+     "indexed": 19.7,
+     "adjusted": 23.2
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 31,
+     "indexed": 24,
+     "adjusted": 26.4
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 2192,
+     "indexed": 17,
+     "adjusted": 18.1
+    }
+   },
+   "check": {
+    "sum_adjusted": 87.0,
+    "mean_of_shown_adjusted": 21.75,
+    "ties_out": true,
+    "gap": 0.05
+   }
+  },
+  {
+   "player_key": 325,
+   "name": "DJ Moore",
+   "pos": "WR",
+   "tier": "starter",
+   "ddf_rank": 49,
+   "ddf_value": 21.6,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 15.5,
+     "indexed": 23.4,
+     "adjusted": 23.6
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 33,
+     "indexed": 19.1,
+     "adjusted": 22.2
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 29.2,
+     "indexed": 22.6,
+     "adjusted": 24.3
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 2004,
+     "indexed": 15.5,
+     "adjusted": 16.5
+    }
+   },
+   "check": {
+    "sum_adjusted": 86.6,
+    "mean_of_shown_adjusted": 21.65,
+    "ties_out": false,
+    "gap": -0.05
+   }
+  },
+  {
+   "player_key": 3070,
+   "name": "Tony Pollard",
+   "pos": "RB",
+   "tier": "starter",
+   "ddf_rank": 50,
+   "ddf_value": 21,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 9,
+     "indexed": 13.6,
+     "adjusted": 13.7
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 31,
+     "indexed": 17.9,
+     "adjusted": 22.8
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 33.1,
+     "indexed": 25.6,
+     "adjusted": 28.8
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 2160,
+     "indexed": 16.7,
+     "adjusted": 18.6
+    }
+   },
+   "check": {
+    "sum_adjusted": 83.9,
+    "mean_of_shown_adjusted": 20.975,
+    "ties_out": true,
+    "gap": 0.025
+   }
+  },
+  {
+   "player_key": 1730,
+   "name": "Drake Maye",
+   "pos": "QB",
+   "tier": "starter",
+   "ddf_rank": 51,
+   "ddf_value": 20.4,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 16,
+     "indexed": 24.2,
+     "adjusted": 21.9
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 32,
+     "indexed": 18.5,
+     "adjusted": 20.7
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 24.7,
+     "indexed": 19.1,
+     "adjusted": 23.3
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 2449,
+     "indexed": 19,
+     "adjusted": 15.7
+    }
+   },
+   "check": {
+    "sum_adjusted": 81.6,
+    "mean_of_shown_adjusted": 20.4,
+    "ties_out": true,
+    "gap": 0.0
+   }
+  },
+  {
+   "player_key": 3664,
+   "name": "Cam Skattebo",
+   "pos": "RB",
+   "tier": "starter",
+   "ddf_rank": 52,
+   "ddf_value": 19.5,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 11.5,
+     "indexed": 17.4,
+     "adjusted": 18.5
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 32,
+     "indexed": 18.5,
+     "adjusted": 23.8
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 24.2,
+     "indexed": 18.7,
+     "adjusted": 19
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 1949,
+     "indexed": 15.1,
+     "adjusted": 16.7
+    }
+   },
+   "check": {
+    "sum_adjusted": 78.0,
+    "mean_of_shown_adjusted": 19.5,
+    "ties_out": true,
+    "gap": 0.0
+   }
+  },
+  {
+   "player_key": 2795,
+   "name": "George Kittle",
+   "pos": "TE",
+   "tier": "starter",
+   "ddf_rank": 53,
+   "ddf_value": 18.6,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 15.5,
+     "indexed": 23.4,
+     "adjusted": 20.6
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 42,
+     "indexed": 24.3,
+     "adjusted": 17.4
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 19.4,
+     "indexed": 15,
+     "adjusted": 17.4
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 3338,
+     "indexed": 25.9,
+     "adjusted": 19.2
+    }
+   },
+   "check": {
+    "sum_adjusted": 74.6,
+    "mean_of_shown_adjusted": 18.65,
+    "ties_out": false,
+    "gap": -0.05
+   }
+  },
+  {
+   "player_key": 764,
+   "name": "DeVonta Smith",
+   "pos": "WR",
+   "tier": "starter",
+   "ddf_rank": 54,
+   "ddf_value": 18.4,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 14,
+     "indexed": 21.1,
+     "adjusted": 21.1
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 27,
+     "indexed": 15.6,
+     "adjusted": 16
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 25.9,
+     "indexed": 20,
+     "adjusted": 20.5
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 1940,
+     "indexed": 15,
+     "adjusted": 15.9
+    }
+   },
+   "check": {
+    "sum_adjusted": 73.5,
+    "mean_of_shown_adjusted": 18.375,
+    "ties_out": true,
+    "gap": 0.025
+   }
+  },
+  {
+   "player_key": 3167,
+   "name": "Quinshon Judkins",
+   "pos": "RB",
+   "tier": "starter",
+   "ddf_rank": 55,
+   "ddf_value": 17.8,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 8,
+     "indexed": 12.1,
+     "adjusted": 11.7
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 31,
+     "indexed": 17.9,
+     "adjusted": 22.8
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 25.8,
+     "indexed": 20,
+     "adjusted": 20.8
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 1856,
+     "indexed": 14.4,
+     "adjusted": 15.9
+    }
+   },
+   "check": {
+    "sum_adjusted": 71.2,
+    "mean_of_shown_adjusted": 17.8,
+    "ties_out": true,
+    "gap": 0.0
+   }
+  },
+  {
+   "player_key": 3942,
+   "name": "Emeka Egbuka",
+   "pos": "WR",
+   "tier": "starter",
+   "ddf_rank": 56,
+   "ddf_value": 17.8,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 14,
+     "indexed": 21.1,
+     "adjusted": 21.1
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 28,
+     "indexed": 16.2,
+     "adjusted": 17.1
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 25.2,
+     "indexed": 19.5,
+     "adjusted": 19.6
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 1652,
+     "indexed": 12.8,
+     "adjusted": 13.4
+    }
+   },
+   "check": {
+    "sum_adjusted": 71.2,
+    "mean_of_shown_adjusted": 17.8,
+    "ties_out": true,
+    "gap": 0.0
+   }
+  },
+  {
+   "player_key": 1205,
+   "name": "Michael Wilson",
+   "pos": "WR",
+   "tier": "starter",
+   "ddf_rank": 57,
+   "ddf_value": 17.6,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 10,
+     "indexed": 15.1,
+     "adjusted": 14.2
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 33,
+     "indexed": 19.1,
+     "adjusted": 22.2
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 23.3,
+     "indexed": 18,
+     "adjusted": 17.3
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 2054,
+     "indexed": 15.9,
+     "adjusted": 16.9
+    }
+   },
+   "check": {
+    "sum_adjusted": 70.6,
+    "mean_of_shown_adjusted": 17.65,
+    "ties_out": false,
+    "gap": -0.05
+   }
+  },
+  {
+   "player_key": 1663,
+   "name": "Blake Corum",
+   "pos": "RB",
+   "tier": "starter",
+   "ddf_rank": 58,
+   "ddf_value": 16.7,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 9,
+     "indexed": 13.6,
+     "adjusted": 13.7
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 26,
+     "indexed": 15,
+     "adjusted": 17.3
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 28.2,
+     "indexed": 21.8,
+     "adjusted": 23.5
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 1447,
+     "indexed": 11.2,
+     "adjusted": 12.1
+    }
+   },
+   "check": {
+    "sum_adjusted": 66.6,
+    "mean_of_shown_adjusted": 16.65,
+    "ties_out": true,
+    "gap": 0.05
+   }
+  },
+  {
+   "player_key": 4035,
+   "name": "Carnell Tate",
+   "pos": "WR",
+   "tier": "starter",
+   "ddf_rank": 59,
+   "ddf_value": 16.6,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 11,
+     "indexed": 16.6,
+     "adjusted": 15.9
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 28,
+     "indexed": 16.2,
+     "adjusted": 17.1
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 25.7,
+     "indexed": 19.9,
+     "adjusted": 20.2
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 1612,
+     "indexed": 12.5,
+     "adjusted": 13.1
+    }
+   },
+   "check": {
+    "sum_adjusted": 66.3,
+    "mean_of_shown_adjusted": 16.575,
+    "ties_out": true,
+    "gap": 0.025
+   }
+  },
+  {
+   "player_key": 71,
+   "name": "Stefon Diggs",
+   "pos": "WR",
+   "tier": "starter",
+   "ddf_rank": 60,
+   "ddf_value": 16.3,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 11,
+     "indexed": 16.6,
+     "adjusted": 15.9
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 31,
+     "indexed": 17.9,
+     "adjusted": 20.1
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 24.2,
+     "indexed": 18.7,
+     "adjusted": 18.4
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 1339,
+     "indexed": 10.4,
+     "adjusted": 10.7
+    }
+   },
+   "check": {
+    "sum_adjusted": 65.1,
+    "mean_of_shown_adjusted": 16.275,
+    "ties_out": true,
+    "gap": 0.025
+   }
+  },
+  {
+   "player_key": 3225,
+   "name": "Trevor Lawrence",
+   "pos": "QB",
+   "tier": "starter",
+   "ddf_rank": 61,
+   "ddf_value": 16.3,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 14,
+     "indexed": 21.1,
+     "adjusted": 18.7
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 24,
+     "indexed": 13.9,
+     "adjusted": 13.7
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 19,
+     "indexed": 14.7,
+     "adjusted": 17.6
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 2387,
+     "indexed": 18.5,
+     "adjusted": 15.2
+    }
+   },
+   "check": {
+    "sum_adjusted": 65.2,
+    "mean_of_shown_adjusted": 16.3,
+    "ties_out": true,
+    "gap": 0.0
+   }
+  },
+  {
+   "player_key": 4561,
+   "name": "Brock Purdy",
+   "pos": "QB",
+   "tier": "starter",
+   "ddf_rank": 62,
+   "ddf_value": 15.8,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 11,
+     "indexed": 16.6,
+     "adjusted": 13.6
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 23,
+     "indexed": 13.3,
+     "adjusted": 12.8
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 24.5,
+     "indexed": 19,
+     "adjusted": 23.1
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 2190,
+     "indexed": 17,
+     "adjusted": 13.6
+    }
+   },
+   "check": {
+    "sum_adjusted": 63.1,
+    "mean_of_shown_adjusted": 15.775,
+    "ties_out": true,
+    "gap": 0.025
+   }
+  },
+  {
+   "player_key": 2853,
+   "name": "Braelon Allen",
+   "pos": "RB",
+   "tier": "starter",
+   "ddf_rank": 63,
+   "ddf_value": 15.4,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 9.5,
+     "indexed": 14.3,
+     "adjusted": 14.7
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 27,
+     "indexed": 15.6,
+     "adjusted": 18.4
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 23.3,
+     "indexed": 18,
+     "adjusted": 18
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 1274,
+     "indexed": 9.9,
+     "adjusted": 10.6
+    }
+   },
+   "check": {
+    "sum_adjusted": 61.7,
+    "mean_of_shown_adjusted": 15.425,
+    "ties_out": true,
+    "gap": -0.025
+   }
+  },
+  {
+   "player_key": 468,
+   "name": "A.J. Brown",
+   "pos": "WR",
+   "tier": "starter",
+   "ddf_rank": 64,
+   "ddf_value": 14.6,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 8,
+     "indexed": 12.1,
+     "adjusted": 10.6
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 26,
+     "indexed": 15,
+     "adjusted": 15
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 22.8,
+     "indexed": 17.6,
+     "adjusted": 16.7
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 1960,
+     "indexed": 15.2,
+     "adjusted": 16.1
+    }
+   },
+   "check": {
+    "sum_adjusted": 58.4,
+    "mean_of_shown_adjusted": 14.6,
+    "ties_out": true,
+    "gap": 0.0
+   }
+  },
+  {
+   "player_key": 4581,
+   "name": "Jalen Coker",
+   "pos": "WR",
+   "tier": "starter",
+   "ddf_rank": 65,
+   "ddf_value": 14.6,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 11,
+     "indexed": 16.6,
+     "adjusted": 15.9
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 24,
+     "indexed": 13.9,
+     "adjusted": 12.9
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 25.8,
+     "indexed": 20,
+     "adjusted": 20.3
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 1175,
+     "indexed": 9.1,
+     "adjusted": 9.2
+    }
+   },
+   "check": {
+    "sum_adjusted": 58.3,
+    "mean_of_shown_adjusted": 14.575,
+    "ties_out": true,
+    "gap": 0.025
+   }
+  },
+  {
+   "player_key": 810,
+   "name": "Travis Etienne",
+   "pos": "RB",
+   "tier": "starter",
+   "ddf_rank": 66,
+   "ddf_value": 14.3,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 8.5,
+     "indexed": 12.8,
+     "adjusted": 12.7
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 26,
+     "indexed": 15,
+     "adjusted": 17.3
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 20.8,
+     "indexed": 16.1,
+     "adjusted": 15
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 1463,
+     "indexed": 11.3,
+     "adjusted": 12.3
+    }
+   },
+   "check": {
+    "sum_adjusted": 57.3,
+    "mean_of_shown_adjusted": 14.325,
+    "ties_out": true,
+    "gap": -0.025
+   }
+  },
+  {
+   "player_key": 4379,
+   "name": "DK Metcalf",
+   "pos": "WR",
+   "tier": "starter",
+   "ddf_rank": 67,
+   "ddf_value": 13.4,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 8,
+     "indexed": 12.1,
+     "adjusted": 10.6
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 31,
+     "indexed": 17.9,
+     "adjusted": 20.1
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 22.9,
+     "indexed": 17.7,
+     "adjusted": 16.8
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 839,
+     "indexed": 6.5,
+     "adjusted": 6.2
+    }
+   },
+   "check": {
+    "sum_adjusted": 53.7,
+    "mean_of_shown_adjusted": 13.425,
+    "ties_out": true,
+    "gap": -0.025
+   }
+  },
+  {
+   "player_key": 1760,
+   "name": "Caleb Williams",
+   "pos": "QB",
+   "tier": "starter",
+   "ddf_rank": 68,
+   "ddf_value": 12.4,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 11,
+     "indexed": 16.6,
+     "adjusted": 13.6
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 24,
+     "indexed": 13.9,
+     "adjusted": 13.7
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 12,
+     "indexed": 9.3,
+     "adjusted": 10.4
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 1978,
+     "indexed": 15.3,
+     "adjusted": 11.9
+    }
+   },
+   "check": {
+    "sum_adjusted": 49.6,
+    "mean_of_shown_adjusted": 12.4,
+    "ties_out": true,
+    "gap": 0.0
+   }
+  },
+  {
+   "player_key": 3871,
+   "name": "Colston Loveland",
+   "pos": "TE",
+   "tier": "starter",
+   "ddf_rank": 69,
+   "ddf_value": 12.2,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 9.5,
+     "indexed": 14.3,
+     "adjusted": 11.1
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 34,
+     "indexed": 19.7,
+     "adjusted": 12.4
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 15.8,
+     "indexed": 12.2,
+     "adjusted": 12.8
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 2263,
+     "indexed": 17.5,
+     "adjusted": 12.4
+    }
+   },
+   "check": {
+    "sum_adjusted": 48.7,
+    "mean_of_shown_adjusted": 12.175,
+    "ties_out": true,
+    "gap": 0.025
+   }
+  },
+  {
+   "player_key": 3253,
+   "name": "Jaylen Waddle",
+   "pos": "WR",
+   "tier": "starter",
+   "ddf_rank": 70,
+   "ddf_value": 12.1,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 9,
+     "indexed": 13.6,
+     "adjusted": 12.4
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 24,
+     "indexed": 13.9,
+     "adjusted": 12.9
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 19.8,
+     "indexed": 15.3,
+     "adjusted": 13
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 1282,
+     "indexed": 9.9,
+     "adjusted": 10.2
+    }
+   },
+   "check": {
+    "sum_adjusted": 48.5,
+    "mean_of_shown_adjusted": 12.125,
+    "ties_out": true,
+    "gap": -0.025
+   }
+  },
+  {
+   "player_key": 2821,
+   "name": "Jordan Mason",
+   "pos": "RB",
+   "tier": "starter",
+   "ddf_rank": 71,
+   "ddf_value": 11.7,
+   "sources": {
+    "cbs": {
+     "role": "bench",
+     "estimated": false,
+     "published": 6,
+     "indexed": 9.1,
+     "adjusted": 7.6
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 25,
+     "indexed": 14.5,
+     "adjusted": 16.2
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 24.9,
+     "indexed": 19.3,
+     "adjusted": 19.8
+    },
+    "fantasycalc": {
+     "role": "bench",
+     "estimated": false,
+     "published": 521,
+     "indexed": 4,
+     "adjusted": 3.4
+    }
+   },
+   "check": {
+    "sum_adjusted": 47.0,
+    "mean_of_shown_adjusted": 11.75,
+    "ties_out": false,
+    "gap": -0.05
+   }
+  },
+  {
+   "player_key": 2634,
+   "name": "Ladd McConkey",
+   "pos": "WR",
+   "tier": "starter",
+   "ddf_rank": 72,
+   "ddf_value": 11.6,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 9,
+     "indexed": 13.6,
+     "adjusted": 12.4
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 24,
+     "indexed": 13.9,
+     "adjusted": 12.9
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 19.6,
+     "indexed": 15.2,
+     "adjusted": 12.8
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 1093,
+     "indexed": 8.5,
+     "adjusted": 8.5
+    }
+   },
+   "check": {
+    "sum_adjusted": 46.6,
+    "mean_of_shown_adjusted": 11.65,
+    "ties_out": false,
+    "gap": -0.05
+   }
+  },
+  {
+   "player_key": 3482,
+   "name": "Kyle Monangai",
+   "pos": "RB",
+   "tier": "starter",
+   "ddf_rank": 73,
+   "ddf_value": 11.6,
+   "sources": {
+    "cbs": {
+     "role": "bench",
+     "estimated": false,
+     "published": 6,
+     "indexed": 9.1,
+     "adjusted": 7.6
+    },
+    "usatoday": {
+     "role": "bench",
+     "estimated": false,
+     "published": 20,
+     "indexed": 11.6,
+     "adjusted": 10.5
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 25.5,
+     "indexed": 19.7,
+     "adjusted": 20.5
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 963,
+     "indexed": 7.5,
+     "adjusted": 7.6
+    }
+   },
+   "check": {
+    "sum_adjusted": 46.2,
+    "mean_of_shown_adjusted": 11.55,
+    "ties_out": true,
+    "gap": 0.05
+   }
+  },
+  {
+   "player_key": 1934,
+   "name": "Rachaad White",
+   "pos": "RB",
+   "tier": "starter",
+   "ddf_rank": 74,
+   "ddf_value": 10.7,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 6.5,
+     "indexed": 9.8,
+     "adjusted": 8.7
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 25,
+     "indexed": 14.5,
+     "adjusted": 16.2
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 19.1,
+     "indexed": 14.8,
+     "adjusted": 13
+    },
+    "fantasycalc": {
+     "role": "bench",
+     "estimated": false,
+     "published": 679,
+     "indexed": 5.3,
+     "adjusted": 4.9
+    }
+   },
+   "check": {
+    "sum_adjusted": 42.8,
+    "mean_of_shown_adjusted": 10.7,
+    "ties_out": true,
+    "gap": 0.0
+   }
+  },
+  {
+   "player_key": 171,
+   "name": "Jeremiyah Love",
+   "pos": "RB",
+   "tier": "starter",
+   "ddf_rank": 75,
+   "ddf_value": 10.6,
+   "sources": {
+    "cbs": {
+     "role": "bench",
+     "estimated": false,
+     "published": 5.5,
+     "indexed": 8.3,
+     "adjusted": 6.6
+    },
+    "usatoday": {
+     "role": "bench",
+     "estimated": false,
+     "published": 12,
+     "indexed": 6.9,
+     "adjusted": 2.5
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 23,
+     "indexed": 17.8,
+     "adjusted": 17.6
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 1825,
+     "indexed": 14.1,
+     "adjusted": 15.6
+    }
+   },
+   "check": {
+    "sum_adjusted": 42.3,
+    "mean_of_shown_adjusted": 10.575,
+    "ties_out": true,
+    "gap": 0.025
+   }
+  },
+  {
+   "player_key": 306,
+   "name": "Jared Goff",
+   "pos": "QB",
+   "tier": "starter",
+   "ddf_rank": 76,
+   "ddf_value": 10.6,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 9,
+     "indexed": 13.6,
+     "adjusted": 10.1
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 25,
+     "indexed": 14.5,
+     "adjusted": 14.6
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 12.8,
+     "indexed": 9.9,
+     "adjusted": 11.2
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 1323,
+     "indexed": 10.3,
+     "adjusted": 6.5
+    }
+   },
+   "check": {
+    "sum_adjusted": 42.4,
+    "mean_of_shown_adjusted": 10.6,
+    "ties_out": true,
+    "gap": 0.0
+   }
+  },
+  {
+   "player_key": 3593,
+   "name": "Isaiah Likely",
+   "pos": "TE",
+   "tier": "starter",
+   "ddf_rank": 77,
+   "ddf_value": 10.3,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 11,
+     "indexed": 16.6,
+     "adjusted": 13.5
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 28,
+     "indexed": 16.2,
+     "adjusted": 8.7
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 13,
+     "indexed": 10.1,
+     "adjusted": 9.2
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 1824,
+     "indexed": 14.1,
+     "adjusted": 9.6
+    }
+   },
+   "check": {
+    "sum_adjusted": 41.0,
+    "mean_of_shown_adjusted": 10.25,
+    "ties_out": true,
+    "gap": 0.05
+   }
+  },
+  {
+   "player_key": 2677,
+   "name": "Rome Odunze",
+   "pos": "WR",
+   "tier": "starter",
+   "ddf_rank": 78,
+   "ddf_value": 10.2,
+   "sources": {
+    "cbs": {
+     "role": "bench",
+     "estimated": false,
+     "published": 5.5,
+     "indexed": 8.3,
+     "adjusted": 5.9
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 23,
+     "indexed": 13.3,
+     "adjusted": 11.9
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 22.7,
+     "indexed": 17.6,
+     "adjusted": 16.6
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 890,
+     "indexed": 6.9,
+     "adjusted": 6.6
+    }
+   },
+   "check": {
+    "sum_adjusted": 41.0,
+    "mean_of_shown_adjusted": 10.25,
+    "ties_out": false,
+    "gap": -0.05
+   }
+  },
+  {
+   "player_key": 1354,
+   "name": "Tucker Kraft",
+   "pos": "TE",
+   "tier": "starter",
+   "ddf_rank": 79,
+   "ddf_value": 10.1,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 8,
+     "indexed": 12.1,
+     "adjusted": 8.7
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 32,
+     "indexed": 18.5,
+     "adjusted": 11.1
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 15.2,
+     "indexed": 11.8,
+     "adjusted": 12
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 1678,
+     "indexed": 13,
+     "adjusted": 8.7
+    }
+   },
+   "check": {
+    "sum_adjusted": 40.5,
+    "mean_of_shown_adjusted": 10.125,
+    "ties_out": true,
+    "gap": -0.025
+   }
+  },
+  {
+   "player_key": 1761,
+   "name": "Jayden Daniels",
+   "pos": "QB",
+   "tier": "starter",
+   "ddf_rank": 80,
+   "ddf_value": 9.3,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 10,
+     "indexed": 15.1,
+     "adjusted": 11.9
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 22,
+     "indexed": 12.7,
+     "adjusted": 11.9
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 8,
+     "indexed": 6.2,
+     "adjusted": 6.2
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 1410,
+     "indexed": 10.9,
+     "adjusted": 7.2
+    }
+   },
+   "check": {
+    "sum_adjusted": 37.2,
+    "mean_of_shown_adjusted": 9.3,
+    "ties_out": true,
+    "gap": 0.0
+   }
+  },
+  {
+   "player_key": 4617,
+   "name": "Zach Charbonnet",
+   "pos": "RB",
+   "tier": "starter",
+   "ddf_rank": 81,
+   "ddf_value": 9.1,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 8,
+     "indexed": 12.1,
+     "adjusted": 11.7
+    },
+    "usatoday": {
+     "role": "bench",
+     "estimated": false,
+     "published": 17,
+     "indexed": 9.8,
+     "adjusted": 7.2
+    },
+    "fantasypros": {
+     "role": "bench",
+     "estimated": false,
+     "published": 16.6,
+     "indexed": 12.9,
+     "adjusted": 10
+    },
+    "fantasycalc": {
+     "role": "bench",
+     "estimated": false,
+     "published": 928,
+     "indexed": 7.2,
+     "adjusted": 7.3
+    }
+   },
+   "check": {
+    "sum_adjusted": 36.2,
+    "mean_of_shown_adjusted": 9.05,
+    "ties_out": true,
+    "gap": 0.05
+   }
+  },
+  {
+   "player_key": 3672,
+   "name": "Sam LaPorta",
+   "pos": "TE",
+   "tier": "starter",
+   "ddf_rank": 82,
+   "ddf_value": 8.8,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 7,
+     "indexed": 10.6,
+     "adjusted": 7.1
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 27,
+     "indexed": 15.6,
+     "adjusted": 8
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 15.2,
+     "indexed": 11.8,
+     "adjusted": 12
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 1573,
+     "indexed": 12.2,
+     "adjusted": 8
+    }
+   },
+   "check": {
+    "sum_adjusted": 35.1,
+    "mean_of_shown_adjusted": 8.775,
+    "ties_out": true,
+    "gap": 0.025
+   }
+  },
+  {
+   "player_key": 2181,
+   "name": "Mike Washington Jr.",
+   "pos": "RB",
+   "tier": "bench",
+   "ddf_rank": 83,
+   "ddf_value": 8.7,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 8,
+     "indexed": 12.1,
+     "adjusted": 11.7
+    },
+    "usatoday": {
+     "role": "bench",
+     "estimated": false,
+     "published": 18,
+     "indexed": 10.4,
+     "adjusted": 8.3
+    },
+    "fantasypros": {
+     "role": "bench",
+     "estimated": false,
+     "published": 17.6,
+     "indexed": 13.6,
+     "adjusted": 11.2
+    },
+    "fantasycalc": {
+     "role": "bench",
+     "estimated": false,
+     "published": 548,
+     "indexed": 4.2,
+     "adjusted": 3.6
+    }
+   },
+   "check": {
+    "sum_adjusted": 34.8,
+    "mean_of_shown_adjusted": 8.7,
+    "ties_out": true,
+    "gap": 0.0
+   }
+  },
+  {
+   "player_key": 2901,
+   "name": "Woody Marks",
+   "pos": "RB",
+   "tier": "bench",
+   "ddf_rank": 84,
+   "ddf_value": 8.6,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 6.5,
+     "indexed": 9.8,
+     "adjusted": 8.7
+    },
+    "usatoday": {
+     "role": "bench",
+     "estimated": false,
+     "published": 17,
+     "indexed": 9.8,
+     "adjusted": 7.2
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 18.9,
+     "indexed": 14.6,
+     "adjusted": 12.8
+    },
+    "fantasycalc": {
+     "role": "bench",
+     "estimated": false,
+     "published": 762,
+     "indexed": 5.9,
+     "adjusted": 5.7
+    }
+   },
+   "check": {
+    "sum_adjusted": 34.4,
+    "mean_of_shown_adjusted": 8.6,
+    "ties_out": true,
+    "gap": 0.0
+   }
+  },
+  {
+   "player_key": 536,
+   "name": "Rico Dowdle",
+   "pos": "RB",
+   "tier": "bench",
+   "ddf_rank": 85,
+   "ddf_value": 8.4,
+   "sources": {
+    "cbs": {
+     "role": "bench",
+     "estimated": true,
+     "published": 5,
+     "indexed": 7.6,
+     "adjusted": 5.5
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 22,
+     "indexed": 12.7,
+     "adjusted": 12.8
+    },
+    "fantasypros": {
+     "role": "bench",
+     "estimated": false,
+     "published": 16.1,
+     "indexed": 12.5,
+     "adjusted": 9.4
+    },
+    "fantasycalc": {
+     "role": "bench",
+     "estimated": false,
+     "published": 788,
+     "indexed": 6.1,
+     "adjusted": 6
+    }
+   },
+   "check": {
+    "sum_adjusted": 33.7,
+    "mean_of_shown_adjusted": 8.425,
+    "ties_out": true,
+    "gap": -0.025
+   }
+  },
+  {
+   "player_key": 2275,
+   "name": "Denzel Boston",
+   "pos": "WR",
+   "tier": "starter",
+   "ddf_rank": 86,
+   "ddf_value": 8.4,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 5.5,
+     "indexed": 8.3,
+     "adjusted": 5.9
+    },
+    "usatoday": {
+     "role": "bench",
+     "estimated": false,
+     "published": 18,
+     "indexed": 10.4,
+     "adjusted": 6.7
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 22.7,
+     "indexed": 17.6,
+     "adjusted": 16.6
+    },
+    "fantasycalc": {
+     "role": "bench",
+     "estimated": false,
+     "published": 666,
+     "indexed": 5.2,
+     "adjusted": 4.5
+    }
+   },
+   "check": {
+    "sum_adjusted": 33.7,
+    "mean_of_shown_adjusted": 8.425,
+    "ties_out": true,
+    "gap": -0.025
+   }
+  },
+  {
+   "player_key": 1285,
+   "name": "Dak Prescott",
+   "pos": "QB",
+   "tier": "starter",
+   "ddf_rank": 87,
+   "ddf_value": 7.9,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 7,
+     "indexed": 10.6,
+     "adjusted": 6.4
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 21,
+     "indexed": 12.1,
+     "adjusted": 11
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 7.6,
+     "indexed": 5.9,
+     "adjusted": 5.7
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 1579,
+     "indexed": 12.2,
+     "adjusted": 8.6
+    }
+   },
+   "check": {
+    "sum_adjusted": 31.7,
+    "mean_of_shown_adjusted": 7.925,
+    "ties_out": true,
+    "gap": -0.025
+   }
+  },
+  {
+   "player_key": 2105,
+   "name": "Omarion Hampton",
+   "pos": "RB",
+   "tier": "bench",
+   "ddf_rank": 88,
+   "ddf_value": 7.8,
+   "sources": {
+    "cbs": {
+     "role": "bench",
+     "estimated": true,
+     "published": 5,
+     "indexed": 7.6,
+     "adjusted": 5.5
+    },
+    "usatoday": {
+     "role": "bench",
+     "estimated": false,
+     "published": 15,
+     "indexed": 8.7,
+     "adjusted": 5.1
+    },
+    "fantasypros": {
+     "role": "bench",
+     "estimated": false,
+     "published": 15.9,
+     "indexed": 12.3,
+     "adjusted": 9.2
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 1354,
+     "indexed": 10.5,
+     "adjusted": 11.3
+    }
+   },
+   "check": {
+    "sum_adjusted": 31.1,
+    "mean_of_shown_adjusted": 7.775,
+    "ties_out": true,
+    "gap": 0.025
+   }
+  },
+  {
+   "player_key": 2468,
+   "name": "KC Concepcion",
+   "pos": "WR",
+   "tier": "starter",
+   "ddf_rank": 89,
+   "ddf_value": 7.8,
+   "sources": {
+    "cbs": {
+     "role": "bench",
+     "estimated": true,
+     "published": 5,
+     "indexed": 7.6,
+     "adjusted": 4.9
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 21,
+     "indexed": 12.1,
+     "adjusted": 9.8
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 18.9,
+     "indexed": 14.6,
+     "adjusted": 11.9
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 693,
+     "indexed": 5.4,
+     "adjusted": 4.8
+    }
+   },
+   "check": {
+    "sum_adjusted": 31.4,
+    "mean_of_shown_adjusted": 7.85,
+    "ties_out": false,
+    "gap": -0.05
+   }
+  },
+  {
+   "player_key": 1860,
+   "name": "Tyler Warren",
+   "pos": "TE",
+   "tier": "starter",
+   "ddf_rank": 91,
+   "ddf_value": 7.5,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 8,
+     "indexed": 12.1,
+     "adjusted": 8.7
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 26,
+     "indexed": 15,
+     "adjusted": 7.4
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 9.3,
+     "indexed": 7.2,
+     "adjusted": 4.6
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 1776,
+     "indexed": 13.8,
+     "adjusted": 9.3
+    }
+   },
+   "check": {
+    "sum_adjusted": 30.0,
+    "mean_of_shown_adjusted": 7.5,
+    "ties_out": true,
+    "gap": 0.0
+   }
+  },
+  {
+   "player_key": 917,
+   "name": "Tyler Allgeier",
+   "pos": "RB",
+   "tier": "bench",
+   "ddf_rank": 92,
+   "ddf_value": 7.3,
+   "sources": {
+    "cbs": {
+     "role": "bench",
+     "estimated": false,
+     "published": 5,
+     "indexed": 7.6,
+     "adjusted": 5.5
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 23,
+     "indexed": 13.3,
+     "adjusted": 13.9
+    },
+    "fantasypros": {
+     "role": "bench",
+     "estimated": false,
+     "published": 8,
+     "indexed": 6.2,
+     "adjusted": 2.4
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 943,
+     "indexed": 7.3,
+     "adjusted": 7.4
+    }
+   },
+   "check": {
+    "sum_adjusted": 29.2,
+    "mean_of_shown_adjusted": 7.3,
+    "ties_out": true,
+    "gap": 0.0
+   }
+  },
+  {
+   "player_key": 2269,
+   "name": "Jordyn Tyson",
+   "pos": "WR",
+   "tier": "bench",
+   "ddf_rank": 93,
+   "ddf_value": 7.2,
+   "sources": {
+    "cbs": {
+     "role": "bench",
+     "estimated": false,
+     "published": 5,
+     "indexed": 7.6,
+     "adjusted": 4.9
+    },
+    "usatoday": {
+     "role": "bench",
+     "estimated": false,
+     "published": 18,
+     "indexed": 10.4,
+     "adjusted": 6.7
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 17.6,
+     "indexed": 13.6,
+     "adjusted": 10.2
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 940,
+     "indexed": 7.3,
+     "adjusted": 7.1
+    }
+   },
+   "check": {
+    "sum_adjusted": 28.9,
+    "mean_of_shown_adjusted": 7.225,
+    "ties_out": true,
+    "gap": -0.025
+   }
+  },
+  {
+   "player_key": 2467,
+   "name": "Omar Cooper Jr.",
+   "pos": "WR",
+   "tier": "starter",
+   "ddf_rank": 94,
+   "ddf_value": 7.2,
+   "sources": {
+    "cbs": {
+     "role": "bench",
+     "estimated": false,
+     "published": 5.5,
+     "indexed": 8.3,
+     "adjusted": 5.9
+    },
+    "usatoday": {
+     "role": "bench",
+     "estimated": false,
+     "published": 19,
+     "indexed": 11,
+     "adjusted": 7.7
+    },
+    "fantasypros": {
+     "role": "bench",
+     "estimated": false,
+     "published": 17.2,
+     "indexed": 13.3,
+     "adjusted": 9.7
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 784,
+     "indexed": 6.1,
+     "adjusted": 5.6
+    }
+   },
+   "check": {
+    "sum_adjusted": 28.9,
+    "mean_of_shown_adjusted": 7.225,
+    "ties_out": true,
+    "gap": -0.025
+   }
+  },
+  {
+   "player_key": 3442,
+   "name": "Jordan Love",
+   "pos": "QB",
+   "tier": "starter",
+   "ddf_rank": 95,
+   "ddf_value": 7.1,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 8,
+     "indexed": 12.1,
+     "adjusted": 8.3
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 15,
+     "indexed": 8.7,
+     "adjusted": 5.5
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 10,
+     "indexed": 7.7,
+     "adjusted": 8.3
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 1289,
+     "indexed": 10,
+     "adjusted": 6.2
+    }
+   },
+   "check": {
+    "sum_adjusted": 28.3,
+    "mean_of_shown_adjusted": 7.075,
+    "ties_out": true,
+    "gap": 0.025
+   }
+  },
+  {
+   "player_key": 1338,
+   "name": "Antonio Williams",
+   "pos": "WR",
+   "tier": "bench",
+   "ddf_rank": 96,
+   "ddf_value": 7,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 5.5,
+     "indexed": 8.3,
+     "adjusted": 5.9
+    },
+    "usatoday": {
+     "role": "bench",
+     "estimated": false,
+     "published": 20,
+     "indexed": 11.6,
+     "adjusted": 8.8
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 17.7,
+     "indexed": 13.7,
+     "adjusted": 10.4
+    },
+    "fantasycalc": {
+     "role": "bench",
+     "estimated": false,
+     "published": 497,
+     "indexed": 3.9,
+     "adjusted": 2.8
+    }
+   },
+   "check": {
+    "sum_adjusted": 27.9,
+    "mean_of_shown_adjusted": 6.975,
+    "ties_out": true,
+    "gap": 0.025
+   }
+  },
+  {
+   "player_key": 2461,
+   "name": "Jadarian Price",
+   "pos": "RB",
+   "tier": "bench",
+   "ddf_rank": 97,
+   "ddf_value": 6.9,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 7,
+     "indexed": 10.6,
+     "adjusted": 9.7
+    },
+    "usatoday": {
+     "role": "bench",
+     "estimated": false,
+     "published": 16,
+     "indexed": 9.3,
+     "adjusted": 6.1
+    },
+    "fantasypros": {
+     "role": "bench",
+     "estimated": false,
+     "published": 8.4,
+     "indexed": 6.5,
+     "adjusted": 2.6
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 1106,
+     "indexed": 8.6,
+     "adjusted": 9
+    }
+   },
+   "check": {
+    "sum_adjusted": 27.4,
+    "mean_of_shown_adjusted": 6.85,
+    "ties_out": true,
+    "gap": 0.05
+   }
+  },
+  {
+   "player_key": 3279,
+   "name": "Dalton Kincaid",
+   "pos": "TE",
+   "tier": "starter",
+   "ddf_rank": 98,
+   "ddf_value": 6.9,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 6.5,
+     "indexed": 9.8,
+     "adjusted": 6.3
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 27,
+     "indexed": 15.6,
+     "adjusted": 8
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 12.7,
+     "indexed": 9.8,
+     "adjusted": 8.8
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 995,
+     "indexed": 7.7,
+     "adjusted": 4.4
+    }
+   },
+   "check": {
+    "sum_adjusted": 27.5,
+    "mean_of_shown_adjusted": 6.875,
+    "ties_out": true,
+    "gap": 0.025
+   }
+  },
+  {
+   "player_key": 2261,
+   "name": "Kaelon Black",
+   "pos": "RB",
+   "tier": "bench",
+   "ddf_rank": 99,
+   "ddf_value": 6.8,
+   "sources": {
+    "cbs": {
+     "role": "bench",
+     "estimated": false,
+     "published": 5,
+     "indexed": 7.6,
+     "adjusted": 5.5
+    },
+    "usatoday": {
+     "role": "bench",
+     "estimated": false,
+     "published": 19,
+     "indexed": 11,
+     "adjusted": 9.4
+    },
+    "fantasypros": {
+     "role": "bench",
+     "estimated": false,
+     "published": 16.9,
+     "indexed": 13.1,
+     "adjusted": 10.4
+    },
+    "fantasycalc": {
+     "role": "bench",
+     "estimated": false,
+     "published": 379,
+     "indexed": 2.9,
+     "adjusted": 2
+    }
+   },
+   "check": {
+    "sum_adjusted": 27.3,
+    "mean_of_shown_adjusted": 6.825,
+    "ties_out": true,
+    "gap": -0.025
+   }
+  },
+  {
+   "player_key": 3116,
+   "name": "Tre Tucker",
+   "pos": "WR",
+   "tier": "bench",
+   "ddf_rank": 100,
+   "ddf_value": 6.8,
+   "sources": {
+    "cbs": {
+     "role": "bench",
+     "estimated": false,
+     "published": 5.5,
+     "indexed": 8.3,
+     "adjusted": 5.9
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 21,
+     "indexed": 12.1,
+     "adjusted": 9.8
+    },
+    "fantasypros": {
+     "role": "bench",
+     "estimated": false,
+     "published": 16.7,
+     "indexed": 12.9,
+     "adjusted": 9.1
+    },
+    "fantasycalc": {
+     "role": "bench",
+     "estimated": false,
+     "published": 448,
+     "indexed": 3.5,
+     "adjusted": 2.3
+    }
+   },
+   "check": {
+    "sum_adjusted": 27.1,
+    "mean_of_shown_adjusted": 6.775,
+    "ties_out": true,
+    "gap": 0.025
+   }
+  },
+  {
+   "player_key": 3594,
+   "name": "Patrick Mahomes",
+   "pos": "QB",
+   "tier": "starter",
+   "ddf_rank": 101,
+   "ddf_value": 6.5,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 6,
+     "indexed": 9.1,
+     "adjusted": 4.5
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 13,
+     "indexed": 7.5,
+     "adjusted": 3.7
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 9.2,
+     "indexed": 7.1,
+     "adjusted": 7.5
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 1768,
+     "indexed": 13.7,
+     "adjusted": 10.2
+    }
+   },
+   "check": {
+    "sum_adjusted": 25.9,
+    "mean_of_shown_adjusted": 6.475,
+    "ties_out": true,
+    "gap": 0.025
+   }
+  },
+  {
+   "player_key": 164,
+   "name": "Aaron Jones",
+   "pos": "RB",
+   "tier": "bench",
+   "ddf_rank": 102,
+   "ddf_value": 6.3,
+   "sources": {
+    "cbs": {
+     "role": "bench",
+     "estimated": false,
+     "published": 6,
+     "indexed": 9.1,
+     "adjusted": 7.6
+    },
+    "usatoday": {
+     "role": "bench",
+     "estimated": false,
+     "published": 12,
+     "indexed": 6.9,
+     "adjusted": 2.5
+    },
+    "fantasypros": {
+     "role": "bench",
+     "estimated": false,
+     "published": 15.3,
+     "indexed": 11.8,
+     "adjusted": 8.5
+    },
+    "fantasycalc": {
+     "role": "bench",
+     "estimated": false,
+     "published": 872,
+     "indexed": 6.8,
+     "adjusted": 6.8
+    }
+   },
+   "check": {
+    "sum_adjusted": 25.4,
+    "mean_of_shown_adjusted": 6.35,
+    "ties_out": false,
+    "gap": -0.05
+   }
+  },
+  {
+   "player_key": 1342,
+   "name": "Josh Downs",
+   "pos": "WR",
+   "tier": "bench",
+   "ddf_rank": 103,
+   "ddf_value": 6.3,
+   "sources": {
+    "cbs": {
+     "role": "bench",
+     "estimated": true,
+     "published": 5,
+     "indexed": 7.6,
+     "adjusted": 4.9
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 21,
+     "indexed": 12.1,
+     "adjusted": 9.8
+    },
+    "fantasypros": {
+     "role": "bench",
+     "estimated": false,
+     "published": 15.2,
+     "indexed": 11.8,
+     "adjusted": 7.2
+    },
+    "fantasycalc": {
+     "role": "bench",
+     "estimated": false,
+     "published": 562,
+     "indexed": 4.4,
+     "adjusted": 3.5
+    }
+   },
+   "check": {
+    "sum_adjusted": 25.4,
+    "mean_of_shown_adjusted": 6.35,
+    "ties_out": false,
+    "gap": -0.05
+   }
+  },
+  {
+   "player_key": 482,
+   "name": "David Montgomery",
+   "pos": "RB",
+   "tier": "bench",
+   "ddf_rank": 104,
+   "ddf_value": 6.1,
+   "sources": {
+    "cbs": {
+     "role": "bench",
+     "estimated": false,
+     "published": 6,
+     "indexed": 9.1,
+     "adjusted": 7.6
+    },
+    "usatoday": {
+     "role": "bench",
+     "estimated": false,
+     "published": 15,
+     "indexed": 8.7,
+     "adjusted": 5.1
+    },
+    "fantasypros": {
+     "role": "bench",
+     "estimated": false,
+     "published": 11.7,
+     "indexed": 9.1,
+     "adjusted": 4.7
+    },
+    "fantasycalc": {
+     "role": "bench",
+     "estimated": false,
+     "published": 888,
+     "indexed": 6.9,
+     "adjusted": 6.9
+    }
+   },
+   "check": {
+    "sum_adjusted": 24.3,
+    "mean_of_shown_adjusted": 6.075,
+    "ties_out": true,
+    "gap": 0.025
+   }
+  },
+  {
+   "player_key": 2463,
+   "name": "Germie Bernard",
+   "pos": "WR",
+   "tier": "bench",
+   "ddf_rank": 105,
+   "ddf_value": 6.1,
+   "sources": {
+    "cbs": {
+     "role": "bench",
+     "estimated": true,
+     "published": 5,
+     "indexed": 7.6,
+     "adjusted": 4.9
+    },
+    "usatoday": {
+     "role": "bench",
+     "estimated": false,
+     "published": 19,
+     "indexed": 11,
+     "adjusted": 7.7
+    },
+    "fantasypros": {
+     "role": "bench",
+     "estimated": false,
+     "published": 17.1,
+     "indexed": 13.2,
+     "adjusted": 9.6
+    },
+    "fantasycalc": {
+     "role": "bench",
+     "estimated": false,
+     "published": 427,
+     "indexed": 3.3,
+     "adjusted": 2.1
+    }
+   },
+   "check": {
+    "sum_adjusted": 24.3,
+    "mean_of_shown_adjusted": 6.075,
+    "ties_out": true,
+    "gap": 0.025
+   }
+  },
+  {
+   "player_key": 2113,
+   "name": "Harold Fannin Jr.",
+   "pos": "TE",
+   "tier": "starter",
+   "ddf_rank": 106,
+   "ddf_value": 6,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": true,
+     "published": 6,
+     "indexed": 9.1,
+     "adjusted": 5.5
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 23,
+     "indexed": 13.3,
+     "adjusted": 5.7
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 12,
+     "indexed": 9.3,
+     "adjusted": 7.9
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 1070,
+     "indexed": 8.3,
+     "adjusted": 4.8
+    }
+   },
+   "check": {
+    "sum_adjusted": 23.9,
+    "mean_of_shown_adjusted": 5.975,
+    "ties_out": true,
+    "gap": 0.025
+   }
+  },
+  {
+   "player_key": 3536,
+   "name": "Emmett Johnson",
+   "pos": "RB",
+   "tier": "bench",
+   "ddf_rank": 107,
+   "ddf_value": 5.6,
+   "sources": {
+    "cbs": {
+     "role": "bench",
+     "estimated": true,
+     "published": 5,
+     "indexed": 7.5,
+     "adjusted": 5.4
+    },
+    "usatoday": {
+     "role": "bench",
+     "estimated": false,
+     "published": 18,
+     "indexed": 10.4,
+     "adjusted": 8.3
+    },
+    "fantasypros": {
+     "role": "bench",
+     "estimated": false,
+     "published": 14.2,
+     "indexed": 11,
+     "adjusted": 7.2
+    },
+    "fantasycalc": {
+     "role": "bench",
+     "estimated": false,
+     "published": 312,
+     "indexed": 2.4,
+     "adjusted": 1.3
+    }
+   },
+   "check": {
+    "sum_adjusted": 22.2,
+    "mean_of_shown_adjusted": 5.55,
+    "ties_out": true,
+    "gap": 0.05
+   }
+  },
+  {
+   "player_key": 4192,
+   "name": "Travis Kelce",
+   "pos": "TE",
+   "tier": "starter",
+   "ddf_rank": 108,
+   "ddf_value": 5.6,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": true,
+     "published": 6,
+     "indexed": 9.1,
+     "adjusted": 5.5
+    },
+    "usatoday": {
+     "role": "bench",
+     "estimated": false,
+     "published": 20,
+     "indexed": 11.6,
+     "adjusted": 4
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 11.2,
+     "indexed": 8.7,
+     "adjusted": 6.9
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 1249,
+     "indexed": 9.7,
+     "adjusted": 6
+    }
+   },
+   "check": {
+    "sum_adjusted": 22.4,
+    "mean_of_shown_adjusted": 5.6,
+    "ties_out": true,
+    "gap": 0.0
+   }
+  },
+  {
+   "player_key": 4437,
+   "name": "Makai Lemon",
+   "pos": "WR",
+   "tier": "bench",
+   "ddf_rank": 109,
+   "ddf_value": 5.6,
+   "sources": {
+    "cbs": {
+     "role": "bench",
+     "estimated": false,
+     "published": 5.5,
+     "indexed": 8.3,
+     "adjusted": 5.9
+    },
+    "usatoday": {
+     "role": "bench",
+     "estimated": false,
+     "published": 15,
+     "indexed": 8.7,
+     "adjusted": 3.9
+    },
+    "fantasypros": {
+     "role": "bench",
+     "estimated": false,
+     "published": 16.5,
+     "indexed": 12.8,
+     "adjusted": 8.8
+    },
+    "fantasycalc": {
+     "role": "bench",
+     "estimated": false,
+     "published": 577,
+     "indexed": 4.5,
+     "adjusted": 3.6
+    }
+   },
+   "check": {
+    "sum_adjusted": 22.2,
+    "mean_of_shown_adjusted": 5.55,
+    "ties_out": true,
+    "gap": 0.05
+   }
+  },
+  {
+   "player_key": 1970,
+   "name": "Kyle Pitts",
+   "pos": "TE",
+   "tier": "starter",
+   "ddf_rank": 111,
+   "ddf_value": 5.2,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 8,
+     "indexed": 12.1,
+     "adjusted": 8.7
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 26,
+     "indexed": 15,
+     "adjusted": 7.4
+    },
+    "fantasypros": {
+     "role": "bench",
+     "estimated": false,
+     "published": 8,
+     "indexed": 6.2,
+     "adjusted": 3.1
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 559,
+     "indexed": 4.3,
+     "adjusted": 1.6
+    }
+   },
+   "check": {
+    "sum_adjusted": 20.8,
+    "mean_of_shown_adjusted": 5.2,
+    "ties_out": true,
+    "gap": 0.0
+   }
+  },
+  {
+   "player_key": 2580,
+   "name": "TreVeyon Henderson",
+   "pos": "RB",
+   "tier": "bench",
+   "ddf_rank": 112,
+   "ddf_value": 4.8,
+   "sources": {
+    "cbs": {
+     "role": "bench",
+     "estimated": false,
+     "published": 5,
+     "indexed": 7.6,
+     "adjusted": 5.5
+    },
+    "usatoday": {
+     "role": "bench",
+     "estimated": false,
+     "published": 13,
+     "indexed": 7.5,
+     "adjusted": 3.3
+    },
+    "fantasypros": {
+     "role": "bench",
+     "estimated": false,
+     "published": 15.4,
+     "indexed": 11.9,
+     "adjusted": 8.6
+    },
+    "fantasycalc": {
+     "role": "bench",
+     "estimated": false,
+     "published": 362,
+     "indexed": 2.8,
+     "adjusted": 1.8
+    }
+   },
+   "check": {
+    "sum_adjusted": 19.2,
+    "mean_of_shown_adjusted": 4.8,
+    "ties_out": true,
+    "gap": 0.0
+   }
+  },
+  {
+   "player_key": 2807,
+   "name": "Keenan Allen",
+   "pos": "WR",
+   "tier": "bench",
+   "ddf_rank": 113,
+   "ddf_value": 4.4,
+   "sources": {
+    "cbs": {
+     "role": "bench",
+     "estimated": true,
+     "published": 4.3,
+     "indexed": 6.5,
+     "adjusted": 3.6
+    },
+    "usatoday": {
+     "role": "bench",
+     "estimated": false,
+     "published": 13,
+     "indexed": 7.5,
+     "adjusted": 2.4
+    },
+    "fantasypros": {
+     "role": "bench",
+     "estimated": false,
+     "published": 15.8,
+     "indexed": 12.2,
+     "adjusted": 8
+    },
+    "fantasycalc": {
+     "role": "bench",
+     "estimated": false,
+     "published": 572,
+     "indexed": 4.4,
+     "adjusted": 3.6
+    }
+   },
+   "check": {
+    "sum_adjusted": 17.6,
+    "mean_of_shown_adjusted": 4.4,
+    "ties_out": true,
+    "gap": 0.0
+   }
+  },
+  {
+   "player_key": 2575,
+   "name": "T.J. Hockenson",
+   "pos": "TE",
+   "tier": "starter",
+   "ddf_rank": 115,
+   "ddf_value": 4.1,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 6,
+     "indexed": 9.1,
+     "adjusted": 5.5
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 25,
+     "indexed": 14.5,
+     "adjusted": 6.8
+    },
+    "fantasypros": {
+     "role": "bench",
+     "estimated": false,
+     "published": 7.3,
+     "indexed": 5.7,
+     "adjusted": 2.4
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 572,
+     "indexed": 4.4,
+     "adjusted": 1.7
+    }
+   },
+   "check": {
+    "sum_adjusted": 16.4,
+    "mean_of_shown_adjusted": 4.1,
+    "ties_out": true,
+    "gap": 0.0
+   }
+  },
+  {
+   "player_key": 3242,
+   "name": "Seth McGowan",
+   "pos": "RB",
+   "tier": "bench",
+   "ddf_rank": 116,
+   "ddf_value": 3.7,
+   "sources": {
+    "cbs": {
+     "role": "bench",
+     "estimated": true,
+     "published": 2.4,
+     "indexed": 3.7,
+     "adjusted": 0.9
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 20,
+     "indexed": 11.6,
+     "adjusted": 10.5
+    },
+    "fantasypros": {
+     "role": "bench",
+     "estimated": false,
+     "published": 6.2,
+     "indexed": 4.8,
+     "adjusted": 1.8
+    },
+    "fantasycalc": {
+     "role": "bench",
+     "estimated": false,
+     "published": 341,
+     "indexed": 2.6,
+     "adjusted": 1.6
+    }
+   },
+   "check": {
+    "sum_adjusted": 14.8,
+    "mean_of_shown_adjusted": 3.7,
+    "ties_out": true,
+    "gap": 0.0
+   }
+  },
+  {
+   "player_key": 203,
+   "name": "Alvin Kamara",
+   "pos": "RB",
+   "tier": "bench",
+   "ddf_rank": 118,
+   "ddf_value": 3.3,
+   "sources": {
+    "cbs": {
+     "role": "bench",
+     "estimated": false,
+     "published": 5.5,
+     "indexed": 8.3,
+     "adjusted": 6.6
+    },
+    "usatoday": {
+     "role": "bench",
+     "estimated": false,
+     "published": 11,
+     "indexed": 6.4,
+     "adjusted": 1.8
+    },
+    "fantasypros": {
+     "role": "bench",
+     "estimated": false,
+     "published": 1.7,
+     "indexed": 1.3,
+     "adjusted": 0.1
+    },
+    "fantasycalc": {
+     "role": "bench",
+     "estimated": false,
+     "published": 647,
+     "indexed": 5,
+     "adjusted": 4.6
+    }
+   },
+   "check": {
+    "sum_adjusted": 13.1,
+    "mean_of_shown_adjusted": 3.275,
+    "ties_out": true,
+    "gap": 0.025
+   }
+  },
+  {
+   "player_key": 2534,
+   "name": "Matthew Stafford",
+   "pos": "QB",
+   "tier": "starter",
+   "ddf_rank": 121,
+   "ddf_value": 3.2,
+   "sources": {
+    "cbs": {
+     "role": "starter",
+     "estimated": false,
+     "published": 6,
+     "indexed": 9.1,
+     "adjusted": 4.5
+    },
+    "usatoday": {
+     "role": "starter",
+     "estimated": false,
+     "published": 14,
+     "indexed": 8.1,
+     "adjusted": 4.6
+    },
+    "fantasypros": {
+     "role": "bench",
+     "estimated": false,
+     "published": 3.6,
+     "indexed": 2.8,
+     "adjusted": 1.3
+    },
+    "fantasycalc": {
+     "role": "bench",
+     "estimated": false,
+     "published": 804,
+     "indexed": 6.2,
+     "adjusted": 2.2
+    }
+   },
+   "check": {
+    "sum_adjusted": 12.6,
+    "mean_of_shown_adjusted": 3.15,
+    "ties_out": true,
+    "gap": 0.05
+   }
+  },
+  {
+   "player_key": 4158,
+   "name": "C.J. Stroud",
+   "pos": "QB",
+   "tier": "bench",
+   "ddf_rank": 124,
+   "ddf_value": 3,
+   "sources": {
+    "cbs": {
+     "role": "bench",
+     "estimated": false,
+     "published": 6,
+     "indexed": 9.1,
+     "adjusted": 4.5
+    },
+    "usatoday": {
+     "role": "bench",
+     "estimated": false,
+     "published": 10,
+     "indexed": 5.8,
+     "adjusted": 1.4
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 5.6,
+     "indexed": 4.3,
+     "adjusted": 3.5
+    },
+    "fantasycalc": {
+     "role": "starter",
+     "estimated": false,
+     "published": 828,
+     "indexed": 6.4,
+     "adjusted": 2.3
+    }
+   },
+   "check": {
+    "sum_adjusted": 11.7,
+    "mean_of_shown_adjusted": 2.925,
+    "ties_out": false,
+    "gap": 0.075
+   }
+  },
+  {
+   "player_key": 3802,
+   "name": "Brenton Strange",
+   "pos": "TE",
+   "tier": "bench",
+   "ddf_rank": 125,
+   "ddf_value": 2.9,
+   "sources": {
+    "cbs": {
+     "role": "bench",
+     "estimated": true,
+     "published": 3.9,
+     "indexed": 5.9,
+     "adjusted": 2.2
+    },
+    "usatoday": {
+     "role": "bench",
+     "estimated": false,
+     "published": 13,
+     "indexed": 7.5,
+     "adjusted": 0.8
+    },
+    "fantasypros": {
+     "role": "starter",
+     "estimated": false,
+     "published": 11.3,
+     "indexed": 8.7,
+     "adjusted": 7.1
+    },
+    "fantasycalc": {
+     "role": "bench",
+     "estimated": false,
+     "published": 523,
+     "indexed": 4.1,
+     "adjusted": 1.4
+    }
+   },
+   "check": {
+    "sum_adjusted": 11.5,
+    "mean_of_shown_adjusted": 2.875,
+    "ties_out": true,
+    "gap": 0.025
+   }
+  },
+  {
+   "player_key": 3803,
+   "name": "Tyler Shough",
+   "pos": "QB",
+   "tier": "bench",
+   "ddf_rank": 130,
+   "ddf_value": 1.7,
+   "sources": {
+    "cbs": {
+     "role": "bench",
+     "estimated": true,
+     "published": 4.2,
+     "indexed": 6.4,
+     "adjusted": 1.4
+    },
+    "usatoday": {
+     "role": "bench",
+     "estimated": false,
+     "published": 13,
+     "indexed": 7.5,
+     "adjusted": 3.7
+    },
+    "fantasypros": {
+     "role": "waiver",
+     "estimated": false,
+     "published": 1,
+     "indexed": 0.8,
+     "adjusted": 0
+    },
+    "fantasycalc": {
+     "role": "bench",
+     "estimated": false,
+     "published": 745,
+     "indexed": 5.8,
+     "adjusted": 1.7
+    }
+   },
+   "check": {
+    "sum_adjusted": 6.8,
+    "mean_of_shown_adjusted": 1.7,
+    "ties_out": true,
+    "gap": 0.0
+   }
+  },
+  {
+   "player_key": 4485,
+   "name": "Dallas Goedert",
+   "pos": "TE",
+   "tier": "bench",
+   "ddf_rank": 131,
+   "ddf_value": 1.6,
+   "sources": {
+    "cbs": {
+     "role": "bench",
+     "estimated": true,
+     "published": 4,
+     "indexed": 6.1,
+     "adjusted": 2.4
+    },
+    "usatoday": {
+     "role": "bench",
+     "estimated": false,
+     "published": 16,
+     "indexed": 9.3,
+     "adjusted": 2
+    },
+    "fantasypros": {
+     "role": "bench",
+     "estimated": false,
+     "published": 5.9,
+     "indexed": 4.6,
+     "adjusted": 1.1
+    },
+    "fantasycalc": {
+     "role": "bench",
+     "estimated": false,
+     "published": 434,
+     "indexed": 3.4,
+     "adjusted": 0.9
+    }
+   },
+   "check": {
+    "sum_adjusted": 6.4,
+    "mean_of_shown_adjusted": 1.6,
+    "ties_out": true,
+    "gap": 0.0
+   }
+  },
+  {
+   "player_key": 535,
+   "name": "J.K. Dobbins",
+   "pos": "RB",
+   "tier": "bench",
+   "ddf_rank": 135,
+   "ddf_value": 1.3,
+   "sources": {
+    "cbs": {
+     "role": "bench",
+     "estimated": true,
+     "published": 2.9,
+     "indexed": 4.4,
+     "adjusted": 1.6
+    },
+    "usatoday": {
+     "role": "bench",
+     "estimated": false,
+     "published": 10,
+     "indexed": 5.8,
+     "adjusted": 1.3
+    },
+    "fantasypros": {
+     "role": "bench",
+     "estimated": false,
+     "published": 1.9,
+     "indexed": 1.5,
+     "adjusted": 0.2
+    },
+    "fantasycalc": {
+     "role": "bench",
+     "estimated": false,
+     "published": 409,
+     "indexed": 3.2,
+     "adjusted": 2.3
+    }
+   },
+   "check": {
+    "sum_adjusted": 5.4,
+    "mean_of_shown_adjusted": 1.35,
+    "ties_out": false,
+    "gap": -0.05
+   }
+  },
+  {
+   "player_key": 4247,
+   "name": "Chig Okonkwo",
+   "pos": "TE",
+   "tier": "bench",
+   "ddf_rank": 150,
+   "ddf_value": 0.3,
+   "sources": {
+    "cbs": {
+     "role": "bench",
+     "estimated": true,
+     "published": 2.1,
+     "indexed": 3.2,
+     "adjusted": 0.3
+    },
+    "usatoday": {
+     "role": "waiver",
+     "estimated": false,
+     "published": 7,
+     "indexed": 4,
+     "adjusted": 0
+    },
+    "fantasypros": {
+     "role": "bench",
+     "estimated": false,
+     "published": 5.3,
+     "indexed": 4.1,
+     "adjusted": 0.7
+    },
+    "fantasycalc": {
+     "role": "waiver",
+     "estimated": false,
+     "published": 129,
+     "indexed": 1,
+     "adjusted": 0
+    }
+   },
+   "check": {
+    "sum_adjusted": 1.0,
+    "mean_of_shown_adjusted": 0.25,
+    "ties_out": true,
+    "gap": 0.05
+   }
+  },
+  {
+   "player_key": 1666,
+   "name": "Bo Nix",
+   "pos": "QB",
+   "tier": "bench",
+   "ddf_rank": 153,
+   "ddf_value": 0.2,
+   "sources": {
+    "cbs": {
+     "role": "bench",
+     "estimated": true,
+     "published": 1.8,
+     "indexed": 2.8,
+     "adjusted": 0.1
+    },
+    "usatoday": {
+     "role": "waiver",
+     "estimated": false,
+     "published": 4,
+     "indexed": 2.3,
+     "adjusted": 0
+    },
+    "fantasypros": {
+     "role": "waiver",
+     "estimated": false,
+     "published": 1,
+     "indexed": 0.8,
+     "adjusted": 0
+    },
+    "fantasycalc": {
+     "role": "bench",
+     "estimated": false,
+     "published": 600,
+     "indexed": 4.7,
+     "adjusted": 0.8
+    }
+   },
+   "check": {
+    "sum_adjusted": 0.9,
+    "mean_of_shown_adjusted": 0.225,
+    "ties_out": true,
+    "gap": -0.025
+   }
+  },
+  {
+   "player_key": 2791,
+   "name": "Mike Gesicki",
+   "pos": "TE",
+   "tier": "waiver",
+   "ddf_rank": 155,
+   "ddf_value": 0.2,
+   "sources": {
+    "cbs": {
+     "role": "bench",
+     "estimated": true,
+     "published": 2.3,
+     "indexed": 3.5,
+     "adjusted": 0.3
+    },
+    "usatoday": {
+     "role": "bench",
+     "estimated": false,
+     "published": 10,
+     "indexed": 5.8,
+     "adjusted": 0.1
+    },
+    "fantasypros": {
+     "role": "waiver",
+     "estimated": true,
+     "published": 1,
+     "indexed": 0.8,
+     "adjusted": 0
+    },
+    "fantasycalc": {
+     "role": "bench",
+     "estimated": false,
+     "published": 351,
+     "indexed": 2.7,
+     "adjusted": 0.5
+    }
+   },
+   "check": {
+    "sum_adjusted": 0.9,
+    "mean_of_shown_adjusted": 0.225,
+    "ties_out": true,
+    "gap": -0.025
+   }
+  },
+  {
+   "player_key": 260,
+   "name": "Dalton Schultz",
+   "pos": "TE",
+   "tier": "waiver",
+   "ddf_rank": 194,
+   "ddf_value": 0,
+   "sources": {
+    "cbs": {
+     "role": "bench",
+     "estimated": true,
+     "published": 1.1,
+     "indexed": 1.7,
+     "adjusted": 0.1
+    },
+    "usatoday": {
+     "role": "waiver",
+     "estimated": false,
+     "published": 7,
+     "indexed": 4,
+     "adjusted": 0
+    },
+    "fantasypros": {
+     "role": "waiver",
+     "estimated": true,
+     "published": 1,
+     "indexed": 0.8,
+     "adjusted": 0
+    },
+    "fantasycalc": {
+     "role": "waiver",
+     "estimated": false,
+     "published": 30,
+     "indexed": 0.2,
+     "adjusted": 0
+    }
+   },
+   "check": {
+    "sum_adjusted": 0.1,
+    "mean_of_shown_adjusted": 0.025,
+    "ties_out": true,
+    "gap": -0.025
+   }
+  }
+ ],
+ "verification": {
+  "players_checked": 124,
+  "rounding_cases": [
+   "CeeDee Lamb",
+   "Josh Allen",
+   "Matthew Golden",
+   "Nico Collins",
+   "Chase Brown",
+   "Parker Washington",
+   "Rhamondre Stevenson",
+   "Rashee Rice",
+   "Saquon Barkley",
+   "Jonah Coleman",
+   "DJ Moore",
+   "George Kittle",
+   "Michael Wilson",
+   "Jordan Mason",
+   "Ladd McConkey",
+   "Rome Odunze",
+   "KC Concepcion",
+   "Aaron Jones",
+   "Josh Downs",
+   "C.J. Stroud",
+   "J.K. Dobbins"
+  ],
+  "max_abs_gap": 0.075,
+  "note": "Adjusted values are returned rounded to 0.1; DDF Value is computed from unrounded adjusted values. The mean of the rounded inputs can differ from the shown DDF Value by up to 0.1 (worst seen 0.075); every gap here is within that bound."
+ }
+}

@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DDF · Which team is yours?</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=Newsreader:opsz,wght@6..72,700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="styles.css">
+<style>
+.setup{scrollbar-color:#176c4d #eef1ec;caret-color:#176c4d}
+.setup ::selection{background:#d7ecd9;color:#142b25}
+.setup main{max-width:1040px;padding:32px 40px 48px}
+.setup .setup-intro{font-size:18px;margin-bottom:32px;max-width:70ch}
+.setup .setup-selection{padding:0;border:0;margin:0;min-width:0}
+.setup .setup-options{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.setup .setup-option{position:relative;display:flex;gap:12px;align-items:center;background:#fff;border:1px solid #dbe0dc;border-radius:12px;padding:22px 20px;cursor:pointer;min-height:80px;transition:border-color .15s,background .15s,box-shadow .15s}
+.setup .setup-option:hover{border-color:#176c4d}
+.setup .setup-option.selected{background:#e8f5ee;color:#0d120e;border-color:#176c4d;box-shadow:0 0 0 1px #176c4d}
+.setup .setup-option:focus-within{outline:3px solid #7fbf9d;outline-offset:3px}
+.setup .setup-option input{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden}
+.setup .player-count{display:block;color:#5c6a76;font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:12px;margin-top:6px}
+.setup .selection-check{position:absolute;top:-8px;right:-8px;width:22px;height:22px;border-radius:50%;background:#176c4d;color:#fff;font-size:13px;font-weight:700;line-height:22px;text-align:center;visibility:hidden}
+.setup .selected .selection-check{visibility:visible}
+@media (prefers-reduced-motion:no-preference){.setup .selection-check{display:none}}
+.setup .setup-option strong{overflow-wrap:anywhere}
+.setup .setup-actions{margin-top:36px;padding-top:0;border-top:0;gap:24px}
+.setup .setup-actions .button{padding:12px 20px;border-radius:10px}
+.setup .setup-actions .primary{min-width:230px;text-align:center}
+.setup .su-foot{max-width:1040px;margin:0 auto;padding:18px 40px 30px;font-weight:700;font-size:15px;color:#142b25;letter-spacing:.01em}.setup .su-foot:before{content:"";display:block;border-top:1px solid #dbe0dc;margin-bottom:16px}
+@media(max-width:900px){.setup .setup-options{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:760px){.setup .su-foot{padding:16px 20px 24px}.setup main{padding:24px 20px 32px}.setup .setup-intro{font-size:16px}.setup .setup-option{min-height:64px;padding:16px}.setup .setup-actions{align-items:stretch;flex-direction:column-reverse;width:100%}.setup .setup-actions .button{text-align:center}}
+@media(max-width:380px){.setup .setup-options{grid-template-columns:1fr}}
+</style>
+<link rel="icon" href="data:,"><style id="qa-pass">
+:focus-visible{outline:3px solid #176c4d;outline-offset:2px}
+header :focus-visible,.entry-head :focus-visible{outline-color:#fff}
+.aiband :focus-visible{outline-color:#176c4d}
+
+.entry-head-inner{max-width:1040px;padding:14px 28px}
+.entry-wordmark{display:inline-flex;align-items:center;min-height:44px}
+.connect main{max-width:1040px;padding:28px 28px 40px}
+.setup main{padding:32px 28px 48px}
+.connect .cn-foot,.setup .su-foot,.team-shell .st-foot{max-width:1040px;padding:18px 28px 30px}
+@media(max-width:760px){
+ .entry-head-inner{padding:14px 20px}
+ .connect main,.setup main{padding-left:20px;padding-right:20px}
+ .team-page{padding-left:20px;padding-right:20px}
+ .connect .cn-foot,.setup .su-foot,.team-shell .st-foot{padding:16px 20px 24px}
+ .connect .provider-toggle button,.connect .slide-nav button,.connect summary,.connect .button{min-height:44px}
+ .team-page .segmented button,.team-page .stepper button,.team-page .stepper input,.team-page summary,.team-page .button{min-height:44px}
+ .team-page .stepper button{min-width:44px}
+}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}}
+</style><style id="advance-pass">.setup .setup-top{margin:16px 0 8px}.setup .setup-top .primary{min-width:230px;text-align:center}@media(max-width:600px){.setup .setup-top .primary{width:100%}}</style><link rel="stylesheet" href="actionbar.css"><script src="actionbar.js"></script><style id="gating-pass">.setup a.button.primary[aria-disabled="true"],.setup a.button.primary[aria-disabled="true"]:hover,.setup a.button.primary[aria-disabled="true"]:active{background:#e3e7e4;color:#59666f;border-color:#e3e7e4;box-shadow:none;transform:none;filter:none;cursor:not-allowed}.setup .gate-reason{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}</style></head>
+<body class="setup">
+<header class="entry-head"><div class="entry-head-inner"><a class="entry-wordmark" href="index.html">DDF</a><ol class="entry-steps" aria-label="League entry progress"><li class="is-complete"><a href="connect.html">✓ 1. League rosters</a></li><li aria-current="step">2. Your team</li><li>3. League settings</li></ol></div></header>
+<main>
+<h1>Which team is yours?</h1>
+<p class="muted setup-intro">We found these teams in your league. Confirm the one you manage so we can show your roster. Your team is already selected.</p>
+<div class="row setup-actions setup-top"><a class="button primary" id="continue-top" href="settings.html">Next: confirm league settings →</a></div>
+<form id="team-form" action="team.html" method="get">
+<fieldset class="setup-selection" aria-label="Which team is yours?">
+<div class="setup-options">
+<label class="setup-option ddf-pop ddf-lift selected"><input type="radio" name="team" value="My team" required checked><span><strong>My team</strong><span class="player-count">15 players</span></span><span class="selection-check" aria-hidden="true">✓</span></label>
+<label class="setup-option ddf-pop ddf-lift"><input type="radio" name="team" value="Team 02" required><span><strong>Team 02</strong><span class="player-count">15 players</span></span><span class="selection-check" aria-hidden="true">✓</span></label>
+<label class="setup-option ddf-pop ddf-lift"><input type="radio" name="team" value="Team 03" required><span><strong>Team 03</strong><span class="player-count">15 players</span></span><span class="selection-check" aria-hidden="true">✓</span></label>
+<label class="setup-option ddf-pop ddf-lift"><input type="radio" name="team" value="Team 04" required><span><strong>Team 04</strong><span class="player-count">15 players</span></span><span class="selection-check" aria-hidden="true">✓</span></label>
+<label class="setup-option ddf-pop ddf-lift"><input type="radio" name="team" value="Team 05" required><span><strong>Team 05</strong><span class="player-count">15 players</span></span><span class="selection-check" aria-hidden="true">✓</span></label>
+<label class="setup-option ddf-pop ddf-lift"><input type="radio" name="team" value="Team 06" required><span><strong>Team 06</strong><span class="player-count">15 players</span></span><span class="selection-check" aria-hidden="true">✓</span></label>
+<label class="setup-option ddf-pop ddf-lift"><input type="radio" name="team" value="Team 07" required><span><strong>Team 07</strong><span class="player-count">15 players</span></span><span class="selection-check" aria-hidden="true">✓</span></label>
+<label class="setup-option ddf-pop ddf-lift"><input type="radio" name="team" value="Team 08" required><span><strong>Team 08</strong><span class="player-count">15 players</span></span><span class="selection-check" aria-hidden="true">✓</span></label>
+<label class="setup-option ddf-pop ddf-lift"><input type="radio" name="team" value="Team 09" required><span><strong>Team 09</strong><span class="player-count">15 players</span></span><span class="selection-check" aria-hidden="true">✓</span></label>
+<label class="setup-option ddf-pop ddf-lift"><input type="radio" name="team" value="Team 10" required><span><strong>Team 10</strong><span class="player-count">15 players</span></span><span class="selection-check" aria-hidden="true">✓</span></label>
+<label class="setup-option ddf-pop ddf-lift"><input type="radio" name="team" value="Team 11" required><span><strong>Team 11</strong><span class="player-count">15 players</span></span><span class="selection-check" aria-hidden="true">✓</span></label>
+<label class="setup-option ddf-pop ddf-lift"><input type="radio" name="team" value="Team 12" required><span><strong>Team 12</strong><span class="player-count">15 players</span></span><span class="selection-check" aria-hidden="true">✓</span></label>
+</div>
+</fieldset>
+<div class="row setup-actions"><a class="button" href="connect.html">Back</a><a class="button primary" id="continue-btn" href="settings.html" data-sticky-next data-back-href="connect.html" data-back-label="Back" data-next-label="Next: confirm league settings" data-summary="Team: My team">Next: confirm league settings →</a></div>
+<span id="gate-reason" class="gate-reason" role="status"></span></form>
+</main>
+<footer class="su-foot">Data Driven Football</footer>
+<script src="site.js"></script>
+<script>
+(() => {
+  const form = document.getElementById('team-form');
+  function updateSelection() {
+    form.querySelectorAll('input[name="team"]').forEach(input => {
+      input.closest('label').classList.toggle('selected', input.checked);
+      if (input.checked) {document.getElementById('continue-btn').textContent = 'Next: confirm league settings →'; if (window.DDF && DDF.actionBar) DDF.actionBar.setSummary('Team: ' + input.value);}
+    });
+  }
+  function ddfGate(btns,ok,reason,rid){
+    var r=document.getElementById(rid);if(r)r.textContent=ok?'':reason;
+    btns.forEach(function(b){
+      if(!b)return;
+      if(!b.hasAttribute('data-href'))b.setAttribute('data-href',b.getAttribute('href')||'');
+      if(ok){b.setAttribute('href',b.getAttribute('data-href'));b.removeAttribute('aria-disabled');b.removeAttribute('aria-describedby');b.removeAttribute('role');b.removeAttribute('tabindex')}
+      else{b.removeAttribute('href');b.setAttribute('aria-disabled','true');b.setAttribute('aria-describedby',rid);b.setAttribute('role','link');b.tabIndex=0}
+    });
+    if(window.DDF&&DDF.actionBar)DDF.actionBar.setDisabled(!ok,ok?null:reason);
+  }
+  document.addEventListener('click',function(e){var b=e.target.closest&&e.target.closest('a[aria-disabled="true"][data-href]');if(b){e.preventDefault();e.stopImmediatePropagation()}},true);
+    function gateTeam(){
+    var ok=!!form.querySelector('input[name="team"]:checked');
+    ddfGate([document.getElementById('continue-top'),document.getElementById('continue-btn')],ok,'Pick your team first','gate-reason');
+  }
+  form.addEventListener('change', function(){updateSelection();gateTeam()});
+  gateTeam();
+  const wrap = document.querySelector('.morewrap');
+  const toggle = wrap?.querySelector('button');
+  if (wrap && toggle) {
+  new MutationObserver(() => toggle.setAttribute('aria-expanded', String(wrap.classList.contains('open')))).observe(wrap, {attributes:true, attributeFilter:['class']});
+  document.addEventListener('keydown', event => {
+    if(event.key === 'Escape' && wrap.classList.contains('open')) {wrap.classList.remove('open'); toggle.focus();}
+  });
+  }
+  window.addEventListener('pageshow', function(){updateSelection();gateTeam()});
+})();
+</script>
+</body>
+</html>

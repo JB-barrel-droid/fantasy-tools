@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>DDF · Which of your players can we trade?</title>
+<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="actionbar.css">
+<script src="actionbar.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+.explore main{padding-top:28px;padding-bottom:0}
+.explore p{max-width:75ch}
+.explore .roster-heading{margin:20px 0 14px}
+.explore .roster-table{overflow:visible;margin:0 0 14px}
+.explore table{width:100%;table-layout:auto;border-collapse:separate;border-spacing:0}
+.explore th{background:#f7f8f5;color:#12202c;font-family:'IBM Plex Mono',monospace;font-weight:500;font-size:11px;letter-spacing:.04em;white-space:nowrap;text-align:left;padding:12px 10px}
+.explore td{padding:13px 10px;vertical-align:middle;border-bottom:1px solid #eef1ec;font-size:14px}
+.explore th.num,.explore td.num{text-align:right;font-family:'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums;width:84px}
+.explore td.ddf{font-weight:700;color:#0d120e}
+.explore td.mkt{color:#5c6a76}
+.explore .prem{color:#a83e12;font-size:9px;vertical-align:1px;margin-left:3px}
+.explore td.pcol{font-family:'IBM Plex Mono',monospace;font-size:12px;width:64px;white-space:nowrap}
+.explore .pdot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px}
+.explore .p-QB{background:#315b7a}.explore .p-RB{background:#247253}.explore .p-WR{background:#c84f1a}.explore .p-TE{background:#76506f}
+.explore td.pl{width:30%}
+.explore .nm{font-weight:600;font-size:15px;display:block}
+.explore .pos-m,.explore .strat-m{display:none}
+.explore .vbar{display:block;height:4px;border-radius:2px;background:#eef1ec;margin-top:6px;max-width:220px;overflow:hidden}
+.explore .vbar i{display:block;height:100%;border-radius:2px}
+.explore td.strat{color:#5c6a76;font-size:13px}
+.explore td.tg,.explore th.tg{width:138px;text-align:right}
+.explore .roster-section th{background:#fff;border-left:4px solid #bec8c1;font-size:11px;letter-spacing:.08em;padding:14px 10px 8px;color:#39413b}
+.explore .roster-section.rs-start th{border-left-color:#176c4d}
+.explore .roster-section th b{font-size:17px;font-family:var(--serif);margin-left:6px;color:#0d120e;letter-spacing:0}
+.explore .sw{display:inline-flex;align-items:center;gap:9px;cursor:pointer;font-size:13px;font-weight:600;min-height:36px;color:#176c4d;user-select:none}
+.explore .sw input{position:absolute;opacity:0;width:1px;height:1px}
+.explore .trk{position:relative;width:38px;height:22px;border-radius:99px;background:#176c4d;transition:background .15s;flex:none}
+.explore .trk::after{content:"";position:absolute;top:3px;left:19px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.25);transition:left .15s}
+.explore .sw input:not(:checked)~.trk{background:#bec8c1}
+.explore .sw input:not(:checked)~.trk::after{left:3px}
+.explore .sw input:not(:checked)~.swt{color:#5c6a76}
+.explore .sw .swt{min-width:56px;text-align:left}
+.explore .sw input:focus-visible~.trk{outline:3px solid #7fbf9d;outline-offset:2px}
+.explore tr.prow td{transition:opacity .12s}
+.explore tr.prow.held td:not(.tg){opacity:.55}
+.explore .kd{font-size:13px;color:#5c6a76;margin:6px 0 18px}
+.explore .empty-msg{background:#fff0e8;color:#a83e12;border:1px solid #e6c8ba;border-radius:12px;padding:12px 16px;font-size:14px;margin:0 0 14px}
+.explore .xbar{display:flex;align-items:center;justify-content:space-between;gap:14px;border-top:1px solid #dbe0dc;padding:12px 0;margin-top:8px}
+.explore #selection-count{font-family:'IBM Plex Mono',monospace;font-size:13px;font-variant-numeric:tabular-nums;margin:0}
+.explore #selection-count b{font-size:18px;color:#176c4d}
+.explore .xbar .primary.off{background:#eef1ec;color:#5c6a76;border-color:#dbe0dc;pointer-events:none}
+.explore .sitemap{margin-top:40px}
+.explore .morewrap .menu{max-height:70vh;overflow:auto}
+.explore .footer{max-width:1040px;margin:0 auto;padding:20px 0 28px}
+.explore .sitemap h2{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11.5px;letter-spacing:.12em;color:#5c6a76;margin:0 0 10px;font-weight:600}
+.journey-steps{list-style:none;display:flex;flex-wrap:wrap;gap:8px 0;padding:0;margin:0 0 28px;font-size:12px;line-height:1.8}.journey-steps li{display:flex;align-items:baseline}.journey-steps li+li::before{content:"\00b7";margin:0 10px}.journey-steps a{color:#176c4d;text-underline-offset:4px}.journey-steps [aria-current="step"]{color:#176c4d;font-weight:700}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+@media(max-width:760px){
+.explore main{padding:20px 16px 0}
+.explore th.strat,.explore td.strat,.explore th.pcol,.explore td.pcol{display:none}
+.explore td.pl{width:auto}
+.explore .pos-m{display:inline-block;font-family:'IBM Plex Mono',monospace;font-size:10px;color:#5c6a76;border:1px solid #dbe0dc;border-radius:99px;padding:0 6px;margin-top:3px}
+.explore .strat-m{display:block;color:#5c6a76;font-size:12px;margin-top:4px;line-height:1.3}
+.explore th.num,.explore td.num{width:52px;font-size:12px;padding:12px 4px}
+.explore th,.explore td{padding-left:6px;padding-right:6px}
+.explore td.tg,.explore th.tg{width:44px}
+.explore .swt{display:none}
+.explore .sw{gap:0}
+.explore .nm{font-size:14px}
+.explore .prem{display:none}
+.explore .xbar{gap:8px}.explore .xbar .button{padding:10px 12px;font-size:14px}
+.explore #selection-count{font-size:11px;text-align:center}
+.explore .sitemap .in{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+</style>
+<script src="site.js" defer></script>
+<link rel="icon" href="data:,"><style id="qa-pass">
+:focus-visible{outline:3px solid #176c4d;outline-offset:2px}
+header :focus-visible,.entry-head :focus-visible{outline-color:#fff}
+.aiband :focus-visible{outline-color:#176c4d}
+
+.ws-steps{max-width:1040px}
+body .sitemap .in{max-width:1040px;padding:32px 28px 28px;grid-template-columns:repeat(4,minmax(0,1fr))}
+body .sitemap .footer{max-width:1040px;margin:0 auto;padding:20px 28px 28px}
+.sitemap a{min-height:0}
+.mkt,.num.mkt,.kd{color:#5c6a76}
+.prem{color:#a83e12}
+@media(max-width:760px){
+ body .sitemap .in{grid-template-columns:repeat(2,minmax(0,1fr));padding:28px 20px}
+ body .sitemap .footer{padding:20px}
+ .sitemap a{padding:12px 0}
+ .header-inner button,.header-inner a,.morewrap>button{min-height:44px}
+ .ctx-strip a{display:inline-flex;align-items:center;min-height:44px}
+ .ws-steps a,.ws-steps span,.ws-steps strong{min-height:44px;display:inline-flex;align-items:center}
+ .button,.btn,button.primary{min-height:44px}
+ summary{min-height:44px;display:flex;align-items:center}
+}
+
+.explore .sw input:focus-visible~.trk{outline:3px solid #176c4d;outline-offset:2px}
+.explore .sw{min-height:44px;align-items:center}
+@media(max-width:760px){.explore main button{min-height:44px}.explore .sw{min-width:44px}}
+
+body.explore tr.prow.held td:not(.tg){opacity:1;color:#5c6a76}
+body.explore tr.prow.held td:not(.tg) :is(.nm,.pos-m,small,.num){color:#5c6a76}
+body.explore tr.prow.held td.num{color:#5c6a76}
+body.explore tr.prow.held :is(.vbar,.pdot){opacity:.4}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}}
+.ws-steps>a:first-child{padding-left:0}
+</style><style id="gating-pass">.explore a.button.primary[aria-disabled="true"],.explore a.button.primary[aria-disabled="true"]:hover,.explore a.button.primary[aria-disabled="true"]:active{background:#e3e7e4;color:#59666f;border-color:#e3e7e4;box-shadow:none;transform:none;filter:none;cursor:not-allowed}.explore .gate-reason{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}</style></head>
+<body class="explore">
+<header><div class="header-inner"><div class="brand">DDF<small>DATA DRIVEN FOOTBALL</small></div><nav aria-label="Main navigation"><a href="index.html">Home</a><a href="build.html">Build a Trade</a><a href="find.html">Trade &amp; Waiver Recommendations</a><a href="values.html">Values</a><div class="morewrap"><button type="button" aria-expanded="false" aria-controls="explore-more">More ▾</button><div class="menu" id="explore-more"><a href="build.html">Build a Trade</a><a href="find.html">Trade &amp; Waiver Recommendations</a><a href="waivers.html">Waivers</a><a href="team.html">Team assessment</a><a href="explore.html" aria-current="page">Pick players</a><a href="partners.html">Pick trading partners</a><a href="values.html">Values</a><a href="values.html#buy-sell">Buy / Sell</a><a href="values.html#overrides">Overrides</a><a href="learn.html">Learn</a><a href="learn.html#numbers/pie">How we get our numbers</a><a href="ai.html">Use DDF with AI</a><a href="connect.html">Paste my league</a><a href="setup.html">Your team</a><a href="settings.html">League settings</a></div></div></nav></div></header><div class="ctx-strip"><span>My league · Manually entered · Half PPR · 12 teams</span><a href="settings.html">Edit league</a></div><nav class="ws-steps" aria-label="Workspace progress"><a href="team.html">✓ Team assessment</a><strong class="selected" aria-current="step">Pick players</strong><span>Pick trading partners</span><span>Trade &amp; Waiver Recommendations</span><span>Build a Trade</span></nav>
+<main><h1>Which of your players can we trade?</h1><p class="muted">We will look for trades that involve any player on your roster, so you see every upgrade. Keep everyone on Evaluate unless you would truly never trade them. A player set to Hold is left out of every recommendation.</p><p class="muted hold-nudge" id="hold-nudge" role="status" hidden>Holding players narrows what we can find. Include everyone for the best results.</p><div class="row roster-heading"><strong>My team &middot; <span data-countup="13">13</span> players we can trade</strong><small class="muted" style="display:block;font-weight:400">K and DEF are handled separately.</small><button type="button" id="select-all">Include everyone</button></div><div class="table-wrap roster-table"><table><thead><tr><th scope="col">PLAYER</th><th scope="col" class="pcol">POS</th><th scope="col" class="num">DDF</th><th scope="col" class="num" title="Analyst charts: average of CBS Sports, USA Today and FantasyPros">ANALYST</th><th scope="col" class="strat">INITIAL STRATEGY</th><th scope="col" class="tg"><span class="sr-only">Trade selection</span></th></tr></thead><tbody>
+<tr class="roster-section rs-start"><th colspan="6" scope="rowgroup">OFFENSE STARTERS <b>8</b></th></tr>
+<tr class="prow"><td class="pl"><span class="nm">Josh Allen</span><span class="pos-m">QB</span><span class="vbar" aria-hidden="true"><i data-grow class="p-QB" style="width:43.0%"></i></span><small class="strat-m">Protect DDF value</small></td><td class="pcol"><span class="pdot p-QB"></span>QB</td><td class="num ddf">41.53</td><td class="num mkt">25.87</td><td class="strat">Protect DDF value</td><td class="tg"><label class="sw"><input type="checkbox" checked aria-label="Evaluate trades for Josh Allen"><span class="trk" aria-hidden="true"></span><span class="swt">Evaluate</span></label></td></tr>
+<tr class="prow"><td class="pl"><span class="nm">Jahmyr Gibbs</span><span class="pos-m">RB</span><span class="vbar" aria-hidden="true"><i data-grow class="p-RB" style="width:100.0%"></i></span><small class="strat-m">May need a stronger return</small></td><td class="pcol"><span class="pdot p-RB"></span>RB</td><td class="num ddf">96.66</td><td class="num mkt">61.03</td><td class="strat">May need a stronger return</td><td class="tg"><label class="sw"><input type="checkbox" checked aria-label="Evaluate trades for Jahmyr Gibbs"><span class="trk" aria-hidden="true"></span><span class="swt">Evaluate</span></label></td></tr>
+<tr class="prow"><td class="pl"><span class="nm">Rachaad White</span><span class="pos-m">RB</span><span class="vbar" aria-hidden="true"><i data-grow class="p-RB" style="width:7.5%"></i></span><small class="strat-m">Explore exchanging analyst premium</small></td><td class="pcol"><span class="pdot p-RB"></span>RB</td><td class="num ddf">7.24</td><td class="num mkt">12.99 <span class="prem" title="Analyst charts rate him above DDF value" aria-label="analyst premium">&#9650;</span></td><td class="strat">Explore exchanging analyst premium</td><td class="tg"><label class="sw"><input type="checkbox" checked aria-label="Evaluate trades for Rachaad White"><span class="trk" aria-hidden="true"></span><span class="swt">Evaluate</span></label></td></tr>
+<tr class="prow"><td class="pl"><span class="nm">Rhamondre Stevenson</span><span class="pos-m">RB</span><span class="vbar" aria-hidden="true"><i data-grow class="p-RB" style="width:22.0%"></i></span><small class="strat-m">Explore an RB2 upgrade</small></td><td class="pcol"><span class="pdot p-RB"></span>RB</td><td class="num ddf">21.22</td><td class="num mkt">21.71</td><td class="strat">Explore an RB2 upgrade</td><td class="tg"><label class="sw"><input type="checkbox" checked aria-label="Evaluate trades for Rhamondre Stevenson"><span class="trk" aria-hidden="true"></span><span class="swt">Evaluate</span></label></td></tr>
+<tr class="prow"><td class="pl"><span class="nm">Jaxon Smith-Njigba</span><span class="pos-m">WR</span><span class="vbar" aria-hidden="true"><i data-grow class="p-WR" style="width:81.8%"></i></span><small class="strat-m">Protect DDF value</small></td><td class="pcol"><span class="pdot p-WR"></span>WR</td><td class="num ddf">79.04</td><td class="num mkt">54.29</td><td class="strat">Protect DDF value</td><td class="tg"><label class="sw"><input type="checkbox" checked aria-label="Evaluate trades for Jaxon Smith-Njigba"><span class="trk" aria-hidden="true"></span><span class="swt">Evaluate</span></label></td></tr>
+<tr class="prow"><td class="pl"><span class="nm">Stefon Diggs</span><span class="pos-m">WR</span><span class="vbar" aria-hidden="true"><i data-grow class="p-WR" style="width:13.2%"></i></span><small class="strat-m">Compare WR upgrades</small></td><td class="pcol"><span class="pdot p-WR"></span>WR</td><td class="num ddf">12.75</td><td class="num mkt">17.30 <span class="prem" title="Analyst charts rate him above DDF value" aria-label="analyst premium">&#9650;</span></td><td class="strat">Compare WR upgrades</td><td class="tg"><label class="sw"><input type="checkbox" checked aria-label="Evaluate trades for Stefon Diggs"><span class="trk" aria-hidden="true"></span><span class="swt">Evaluate</span></label></td></tr>
+<tr class="prow"><td class="pl"><span class="nm">George Pickens</span><span class="pos-m">WR</span><span class="vbar" aria-hidden="true"><i data-grow class="p-WR" style="width:29.8%"></i></span><small class="strat-m">Compare complete returns</small></td><td class="pcol"><span class="pdot p-WR"></span>WR</td><td class="num ddf">28.81</td><td class="num mkt">26.08</td><td class="strat">Compare complete returns</td><td class="tg"><label class="sw"><input type="checkbox" checked aria-label="Evaluate trades for George Pickens"><span class="trk" aria-hidden="true"></span><span class="swt">Evaluate</span></label></td></tr>
+<tr class="prow"><td class="pl"><span class="nm">Trey McBride</span><span class="pos-m">TE</span><span class="vbar" aria-hidden="true"><i data-grow class="p-TE" style="width:38.2%"></i></span><small class="strat-m">Protect DDF value</small></td><td class="pcol"><span class="pdot p-TE"></span>TE</td><td class="num ddf">36.93</td><td class="num mkt">25.22</td><td class="strat">Protect DDF value</td><td class="tg"><label class="sw"><input type="checkbox" checked aria-label="Evaluate trades for Trey McBride"><span class="trk" aria-hidden="true"></span><span class="swt">Evaluate</span></label></td></tr>
+<tr class="roster-section rs-bench"><th colspan="6" scope="rowgroup">BENCH <b>5</b></th></tr>
+<tr class="prow"><td class="pl"><span class="nm">Bo Nix</span><span class="pos-m">QB</span><span class="vbar" aria-hidden="true"><i data-grow class="p-QB" style="width:0.0%"></i></span><small class="strat-m">Compare complete returns</small></td><td class="pcol"><span class="pdot p-QB"></span>QB</td><td class="num ddf">0.00</td><td class="num mkt">0.65</td><td class="strat">Compare complete returns</td><td class="tg"><label class="sw"><input type="checkbox" checked aria-label="Evaluate trades for Bo Nix"><span class="trk" aria-hidden="true"></span><span class="swt">Evaluate</span></label></td></tr>
+<tr class="prow"><td class="pl"><span class="nm">Keaton Mitchell</span><span class="pos-m">RB</span><span class="vbar" aria-hidden="true"><i data-grow class="p-RB" style="width:0.6%"></i></span><small class="strat-m">Explore depth exchanges</small></td><td class="pcol"><span class="pdot p-RB"></span>RB</td><td class="num ddf">0.55</td><td class="num mkt">3.01</td><td class="strat">Explore depth exchanges</td><td class="tg"><label class="sw"><input type="checkbox" checked aria-label="Evaluate trades for Keaton Mitchell"><span class="trk" aria-hidden="true"></span><span class="swt">Evaluate</span></label></td></tr>
+<tr class="prow"><td class="pl"><span class="nm">Malachi Fields</span><span class="pos-m">WR</span><span class="vbar" aria-hidden="true"><i data-grow class="p-WR" style="width:0.7%"></i></span><small class="strat-m">Explore depth exchanges</small></td><td class="pcol"><span class="pdot p-WR"></span>WR</td><td class="num ddf">0.68</td><td class="num mkt">4.13 <span class="prem" title="Analyst charts rate him above DDF value" aria-label="analyst premium">&#9650;</span></td><td class="strat">Explore depth exchanges</td><td class="tg"><label class="sw"><input type="checkbox" checked aria-label="Evaluate trades for Malachi Fields"><span class="trk" aria-hidden="true"></span><span class="swt">Evaluate</span></label></td></tr>
+<tr class="prow"><td class="pl"><span class="nm">Antonio Williams</span><span class="pos-m">WR</span><span class="vbar" aria-hidden="true"><i data-grow class="p-WR" style="width:2.7%"></i></span><small class="strat-m">Explore analyst premium</small></td><td class="pcol"><span class="pdot p-WR"></span>WR</td><td class="num ddf">2.58</td><td class="num mkt">10.62 <span class="prem" title="Analyst charts rate him above DDF value" aria-label="analyst premium">&#9650;</span></td><td class="strat">Explore analyst premium</td><td class="tg"><label class="sw"><input type="checkbox" checked aria-label="Evaluate trades for Antonio Williams"><span class="trk" aria-hidden="true"></span><span class="swt">Evaluate</span></label></td></tr>
+<tr class="prow"><td class="pl"><span class="nm">Dalton Schultz</span><span class="pos-m">TE</span><span class="vbar" aria-hidden="true"><i data-grow class="p-TE" style="width:0.0%"></i></span><small class="strat-m">Compare complete returns</small></td><td class="pcol"><span class="pdot p-TE"></span>TE</td><td class="num ddf">0.00</td><td class="num mkt">1.75</td><td class="strat">Compare complete returns</td><td class="tg"><label class="sw"><input type="checkbox" checked aria-label="Evaluate trades for Dalton Schultz"><span class="trk" aria-hidden="true"></span><span class="swt">Evaluate</span></label></td></tr></tbody></table></div><p class="kd">Not evaluated: Brandon Aubrey (K), ARI D/ST. Kickers and defenses are not priced.</p><p id="empty-msg" class="empty-msg" role="status" hidden>Nothing selected. Pick at least one player to shop.</p><div class="xbar"><a class="button" href="team.html">Back</a><span id="selection-count" role="status"><b id="sel-n">13</b> of 13 evaluating</span><span id="gate-reason" class="gate-reason" role="status"></span><a class="button primary" id="continue" href="partners.html" data-sticky-next data-back-href="team.html" data-back-label="Back" data-next-label="Next: pick trading partners" data-disabled-reason="Set at least one player to Evaluate to continue">Next: pick trading partners</a></div></main>
+<footer class="sitemap"><div class="in"><div><h2>TRADE</h2><a href="index.html">Home</a><a href="build.html">Build a Trade</a><a href="find.html">Trade &amp; Waiver Recommendations</a><a href="waivers.html">Waivers</a></div><div><h2>VALUES</h2><a href="values.html">Values</a><a href="values.html#buy-sell">Buy / Sell</a><a href="values.html#overrides">Overrides</a></div><div><h2>YOUR LEAGUE</h2><a href="connect.html">Paste my league</a><a href="setup.html">Your team</a><a href="settings.html">League settings</a><a href="team.html">Team assessment</a><a href="explore.html">Pick players</a><a href="partners.html">Pick trading partners</a></div><div><h2>LEARN</h2><a href="learn.html">Learn</a><a href="learn.html#numbers/pie">How we get our numbers</a><a href="ai.html">Use DDF with AI</a></div></div><div class="footer">Data Driven Football</div></footer>
+<script>
+(() => {
+const rowsEl=[...document.querySelectorAll('.explore tr.prow')];
+const checks=rowsEl.map(r=>r.querySelector('input[type=checkbox]'));
+const next=document.getElementById('continue');
+function ddfGate(btns,ok,reason,rid){
+  var r=document.getElementById(rid);if(r)r.textContent=ok?'':reason;
+  btns.forEach(function(b){
+    if(!b)return;
+    if(!b.hasAttribute('data-href'))b.setAttribute('data-href',b.getAttribute('href')||'');
+    if(ok){b.setAttribute('href',b.getAttribute('data-href'));b.removeAttribute('aria-disabled');b.removeAttribute('aria-describedby');b.removeAttribute('role');b.removeAttribute('tabindex')}
+    else{b.removeAttribute('href');b.setAttribute('aria-disabled','true');b.setAttribute('aria-describedby',rid);b.setAttribute('role','link');b.tabIndex=0}
+  });
+  if(window.DDF&&DDF.actionBar)DDF.actionBar.setDisabled(!ok,ok?null:reason);
+}
+document.addEventListener('click',function(e){var b=e.target.closest&&e.target.closest('a[aria-disabled="true"][data-href]');if(b){e.preventDefault();e.stopImmediatePropagation()}},true);
+function update(){
+ let n=0;
+ checks.forEach((input,i)=>{const on=input.checked;if(on)n++;rowsEl[i].classList.toggle('held',!on);rowsEl[i].querySelector('.swt').textContent=on?'Evaluate':'Hold';});var hn=document.getElementById('hold-nudge');if(hn)hn.hidden=n===checks.length;
+ document.getElementById('sel-n').textContent=n;
+ if(window.DDF&&DDF.actionBar)DDF.actionBar.setSummary(n+' of '+checks.length+' players included, next: pick trading partners');
+ document.getElementById('empty-msg').hidden=n>0;
+ ddfGate([next],n>0,'Set at least one player to Evaluate to continue','gate-reason');
+}
+checks.forEach(input=>input.addEventListener('change',update));
+document.getElementById('select-all').onclick=()=>{checks.forEach(input=>input.checked=true);update()};
+const wrap=document.querySelector('.morewrap');
+const menuButton=wrap.querySelector('button');
+new MutationObserver(()=>menuButton.setAttribute('aria-expanded',String(wrap.classList.contains('open')))).observe(wrap,{attributes:true,attributeFilter:['class']});
+document.addEventListener('keydown',event=>{if(event.key==='Escape'&&wrap.classList.contains('open')){wrap.classList.remove('open');menuButton.focus()}});
+update();
+})();
+</script>
+</body>
+</html>

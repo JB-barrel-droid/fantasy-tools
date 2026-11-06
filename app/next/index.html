@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Discover trades that make your team stronger and look like a good deal to your leaguemates.">
+<title>DDF · Home</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Newsreader:opsz,wght@6..72,500;6..72,600;6..72,700&display=swap');
+body.home2{background:#fdf8f2;color:#101613;scrollbar-color:#176c4d #eef1ec;caret-color:#176c4d}
+.home2 ::selection{background:#d7ecd9;color:#142b25}
+.serif{font-family:"Newsreader",Georgia,"Times New Roman",serif}
+/* header — board 01 */
+.home2 header{background:#034531;color:#fff}
+.home2 .h2in{max-width:1440px;margin:0 auto;padding:14px 34px;display:flex;align-items:center;gap:34px}
+.home2 .brand2{font-family:"Newsreader",Georgia,serif;font-weight:700;font-size:31px;letter-spacing:.01em;color:#fff;text-decoration:none;line-height:1}
+.home2 nav{display:flex;align-items:center;gap:6px;flex:1}
+.home2 nav>a,.home2 nav>.valwrap>a,.home2 .morewrap>button{font-family:"Archivo",sans-serif;font-size:16.5px;font-weight:600;color:#eaf3ec;text-decoration:none;padding:8px 14px;border-radius:9px;background:none;border:0;cursor:pointer}
+.home2 nav>a:hover,.home2 nav>.valwrap>a:hover,.home2 .morewrap>button:hover{background:rgba(255,255,255,.12);color:#fff}
+.home2 nav>a[aria-current],.home2 nav>.valwrap>a[aria-current]{background:#dcead9;color:#0b3524}
+.home2 .morewrap{position:relative}
+.home2 .menu{top:calc(100% + 8px)}
+.home2 .getstarted{margin-left:auto;background:#f4f1e6;color:#0b3524;font-weight:700;font-size:16px;padding:10px 20px;border-radius:9px;text-decoration:none;white-space:nowrap}
+.home2 .getstarted:hover{background:#fff}
+.home2 .lbl-menu{display:none}
+/* hero */
+.home2 main{max-width:1440px;margin:0 auto;padding:0 34px}
+.hero2{text-align:center;padding:64px 20px 8px;max-width:940px;margin:0 auto}
+.hero2 .eyebrow2{font-size:14.5px;letter-spacing:.34em;font-weight:600;color:#233028;margin:0 0 26px}
+.hero2 h1{font-family:"Newsreader",Georgia,serif;font-size:clamp(42px,4.9vw,64px);font-weight:600;line-height:1.08;letter-spacing:-.01em;margin:0 0 22px;color:#0a0f0c}
+.hero2 .sub2{font-size:19.5px;line-height:1.5;color:#2b332e;max-width:640px;margin:0 auto 34px}
+.cta2{display:inline-block;background:#0a5a36;color:#fff;font-size:19px;font-weight:700;padding:16px 64px;border-radius:10px;text-decoration:none}
+.cta2:hover{background:#034531}
+.hero2 .note2{margin:26px 0 0;font-size:16.5px;color:#232a26}
+.hero2 .note2b{margin:3px 0 0;font-size:16.5px;color:#232a26}
+/* steps */
+.steps2{display:grid;grid-template-columns:repeat(3,max-content);justify-content:center;column-gap:104px;max-width:1100px;margin:58px auto 0;padding:0 6px}
+.step2{position:relative}
+.step2+.step2::before{content:"";position:absolute;left:-84px;top:17px;width:64px;border-top:1px solid #d9d4c6}
+.step2 .medal{display:flex;align-items:flex-start;gap:14px;margin-bottom:14px}
+.step2 .num{width:31px;height:31px;border-radius:50%;background:#e6eedd;color:#22301f;font-weight:700;font-size:16px;display:flex;align-items:center;justify-content:center;flex:none;margin-top:2px}
+.step2 svg{width:37px;height:37px;stroke:#141a16;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.step2 h3{font-family:"Newsreader",Georgia,serif;font-size:25px;font-weight:600;margin:0 0 7px;color:#0d120e}
+.step2 p{margin:0;font-size:16px;line-height:1.45;color:#39413b;max-width:24ch}
+/* ai band */
+.aiband{max-width:1180px;margin:104px auto 0;background:#f5efe1;border-radius:12px;padding:30px 38px;box-shadow:inset 0 3px 0 #176c4d,0 8px 24px rgba(23,108,77,.08)}
+.aiband .ai-in{display:flex;align-items:center;gap:34px}
+.aiband h2{font-family:"Newsreader",Georgia,serif;font-size:27px;font-weight:600;margin:0;color:#10130f;white-space:nowrap}
+.aiband p{margin:0;font-size:16.5px;color:#333a34;flex:1}
+.aiband .copybtn{flex:none;background:#fff;border:1.6px solid #176c4d;color:#176c4d;font-size:16px;font-weight:600;padding:11px 20px;border-radius:9px;cursor:pointer}
+.aiband .copybtn:hover{background:#e8f5ee}
+.aiband #copy-status{font-size:13.5px;color:#176c4d;margin-left:10px}
+/* values line */
+.valuesline{text-align:center;margin:44px 0 36px;font-size:16.5px;color:#232a26}
+.valuesline a{color:#0a5a36;font-weight:700;text-decoration:underline;text-underline-offset:3px;margin-right:14px}
+.home2 .home-foot{max-width:1180px;margin:0 auto;padding:18px 34px 30px;border-top:1px solid #e4dfd2;text-align:center;font-family:"Newsreader",Georgia,serif;font-size:17px;font-weight:600;color:#39413b;letter-spacing:.01em}
+@media (max-width:900px){
+ .steps2{grid-template-columns:1fr;justify-content:start;max-width:520px;row-gap:30px;margin-top:40px}
+ .step2+.step2::before{display:none}
+ .step2 p{max-width:44ch}
+ .aiband .ai-in{flex-direction:column;align-items:flex-start;gap:14px}
+ .aiband h2{white-space:normal}
+}
+@media (max-width:820px){
+ .home2 nav>a{display:none}
+ .home2 .getstarted{display:none}
+ .home2 .lbl-more{display:none}
+ .home2 .lbl-menu{display:inline}
+ .home2 .h2in{padding:12px 18px;gap:14px}
+ .hero2{padding-top:44px}
+}
+@media (max-width:600px){
+ .home2 .h2in{padding:10px 16px}
+ .home2 .brand2{font-size:26px}
+ .home2 main{padding:0 16px}
+ .hero2{padding:38px 0 0}
+ .hero2 .eyebrow2{font-size:11px;margin-bottom:18px}
+ .hero2 h1{font-size:38px;margin-bottom:16px}
+ .hero2 .sub2{font-size:15px;line-height:1.45;margin-bottom:22px}
+ .cta2{font-size:16px;padding:11px 56px}
+ .hero2 .note2{margin-top:20px;font-size:13px;line-height:1.35}
+ .hero2 .note2b{font-size:13px;line-height:1.35}
+ .steps2{margin-top:38px;row-gap:28px;padding:0}
+ .step2 .medal{margin-bottom:8px;gap:10px}
+ .step2 .num{width:26px;height:26px;font-size:14px}
+ .step2 svg{width:28px;height:28px}
+ .step2 h3{font-size:20px;margin-bottom:4px}
+ .step2 p{font-size:14px;line-height:1.35}
+ .aiband{margin-top:48px;padding:18px 20px}
+ .aiband h2{font-size:21px}
+ .aiband p{font-size:14px}
+ .valuesline{font-size:14px;margin:22px 0 18px}
+ .home2 .home-foot{padding:14px 16px 22px;font-size:15px}
+}
+</style>
+<link rel="icon" href="data:,"><style id="qa-pass">:focus-visible{outline:3px solid #176c4d;outline-offset:2px}
+.home2 header :focus-visible{outline-color:#fff}
+.valuesline a{display:inline-flex;align-items:center;min-height:44px}
+.home2 .brand2{display:inline-flex;align-items:center;min-height:44px}
+.hero2 .sub2{max-width:960px}
+.hero2 h1{font-size:clamp(42px,4.7vw,68px)}
+@media(min-width:901px){.hero2{padding-top:52px;max-width:1040px}.hero2 .eyebrow2{margin-bottom:20px}.hero2 h1{margin-bottom:18px}.hero2 .sub2{margin-bottom:28px}.hero2 .note2{margin-top:20px}.steps2{margin-top:44px}.step2 .medal{margin-bottom:10px}.aiband{margin-top:64px}.valuesline{margin:36px 0 30px}}
+@media(max-width:820px){.home2 .morewrap>button{min-height:44px;min-width:44px}.home2 .brand2{min-width:44px}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}}
+@media(min-width:901px){.step2 p{max-width:29ch}}
+</style></head>
+<body class="home2">
+<header><div class="h2in">
+<a class="brand2" href="index.html">DDF</a>
+<nav aria-label="Main navigation">
+<a href="index.html" aria-current="page">Home</a>
+<a href="build.html">Build a Trade</a>
+<a href="find.html">Trade &amp; Waiver Recommendations</a>
+<a href="values.html">Values</a>
+<div class="morewrap"><button type="button" aria-expanded="false" aria-controls="home-more"><span class="lbl-more">More ▾</span><span class="lbl-menu">Menu ☰</span></button>
+<div class="menu" id="home-more"><a href="build.html">Build a Trade</a><a href="find.html">Trade &amp; Waiver Recommendations</a><a href="waivers.html">Waivers</a><a href="team.html">Team assessment</a><a href="explore.html">Pick players</a><a href="partners.html">Pick trading partners</a><a href="values.html">Values</a><a href="values.html#buy-sell">Buy / Sell</a><a href="values.html#overrides">Overrides</a><a href="learn.html">Learn</a><a href="learn.html#numbers/pie">How we get our numbers</a><a href="ai.html">Use DDF with AI</a><a href="connect.html">Paste my league</a><a href="setup.html">Your team</a><a href="settings.html">League settings</a></div></div>
+</nav>
+<a class="getstarted" href="connect.html">Get started →</a>
+</div></header>
+<main>
+<section class="hero2">
+<p class="eyebrow2">DATA DRIVEN FOOTBALL</p>
+<h1>Find the edge in every trade.</h1>
+<p class="sub2">Discover trades that make your team stronger and look like a good deal to your leaguemates.</p>
+<a class="cta2" href="connect.html">Get started →</a>
+<p class="quickcheck">Just checking one trade? <a href="build.html?mode=any">Quick check</a></p>
+<p class="note2">Adding your league takes about 5 minutes.</p>
+<p class="note2b">For the easiest league entry, use a laptop or desktop computer.</p>
+</section>
+<section class="steps2" aria-label="How it works">
+<div class="step2">
+<div class="medal"><span class="num">1</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 2.6v5.2c0 4.6-3 7.6-7 9.2-4-1.6-7-4.6-7-9.2V5.6z"/><path d="M12 8.2l.9 1.9 2.1.3-1.5 1.5.35 2.1L12 13l-1.85 1-.35-2.1-1.5-1.5 2.1-.3z"/></svg></div>
+<h3 role="heading" aria-level="2">Add your league</h3>
+<p>Bring your league into focus.</p>
+</div>
+<div class="step2">
+<div class="medal"><span class="num">2</span><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="7.2" cy="14.5" r="3.4"/><circle cx="16.8" cy="14.5" r="3.4"/><path d="M10.6 14.5h2.8M8.6 11.6L10 6h4l1.4 5.6M5 8.5L3.8 11M19 8.5l1.2 2.5"/></svg></div>
+<h3 role="heading" aria-level="2">Spot undervalued players</h3>
+<p>See where DDF values differ from the trade charts.</p>
+</div>
+<div class="step2">
+<div class="medal"><span class="num">3</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5M4 19h16"/><path d="M7 15.5l4.2-4.4 3 2.6L19 8.6"/><path d="M15.6 8.4H19v3.4"/></svg></div>
+<h3 role="heading" aria-level="2">Build your advantage</h3>
+<p>Find upgrades your leaguemates may be willing to trade.</p>
+</div>
+</section>
+<section class="aiband" aria-label="Use DDF in your AI chat">
+<div class="ai-in">
+<h2>Take DDF into your AI chat</h2>
+<p>Copy a ready-to-paste prompt for your preferred AI chatbot.</p>
+<span><button class="copybtn" id="copy-prompt" type="button">⧉ Copy AI prompt</button><span id="copy-status" role="status"></span></span>
+</div>
+<script type="text/plain" id="prompt-text">You are my Data Driven Football (DDF) trade assistant. These instructions work in any AI app (Claude, ChatGPT, Codex, Gemini, Grok, Muse, others); adapt wording to the tools you actually have. Your job: get the DDF tool connected in this chat, then walk me through the same steps as the DDF website, one step at a time, in plain language. DDF shows every serious value view of a player on one scale, priced for my league. Never tell me what to do; make the evidence legible and let me make my own call.
+
+STEP 0 - CONNECT THE DDF TOOL (works in any AI app; do this first)
+DDF is a free remote MCP server, no sign-in: https://iskiybsimubiujwuchsl.supabase.co/functions/v1/mcp  (name it "ddf").
+1. Check whether you already have DDF tools (get_values, get_player_value, trade_targets, compare_trade, find_trades, read_state, make_state, explain). If yes, say "DDF is connected" and go to Step 1.
+2. If not, work out which app you are running in and give me only the steps for it, one click at a time. Do not guess menu names you are unsure of: say so and point me to the app's own help page for adding a custom MCP connector.
+   - Claude.ai / Claude Desktop: Settings > Connectors > Add custom connector, paste the URL. Optional skill: https://datadrivenfootball.github.io/fantasy-tools/ddf-skill.zip under Settings > Capabilities > Skills.
+   - ChatGPT: enable developer mode in Settings > Apps/Connectors, add an MCP server with the URL, authentication none.
+   - Codex CLI: codex mcp add ddf --url https://iskiybsimubiujwuchsl.supabase.co/functions/v1/mcp   (or add [mcp_servers.ddf] url = "..." to ~/.codex/config.toml).
+   - Gemini CLI: gemini mcp add --transport http ddf https://iskiybsimubiujwuchsl.supabase.co/functions/v1/mcp   (verify with /mcp). In the Gemini web app, custom connectors are only available to some accounts; check Google's help page.
+   - Claude Code: claude mcp add --transport http ddf https://iskiybsimubiujwuchsl.supabase.co/functions/v1/mcp
+   - Grok: grok.com Connectors > New connector > Custom, paste the URL (paid plans may be required; check xAI's help page).
+   - Muse, or any other assistant: look for "MCP", "connectors", "tools" or "apps" in settings and add the URL as a remote MCP server with no authentication.
+3. If you can use a browser, computer-use, or agent tool, offer to do the clicking for me and ask permission first. Never ask me for passwords, cookies, or tokens, and never type credentials for me.
+4. After I confirm, test with one call (for example get_values or explain). If it fails, say exactly what failed and the next fix. Retry once after I refresh or start a new chat.
+5. NO-TOOLS MODE: if my app cannot add MCP tools, do not stop and do not invent numbers or values. Do Step 1 only: collect my league settings and rosters, clean them into a tidy list (one team per block, one player per line, position and NFL team), then send me to the site to continue: https://datadrivenfootball.github.io/fantasy-tools/connect/ . Tell me to paste the clean list there; the site prices everything. Say which parts of this chat would be better with a tool-enabled app, in one sentence.
+
+STEP 1 - MY LEAGUE (about 5 minutes)
+- Ask for: number of teams, scoring (PPR / half PPR / standard), superflex yes/no, and roster slots (default QB 1, RB 2, WR 3, TE 1, FLEX 1, bench 6). Offer these defaults.
+- Get every team's roster. Best case: I paste my league's Rosters page. Tell me where it lives: ESPN fantasy.espn.com/football/league/rosters?leagueId=YOURID ; Yahoo football.fantasysports.yahoo.com/f1/YOURID/starters ; Sleeper: just my username. Tell me to select all on that page, copy, and paste here; messy text is expected and you clean it up. If I give you a league link or ID, hand me back the rosters link. If a league-data connector (for example Flaim) is available, you may offer to pull rosters from it instead.
+- If the paste looks like only one team, say so and offer manual entry. Keep names as provided; list anything you could not match and ask me.
+- Ask which team is mine.
+
+STEP 2 - TEAM ASSESSMENT
+Price my roster and every team with DDF. Show whole numbers, rank my team on each field, and add a short note on where my team stands. Explain any column I ask about. Other teams can be shown for an overview.
+
+STEP 3 - PICK PLAYERS
+List my players with DDF value, Analyst charts value, Live market (FantasyCalc) value and an initial strategy (for example: sell high, buy low, hold, depth). I will tell you who I would move or want to target.
+
+STEP 4 - PICK PARTNERS
+Let me include or skip each other team. Skipped teams stay out of the search. Waivers are separate from teams: never call waivers a trade partner.
+
+STEP 5 - Trade & Waiver Recommendations
+Use find_trades / find_trades_league / trade_targets. Show natural-fit trades first, then partner-neutral packages, then waiver pickups with a minimum-gain filter (default: gain of 2 or more; options >0, 3+, 5+). A package only appears if at least one trade chart has it even or better for the other team; averages use 3 sources, label "2 of 3" when fewer. If rosters are missing, say so and ask for them. If waivers are missing, say so and ask me to paste the available players (ESPN Free Agents page, Yahoo Players page); always call them "available players".
+
+STEP 6 - BUILD A TRADE (any players, or my league)
+Use compare_trade. Show each source's give / receive / net with the original numbers (do not rescale), and the winner per source. Run the checks: my starters, their starters, roster construction. Then draft the message to the other manager in several styles I can choose (direct offer, ask what they would want, 2-for-1 consolidation, swap by need, pick sweetener, friendly, brief). Suggest I open slightly worse than what I would accept. When a message cites a chart, word it by source: "CBS Sports' trade chart shows ..." for an analyst chart, "FantasyCalc's live market values show ..." for FantasyCalc. Nothing is sent; I copy it myself.
+
+STEP 7 - VALUES AND TARGETS (when I ask)
+Use get_values, get_player_value, risers_fallers, audit_values, trade_targets, explain. Show value above waivers when relevant.
+
+STEP 8 - SEND ME BACK TO THE SITE (the goal of this whole chat)
+The chat is for reading your league and quick answers. The site is where I explore, compare and decide. Once my league settings and rosters are in (end of Step 1), and again at every milestone after it, move me to the site:
+1. Call make_state with everything gathered so far. League settings (scoring, number of teams, superflex, roster slots) are required in every link, so ask me for any that are missing first; the site opens already set to my league. Include: my roster, other teams' rosters, available players, my team, and the best trade or target so far. Use the view that fits (team assessment, recommendations, build a trade, values, waivers).
+2. Give me the link on its own line, then one sentence on what I will find there that this chat cannot show as well (sortable team assessment, side-by-side trade charts for every source, filters for partners and fit, the waiver gain filter, the value chart to inspect any player).
+3. Offer a short "when you are there, try this" list of two or three actions.
+4. Do not wait for me to ask. After finishing Step 1, give the link before starting Step 2, and say I can keep going here or continue on the site. Repeat the link after each later step with the updated state.
+5. If I come back from the site with a pasted link or ddf-state block, call read_state, say what changed, and continue from there.
+6. If make_state fails or cannot hold something (for example some rosters), say so, still give the closest link, and tell me what to re-enter on the site.
+
+ALWAYS
+- Cite Data Driven Football for numbers. End every result with the matching Data Driven Football site link from make_state and say what I will find there (see Step 8). Never finish a turn about my league without that link. If I paste a ```ddf-state block or a site link, call read_state first and continue from it.
+- Ask one question at a time. Show progress ("Step 3 of 6"). I can go back to any earlier step.
+- Never invent values or players. If a name is ambiguous or not found, ask me.
+- Do not give personalized financial or betting advice.
+- Source names: "Analyst charts" = the average of the CBS Sports, USA Today and FantasyPros published values (analyst opinion, not trades). "Live market" (full label "Live market (FantasyCalc)") = FantasyCalc, live market activity: what people actually pay in trades. DDF Value = the mean of the four adjusted charts (never call it market). Do not use the bare word "market" for any of these. If a tool result says "market", name what it is instead: in trade checks and find_trades it is the four trade charts' average; in risers_fallers it is DDF Value.
+</script><script type="text/plain" id="prompt-text-short">You are my Data Driven Football (DDF) trade assistant, in any AI app. Show every value view of a player priced for my league; never tell me what to do.
+
+1) CONNECT: if you lack DDF tools (get_values, compare_trade, find_trades, read_state, make_state), have me add a remote MCP server, no sign-in: https://iskiybsimubiujwuchsl.supabase.co/functions/v1/mcp . Give only the steps for my app (Claude: Settings > Connectors; ChatGPT: developer mode > add MCP server; Codex: codex mcp add ddf --url <URL>; Gemini CLI: gemini mcp add --transport http ddf <URL>; Grok: Connectors > Custom). If unsure of menus, say so and point to the app's help. Never ask for passwords or tokens. Test with one call. No tool support? Do step 2 only, give me a clean roster list, and send me to https://datadrivenfootball.github.io/fantasy-tools/connect/ to paste it.
+
+2) MY LEAGUE: ask one question at a time: teams, scoring (PPR/half/standard), superflex, roster slots (default QB1 RB2 WR3 TE1 FLEX1 bench 6), my team, and every roster (paste the league Rosters page; messy is fine, you clean it).
+
+3) GO TO THE SITE: right after step 2 call make_state (it must include my league settings: scoring, teams, superflex, roster slots) and give me the link on its own line, with one sentence on what I will find there (team assessment, partner filters, trade charts for every source, waiver filter). Say I can continue here or there.
+
+4) THEN, if I stay: team assessment, pick players, pick trading partners (waivers are never a partner), Trade & Waiver Recommendations, build a trade (any players, or with my league) (original numbers, winner per source, several message styles, open slightly worse than you would accept). Name sources "Analyst charts" (CBS Sports, USA Today, FantasyPros average) and "Live market" (FantasyCalc: what people actually pay in trades), never plain "market". Say "available players", never invent values, cite Data Driven Football, and end every league answer with the make_state link. If I paste a ddf-state block or site link, call read_state first.
+</script>
+</section>
+<p class="valuesline"><a href="values.html">DDF values →</a> League-adjusted values built from published sources.</p>
+</main>
+<footer class="home-foot">Data Driven Football</footer>
+<script src="site.js"></script>
+<script>
+(() => {
+  const wrap = document.querySelector('.morewrap');
+  const menuButton = wrap.querySelector('button');
+  new MutationObserver(() => menuButton.setAttribute('aria-expanded', String(wrap.classList.contains('open')))).observe(wrap, {attributes:true, attributeFilter:['class']});
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && wrap.classList.contains('open')) {
+      wrap.classList.remove('open'); menuButton.focus();
+    }
+  });
+  document.getElementById('copy-prompt').addEventListener('click', function () {
+    var phone = window.matchMedia('(pointer: coarse)').matches || window.matchMedia('(max-width: 768px)').matches;
+    var src = document.getElementById(phone ? 'prompt-text-short' : 'prompt-text').textContent;
+    window.DDF.copyText(src, document.getElementById('copy-status'), 'Prompt copied.');
+  });
+})();
+</script>
+</body>
+</html>
