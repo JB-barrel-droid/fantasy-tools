@@ -5,11 +5,14 @@ unique index; the migrations only create (no drop/alter/delete) and enable RLS;
 nulls stay null (never zero); stamps come from the snapshot vintage; unmatched
 names go to review, never guessed; an empty or undated snapshot fails closed.
 """
+import contextlib
+import io
 import json
 import re
 import sys
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -107,6 +110,45 @@ class SharksSaverTest(unittest.TestCase):
             p.write_text(json.dumps({"rows": [{"player_name": "x"}]}))
             with self.assertRaises(SystemExit):
                 mod.build_rows(p)
+
+    def _conflict_snapshot(self):
+        players = PLAYERS + [{"player_key": 3001, "full_name": "Max Bredeson", "position": "TE", "active": True}]
+        fs.fetch_players = lambda: players
+        rows = FS_ROWS + [{"player_name": "Max Bredeson", "player_norm": "max bredeson", "pos": "RB", "team": "SF",
+                           "fantasysharks_id": 22, "pts": {"half_ppr": 5.0}}]
+        return snapshot(self.tmp.name, rows)
+
+    def test_position_conflict_stays_out_of_clean_rows(self):
+        clean, review, _ = fs.build_rows(self._conflict_snapshot())
+        self.assertEqual([2227], [r["player_key"] for r in clean])
+        self.assertEqual(["position_conflict"], [r["reason"] for r in review])
+
+    def test_main_saves_only_clean_rows_and_dry_run_never_writes(self):
+        snap = self._conflict_snapshot()
+        saved = []
+        fs.upsert_rows = lambda table, rows, conflict: saved.append(rows)
+        fs.count_rows = lambda table, params: len(saved[0])
+        for name in ("upsert_rows", "count_rows"):
+            self.addCleanup(setattr, fs, name, getattr(fs, name))
+        with mock.patch.object(fs.identity_queue, "record_misses"), \
+                mock.patch.object(sys, "argv", ["x", "--snapshot", str(snap), "--dry-run"]), \
+                contextlib.redirect_stdout(io.StringIO()):
+            fs.main()
+        self.assertEqual([], saved)
+        out = io.StringIO()
+        with mock.patch.object(fs.identity_queue, "record_misses"), \
+                mock.patch.object(sys, "argv", ["x", "--snapshot", str(snap)]), \
+                contextlib.redirect_stdout(out):
+            fs.main()
+        self.assertEqual([[2227]], [[r["player_key"] for r in rows] for rows in saved])
+        self.assertIn("REVIEW, NOT SAVED: position_conflict: Max Bredeson", out.getvalue())
+
+    def test_duplicate_player_key_saves_neither_row(self):
+        fs.fetch_players = lambda: PLAYERS
+        dup = dict(FS_ROWS[0], fantasysharks_id=99, pts={"half_ppr": 1.0})
+        clean, review, _ = fs.build_rows(snapshot(self.tmp.name, FS_ROWS + [dup]))
+        self.assertEqual([], clean)
+        self.assertEqual(["duplicate_player_key"] * 2, [r["reason"] for r in review])
 
 
 if __name__ == "__main__":
