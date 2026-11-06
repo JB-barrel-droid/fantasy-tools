@@ -45,7 +45,7 @@ export interface FindTradesResult {
 
 export interface FindTradesOpts {
   maxSize?: number;       // max players per side (default 2)
-  minRivalEdge?: number;  // min market-value edge the rival needs (default 0)
+  minRivalEdge?: number;  // min Trade chart average edge the rival needs (default 0)
   limit?: number;         // max candidates to return (default 10)
 }
 
@@ -141,10 +141,10 @@ export function findTradesForPair(
     }),
   );
 
-  // Optional: filter by a minimum market-value (chart-average) edge for the rival.
+  // Optional: filter by a minimum Trade chart average edge for the rival.
   if (minRivalEdge > 0) {
     trades = trades.filter((t) => {
-      // The rival's edge on the chart average: the mean of the charts where
+      // The rival's edge on the Trade chart average: the mean of the charts where
       // the rival breaks even or comes out ahead. JEG-1125: rivalOk now also
       // holds for a chart that has you up by less than the even band, where
       // the rival gains nothing, so a chart counts only the rival's own gain

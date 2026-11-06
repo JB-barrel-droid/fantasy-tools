@@ -27,7 +27,7 @@ The response lists the settings that differ from the site defaults in
 (`chart_values`), per-chart Indexed values (`chart_indexed`) and DDF
 sub-versions (`ddf_value_charts`, `ddf_value_projections`) to each player
 record (used internally by the MCP `find_trades` tools). The trade finder
-judges the other team on the mean of `chart_indexed`, the market: the mean of
+judges the other team on the mean of `chart_indexed`, the Trade chart average: the mean of
 `chart_values` is DDF Value itself, and `ddf_value_charts` equals DDF Value
 since JEG-1073 (JEG-1129).
 
@@ -239,9 +239,9 @@ that needs a URL instead of a local process.
   on get-values' `include=series,prior,audit` blocks (`mcp/analyses.ts`).
   `risers_fallers` (`series`, `position`, `limit` 1-25, `disagreements`): the
   served-week pair, Week N−1 → N, risers and fallers with before, now and Δ,
-  and the market vs projections disagreements with the page's read; links to
+  and the DDF Value vs projections disagreements with the page's read; links to
   `#risers-fallers`. `compare_trade` with `by_source: true`: the page's default
-  Compare a trade rows (DDF Value and the four published charts, rescaled) and
+  Compare a trade rows (DDF Value and the four published charts, Indexed) and
   the DDF Value verdict with the charts that agree or point the other way;
   without it the reply is unchanged. `audit_values` (`view` health or source,
   `source`, `position`, `limit`): the Health check's verdict rows, or one
@@ -317,8 +317,8 @@ The site's `finder.js` can load the same logic later.
 | `userGives` / `userGets` | `[{player_key, name, pos, ddfValue}]` | Players traded |
 | `ddfEdge` | number | DDF Value gain (receive − give) for the user |
 | `userLineupDelta` | number | User's starting lineup value change on DDF |
-| `theirMarketNet` | number | Other team's market-value net (what they get − give) |
-| `theirLineupDelta` | number | Other team's lineup change on market value |
+| `theirMarketNet` | number | Other team's Trade chart average net (what they get − give) |
+| `theirLineupDelta` | number | Other team's lineup change on the Trade chart average |
 | `theirPositionsBefore` / `After` | `{pos: {starters, value}}` | Their starters at each position, before/after |
 | `userProtectedAfter` | `{pos: {starters, value}}` | User's starters at guardrail positions, after |
 | `viable` | boolean | All 9 checks passed |
@@ -330,10 +330,10 @@ The site's `finder.js` can load the same logic later.
 **Viability checks (all run on every offer):**
 
 1. **Arbitrage**: user receives more DDF value than sent.
-2. **Perceived fairness**: other team receives >= what it sends on market value.
+2. **Perceived fairness**: other team receives >= what it sends on the Trade chart average.
 3. **User lineup improves**: user's starting lineup strictly improves on DDF value (> 0, not break-even). (Jeremy 2026-10-24.)
-4. **Their lineup improves**: other team's starting lineup strictly improves on market value (> 0). (Jeremy 2026-10-24.)
-5. **Position protection**: other team's resulting starting lineup total market value must not decrease. Empty slots filled at replacement level (0), so a real hole shows as a value loss. Per-position before/after starters are display-only, not pass/fail. (Jeremy 2026-10-24: dropped per-position 15% weaker test.)
+4. **Their lineup improves**: other team's starting lineup strictly improves on the Trade chart average (> 0). (Jeremy 2026-10-24.)
+5. **Position protection**: other team's resulting starting lineup total Trade chart average must not decrease. Empty slots filled at replacement level (0), so a real hole shows as a value loss. Per-position before/after starters are display-only, not pass/fail. (Jeremy 2026-10-24: dropped per-position 15% weaker test.)
 6. **Depth**: neither team lacks healthy relevant players for starting slots plus backups at RB/WR.
 7. **Roster space**: a team taking more players than it sends must have dead weight to drop.
 8. **QB kept**: both teams keep a QB.
@@ -356,7 +356,7 @@ once. Output includes the user's lineup after the package.
 | Parameter | Default | Description |
 |---|---|---|
 | `minDdfEdge` | 0 | Minimum DDF value gain for the user |
-| `minMarketNet` | 0 | Minimum market-value gain for the other team |
+| `minMarketNet` | 0 | Minimum Trade chart average gain for the other team |
 | `minUserLineupGain` | 0 | Minimum user lineup improvement |
 | `minTheirLineupGain` | 0 | Minimum their lineup improvement |
 | `positionWeakerThreshold` | 0.15 | _(Unused, kept for compat. Per-position test removed 2026-10-24.)_ |

@@ -1,243 +1,117 @@
-# Does the market gap predict anything?
+# Does the Trade chart average gap predict anything?
 
-This is early evidence: six saved weeks of one season (weeks 2 to 7 of 2026),
-which gives five week-to-week comparisons. The uncertainty is shown with every
-number. All figures were computed on 22 October 2026 with DDF Value built from
-the projections only; an earlier version of DDF Value blended the trade charts
-with the projections, and those figures are not used here.
+This is early evidence from saved 2026 content weeks 2 to 7.
+These figures are **mean-based**, rerun on 2026-11-01T20:01Z with the
+reference engine at commit `88f51c1f`. Jeremy approved the research
+aggregation change on 31 October 2026 (JEG-1411). The earlier October 22
+figures used a different aggregation and are superseded here.
 
 Terms used below:
 
-- **DDF Value** is our own value for a player: the average of the projection
-  sources' values above waivers (how many points a player adds over the best
-  freely available player at his position), on one common point scale.
-- **Rescaled** means a trade chart converted onto that same point scale, so a
-  chart's price and our value can be compared directly.
-- **The gap** is the market's price minus our value for the same player.
+- **DDF Value (projections)** is the projection-side view: the average of the
+  projection sources' weight-adjusted indexed values. Every result below uses
+  this view as our value.
+- **Indexed** is a chart's value on the common scale, before position and
+  bench weighting.
+- **Trade chart average (mean)** is the arithmetic mean of the available
+  Indexed trade-chart values for a player. A real zero counts; a missing chart
+  does not.
+- **The gap** is the Trade chart average minus DDF Value (projections).
+  A positive gap is the Sell side; a negative gap is the Buy side.
 
----
+## Data and method
 
-## Abstract
+The chart inputs are saved as-published 2026 weekly snapshots, then modeled
+through the checked-out reference engine. These are historical inputs, not
+fresh current-week prices. The player universe has 1161 players
+from this checkout. The actuals file contains 2026 weeks
+1 to 8; each outcome uses only the next
+two calendar weeks from the signal week, skipping a missing game row rather
+than counting it as zero. Older reports used earlier player and actuals files,
+so their sample sizes need not match this rerun.
 
-On the Trade targets page we compare our value for a player with what the
-published trade charts pay for him. When the charts pay more than we think he is
-worth, he is a Sell target; when they pay less, a Buy target. This post asks
-whether that gap tells you anything about what happens next.
+The headline setting is Full PPR, 12 teams, one quarterback and the standard
+roster. Each saved week uses the sources recorded for that content week, with
+no holds. Indexed chart prices and DDF Value (projections) use the same league
+scale. A gap can therefore reflect a price disagreement at those settings.
 
-Over the five week-pairs we have, it does, a little, in one specific sense: the
-chart price tends to move toward our value over the next week. The rank
-correlation between the gap and the next week's change in the charts' price is
--0.22 (95 percent interval -0.28 to -0.16): the more the charts overpay
-relative to us, the more their price falls. Of the players on the Buy list, the
-charts' price rose the following week for 60 percent (interval 51 to 68
-percent), against about 45 percent for any player. The effect is not explained
-by the charts bouncing back from their own recent moves: chart moves tend to
-continue rather than reverse, and the gap effect survives holding that fixed.
+The research signal requires at least two charts, a positive Trade chart
+average, and a strict majority of charts on the same side of our value.
+A Sell requires our value of at least 5. A Buy requires the position
+rank-equivalent gap to be at most -2. Players zeroed by the saved ESPN
+projection or given estimated chart prices are excluded from the lists.
+This is the research mean variant of the signal; it does not change the site
+or engine's calculations.
 
-Two honest limits. First, the gap predicts our own value's next move about as
-well as it predicts the charts' (correlation +0.21): the two sides converge
-toward each other, which is what two noisy estimates of the same thing do. The
-gap says "these two disagree and will disagree less next week", not "the market
-is wrong and we are right". Second, the gap does not predict actual fantasy
-points over the next two games relative to the projection (correlation about
-zero). Five week-pairs is a small sample, so read every figure as an early
-estimate with the uncertainty shown, not as a season-long fact.
-
-## The question
-
-Our manifesto says the fantasy market is efficient but not perfectly so, and
-that the opportunity is where market price and underlying value diverge, "and
-acting before that gap closes". The Trade targets page is built on that claim.
-This post tests it with the data we have saved: when our value sits above or
-below the charts' price, does the gap predict
-
-(a) the charts' price next week and the week after (do overpriced players fall,
-    underpriced ones rise?);
-(b) the gap's own persistence (does it close, widen or stay?);
-(c) the player's actual fantasy points relative to the projection?
-
-## Data
-
-**Weekly snapshots.** One saved snapshot per content week, weeks 2 to 7, holds
-what each source published that week: the four trade charts (USA Today,
-FantasyCalc, FantasyPros, CBS Sports) as their native 12-team, one-quarterback
-values per scoring, and the three projection sources (ESPN, CBS rest of season,
-Razzball) as per-game points per scoring. Week 2 has five sources (no CBS rest
-of season, no Razzball); week 3 has six (no CBS rest of season); weeks 4 to 7
-have all seven. Replaced versions of the same weeks (for example FantasyCalc
-pulled again later in the week) are not used. The player universe is the
-current player list (1,163 players), so a player who left it before 22 October
-is not in any week (survivorship; see Limits).
-
-**Actuals.** Realised points per game for each player for 2026 weeks 1 to 6
-(about 360 player rows a week; a player with no row did not record a line that
-week).
-
-**What we do not have.** No record of actual trades proposed or accepted, no
-chart publication times finer than the week, and no saved engine output from
-earlier weeks (the engine is re-run on the saved inputs instead).
-
-## Method
-
-### Re-pricing each week
-
-Each saved week is run through our reference implementation of the value
-engine at the reader's default league settings (Full PPR, 12 teams, the
-standard roster), with every source that has the week saved included, no holds,
-and the fixed value pie (2,352 points at 12 teams; the pie is the total value
-shared across all players, held constant so values are comparable between
-weeks). The output per player per week is DDF Value and each chart's Rescaled
-value. Because the pie is fixed, values are on the same scale in every week, so
-a change in a player's price is a change in points.
-
-Check: re-pricing week 7 from its snapshot reproduces the live run for 22
-October exactly (3,670 values, maximum difference 0.0000). The reference and
-the browser engine are also compared against each other on every data refresh,
-with a tolerance of 0.05 points.
-
-### The signal, exactly as the page computes it
-
-- **Market consensus** is the median of the Rescaled chart values that price
-  the player (a chart's 0 counts, a missing chart does not). The gap is the
-  consensus minus our value; positive is a Sell, negative a Buy. A player is
-  eligible only with two or more charts, a consensus above 0, and a strict
-  majority of the charts on the same side of our value.
-- **Sell target:** eligible, on the Sell side, and our value at least 5 points.
-  The 5-point floor keeps near-zero values, where a small gap is mostly noise,
-  off the list.
-- **Buy target:** eligible, on the Buy side, and the rank-equivalent gap at his
-  position (our value at the rank the charts give him, minus our value) at
-  least 2 points below zero. The 2-point margin keeps a pure difference of
-  scale between the charts and us from counting as a Buy.
-- A player ESPN zeroes, or whose chart value the engine had to estimate, is
-  never listed.
-
-The test universe is every player the charts price above 0 with two or more
-charts (about 205 players a week), not only the listed ones, so the
-correlations do not depend on the list thresholds.
-
-### Tests
-
-- **(a) Price move.** For each player at week t, the change in the consensus
-  price and in our value from t to t+1. Spearman rank correlation with the gap,
-  and for the Buy list, the share whose consensus rose, against the base rate
-  for all compared players. Intervals are 95 percent cluster bootstraps by
-  player (1,000 draws), because the same player appears in up to five
-  week-pairs.
-- **Regression-to-the-mean control.** A placebo signal: the consensus price's
-  own change from t-1 to t. If the gap effect were only prices bouncing back
-  from a recent jump, the placebo would carry it. Both are entered together in
-  a rank regression of the next-week change.
-- **(b) Persistence.** Correlation of the gap with itself a week later, the
-  share of gaps that change sign, and how much of the Buy list is still listed
-  next week.
-- **(c) Actuals.** Actual points per game over the next two games (weeks t and
-  t+1) minus the ESPN per-game projection saved in week t, correlated with the
-  gap.
+We compare each gap with the next change in the Trade chart average and in our
+value, then check gap persistence. A placebo control uses the chart average's
+own previous move. Correlations are Spearman rank correlations. Intervals are
+95 percent cluster bootstraps by player, with 1,000 draws at the headline
+setting. Results are associations, not evidence that an actual offer was accepted.
 
 ## Results
 
-### (a) Both sides move toward each other
+The next-week panel has 1259 player-weeks and 292 players,
+covering signal weeks [2, 3, 4, 5, 6]. Figures below show correlations and their
+95 percent intervals unless specified otherwise.
 
-DDF Value from projections only (Full PPR, 12 teams; 1,017 player-weeks, 238
-players, weeks 2 to 6 predicting 3 to 7):
-
-| Test | Spearman, next week [95 percent interval] |
+| Test | Mean-based result |
 |---|---|
-| Gap vs change in the chart consensus | -0.22 [-0.28, -0.16] |
-| Gap vs change in our value | +0.21 [+0.14, +0.27] |
-| Gap vs change in the gap | -0.36 [-0.41, -0.31] |
-| Rank regression, gap and placebo together | gap t = -7.6, placebo t = +5.0 |
+| Gap vs next change in Trade chart average | -0.19 [-0.26, -0.13] (n=1259) |
+| Gap vs next change in our value | +0.19 [+0.13, +0.25] (n=1259) |
+| Gap vs next change in gap | -0.34 [-0.39, -0.29] (n=1259) |
+| Placebo vs next change in Trade chart average | +0.20 [+0.14, +0.27] (n=1011) |
+| Gap on the same rows as the placebo | -0.22 [-0.28, -0.14] (n=1011) |
+| Rank regression, gap and placebo together | gap t=-6.9, placebo t=+6.5 (n=1011) |
 
-The sign is the one the page assumes: the more the charts overpay relative to
-us, the more their price falls next week. The placebo runs the other way. A
-chart price that rose last week tends to keep rising this week (most likely
-the charts updating at different speeds, so a move spreads across them over two
-weeks). So the gap effect is not the charts reverting from their own jumps; it
-survives with the placebo held fixed.
+The Buy list has 122 player-weeks and 61 players. Its share
+with a rising Trade chart average next week is 66% [56, 74] (n=122),
+against the all-player base rate of 43% [40, 46] (n=1259).
+The intervals matter: a Buy label is not a promise that the price will rise.
 
-The Buy list has 121 player-weeks (62 players); the consensus rose the next
-week for 60 percent (interval 51 to 68 percent), against about 45 percent for
-any compared player.
-
-The gap also predicts our own next move just as well: a player the charts pay
-more for sees our value rise next week, and a player they pay less for sees
-it fall. The two estimates move toward each other at about the same rate.
-Read plainly: when the charts and the projections disagree, the disagreement
-shrinks, and roughly half of the shrinking is us catching up to the charts.
-
-What this means for you: a Sell target is a player whose asking price is more
-likely to fall than rise over the next week, and a Buy target one whose price
-is more likely to rise. It does not mean the charts have the player wrong; our
-own number moves too.
-
-### (b) The gap persists
-
-The gap is sticky: its rank correlation with itself a week later is +0.68, and
-+0.56 two weeks later. Only 21 percent of gaps change sign in a week. A Buy
-target has a 55 percent chance of still being a Buy target next week, so the
-lists turn over about half each week, mostly because a player crosses a
-threshold, not because the gap flips.
-
-What this means for you: a gap you see today is usually still there next
-week, but the closing is gradual. A single week is rarely the whole move.
-
-### (c) The gap does not predict points against the projection
-
-883 player-weeks (227 players, weeks 2 to 6) have a saved ESPN projection and
-at least one game in the next two. The correlation between the gap and the
-realised points per game minus that projection is -0.04 [-0.12, +0.04]. The
-projection itself is informative (correlation with actual +0.59); the gap adds
-nothing we can detect in two games. With this sample a true effect of a few
-tenths of a point per game would be invisible, so this is "not detected", not
-"absent".
-
-What this means for you: the gap is about price, not about how many points a
-player will score. Do not read a Buy target as a player who will outscore his
-projection.
-
-## Limits
-
-- **Five week-pairs, one season.** A correlation of -0.22 on about a thousand
-  player-weeks is statistically clear, but one season is one draw. Different
-  weeks could land higher or lower, so quote these as early evidence.
-- **Survivorship.** The universe is the player list as of 22 October. Players
-  who dropped out before then are missing from every week; players whose charts
-  dropped them in week t+1 count as a price fall to 0, which is a real fall but
-  an extreme one.
-- **Engine.** Numbers come from the reference implementation, not the browser,
-  as of 22 October 2026.
-- **Mechanics.** The charts are rescaled to our curve with one factor per chart
-  per week; a change in our overall scale moves every rescaled value together.
-  The consensus is a median of two to four charts, so a single chart's update
-  can move it a lot, and a chart dropping a player sends the consensus toward
-  0.
-- **No trades.** We have no record of what anyone accepted. "The chart price
-  fell" is a proxy for "the player became harder to sell at that price", not a
-  measure of trade outcomes.
-- **Realised points.** Two games is a short window and actuals exist only to
-  week 6; bye and injury weeks are skipped, not zeroed.
-- **Mid-week timing.** We have one chart version per week, so we cannot tell
-  whether a move happens within the week the gap appears.
-
-## Conclusion
-
-The gap between our value and the charts' price is a modest, consistent
-predictor of where the charts' price goes next week, in the direction the page
-assumes, and it is not a mean-reversion artifact. It is also a predictor of
-where our own value goes, in the opposite direction: the two converge. It does
-not predict fantasy points over the next two games. For a manager, that means a
-Sell target is a player whose asking price is more likely to fall than rise over
-the next week, and a Buy target one whose price is more likely to rise; it does
-not mean the charts have the player wrong.
-
----
-
-## Sources
-
-| Claim | Where it comes from |
+| Persistence test | Mean-based result |
 |---|---|
-| Correlations, hit rates, placebo, persistence, actuals | Our backtest of the saved weekly snapshots, run 22 October 2026 on the reference value engine |
-| Signal definition | The Trade targets page rules, rebuilt in the backtest |
-| Weekly snapshots, weeks 2 to 7 | Saved source values for each content week |
-| Realised points | Weekly game results for 2026 weeks 1 to 6 |
+| Gap vs gap one week later | +0.66 [+0.61, +0.72] (n=1259) |
+| Gap vs gap two weeks later | +0.54 [+0.46, +0.61] (n=997) |
+| Gaps changing sign next week | 17% [15, 20] (n=1259) |
+| Buy targets still listed next week | 51% [39, 60] (n=122) |
+
+The realised-points panel has 1299 player-weeks and 283 players,
+using signal weeks [2, 3, 4, 5, 6, 7]. The gap's correlation with actual points per
+game minus the saved ESPN projection is -0.05 [-0.12, +0.01] (n=1299).
+The projection's correlation with actual points is
++0.63.
+A price gap and a forecast of fantasy production answer different questions.
+
+## Limits and interpretation
+
+- The history covers one season and only a few weekly transitions. It cannot
+  establish a stable effect across seasons.
+- This is a modeled rerun with the current checkout's player list and
+  reference engine. Players absent from that list are absent from every week.
+- Chart values come from published snapshots; Indexed values, gaps, list
+  memberships and statistics are modeled. Actuals are observed game results.
+- A chart dropping a player can produce a large move. The mean of two to four
+  charts remains sensitive to outliers and changes in which charts price him.
+- No actual proposed or accepted trades are recorded. A price move is a proxy,
+  not a measured trade outcome.
+- The historical snapshot consistency diagnostic has maximum difference
+  14.3009 against the checkout's current fixture;
+  it does not pass the 0.05 tolerance. It is not proof of historical live-site
+  parity, and no live site was checked for this rerun.
+
+For a manager, use the gap as a description of disagreement between the chart
+average and the projection view. Read it alongside the uncertainty and roster
+context, rather than as an instruction to buy or sell.
+
+## Evidence
+
+- Reproduction: `python3 tools/research/gap_backtest.py --output-dir docs/research/data/jeg1411-mean --post docs/research/posts/07-does-the-gap-predict.md`.
+- [Mean rerun tables](../data/jeg1411-mean/gap_backtest.md),
+  [full statistics](../data/jeg1411-mean/gap_backtest.json) and
+  [player-week rows](../data/jeg1411-mean/gap_backtest.csv).
+- [Before/after comparison](../data/jeg1411-mean/before-after.md) separates
+  the old published figures from a median baseline on the same current inputs.
+- The underlying script also runs Standard, Half PPR and PPR at each supported
+  team count. Its settings appendix is explicitly the DDF Value chart view;
+  the headline study above is DDF Value (projections).

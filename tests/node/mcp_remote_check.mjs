@@ -455,7 +455,7 @@ assert.ok(r.result.structuredContent.site_url.includes("#find-trade"), "link poi
 
 // ---------- compact answers, name matching, validation ----------
 const valuesTool = (await rpc("tools/list")).result.tools.find((t) => t.name === "get_values");
-assert.match(valuesTool.description, /average of the four adjusted trade charts/);
+assert.match(valuesTool.description, /average of the four trade charts' weight-adjusted indexed values/);
 assert.doesNotMatch(valuesTool.description, /blended across/);
 
 // Typos, hyphens and a suffix comma resolve. A shared name or a bare suffix does not pick one player.

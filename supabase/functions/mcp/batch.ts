@@ -144,8 +144,8 @@ export async function findTradesLeague(
   const deduped = [...seen.values()];
   const duplicatesRemoved = allTrades.length - deduped.length;
 
-  // Rank: positive lineup-point gain for me AND opponent market-value edge.
-  // Default sort: my lineup point change descending, then opponent market edge descending.
+  // Rank: positive lineup-point gain for me AND opponent Trade chart average edge.
+  // Default sort: my lineup point change descending, then opponent Trade chart average edge descending.
   const ranked = deduped
     .filter((t) => t.myLineupPointChange > 0 && t.opponentMarketEdge >= 0)
     .sort((a, b) =>
