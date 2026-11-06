@@ -8,7 +8,13 @@ Does not acquire vendors, import, publish, or activate schedules.
 """
 import argparse
 import json
-from lib.content_observations import Ledger, Scope, verdict
+import sys as _sys
+from pathlib import Path as _Path
+
+# `lib` lives in pipelines/; make it importable whatever the CWD, checkout path or
+# import order (tests import this module as pipelines.X without pipelines/ on sys.path).
+_sys.path.insert(0, str(_Path(__file__).resolve().parent))
+from lib.content_observations import Ledger, Scope, verdict  # noqa: E402
 
 
 def main():

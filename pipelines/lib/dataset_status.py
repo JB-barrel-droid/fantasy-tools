@@ -564,8 +564,32 @@ def build_dataset_status(meta, players, snapshot_dir=None,
                      and all(k.source == entry['key'] and k.season == 2026
                              and k.week_slate == 'ros' and k.dataset in required for k in parsed)
                      and {k.dataset for k in parsed} == required)
-            observations = ([verdict(ledger.latest(k), evaluated_at) for k in parsed]
-                            if valid else [verdict(None, evaluated_at)])
+            observations = []
+            for k in parsed if valid else []:
+                observation = ledger.latest(k)
+                health = verdict(observation, evaluated_at)
+                if k.source == 'espn':
+                    snapshot = json.loads((observation or {}).get('snapshot') or '[]')
+                    received = {(r['id'].casefold(), r['pos']) for r in snapshot}
+                    positions = ({'QB', 'RB', 'WR', 'TE'} if k.dataset == 'skill'
+                                 else {'K'} if k.dataset == 'k' else {'DST', 'DEF', 'D/ST'})
+                    required_players = [p for p in players if p.get('pos') in positions
+                                        and p.get('espn_complete', True)]
+                    required = {(str(p.get('canon') or p.get('name') or '').strip().casefold(),
+                                 p['pos']) for p in required_players}
+                    # Unknown chart identities/positions cannot certify an input.
+                    covered = (bool(required) and all(p.get('pos') in {'QB', 'RB', 'WR', 'TE', 'K', 'DST', 'DEF', 'D/ST'}
+                                   for p in players if p.get('espn_complete', True))
+                               and all(i for i, _ in required)
+                               and required <= received)
+                    if k.dataset == 'skill' and not any(p.get('pos') in positions for p in players):
+                        covered = False
+                    if not covered:
+                        health['stale'] = True
+                        health['reasons'].append('chart_identity_coverage_unknown_or_incomplete')
+                observations.append(health)
+            if not observations:
+                observations = [verdict(None, evaluated_at)]
         except (TypeError, ValueError, OSError, sqlite3.Error):
             observations = [verdict(None, evaluated_at)]
         unhealthy = [v for v in observations if v["stale"]]

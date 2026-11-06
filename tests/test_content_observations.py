@@ -258,7 +258,13 @@ class ReviewRegressions(unittest.TestCase):
         from unittest.mock import patch
         from tests.test_espn_pull_team_played_jeg574 import PullMainPerTeamWindowTest, PLAYED_THURSDAY
         from pipelines.lib.content_observations import acquisition_scope
-        with patch.dict(os.environ, CONTENT_OBSERVATION_LEDGER=str(self.ledger.path)):
+        from tests.test_espn_pull_team_played_jeg574 import TEAM_IDS, PER_TEAM
+        import json
+        manifest = Path(self.tmp.name) / 'expected-espn.json'
+        manifest.write_text(json.dumps([{'id': f'back {tid}-{k}', 'pos': 'RB'}
+                                       for tid in TEAM_IDS for k in range(PER_TEAM)]))
+        with patch.dict(os.environ, CONTENT_OBSERVATION_LEDGER=str(self.ledger.path),
+                        CONTENT_OBSERVATION_ESPN_EXPECTATIONS=str(manifest)):
             PullMainPerTeamWindowTest().run_pull(PLAYED_THURSDAY)
         observation = self.ledger.latest(acquisition_scope('espn'))
         self.assertEqual('success', observation['result'])
@@ -276,3 +282,89 @@ class ReviewRegressions(unittest.TestCase):
             with self.subTest(source=source):
                 self.assertEqual(content_hash(source, [row]),
                                  content_hash(source, [dict(row, pos='RB', team='NYJ')]))
+
+
+class SecondReviewRegressions(unittest.TestCase):
+    setUp = Observations.setUp
+
+    def test_partial_espn_cannot_self_certify_or_certify_chart(self):
+        import json
+        import os
+        from unittest.mock import patch
+        from pipelines.lib.content_observations import acquired, acquisition_scope
+        row = {'canon': 'one', 'pos': 'QB', 'weeks': {'1': {'yds': 1}}}
+        manifest = Path(self.tmp.name) / 'expected.json'
+        manifest.write_text(json.dumps([{'id': 'one', 'pos': 'QB'},
+                                        {'id': 'two', 'pos': 'RB'}]))
+        with patch.dict(os.environ, CONTENT_OBSERVATION_LEDGER=str(self.ledger.path),
+                        CONTENT_OBSERVATION_ESPN_EXPECTATIONS=str(manifest)):
+            observation = acquired('espn', [row])
+        self.assertEqual('incomplete_scope', observation['result'])
+        self.assertEqual(2, json.loads(observation['coverage'])['expected'])
+        # Even a direct writer declaring expected=1 cannot certify the chart.
+        scope = acquisition_scope('espn')
+        healthy = self.ledger.observe(scope, [row], expected=1,
+            attempted_at='2099-01-01T00:00:00Z',
+            source_updated_at='2099-01-01T00:00:00Z', trusted_numeric_time=True)
+        self.assertFalse(verdict(healthy, '2099-01-01T00:00:00Z')['stale'])
+        for players in ([{'name': 'one', 'pos': 'QB'}] +
+                        [{'name': f'other {i}', 'pos': 'RB'} for i in range(399)],
+                        [{'name': f'other {i}', 'pos': 'QB'} for i in range(400)],
+                        [{'name': str(i)} for i in range(400)]):
+            status = build_dataset_status({'as_of': '2026-11-05'}, players,
+                observation_ledger=self.ledger, observation_scopes={'espn': [asdict(scope)]},
+                evaluated_at='2099-01-01T00:00:00Z')
+            for entry in status['datasets']:
+                if entry['key'] in ('espn', 'our_value'):
+                    self.assertTrue(entry['stale'])
+
+    def test_missing_espn_expectations_fail_closed(self):
+        import os
+        from unittest.mock import patch
+        from pipelines.lib.content_observations import acquired
+        with patch.dict(os.environ, CONTENT_OBSERVATION_LEDGER=str(self.ledger.path),
+                        CONTENT_OBSERVATION_ESPN_EXPECTATIONS=''):
+            observation = acquired('espn', [{'canon': 'one', 'pos': 'QB',
+                                            'weeks': {'1': {'yds': 1}}}])
+        self.assertEqual('incomplete_scope', observation['result'])
+
+    def test_cbs_native_scoring_changes_hash_and_clock(self):
+        row = {'player_id': 1, 'pos': 'QB', 'gp': 8, 'cbs_fpts': 100, 'cbs_fppg': 12.5}
+        scope = Scope('cbsros', 'ros', 2026, 'ros', 'native', 'native')
+        for field in ('cbs_fpts', 'cbs_fppg'):
+            with self.subTest(field=field):
+                changed = dict(row, **{field: row[field] + 1})
+                self.assertNotEqual(content_hash('cbsros', [row]), content_hash('cbsros', [changed]))
+        self.ledger.observe(scope, [row], expected=1, attempted_at='2026-11-01T00:00:00Z')
+        changed = self.ledger.observe(scope, [dict(row, cbs_fpts=101)], expected=1,
+                                      attempted_at='2026-11-02T00:00:00Z')
+        self.assertEqual('2026-11-02T00:00:00Z', changed['last_observed_change_at'])
+
+    def test_separate_consumers_share_only_configured_ledger(self):
+        import os
+        from unittest.mock import patch
+        from pipelines.lib.content_observations import acquired, recorded_scopes
+        with patch.dict(os.environ, CONTENT_OBSERVATION_LEDGER=str(self.ledger.path)):
+            acquired('fantasycalc', [{'player_id': 1, 'value': 100}])
+            self.assertIn('fantasycalc', recorded_scopes(Ledger()))
+        missing = Path(self.tmp.name) / 'unprovisioned.sqlite3'
+        with patch.dict(os.environ, CONTENT_OBSERVATION_LEDGER=str(missing)):
+            self.assertEqual({}, recorded_scopes(Ledger()))
+            self.assertTrue(verdict(Ledger().latest(self.scope))['stale'])
+        self.assertFalse(missing.exists())
+
+    def test_complete_independent_chart_identity_coverage_can_pass(self):
+        from pipelines.lib.content_observations import acquisition_scope
+        players = [{'name': f'player {i}', 'pos': ('QB', 'RB', 'WR', 'TE')[i % 4]}
+                   for i in range(400)]
+        rows = [dict(canon=p['name'], pos=p['pos'], weeks={'1': {'yds': 1}})
+                for p in players]
+        scope = acquisition_scope('espn')
+        self.ledger.observe(scope, rows, expected=400, attempted_at='2026-11-05T00:00:00Z',
+            source_updated_at='2026-11-05T00:00:00Z', trusted_numeric_time=True)
+        status = build_dataset_status({'as_of': '2026-11-05'}, players,
+            observation_ledger=self.ledger, observation_scopes={'espn': [asdict(scope)]},
+            evaluated_at='2026-11-05T00:00:00Z')
+        for entry in status['datasets']:
+            if entry['key'] in ('espn', 'our_value'):
+                self.assertFalse(entry['stale'])

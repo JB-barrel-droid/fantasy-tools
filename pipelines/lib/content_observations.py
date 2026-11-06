@@ -18,7 +18,7 @@ try:
 except ImportError:  # standalone pullers import from pipelines/lib
     from timestamps import parse_iso_timestamp
 
-VERSION = 'native-v2-numeric'
+VERSION = 'native-v3-cbs-scoring'
 DEFAULT_PATH = Path(__file__).resolve().parents[2] / 'data/content-observations.sqlite3'
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS observations (
@@ -79,7 +79,7 @@ def number(value):
 # Explicit native columns. Retrieval/page stamps and derived trade values excluded.
 CBS_FIELDS = ('gp pass_att pass_cmp pass_yds pass_yds_g pass_td int rate '
               'rush_att rush_yds rush_avg rush_td fl tgt rec rec_yds rec_yds_g '
-              'rec_avg rec_td').split()
+              'rec_avg rec_td cbs_fpts cbs_fppg').split()
 RAZZ_FIELDS = ('rz_std_ppg rz_half_ppr_ppg rz_ppr_ppg games_reported '
                'pass_att pass_cmp pass_yds pass_td int rush_att rush_yds rush_td '
                'tgt rec rec_yds rec_td fl pg_snaps pg_cmp pg_att pg_pass_yds pg_pass_td '
@@ -149,7 +149,8 @@ def content_hash(source, rows):
 
 class Ledger:
     def __init__(self, path=None):
-        self.path = Path(path or os.environ.get('CONTENT_OBSERVATION_LEDGER', DEFAULT_PATH)).absolute()
+        configured = path or os.environ.get('CONTENT_OBSERVATION_LEDGER') or DEFAULT_PATH
+        self.path = Path(configured).absolute()
 
     def latest(self, scope):
         if not self.path.exists():
@@ -262,11 +263,34 @@ class ObservationWriteError(OSError):
     pass
 
 
+def espn_expectations():
+    """Independent, operator-reviewed manifest: [{"id": canon, "pos": position}].
+
+    Never bootstrap this expectation from the acquisition being checked.
+    Missing configuration deliberately prevents complete coverage.
+    """
+    path = os.environ.get('CONTENT_OBSERVATION_ESPN_EXPECTATIONS')
+    if not path:
+        return set()
+    rows = json.loads(Path(path).read_text())
+    pairs = {(str(r['id']).strip(), str(r['pos']).upper()) for r in rows}
+    if not pairs or len(pairs) != len(rows) or any(not i or p not in
+            {'QB', 'RB', 'WR', 'TE'} for i, p in pairs):
+        raise ValueError('invalid ESPN coverage manifest')
+    return pairs
+
+
 def acquired(source, rows, *, scoring='native', variant='native', complete=True):
     """Must succeed before promoting an acquisition, including unchanged pulls."""
     try:
+        expected = max(1, len(rows))
+        if source == 'espn':
+            required = espn_expectations()
+            received = {(r['id'], r['pos']) for r in normalize(source, rows)}
+            complete = complete and bool(required) and received == required
+            expected = max(1, len(required))
         return Ledger().observe(acquisition_scope(source, scoring, variant), rows,
-            attempted_at=iso(datetime.now(timezone.utc)), expected=max(1, len(rows)),
+            attempted_at=iso(datetime.now(timezone.utc)), expected=expected,
             complete=complete, consumers=('dataset_status',))
     except (OSError, sqlite3.Error) as exc:
         raise ObservationWriteError('content observation write failed; promotion stopped') from exc
