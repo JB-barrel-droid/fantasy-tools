@@ -113,6 +113,70 @@ class FullFeedTest(unittest.TestCase):
                 self.assertEqual("failed", self.target(self.acquire(invalid, hours=1))["result"])
                 self.assertEqual(prior, path.read_bytes())
 
+    def test_malformed_player_fields_fail_closed_without_promotion(self):
+        self.acquire()
+        path = self.cache / "fantasycalc_half_12_qb1.json"
+        prior = path.read_bytes()
+        invalid_fields = {
+            "id": ("", "  ", True, -1, 1.5, {}, []),
+            "name": ({"name": "Player"}, [], 123, "", "  "),
+            "position": ("PICK", "", {}, [], 123),
+        }
+        for field, values in invalid_fields.items():
+            for value in values:
+                with self.subTest(field=field, value=value):
+                    data = copy.deepcopy(PAYLOAD)
+                    data[100]["player"][field] = value
+                    with self.assertRaises(ValueError):
+                        F.normalize(data)
+                    obs = self.target(self.acquire(
+                        lambda url: data if TARGET in url else copy.deepcopy(PAYLOAD), hours=1))
+                    self.assertEqual("failed", obs["result"])
+                    self.assertFalse(obs["complete"])
+                    self.assertEqual(prior, path.read_bytes())
+        for invalid in (None, [], {"player": None}, {"player": "bad"}):
+            with self.subTest(row=invalid), self.assertRaises(ValueError):
+                F.normalize(PAYLOAD[:-1] + [invalid])
+
+    def test_malformed_prior_state_still_fetches_every_scope_and_retains_bundle(self):
+        self.acquire()
+        path = self.cache / "fantasycalc_half_12_qb1.json"
+        valid = json.loads(path.read_text())
+        malformed = ["{invalid JSON", "null", "[]", "{}"]
+        for field, value in (("observation", None), ("observation", []),
+                             ("rows", None), ("rows", {})):
+            bundle = copy.deepcopy(valid)
+            bundle[field] = value
+            malformed.append(json.dumps(bundle))
+        for field, value in (("last_observed_change_at", "invalid"),
+                             ("last_observed_change_at", "2026-11-05T10:30:00"),
+                             ("last_observed_change_at", {}),
+                             ("successful_fetch_at", []),
+                             ("normalized_content_hash", {})):
+            bundle = copy.deepcopy(valid)
+            bundle["observation"][field] = value
+            malformed.append(json.dumps(bundle))
+        for saved in malformed:
+            with self.subTest(saved=saved[:100]):
+                path.write_text(saved)
+                prior = path.read_bytes()
+                urls = []
+                def fetched(url):
+                    urls.append(url)
+                    return copy.deepcopy(PAYLOAD)
+                observations = self.acquire(fetched, hours=1)
+                self.assertEqual(24, len(urls))
+                self.assertEqual(24, len(set(urls)))
+                self.assertEqual(24, len(observations))
+                obs = self.target(observations)
+                self.assertEqual("failed", obs["result"])
+                self.assertFalse(obs["complete"])
+                self.assertIn("prior_state_invalid", obs["error"])
+                self.assertIsNone(obs["ingested_hash"])
+                self.assertIsNone(obs["last_observed_change_at"])
+                self.assertEqual(prior, path.read_bytes())
+                self.assertEqual(23, sum(o["complete"] for o in observations))
+
     def test_duplicate_ids_and_partial_responses_fail_closed(self):
         for payload in (PAYLOAD[:40], PAYLOAD[:-1] + [PAYLOAD[0]]):
             with self.subTest(size=len(payload)):

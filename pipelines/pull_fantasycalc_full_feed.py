@@ -63,10 +63,15 @@ def normalize(payload) -> list[dict]:
         raise ValueError(f"incomplete_scope: expected at least {MIN_ROWS} native rows")
     rows, seen = [], set()
     for item in payload:
-        player = item.get("player") or {}
+        if not isinstance(item, dict) or not isinstance(item.get("player"), dict):
+            raise ValueError("schema_error: expected a player object")
+        player = item["player"]
         identity, value = player.get("id"), item.get("value")
-        if (identity is None or isinstance(identity, bool) or not player.get("name")
-                or not player.get("position") or isinstance(value, bool)
+        valid_id = (type(identity) is int and identity >= 0) or (
+            isinstance(identity, str) and bool(identity.strip()) and identity == identity.strip())
+        if (not valid_id or not isinstance(player.get("name"), str)
+                or not player["name"].strip() or not isinstance(player.get("position"), str)
+                or player["position"] not in {"QB", "RB", "WR", "TE"} or isinstance(value, bool)
                 or not isinstance(value, (int, float)) or not math.isfinite(value) or value < 0):
             raise ValueError("schema_error: invalid identity, position or native value")
         identity = str(identity)
@@ -112,7 +117,20 @@ def acquire(cache_dir: Path, *, week: int, season: int, fetch_fn=fetch,
             previous = json.loads(path.read_text()) if path.exists() else {}
             if not isinstance(previous, dict):
                 raise ValueError("invalid prior scope bundle")
-        except (OSError, ValueError) as exc:
+            if path.exists():
+                prior_observation = previous.get("observation")
+                if not isinstance(prior_observation, dict) or not isinstance(previous.get("rows"), list):
+                    raise ValueError("invalid prior observation or rows")
+                for field in ("normalized_content_hash", "ingested_hash", "normalizer_version"):
+                    if prior_observation.get(field) is not None and not isinstance(prior_observation[field], str):
+                        raise ValueError(f"invalid prior {field}")
+                for field in ("last_observed_change_at", "successful_fetch_at"):
+                    timestamp = prior_observation.get(field)
+                    if timestamp is not None:
+                        if not isinstance(timestamp, str) or datetime.fromisoformat(timestamp).tzinfo is None:
+                            raise ValueError(f"invalid prior {field}")
+                content_state(prior_observation.get("last_observed_change_at"), now)
+        except (OSError, ValueError, TypeError, OverflowError) as exc:
             previous, prior_error = {}, exc
         prior = previous.get("observation", {})
         age, stale, reason = content_state(prior.get("last_observed_change_at"), now)
@@ -135,10 +153,12 @@ def acquire(cache_dir: Path, *, week: int, season: int, fetch_fn=fetch,
         url = ("https://api.fantasycalc.com/values/current?isDynasty=false"
                f"&numQbs={qbs}&numTeams={teams}&ppr={SCORINGS[scoring]}")
         try:
-            if prior_error is not None:
-                raise ValueError(f"prior_state_invalid: {prior_error}")
             raw = fetch_fn(url)
             rows = normalize(raw)
+            # Acquire even when saved state is corrupt, but preserve that bundle
+            # for inspection rather than silently resetting its content clock.
+            if prior_error is not None:
+                raise ValueError(f"prior_state_invalid: {prior_error}")
             if len(rows) < 0.9 * len(previous.get("rows", [])):
                 raise ValueError("incomplete_scope: fewer than 90% of prior rows")
             digest = content_hash(rows)
