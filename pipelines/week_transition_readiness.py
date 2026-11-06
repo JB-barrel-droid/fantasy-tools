@@ -130,13 +130,39 @@ def code_digest(root):
 
 
 def scratch_copy(root, dest):
-    """Never copy credentials, Git metadata, symlinks, or prior build artifacts."""
-    def ignore(directory, names):
-        return [n for n in names if n in {'.git', 'node_modules', '.aws', '.codex', '.agents',
-                'dist', '__pycache__', '.venv', 'venv'} or n.startswith(('.env', 'SOURCE'))
-                or n == 'IMPL-REPORT.md' or (Path(directory) / n).is_symlink()
-                or (Path(directory) / n).resolve() == dest.parent.resolve()]
-    shutil.copytree(root, dest, ignore=ignore)
+    """Select version-controlled, nonignored diagnostic inputs, never a tree copy.
+
+    Read current working bytes so tracked fixes are rehearsed. Untracked inputs
+    require explicit review/addition before they can enter diagnostics. Private
+    paths are rejected even if accidentally force-added to the index.
+    """
+    def tracked(*options):
+        result = subprocess.run(['git', 'ls-files', '-z', '--cached', *options],
+                                cwd=root, capture_output=True, check=True)
+        return {Path(name.decode('utf-8')) for name in result.stdout.split(b'\0') if name}
+
+    selected = tracked() - tracked('--ignored', '--exclude-standard')
+    forbidden = {'.git', '.aws', '.codex', '.agents', 'secrets', 'node_modules',
+                 'dist', '__pycache__', '.venv', 'venv', 'ticket-work'}
+    dest.mkdir(parents=True, exist_ok=False)
+    for relative in sorted(selected):
+        if (relative.is_absolute() or '..' in relative.parts
+                or any(part in forbidden or part.startswith(('.env', 'SOURCE'))
+                       for part in relative.parts)
+                or relative.suffix.lower() in {'.key', '.pem'}
+                or relative.name == 'IMPL-REPORT.md'
+                or relative.parts[:2] in {('data', 'private'), ('data', 'raw')}):
+            continue
+        source = root / relative
+        # Reject directory symlinks as well as leaf symlinks before reading.
+        if any((root / Path(*relative.parts[:i])).is_symlink()
+               for i in range(1, len(relative.parts) + 1)):
+            continue
+        if not source.is_file() or source.resolve().is_relative_to(dest.parent.resolve()):
+            continue
+        target = dest / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(source, target)
 
 
 def run(root, output, manifest, code_hash, today, image=None):

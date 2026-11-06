@@ -86,8 +86,11 @@ class ReadinessTest(unittest.TestCase):
     def test_container_boundary_and_independent_browser_failure(self):
         calls = []
         def execute(argv, **kwargs):
-            calls.append(argv)
             from subprocess import CompletedProcess
+            if argv[0] == 'git':
+                self.assertEqual(argv[:4], ['git', 'ls-files', '-z', '--cached'])
+                return CompletedProcess(argv, 0, b'', b'')
+            calls.append(argv)
             return CompletedProcess(argv, 1 if 'tests/rendered_gate/gate_flexibility.mjs' in argv else 0, b'', b'')
         with patch.object(gate.subprocess, 'run', side_effect=execute):
             result = gate.run(self.root, self.root / 'run', self.capture(), 'code', '2026-11-10', 'sha256:' + 'a' * 64)
@@ -98,6 +101,37 @@ class ReadinessTest(unittest.TestCase):
             self.assertIn('-i', argv)
         self.assertEqual(next(s for s in result['stages'] if s['name'] == 'browser_flex')['status'], 'FAIL')
         self.assertFalse((self.root / 'run/scratch/run').exists())
+
+    def test_scratch_copies_only_selected_tracked_files_without_credentials(self):
+        import subprocess
+        subprocess.run(['git', 'init', '-q', str(self.root)], check=True)
+        files = {
+            'Makefile': 'safe build', 'pipelines/check.py': 'safe code',
+            '.gitignore': '*.pem\n*.key\nsecrets/\ndata/private/\n',
+            'secrets/production.json': 'fake secret',
+            'data/private/export.json': 'fake private data',
+            'service-account.pem': 'fake certificate', 'nested/client.key': 'fake key',
+            '.env': 'fake environment', '.aws/config': 'fake config',
+            'pipelines/.env.local': 'fake environment',
+            'dist/index.html': 'old build', 'ticket-work/receipt.json': 'old run',
+            'untracked.json': 'unreviewed payload',
+        }
+        for name, content in files.items():
+            path = self.root / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(content)
+        # Force-track private paths too: Git membership alone is insufficient.
+        subprocess.run(['git', '-C', str(self.root), 'add', '-f', '--',
+                        *[n for n in files if n != 'untracked.json']], check=True)
+        (self.root / 'pipelines/link.py').symlink_to(self.root / 'secrets/production.json')
+        (self.root / 'linked').symlink_to(self.root / 'secrets', target_is_directory=True)
+        subprocess.run(['git', '-C', str(self.root), 'add', 'pipelines/link.py', 'linked'], check=True)
+        (self.root / 'pipelines/check.py').write_text('dirty safe code')
+        dest = self.root / 'run/scratch'
+        gate.scratch_copy(self.root, dest)
+        self.assertEqual({p.relative_to(dest).as_posix() for p in dest.rglob('*') if p.is_file()},
+                         {'Makefile', 'pipelines/check.py', '.gitignore'})
+        self.assertEqual((dest / 'pipelines/check.py').read_text(), 'dirty safe code')
 
     def test_week9_evidence_pins_three_cases_without_weakening_tests(self):
         evidence = json.loads((Path(__file__).resolve().parents[1] / 'docs/week9-regression-evidence.json').read_text())
