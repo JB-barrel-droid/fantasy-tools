@@ -1,0 +1,9 @@
+{
+  "ticket": "JEG-1511",
+  "evidence": "docs/claude-log/2026-11-05-week9-unblock-waiver-band-exemption.md",
+  "historical_head": "42304deb",
+  "stage": "post_rebuild_validation / make validate",
+  "tests": ["tests.test_waiver_band_line.OnePlayerPerturbationTest.test_fringe_player_moves_no_one_more_than_tolerance", "tests.test_waiver_band_line.OnePlayerPerturbationTest.test_only_slot_flips_break_the_bar_with_slots_free"],
+  "cases": [["standard", 10, "razzball", "QB", 370, -1.0], ["standard", 8, "razzball", "TE", 1970, -1.0], ["half_ppr", 8, "razzball", "TE", 3279, 1.0]],
+  "status": "Historical Week 9 baked inputs not captured here. Existing tests include Jeremy-approved exemptions. Running them is diagnostic, not proof of a JEG-1511 fix."
+}
