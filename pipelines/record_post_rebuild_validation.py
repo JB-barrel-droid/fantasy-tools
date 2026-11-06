@@ -25,6 +25,8 @@ import re
 from datetime import datetime, timezone
 from pathlib import Path
 
+from validation_breach import records_from_log, render
+
 STATUS_PATHS = ("output/comparison-chain-status.json",
                 "dist/modules/comparison-chain-status.json")
 TEST_LINE = re.compile(r"^(FAIL|ERROR): (\S+) \(([^)]+)\)")
@@ -33,6 +35,7 @@ MAKE_LINE = re.compile(r"^make: \*\*\* \[([^\]]+)\]")
 
 
 def summarize(log_text: str) -> dict:
+    breaches = records_from_log(log_text)
     failed_tests, assertions, make_targets = [], [], []
     for line in log_text.splitlines():
         m = TEST_LINE.match(line)
@@ -45,7 +48,7 @@ def summarize(log_text: str) -> dict:
         m = MAKE_LINE.match(line)
         if m:
             make_targets.append(m.group(1))
-    detail = "; ".join(failed_tests + assertions) or (
+    detail = "\n".join([*(render(b) for b in breaches), *failed_tests, *assertions]) or (
         f"make validate failed at {', '.join(make_targets)}" if make_targets
         else "make validate failed (see the workflow log)")
     return {
@@ -53,6 +56,7 @@ def summarize(log_text: str) -> dict:
         "command": "make validate",
         "failed_tests": failed_tests,
         "assertions": assertions[:20],
+        "breaches": breaches,
         "make_targets": make_targets,
         "detail": detail,
         "recorded_at": datetime.now(timezone.utc).isoformat(),
@@ -61,6 +65,10 @@ def summarize(log_text: str) -> dict:
 
 def record(repo: Path, log_text: str) -> dict:
     block = summarize(log_text)
+    sink = repo / "output/post-rebuild-validation-breaches.json"
+    sink.parent.mkdir(parents=True, exist_ok=True)
+    sink.write_text(json.dumps(block["breaches"], indent=2, allow_nan=False) + "\n", encoding="utf-8")
+    block["breach_artifact"] = "output/post-rebuild-validation-breaches.json"
     status = {}
     src = repo / STATUS_PATHS[0]
     if src.exists():

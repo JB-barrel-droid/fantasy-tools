@@ -5,7 +5,7 @@ import subprocess
 import tempfile
 import unittest
 
-from tests.test_rebuild_chain_workflow import CHAIN, find_step, script_of
+from tests.test_rebuild_chain_workflow import CHAIN, COMMIT, find_step, script_of
 
 ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW = ROOT / '.github/workflows/rebuild-chain.yml'
@@ -13,7 +13,7 @@ WORKFLOW = ROOT / '.github/workflows/rebuild-chain.yml'
 
 def validation_shell():
     script = script_of(find_step(WORKFLOW.read_text(), CHAIN))
-    start = script.index('set +e\nenv -u SUPABASE_URL -u SUPABASE_SERVICE_KEY make validate > output/post-rebuild-validate.log')
+    start = script.index('set +e\nenv -u SUPABASE_URL -u SUPABASE_SERVICE_KEY python3 pipelines/candidate_evidence.py run --kind validation -- make validate > output/post-rebuild-validate.log')
     end = script.index('# The published build', start)
     return script[start:end].replace('${{ steps.week.outputs.nfl_week }}', '8')
 
@@ -33,6 +33,8 @@ exit "$RETRY"
 ''')
         (bin_dir / 'python3').write_text('''#!/bin/sh
 case "$1 $2" in
+  'pipelines/candidate_evidence.py run')
+    exec make validate ;;
   'pipelines/isolate_post_validate.py isolate')
     echo isolate >> calls
     if [ "$ISOLATE" -ne 0 ]; then exit "$ISOLATE"; fi
@@ -60,6 +62,32 @@ exit 97
 
 
 class ValidationWiring(unittest.TestCase):
+    def test_capture_failure_blocks_publication_before_any_git_command(self):
+        text = WORKFLOW.read_text()
+        capture = find_step(text, 'Capture week history after promotion')
+        self.assertIn('id: capture-after-promotion', capture)
+        commit = find_step(text, COMMIT)
+        self.assertIn('CAPTURE_OUTCOME: ${{ steps.capture-after-promotion.outcome }}', commit)
+        script = script_of(commit)
+        # Execute the real publication shell; trap git so no commit/push can
+        # occur and so the success case proves the gate permits publication.
+        for outcome in ('failure', 'skipped', 'cancelled', '', 'success'):
+            with self.subTest(outcome=outcome), tempfile.TemporaryDirectory() as tmp:
+                output = Path(tmp) / 'result'
+                env = {**os.environ, 'GITHUB_REF': 'refs/heads/main',
+                       'CHAIN_OUTCOME': 'success', 'CAPTURE_OUTCOME': outcome,
+                       'GITHUB_OUTPUT': str(output)}
+                result = subprocess.run(
+                    ['bash', '-e', '-c', 'git() { echo GIT_REACHED; exit 93; };\n' + script],
+                    cwd=tmp, env=env, capture_output=True, text=True)
+                if outcome == 'success':
+                    self.assertEqual(result.returncode, 93, result.stderr)
+                    self.assertIn('GIT_REACHED', result.stdout)
+                else:
+                    self.assertEqual(result.returncode, 1, result.stderr)
+                    self.assertNotIn('GIT_REACHED', result.stdout)
+                    self.assertEqual(output.read_text(), 'pushed=false\n')
+
     def test_healthy_validation_does_not_isolate_or_retry(self):
         result, calls, status, count = exercise(0)
         self.assertEqual(result.returncode, 0, result.stderr)

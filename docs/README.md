@@ -46,6 +46,9 @@ The durable docs live here as Markdown in GitHub (JEG-596 decision, Jeremy, 2026
 
 [JEG-1527 content observation ledger and scheduler audit](jeg-1527-content-observation-ledger.md) — Record, 2026-11-05; local store contract, repo scheduler evidence and outstanding production wiring.
 
+
+[Merge churn telemetry](merge-churn-telemetry.md) — Maintained; owner JEG-1525; verified 2026-11-05. Local event schema, fixture collector, weekly metrics and remaining live integration.
+
 | Doc | Status | Owner | Verified | What it is |
 |---|---|---|---|---|
 | [architecture-current.md](architecture-current.md) | Maintained | JEG-599 | 2026-10-12 | Current state: every file the site reads, the job that writes it, pg_cron schedule, what Supabase is for (JEG-599). |
@@ -97,6 +100,7 @@ The durable docs live here as Markdown in GitHub (JEG-596 decision, Jeremy, 2026
 | [watchdog.md](watchdog.md) | Maintained | unknown | unknown | Every source-pulling job, who schedules it, and what watches it. |
 | [guard-harness.md](guard-harness.md) | Maintained | unknown | unknown | Node harness for the browser curve-widget guard math. |
 | [wiring-through-process.md](wiring-through-process.md) | Maintained | unknown | unknown | Standing rule: a fix is not done until wired to the live path. |
+| [exemption-decision-policy.md](exemption-decision-policy.md) | Maintained | JEG-1518 | unknown | Scope ladder, decision owners, evidence and standing gates for validation-bound exemptions; decision registry/template in the week-transition runbook (placement JEG-1530). |
 | [week-transition-runbook.md](week-transition-runbook.md) | Maintained | JEG-1180 | 2026-10-28 | Week N to N+1 flip: what normal looks like Tuesday to Thursday, lagging vs stale (still on N after Thursday 12:00 CT; a warning, never a chain failure), where each check reports it, and when a person steps in. |
 | [week-coding-rules.md](week-coding-rules.md) | Maintained | unknown | unknown | Rules for codifying page elements (headline etc.) to the dataset. |
 | [engineering-notes.md](engineering-notes.md) | Maintained | unknown | unknown | Dated incident and design notes moved out of AGENTS.md. |
@@ -122,3 +126,8 @@ The documentation-store work is tracked under JEG-583 in Linear. The consolidati
 
 - [Known baseline reds](baseline-reds/README.md): registry, gate attribution and three-night removal guidance (JEG-1450).
 | [jeg-1458-egress-rollup.md](jeg-1458-egress-rollup.md) | Record | - | - | Actions byte-counter attribution, offline/gh rollup, and uncovered traffic. |
+
+## Week-transition implementation
+
+- [week-transition-readiness.md](week-transition-readiness.md) — Maintained; JEG-1526; verified 2026-11-05. Offline capture, queue and isolated diagnostic runner; staging remains blocked.
+- [week9-regression-evidence.json](week9-regression-evidence.json) — Record; Week 9 incident case coordinates and evidence limitations.

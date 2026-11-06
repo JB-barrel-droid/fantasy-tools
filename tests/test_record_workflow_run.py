@@ -20,6 +20,7 @@ Run via ``python -m unittest tests.test_record_workflow_run``.
 from __future__ import annotations
 
 import json
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -61,6 +62,29 @@ class TestComputeCronAt(unittest.TestCase):
 
 
 class TestMainMerge(unittest.TestCase):
+    def test_cancelled_cli_writes_terminal_record_with_unknown_cause(self):
+        with tempfile.TemporaryDirectory() as td:
+            output = Path(td) / "comparison-chain-status.json"
+            output.write_text(json.dumps({"success": False, "workflow_runs": {
+                "Other workflow": {"status": "success"}}}))
+            result = subprocess.run([
+                sys.executable, str(Path(__file__).resolve().parents[1] /
+                                    "pipelines/lib/record_workflow_run.py"),
+                "--workflow", "Rebuild comparison chain",
+                "--started-at", "2026-03-10T12:00:00Z",
+                "--run-id", "42", "--status", "cancelled",
+                "--output", str(output),
+            ], capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            data = json.loads(output.read_text())
+            entry = data["workflow_runs"]["Rebuild comparison chain"]
+            self.assertEqual(entry["status"], "cancelled")
+            self.assertEqual(entry["cancellation_cause"], "unknown")
+            self.assertEqual(entry["run_id"], 42)
+            self.assertEqual(data["workflow_runs"]["Other workflow"],
+                             {"status": "success"})
+            self.assertIs(data["success"], False)
+
     def _run(self, output: Path, workflow: str, started_at: str,
              cron: str = "", run_id: str = "1") -> int:
         argv = [
