@@ -1,3 +1,10 @@
+Lane: built by <Mac Claude|cloud Claude|Codex|OpenCode|Pi|Muse|Console worker> (<model>); coordinated by <coordinator>; review pending.
+
+<!-- Required: replace every placeholder. Use the builder's branch prefix:
+Mac Claude → mac-claude/; cloud Claude → claude/; Codex → codex/; OpenCode → opencode/;
+Pi → pi/; Muse → muse/; Console worker → console/.
+See docs/lanes.md. Docs-only PRs also require attribution. -->
+
 ## Summary
 
 Concrete problem and resulting behavior; link the Linear ticket. Keep this

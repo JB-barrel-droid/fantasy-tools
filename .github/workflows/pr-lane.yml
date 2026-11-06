@@ -1,0 +1,46 @@
+name: PR lane
+on:
+  pull_request_target:
+    types: [opened, edited, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+permissions:
+  contents: read
+  pull-requests: read
+concurrency:
+  group: pr-lane-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+jobs:
+  attribution:
+    if: github.event_name == 'pull_request_target'
+    runs-on: ubuntu-latest
+    steps:
+      # Trusted base only. Never check out or execute PR head code with this event.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python3 -m unittest tests.test_pr_lane
+      - run: python3 scripts/check_pr_lane.py --event "$GITHUB_EVENT_PATH"
+  recheck-open-prs:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      # Dispatch always uses default-branch code, regardless of selected ref.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Read all open PRs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh api --paginate --slurp "repos/$GH_REPO/pulls?state=open&per_page=100" --jq 'add' > "$RUNNER_TEMP/open-prs.json"
+      - name: Recheck open PR attribution
+        run: python3 scripts/check_pr_lane.py --open-prs "$RUNNER_TEMP/open-prs.json"
