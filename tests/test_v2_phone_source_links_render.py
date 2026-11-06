@@ -52,7 +52,9 @@ def _run(css=None) -> dict:
             if css is not None:
                 page.route("**/v2/v2.css*", lambda route: route.fulfill(status=200, content_type="text/css", body=css))
             page.goto(base + "#trade-targets", wait_until="networkidle")
-            page.wait_for_timeout(1200)
+            page.wait_for_function(
+                "() => [...document.querySelectorAll('a.v2-srclink')].filter(a => a.getBoundingClientRect().width > 0).length >= 4",
+                timeout=30000)
             out[width] = page.evaluate(LINKS)
             page.close()
         browser.close()

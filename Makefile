@@ -120,6 +120,8 @@ test-unit:
 	python3 tests/run_suite.py test-unit-modules
 
 test-unit-modules:
+	# JEG-1420: standalone contract reader; no site build or dashboard hookup.
+	python3 -m unittest tests.test_waiver_board_view_render
 	python3 -m unittest tests.test_baseline_reds
 	python3 -m unittest tests.test_chromium_resolver
 	python3 -m unittest tests.test_run_suite
@@ -715,6 +717,7 @@ test-core:
 	python3 -m unittest tests.test_v2_finder_saved_team tests.test_v2_finder_saved_team_render
 	python3 -m unittest tests.test_v2_finder_link_tabs_render
 	python3 -m unittest tests.test_waivers_math
+	python3 -m unittest tests.test_waiver_board_view_render
 	# JEG-1312: an old Sleeper injury status is hidden on Waivers, never shown as current.
 	python3 -m unittest tests.test_waivers_status
 	python3 -m unittest tests.test_daily_player_status
@@ -879,6 +882,7 @@ test-core-shard-3:
 	python3 -m unittest tests.test_v2_finder_saved_team tests.test_v2_finder_saved_team_render
 	python3 -m unittest tests.test_v2_finder_link_tabs_render
 	python3 -m unittest tests.test_waivers_math
+	python3 -m unittest tests.test_waiver_board_view_render
 	# JEG-1312: an old Sleeper injury status is hidden on Waivers, never shown as current.
 	python3 -m unittest tests.test_waivers_status
 	python3 -m unittest tests.test_daily_player_status

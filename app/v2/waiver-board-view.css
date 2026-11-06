@@ -1,0 +1,79 @@
+/* Isolated waiver-board reader; standalone fallbacks use the dashboard palette. */
+.ddf-waiver-board {
+  --wb-bg: var(--v2-surface, #fff);
+  --wb-ink: var(--v2-ink, #192d27);
+  --wb-muted: var(--v2-muted, #53645d);
+  --wb-line: var(--v2-line, #cdd6d1);
+  --wb-week: #eef0ef;
+  color: var(--wb-ink); background: var(--wb-bg);
+  font: 15px/1.5 system-ui, sans-serif; max-width: 1200px; margin: auto;
+  overflow-wrap: anywhere;
+}
+.ddf-waiver-board * { box-sizing: border-box; }
+.ddf-waiver-board h2 { font-size: clamp(22px, 3vw, 30px); margin: 0; }
+.ddf-waiver-board h3, .ddf-waiver-board p { margin: 0 0 8px; }
+.ddf-waiver-board small { display: block; font-size: 12px; color: var(--wb-muted); }
+.ddf-waiver-board .wb-header { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 20px; }
+.ddf-waiver-board .wb-meta { color: var(--wb-muted); font-size: 13px; }
+.ddf-waiver-board .wb-settings { padding: 10px 14px; border: 1px solid var(--wb-line); border-radius: 24px; font: inherit; color: inherit; background: inherit; }
+.ddf-waiver-board button, .ddf-waiver-board summary { min-height: 44px; cursor: pointer; }
+.ddf-waiver-board summary { padding: 10px 4px; }
+.ddf-waiver-board :is(button, summary):focus-visible { outline: 3px solid #087854; outline-offset: 3px; }
+.ddf-waiver-board .wb-sources { border-block: 1px solid var(--wb-line); margin-bottom: 20px; }
+.ddf-waiver-board .wb-source-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 8px; padding-bottom: 12px; }
+.ddf-waiver-board .wb-source { border: 1px solid var(--wb-line); border-radius: 8px; padding: 4px 10px; min-width: 0; }
+.ddf-waiver-board .wb-source summary span { display: block; font-size: 12px; }
+.ddf-waiver-board .wb-disabled { color: var(--wb-muted); background: var(--wb-week); }
+.ddf-waiver-board .wb-unavailable, .ddf-waiver-board .wb-swap-panel { padding: 14px; margin: 16px 0; border: 1px solid var(--wb-line); border-radius: 8px; }
+.ddf-waiver-board .wb-unavailable h3, .ddf-waiver-board .wb-swap-panel h3 { font-size: 16px; }
+.ddf-waiver-board .wb-unavailable p { color: var(--wb-muted); margin: 0; }
+.ddf-waiver-board .wb-swap-policy, .ddf-waiver-board .wb-swap dt { color: var(--wb-muted); font-size: 13px; }
+.ddf-waiver-board .wb-swap-list { margin: 0; padding-left: 24px; }
+.ddf-waiver-board .wb-swap { padding: 12px 0; border-bottom: 1px solid var(--wb-line); }
+.ddf-waiver-board .wb-swap:last-child { border-bottom: 0; }
+.ddf-waiver-board .wb-swap dl { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin: 0; }
+.ddf-waiver-board .wb-swap dl > div { min-width: 0; }
+.ddf-waiver-board .wb-swap dd { margin: 0; }
+.ddf-waiver-board .wb-swap-gain dd { font-variant-numeric: tabular-nums; }
+.ddf-waiver-board .wb-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.ddf-waiver-board caption { text-align: left; font-size: 18px; font-weight: 650; padding: 8px 0 12px; }
+.ddf-waiver-board th, .ddf-waiver-board td { padding: 12px 10px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--wb-line); }
+.ddf-waiver-board thead th:first-child { width: 22%; }
+.ddf-waiver-board thead th:nth-child(2), .ddf-waiver-board thead th:nth-child(3) { width: 12%; }
+.ddf-waiver-board .wb-week { background: var(--wb-week); }
+.ddf-waiver-board .wb-week-label { display: none; }
+.ddf-waiver-board .wb-field-value { display: block; font-variant-numeric: tabular-nums; }
+.ddf-waiver-board .wb-field-label { display: block; color: var(--wb-muted); font-size: 12px; }
+.ddf-waiver-board td:not(.wb-week) .wb-field-label { display: none; }
+.ddf-waiver-board .wb-missing summary, .ddf-waiver-board .wb-status-notes summary { font-size: 12px; }
+.ddf-waiver-board .wb-missing summary { list-style: none; padding-inline: 0; text-decoration: underline; text-underline-offset: 3px; }
+.ddf-waiver-board .wb-missing summary::-webkit-details-marker { display: none; }
+.ddf-waiver-board .wb-missing p, .ddf-waiver-board .wb-status-notes p { font-size: 13px; font-weight: 400; }
+.ddf-waiver-board .wb-points-source { margin-top: 5px; }
+.ddf-waiver-board .wb-unresolved { margin-top: 16px; }
+.ddf-waiver-board .wb-error { border: 1px solid var(--wb-line); padding: 16px; }
+@media (max-width: 650px) {
+  .ddf-waiver-board .wb-header { align-items: start; flex-direction: column; gap: 6px; }
+  .ddf-waiver-board .wb-table, .ddf-waiver-board tbody { display: block; }
+  .ddf-waiver-board caption { display: block; width: 100%; }
+  /* Keep native table semantics available to AT while hiding the visual heading. */
+  .ddf-waiver-board thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .ddf-waiver-board .wb-player { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin-bottom: 12px; border: 1px solid var(--wb-line); border-radius: 8px; overflow: hidden; }
+  .ddf-waiver-board .wb-player-name { grid-column: 1 / -1; }
+  .ddf-waiver-board th, .ddf-waiver-board td { min-width: 0; padding: 10px; border: 0; }
+  .ddf-waiver-board .wb-player-name, .ddf-waiver-board .wb-field[data-field="change"] { border-bottom: 1px solid var(--wb-line); }
+  .ddf-waiver-board .wb-field[data-field="ddf_value"] { grid-column: span 2; border-bottom: 1px solid var(--wb-line); }
+  .ddf-waiver-board td:not(.wb-week) .wb-field-label { display: block; }
+  .ddf-waiver-board .wb-week-label { display: block; font-size: 12px; font-weight: 650; }
+  .ddf-waiver-board .wb-swap dl { grid-template-columns: 1fr; gap: 8px; }
+}
+@media (max-width: 360px) {
+  /* Two columns keep availability words readable on the narrowest phones. */
+  .ddf-waiver-board .wb-player { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ddf-waiver-board .wb-field[data-field="ddf_value"] { grid-column: span 1; }
+  .ddf-waiver-board .wb-field[data-field="points"] { grid-column: 1 / -1; }
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .ddf-waiver-board { --wb-bg: #17251f; --wb-ink: #e4ece7; --wb-muted: #b3c1b9; --wb-line: #4e6156; --wb-week: #29362f; }
+}
+:root[data-theme="dark"] .ddf-waiver-board { --wb-bg: #17251f; --wb-ink: #e4ece7; --wb-muted: #b3c1b9; --wb-line: #4e6156; --wb-week: #29362f; }
