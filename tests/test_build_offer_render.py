@@ -117,7 +117,7 @@ class BuildOfferRenderTest(unittest.TestCase):
             snap = self.check(f"/build.html?mode=league&give={mine[3]}&give={mine[6]}&get={theirs[2]}", width, seed=keys)
             self.assertIn("2-for-1 (you consolidate)", snap["summary"])
             # JEG-1558 / JEG-1561 modules on the page: the partner's roster % band reaches the offer, the Why panel shows.
-            self.assertRegex(snap["summary"], r"roster gets about [0-9.]+% (better|worse)|roster", snap["summary"])
+            self.assertRegex(snap["summary"], r"(Their roster gets about [0-9.]+% (better|worse)|Their roster is about the same \([0-9.]+%\)|Not enough priced players)", snap["summary"])
             self.assertIn("consolidate", snap["ids"])
             self.check(f"/build.html?give={p[0]['key']}", width, expect_ids=["shop"])
 
