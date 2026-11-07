@@ -759,6 +759,10 @@ test-core:
 	python3 -m unittest tests.test_v2_phone_zoom_render
 	python3 -m unittest tests.test_disagreement_units_render
 	python3 -m unittest tests.test_main_table_engine_parity
+	# JEG-1535: values.html engine parity, swap routes, and build_root_pages unit tests.
+	python3 -m unittest tests.test_values_page_engine_parity
+	python3 -m unittest tests.test_values_swap_routes
+	python3 -m unittest tests.test_build_root_pages
 	python3 -m unittest tests.test_math_inspector
 	python3 -m unittest tests.test_view_invariants
 	python3 -m unittest tests.test_launch_front_door
@@ -891,6 +895,10 @@ test-core-shard-3:
 	python3 -m unittest tests.test_v2_phone_source_links_render
 	python3 -m unittest tests.test_v2_phone_zoom_render
 	python3 -m unittest tests.test_main_table_engine_parity
+	# JEG-1535: values.html engine parity, swap routes, and build_root_pages unit tests.
+	python3 -m unittest tests.test_values_page_engine_parity
+	python3 -m unittest tests.test_values_swap_routes
+	python3 -m unittest tests.test_build_root_pages
 	python3 -m unittest tests.test_espn_listed_rows
 	python3 -m unittest tests.test_page_load_no_404
 	python3 -m unittest tests.test_bench_share_low_pie
