@@ -38,3 +38,9 @@ Verified (check named)
 
 Claimed, not confirmed
 - See the PR for `make validate`, the rendered gate, and the live check after merge.
+
+## 2026-11-07 - JEG-1557 follow-up: caveats note on partners.html
+Contract: Jeremy asked for the caveats note on the Partners page too; the Workspace agent (JEG-1560) agreed to wait until #1349 and #1350 merged.
+- `app/next/partners.html`: `data-ddf-caveats="recommendations"` after the lede, `caveats.js` before `</main>`.
+- Verified: `tests.test_jeg1557_mobile_connect` (caveats test now covers team, find and partners at 1440 and 390), `tests.test_partners_rank_parity`.
+- Claimed, not confirmed: CI and live check on this PR.
