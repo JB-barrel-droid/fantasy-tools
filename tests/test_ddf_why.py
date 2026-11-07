@@ -1,15 +1,20 @@
 """JEG-1561: the "Why" panel for a trade (app/next/ddf-why.js, window.DDFWhy) on find.html offer cards.
 
 What we guard:
-- Table-driven trades on hand-made rows (1-for-1 need fit, 2-for-1 consolidation, FLEX re-slotting, an unpriced player,
-  no fit): every number DDFWhy.explain reports (starter change by position, slot moves, starter / weighted bench / net
-  change for both teams) equals an independent call of TradeValueFinder.lineupValue and tradeFit in the same browser,
-  "Natural fit" is tradeFit's natural label AND need lining up both ways, and each case carries the reasons it must.
+- Table-driven trades on hand-made rows where DDF Value and the Analyst charts differ (Natural fit with both teams
+  gaining, Natural fit with their side inside tradeFit's tolerance, a need fill, 2-for-1 consolidation, FLEX
+  re-slotting, an unpriced player, no fit): every number DDFWhy.explain reports (starter change by position, FLEX
+  moves, starter / weighted bench / net change for both teams) equals an independent call of
+  TradeValueFinder.lineupValue and tradeFit in the same browser; needs and surpluses equal tradeFit's depth readout
+  (towardAt / awayAt / depth); "Natural fit" = tradeFit natural AND need received / surplus given for both teams; the
+  headline never claims their side gains when their net is under the 0.05 floor; each case carries its reasons.
+- Drift: the same checks fail when ddf-why.js is served with one number nudged.
 - The % slot shows DDFOpportunity.rosterImprovementPct's shown / label verbatim, and hides when it is absent or null.
+- Not judged (no chart average for an Analyst charts valuation): explain returns null.
 - DDFWhy.text never says "DDF" or a team name.
-- find.html with the seeded league at 1440x900 and 390x844: every offer card has a Why button (44px tall on 390), it
-  opens with the keyboard, shows the headline, the 3-row table, 1-3 reasons, the chart link, and the starter change
-  in its numbers toggle equals the card's own (find-engine) value; copy rules hold.
+- find.html with the seeded league at 1440x900 and 390x844: every judged offer card has a Why button (44px tall on
+  390), it opens with the keyboard, shows the headline, the 3-row table, 1-3 reasons, the chart link, and the starter
+  change in its numbers toggle equals the card's own (find-engine) value; copy rules hold.
 """
 from __future__ import annotations
 
@@ -22,26 +27,35 @@ from tests.test_find_engine_parity import APPLY, READY
 from tests.test_team_engine_parity import seed_script, seeded_league
 
 SETUP = r"""() => {
-  const V = v => ({ddf_value: v, ddf_value_charts: v, ddf_value_projections: v, cbs: v, usatoday: v, fantasypros: v, fantasycalc: v});
-  const R = (key, name, pos, v) => ({player_key: key, name, pos, team: 'X', values: v === null ? {} : V(v)});
-  const mine = [R('m1', 'Mike Quinn', 'QB', 30), R('m2', 'Mark Rush', 'RB', 12), R('m3', 'Max Run', 'RB', 9), R('m4', 'Matt Wide', 'WR', 40),
-    R('m5', 'Mo Wide', 'WR', 38), R('m6', 'Milo Wide', 'WR', 30), R('m7', 'Marv Wide', 'WR', 22), R('m8', 'Moe End', 'TE', 15),
-    R('m9', 'Mel Back', 'RB', 4), R('m10', 'Mitch Pass', 'QB', 6)];
-  const theirs = [R('t1', 'Tom Quill', 'QB', 28), R('t2', 'Ty Run', 'RB', 40), R('t3', 'Tad Run', 'RB', 36), R('t4', 'Tim Run', 'RB', 31),
-    R('t5', 'Ted Wide', 'WR', 14), R('t6', 'Tod Wide', 'WR', 10), R('t7', 'Tyr End', 'TE', 14), R('t8', 'Tab Back', 'RB', 5),
-    R('t9', 'Tuck Wide', 'WR', 3), R('t10', 'Tex Pick', 'RB', null)];
+  // ddf, the three analyst charts [cbs, usatoday, fantasypros] (their mean is the Analyst charts value), projections = ddf
+  const R = (key, name, pos, d, c) => ({player_key: key, name, pos, team: 'X', values: d === null ? {} :
+    {ddf_value: d, ddf_value_charts: d, ddf_value_projections: d, cbs: c[0], usatoday: c[1], fantasypros: c[2], fantasycalc: d}});
+  const mine = [R('m1','Mike Quinn','QB',30,[28,30,32]), R('m2','Mark Rush','RB',12,[10,12,14]), R('m3','Max Run','RB',9,[8,9,10]), R('m4','Mel Back','RB',4,[3,4,5]),
+    R('m5','Matt Wide','WR',40,[36,40,44]), R('m6','Mo Wide','WR',38,[35,38,41]), R('m7','Milo Wide','WR',30,[26,30,34]), R('m8','Marv Wide','WR',22,[8,14,20]),
+    R('m9','Mack Wide','WR',18,[15,18,21]), R('m10','Moss Wide','WR',15,[13,15,17]), R('m11','Mint Wide','WR',12,[10,12,14]), R('m12','Mule Wide','WR',8,[6,8,10]),
+    R('m13','Moe End','TE',15,[13,15,17])];
+  const theirs = [R('t1','Tom Quill','QB',28,[26,28,30]), R('t2','Ty Run','RB',40,[38,40,42]), R('t3','Tad Run','RB',36,[34,36,38]), R('t4','Tim Run','RB',31,[29,31,33]),
+    R('t5','Tab Run','RB',28,[26,30,34]), R('t6','Toby Run','RB',20,[18,20,22]), R('t7','Troy Run','RB',15,[13,15,17]), R('t8','Tate Run','RB',10,[9,10,11]),
+    R('t9','Tug Run','RB',5,[4,5,6]), R('t10','Ted Wide','WR',10,[9,10,11]), R('t11','Tod Wide','WR',9,[8,9,10]), R('t12','Tuck Wide','WR',3,[2,3,4]),
+    R('t13','Tyr End','TE',14,[12,14,16]), R('t14','Tex Pick','RB',null)];
   const by = k => mine.concat(theirs).find(r => r.player_key === k);
-  const ctx = Object.assign({}, DDF.find.context(), {shape: {QB: 1, RB: 2, WR: 2, TE: 1, FLEX: 1, SUPERFLEX: 0, BENCH: 6}, ourKey: 'ddf_value', marketKey: 'chart_avg'});
+  // Pinned so the cases do not move with the engine's settings: 12-team expected depth, one bench weight.
+  const expected = {QB: {lo: 1, hi: 2}, RB: {lo: 5, hi: 5}, WR: {lo: 5, hi: 6}, TE: {lo: 1, hi: 2}};
+  const shape = {QB: 1, RB: 2, WR: 2, TE: 1, FLEX: 1, SUPERFLEX: 0, BENCH: 7};
+  const ctx = Object.assign({}, DDF.find.context(), {shape, expected, weights: {overall: 0.15}, analyst: ['cbs', 'usatoday', 'fantasypros'], ourKey: 'ddf_value', marketKey: 'chart_avg'});
   window.__why = {mine, theirs, by, ctx};
   return true;
 }"""
 
+# name: (give, receive, reasons that must be there, natural expected)
 CASES = {
-    "need 1-for-1": (["m6"], ["t4"], {"need", "partner"}),
-    "consolidation 2-for-1": (["m7", "m9"], ["t3"], {"spots"}),
-    "flex re-slot": (["m6", "m7"], ["t3", "t4"], {"flex"}),
-    "unpriced player": (["m9"], ["t10"], {"unvalued"}),
-    "no fit": (["m4"], ["t9"], {"loss"}),
+    "natural, both gain": (["m9"], ["t5"], {"need", "partner"}, True),
+    "natural, their side within tolerance": (["m11"], ["t5"], {"need", "partner"}, True),
+    "need 1-for-1": (["m7"], ["t4"], {"need"}, None),
+    "consolidation 2-for-1": (["m10", "m12"], ["t4"], {"spots"}, None),
+    "flex re-slot": (["m7", "m8"], ["t2", "t3", "t4"], {"flex"}, None),
+    "unpriced player": (["m4"], ["t14"], {"unvalued"}, False),
+    "no fit": (["m5"], ["t12"], {"loss"}, False),
 }
 
 ORACLE = r"""([give, receive]) => {
@@ -60,13 +74,17 @@ ORACLE = r"""([give, receive]) => {
     const at = (l, p) => l.starters.filter(x => x.pos === p).reduce((t, x) => t + x.values[key], 0);
     const pos = {}; POS.forEach(p => { pos[p] = +(at(a, p) - at(b, p)).toFixed(6); });
     const flex = {from: (b.slots.FLEX || []).map(x => x.pos).join(), to: (a.slots.FLEX || []).map(x => x.pos).join()};
-    const need = []; inn.forEach(x => { if (a.starters.includes(x) && pos[x.pos] >= 0.05 && !need.includes(x.pos)) need.push(x.pos); });
-    return {pos, flex, need, starter: +(a.starterValue - b.starterValue).toFixed(6)};
+    return {pos, flex, starter: +(a.starterValue - b.starterValue).toFixed(6)};
   };
-  const you = side(M, G, Rv, 'ddf_value'), them = side(T, Rv, G, 'chart_avg');
-  return {you, them, fitUs: [+fit.us.starterDelta.toFixed(6), +fit.us.benchDelta.toFixed(6), +fit.us.net.toFixed(6)],
+  const posOf = rows => POS.filter(p => rows.some(x => x.pos === p));
+  const need = (t, rec) => t.ready ? POS.filter(p => rec.includes(p) && t.towardAt.includes(p)) : [];
+  const spare = (t, giv) => t.ready ? POS.filter(p => giv.includes(p) && t.depth[p] && !t.awayAt.includes(p) && t.depth[p].statusAfter !== 'under') : [];
+  const needs = {you: need(fit.us, posOf(Rv)), them: need(fit.them, posOf(G)), youSurplus: spare(fit.us, posOf(G)), themSurplus: spare(fit.them, posOf(Rv))};
+  return {you: side(M, G, Rv, 'ddf_value'), them: side(T, Rv, G, 'chart_avg'), needs,
+    fitUs: [+fit.us.starterDelta.toFixed(6), +fit.us.benchDelta.toFixed(6), +fit.us.net.toFixed(6)],
     fitThem: [+fit.them.starterDelta.toFixed(6), +fit.them.benchDelta.toFixed(6), +fit.them.net.toFixed(6)],
-    natural: fit.label === 'natural' && you.need.length > 0 && them.need.length > 0};
+    themNet: fit.them.net, themTau: fit.them.tau, label: fit.label,
+    natural: fit.label === 'natural' && needs.you.length > 0 && needs.youSurplus.length > 0 && needs.them.length > 0 && needs.themSurplus.length > 0};
 }"""
 
 EXPLAIN = r"""([give, receive]) => {
@@ -111,6 +129,48 @@ def _league():
     return lg
 
 
+def case_errors(page) -> list[str]:
+    """Every table-driven case against the independent finder read; a list of mismatches (empty = all match)."""
+    errors = []
+    page.evaluate(SETUP)
+    for name, (give, receive, must, natural) in CASES.items():
+        want, got = page.evaluate(ORACLE, [give, receive]), page.evaluate(EXPLAIN, [give, receive])
+        for k in ("you", "them"):
+            if got[k] != want[k]:
+                errors.append(f"{name}: {k} why={got[k]} finder={want[k]}")
+        for k in ("fitUs", "fitThem", "natural", "needs"):
+            if got[k] != want[k]:
+                errors.append(f"{name}: {k} why={got[k]} finder={want[k]}")
+        if natural is not None and want["natural"] != natural:
+            errors.append(f"{name}: case expects natural={natural}, finder says {want['natural']} (label {want['label']})")
+        if not must <= set(got["kinds"]):
+            errors.append(f"{name}: reasons {got['kinds']} miss {sorted(must - set(got['kinds']))}")
+        if not 1 <= got["n"] <= 3:
+            errors.append(f"{name}: {got['n']} reasons")
+        # Finding 1: never imply their side gains under the floor.
+        gains = "their roster gets better" in got["headline"]
+        if got["headline"] != "This does not make your team better." and gains != (want["themNet"] >= 0.05):
+            errors.append(f"{name}: headline {got['headline']!r} vs their net {want['themNet']:.3f}")
+        if got["headline"] != "This does not make your team better." and -want["themTau"] <= want["themNet"] < 0.05 and "about even, within how much the sources disagree" not in got["headline"]:
+            errors.append(f"{name}: inside tolerance but headline {got['headline']!r}")
+        if got["pct"] is not None or "data-pct" in got["html"]:
+            errors.append(f"{name}: % shown without DDFOpportunity")
+        if got["text"].count("\n- ") != got["n"]:
+            errors.append(f"{name}: text reasons {got['text']!r}")
+        hits = [b for b in BANNED if re.search(b, got["text"])]
+        if hits:
+            errors.append(f"{name}: banned words in text {hits}")
+        if name == "natural, their side within tolerance" and not (want["themNet"] < 0.05):
+            errors.append(f"{name}: their net {want['themNet']:.3f} is not under the floor (case drifted)")
+        if name == "unpriced player" and (got["top"][:1] != ["unvalued"] or got["table"]["get"][0]["role"] != "no value yet"):
+            errors.append(f"{name}: unpriced player not disclosed first: {got['top']} {got['table']['get']}")
+        if name == "no fit" and (got["headline"] != "This does not make your team better." or "need" in got["kinds"]):
+            errors.append(f"{name}: {got['headline']!r} {got['kinds']}")
+        if name == "consolidation 2-for-1" and not any("opens a roster spot" in t for t in got["texts"]):
+            errors.append(f"{name}: no roster spot reason {got['texts']}")
+    return errors
+
+
 class DDFWhyTest(unittest.TestCase):
     def setUp(self):
         try:
@@ -121,50 +181,39 @@ class DDFWhyTest(unittest.TestCase):
             raise _render_env.unavailable("dist/find.html or dist/ddf-why.js is not built")
         self.sync_playwright = sync_playwright
 
-    def test_cases_match_finder(self):
-        with serve(DIST) as base, self.sync_playwright() as pw:
+    def _cases(self, overrides=None):
+        with serve(DIST, overrides) as base, self.sync_playwright() as pw:
             browser = _launch(pw)
             try:
                 page, errors = _find_page(browser, base, 1440, 900, _league())
-                page.evaluate(SETUP)
-                for name, (give, receive, must) in CASES.items():
-                    want, got = page.evaluate(ORACLE, [give, receive]), page.evaluate(EXPLAIN, [give, receive])
-                    for k in ("you", "them"):
-                        self.assertEqual(got[k], {x: want[k][x] for x in ("pos", "flex", "starter")}, f"{name}: {k}")
-                    for k in ("fitUs", "fitThem", "natural"):
-                        self.assertEqual(got[k], want[k], f"{name}: {k}")
-                    self.assertEqual(got["needs"], {"you": want["you"]["need"], "them": want["them"]["need"]}, name)
-                    self.assertTrue(must <= set(got["kinds"]), f"{name}: reasons {got['kinds']} miss {must - set(got['kinds'])}")
-                    self.assertTrue(1 <= got["n"] <= 3, f"{name}: {got['n']} reasons")
-                    self.assertIsNone(got["pct"], f"{name}: % shown without DDFOpportunity")
-                    self.assertNotIn("data-pct", got["html"])
-                    self.assertEqual(got["text"].count("\n- "), got["n"])
-                    hits = [b for b in BANNED if re.search(b, got["text"])]
-                    self.assertEqual(hits, [], f"{name}: banned words in text {hits}")
-                    if name == "unpriced player":
-                        self.assertEqual(got["top"][0], "unvalued")
-                        self.assertEqual(got["table"]["get"][0]["role"], "no value yet")
-                    if name == "no fit":
-                        self.assertEqual(got["headline"], "This does not make your team better.")
-                        self.assertNotIn("need", got["kinds"])
-                        self.assertFalse(got["natural"])
-                    if name == "consolidation 2-for-1":
-                        self.assertTrue(any("opens a roster spot" in t for t in got["texts"]), got["texts"])
-                # The % slot: shown / label verbatim from DDFOpportunity, hidden when pct is null.
-                pct = page.evaluate(r"""() => {
-                  const {mine, theirs, by, ctx} = window.__why, t = {mine, theirs, give: [by('m6')], receive: [by('t4')]};
+                found = case_errors(page)
+                extra = page.evaluate(r"""() => {
+                  const {mine, theirs, by, ctx} = window.__why, t = {mine, theirs, give: [by('m9')], receive: [by('t5')]};
                   window.DDFOpportunity = {rosterImprovementPct: (tr, side) => side === 'sender'
                     ? {side, pct: 4.2, shown: '+4.2%', label: 'a fair ask'} : {side, pct: -1.1, shown: '-1.1%', label: 'a fair ask'}};
                   const on = DDFWhy.explain(t, ctx).pct;
                   window.DDFOpportunity = {rosterImprovementPct: (tr, side) => ({side, pct: null, shown: null, label: null})};
                   const off = DDFWhy.explain(t, ctx).pct;
                   delete window.DDFOpportunity;
-                  return {on: on && on.text, off};
+                  const unjudged = DDFWhy.explain(t, Object.assign({}, ctx, {analyst: null}));
+                  return {on: on && on.text, off, unjudged};
                 }""")
-                self.assertEqual(pct, {"on": "Your roster +4.2%. Theirs -1.1%, a fair ask.", "off": None})
-                self.assertEqual(errors, [])
+                return found, extra, errors
             finally:
                 browser.close()
+
+    def test_cases_match_finder(self):
+        found, extra, errors = self._cases()
+        self.assertEqual(found, [], "\n".join(found))
+        self.assertEqual(extra, {"on": "Your roster +4.2%. Theirs -1.1%, a fair ask.", "off": None, "unjudged": None})
+        self.assertEqual(errors, [])
+
+    def test_guard_fails_on_drift(self):
+        src = (DIST / "ddf-why.js").read_text()
+        needle = "posDelta[p] = at(a) - at(b);"
+        self.assertIn(needle, src)
+        found, _, _ = self._cases({"ddf-why.js": src.replace(needle, "posDelta[p] = at(a) - at(b) + 0.01;").encode()})
+        self.assertTrue(any(": you why=" in e or ": them why=" in e for e in found), f"drift not caught: {found[:3]}")
 
     def test_why_button_on_find_cards(self):
         league = _league()
@@ -176,7 +225,10 @@ class DDFWhyTest(unittest.TestCase):
                     page, errors = _find_page(browser, base, w, h, league)
                     cards = page.locator("[data-offer]")
                     self.assertGreater(cards.count(), 0, f"{w}: no offer cards")
-                    self.assertEqual(page.locator("[data-offer] details[data-why] > summary").count(), cards.count())
+                    judged = page.locator('[data-offer]:not([data-you=""])').count()   # an unjudged card (no fit) has no Why
+                    self.assertGreater(judged, 0, f"{w}: no judged offer cards")
+                    self.assertEqual(page.locator("[data-offer] details[data-why] > summary").count(), judged)
+                    cards = page.locator('[data-offer]:not([data-you=""])')
                     summary = cards.first.locator("details[data-why] > summary")
                     box = summary.bounding_box()
                     self.assertGreaterEqual(box["height"], 44, f"{w}: Why button {box['height']}px")

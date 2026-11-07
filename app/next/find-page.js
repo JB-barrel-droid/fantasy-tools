@@ -229,7 +229,7 @@
       + (added.length ? '<p class="muted pk-note">Players even out: ' + esc(added.join(", ")) + ".</p>" : "")
       + (throwIns.length ? '<p class="muted pk-note">Also seen with ' + esc(names(throwIns)) + " (worth 0.0) added.</p>" : "")
       + (t.unbalanced ? '<p class="muted pk-note">Uneven player counts: the team getting more players has no bench player left to add.</p>' : "")
-      + (window.DDFWhy ? '<details class="why" data-why data-group="' + esc(g.id) + '"><summary aria-label="Why this offer: ' + esc(names(t.give)) + " for " + esc(names(t.receive)) + '">Why</summary><div class="why-slot"></div></details>' : "")
+      + (window.DDFWhy && t.fit ? '<details class="why" data-why data-group="' + esc(g.id) + '"><summary aria-label="Why this offer: ' + esc(names(t.give)) + " for " + esc(names(t.receive)) + '">Why</summary><div class="why-slot"></div></details>' : "")
       + "</div>"
       + '<div class="pk-gain"><small>Your starters (' + esc(B.you) + ')</small><b class="gain" data-shown="' + (you === null ? "" : shown(you)) + '">' + (you === null ? "—" : shown(you)) + "</b>"
       + '<div class="meter" role="img" aria-label="Your starters ' + (you === null ? "no value" : shown(you)) + " on " + esc(B.you) + "; their starters " + (them === null ? "no value" : shown(them)) + " on " + esc(B.them) + '"><span class="ml"><i data-grow style="width:' + pct(you) + '%"></i></span><span class="mr"><i data-grow style="width:' + pct(them) + '%"></i></span></div>'

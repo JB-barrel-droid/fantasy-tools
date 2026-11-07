@@ -5,7 +5,8 @@ tests.test_team_engine_parity, against an independent read in the same browser (
 TradeValueFinder.lineupValue / withChartAverage / matchNames, the published tier rules recomputed here, not through
 DDF.league):
 - the page's partner order equals the metric in docs/claude-log/2026-11-07-jeg1560-partners-ranking.md
-  (sum over QB/RB/WR/TE of min(their surplus, my need) + min(my surplus, their need) on the position ratios, ties by
+  (sum over QB/RB/WR/TE, only where one side is Strong >= 1.10 and the other Weak < 0.90, of min(surplus, need) on the
+  position ratios, both ways; ties by
   DDF Value / Analyst charts on starters, not judged last, then league order);
 - each partner's reason names exactly the get / give positions of that metric, biggest first;
 - the top 3 (with a positive score) carry "Best match"; my team and waivers are never listed or ranked.
@@ -54,7 +55,7 @@ ORACLE = r"""(league) => {
     POS.forEach(p => {
       const m = ratio(mine, p), r = ratio(t, p);
       if (m === null || r === null) return;
-      const g = Math.min(Math.max(0, r - 1), Math.max(0, 1 - m)), v = Math.min(Math.max(0, m - 1), Math.max(0, 1 - r));
+      const g = r >= 1.10 && m < 0.90 ? Math.min(r - 1, 1 - m) : 0, v = m >= 1.10 && r < 0.90 ? Math.min(m - 1, 1 - r) : 0;
       if (g > 0) get.push([p, g]);
       if (v > 0) give.push([p, v]);
       score += g + v;

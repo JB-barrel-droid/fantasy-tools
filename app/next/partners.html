@@ -128,23 +128,23 @@ function ddfGate(btns,ok,reason,rid){
 }
 document.addEventListener('click',function(e){var b=e.target.closest&&e.target.closest('a[aria-disabled="true"][data-href]');if(b){e.preventDefault();e.stopImmediatePropagation()}},true);
 const list=a=>a.length<2?a.join(''):a.slice(0,-1).join(', ')+' and '+a[a.length-1];
-// One plain line: what you could get (they are ahead of the league's middle team where you are behind) and give (the reverse).
+// One plain line: what you could get (they are Strong where you are Weak, team assessment tiers) and give (the reverse).
 function reason(t,haveMe){
   if(!haveMe)return 'Confirm which team is yours to see how you line up. <a href="setup.html">Confirm your team</a>';
   const get=t.get.map(x=>x.pos),give=t.give.map(x=>x.pos);
-  if(get.length&&give.length)return 'You could get '+list(get)+' and give '+list(give)+': they are ahead where you are behind, and the reverse. Both sides gain.';
-  if(get.length)return 'You could get '+list(get)+': they are ahead there and you are behind. You have no spare position they need.';
-  if(give.length)return 'You could give '+list(give)+': you are ahead there and they are behind. They have no spare position you need.';
-  return 'No position lines up: neither team is ahead where the other is behind.';
+  if(get.length&&give.length)return 'You could get '+list(get)+' and give '+list(give)+': they are strong where you are weak, and the reverse. Both sides could fill a gap.';
+  if(get.length)return 'You could get '+list(get)+': they are strong there and you are weak. You are not strong where they are weak.';
+  if(give.length)return 'You could give '+list(give)+': you are strong there and they are weak. They are not strong where you are weak.';
+  return 'No position lines up: neither team is strong where the other is weak.';
 }
 const pctOver=(a,b)=>Math.round((a/b-1)*100);
+const EDGE=DDF.league.RULES.EDGE;   // the 15% rule (DECISIONS "DDF edge threshold 15%"), for both sources
 // Analyst charts / Live market vs DDF Value on this team's starters; "good" = DDF Value is higher, so their players
 // cost you less there than we rate them. ratio null = that source does not list every starter: not judged.
 function verdict(src,ratio,tags){
   if(ratio===null)return ['','Not judged: the '+src+' do not list every one of their starters.'];
   if(ratio>=1){const n=pctOver(ratio,1),head='DDF Value is '+n+'% higher than the '+src;
-    if(src==='Live market')return ['good',head+': their starters cost less there than we rate them.'];
-    return tags.includes('edge')?['good',head+': their starters cost less there than we rate them, which is good for you when you trade for them.']:['',head+', under the 15% gap we count as a real discount.'];}
+    return ratio>=EDGE?['good',head+': their starters cost less there than we rate them, which is good for you when you trade for them.']:['',head+', under the 15% gap we count as a real discount.'];}
   return ['','The '+src+' rate their starters '+pctOver(1,ratio)+'% above DDF Value: their players cost more there than we rate them.'];
 }
 function details(t){
@@ -179,7 +179,7 @@ function render(c){
  included=teams.map(t=>!skipped.has(t.name));
  $('no-league').hidden=!!teams.length;
  $('no-league').innerHTML=c?'No other team in this league has players yet. <a href="connect.html">Add your league</a> with every team\'s roster.':'Add your league to see who your best trading partners are. <a href="connect.html">Add your league</a>';
- $('lede').textContent=!teams.length?'':haveMe?'The '+teams.length+' other teams, best match first. A team ranks higher when it is ahead of the league\'s middle team at positions where you are behind, and you are ahead where it is behind. Check the top matches, and skip any team you would rather not trade with.':'The '+teams.length+' other teams in your league. Confirm which team is yours to rank them by how well your rosters line up.';
+ $('lede').textContent=!teams.length?'':haveMe?'The '+teams.length+' other teams, best match first. A team ranks higher when it is strong at positions where you are weak, and you are strong where it is weak (the Strong and Weak tiers from your team assessment). Check the top matches, and skip any team you would rather not trade with.':'The '+teams.length+' other teams in your league. Confirm which team is yours to rank them by how well your rosters line up.';
  $('bulk').hidden=!teams.length;$('skip-note').hidden=!teams.length;
  const nTop=haveMe?teams.filter(t=>t.rank<=TOP&&t.score>0).length:0;
  const group=(title,from,to)=>from<to?'<section class="pt-group"><h2>'+title+'</h2><ol class="pt-ol" start="'+(from+1)+'">'+teams.slice(from,to).map((t,k)=>row(t,from+k,haveMe)).join('')+'</ol></section>':'';

@@ -38,9 +38,9 @@
  *                     tiers by column rank in thirds of the team count (12 teams: 1-4 / 5-8 / 9-12)
  *   partnerTags(team) {ddf, analyst, live, ratioAnalyst, ratioLive, tags:['edge'|'analyst'|'live']} starters, 15% edge rule
  *   partnerRank()    [{index, name, rank, score, get:[{pos, amount, mine, theirs}], give:[..], twoWay, ratioAnalyst, partner}]
- *                     every opponent (never waivers), best trading partner first: score = sum over QB/RB/WR/TE of
- *                     min(their surplus, my need) + min(my surplus, their need) on positionTiers ratios (1.0 = middle
- *                     team); ties by partnerTags ratioAnalyst; score null without my team (JEG-1560)
+ *                     every opponent (never waivers), best trading partner first: score = sum over QB/RB/WR/TE where
+ *                     one side is Strong (>= 1.10) and the other Weak (< 0.90) of min(surplus, need) on positionTiers
+ *                     ratios (1.0 = middle team), both ways; ties by partnerTags ratioAnalyst; score null without my team
  *   held() / setHeld(keys)       explore.html Evaluate/Hold: held player keys (sessionStorage ddf:hold)
  *   skipped() / setSkipped(names) partners.html skipped teams by name (sessionStorage ddf:skip)
  *   moves() / setMoves(list)      waivers.html roster moves [{add:key, drop:key|null, at}] (sessionStorage ddf:moves), applied to my team
@@ -318,9 +318,10 @@
       analystComplete: Boolean(L.analyst.complete), liveComplete: Boolean(L.live.complete)};
   }
   // Partner ranking (JEG-1560, docs/claude-log/2026-11-07-jeg1560-partners-ranking.md). Only positionTiers() ratios
-  // (1.0 = the league's middle team at that position) and partnerTags().ratioAnalyst; no new value math.
-  //   get(p)  = min(their surplus, my need)  = min(max(0, theirs - 1), max(0, 1 - mine))
-  //   give(p) = min(my surplus, their need)  = min(max(0, mine - 1), max(0, 1 - theirs))
+  // (1.0 = the league's middle team at that position), their tiers and partnerTags().ratioAnalyst; no new value math.
+  // A position counts only where the published tiers line up (Strong >= 1.10 on one side, Weak < 0.90 on the other):
+  //   get(p)  = theirs Strong and mine Weak ? min(theirs - 1, 1 - mine) : 0
+  //   give(p) = mine Strong and theirs Weak ? min(mine - 1, 1 - theirs) : 0
   //   score   = sum over QB, RB, WR, TE of get + give; ties by ratioAnalyst (higher first, not judged last), then index.
   // Without my team the score is null and the order is the tie-break alone.
   var FIT_POS = ["QB", "RB", "WR", "TE"];
@@ -338,7 +339,7 @@
         FIT_POS.forEach(function (p) {
           var m = ratio(mine, p), t = ratio(theirs, p);
           if (m === null || t === null) return;
-          var g = Math.min(Math.max(0, t - 1), Math.max(0, 1 - m)), v = Math.min(Math.max(0, m - 1), Math.max(0, 1 - t));
+          var g = t >= STRONG && m < AVERAGE ? Math.min(t - 1, 1 - m) : 0, v = m >= STRONG && t < AVERAGE ? Math.min(m - 1, 1 - t) : 0;
           if (g > 0) get.push({pos: p, amount: g, mine: m, theirs: t});
           if (v > 0) give.push({pos: p, amount: v, mine: m, theirs: t});
           score += g + v;

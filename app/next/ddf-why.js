@@ -7,8 +7,9 @@
  * Percent framing comes only from window.DDFOpportunity.rosterImprovementPct (JEG-1558); without it the % slot hides.
  *
  * API: window.DDFWhy
- *   explain(trade, ctx) -> {headline, pct:{sender, partner}|null, natural, table:{give, get, net}, reasons:[{kind, text, amount}],
- *                           you:view, them:view, fit} or null when the inputs are missing
+ *   explain(trade, ctx) -> {headline, pct:{sender, partner}|null, natural, needs:{you, them, youSurplus, themSurplus}, table:{give, get, net}, reasons:[{kind, text, amount}],
+ *                           you:view, them:view, fit} or null when the inputs are missing or the trade is not judged
+ *                           (no depth context, or an Analyst charts valuation without the charts: find-engine's `judged`)
  *     trade: {mine:[row], theirs:[row], give:[row], receive:[row]}  (whole rosters; give leaves mine, receive leaves theirs)
  *     ctx:   DDF.find.context() ({shape, expected, weights, analyst, ...}); optional ourKey (default ddf_value) and
  *            marketKey (default chart_avg when the analyst charts are available, else ourKey)
@@ -79,16 +80,19 @@
     var market = ctx.marketKey || (ctx.analyst ? F().MARKET_KEY : our);
     return {our: our, market: market, avg: our === F().MARKET_KEY || market === F().MARKET_KEY};
   }
-  // The positions where a side's starters get better because of a player it receives: its need, filled.
-  function needAt(v) {
-    var out = [];
-    v.arriving.forEach(function (x) {
-      if (!x.slot) return;
-      var p = x.row.pos;
-      if (v.posDelta[p] >= FLOOR && out.indexOf(p) < 0) out.push(p);
-    });
-    return out;
+  // Need and surplus come from tradeFit's own depth readout (teamFit depth / towardAt / awayAt against the league's
+  // expected players per position), not from value: a need is a position a side receives at where its depth moves toward
+  // the expected range (it was short); a surplus is a position it gives from without going away from the range or
+  // ending short (it had one to spare). No value math here.
+  function depthNeeds(side, received) {
+    if (!side || !side.ready) return [];
+    return POS.filter(function (p) { return received.indexOf(p) >= 0 && side.towardAt.indexOf(p) >= 0; });
   }
+  function depthSurplus(side, given) {
+    if (!side || !side.ready) return [];
+    return POS.filter(function (p) { var d = side.depth[p]; return given.indexOf(p) >= 0 && d && side.awayAt.indexOf(p) < 0 && d.statusAfter !== "under"; });
+  }
+  var positionsOf = function (rows) { return POS.filter(function (p) { return rows.some(function (r) { return r.pos === p; }); }); };
   function flexMoves(v) {
     return ["FLEX", "SUPERFLEX"].filter(function (s) {
       var x = v.slots[s];
@@ -107,16 +111,25 @@
   var role = function (x) { return x.slot ? "starts at " + x.slot : x.valued ? "bench" : "no value yet"; };
   var roleBefore = function (x) { return x.slot ? "a starter at " + x.slot : x.valued ? "bench" : "no value yet"; };
 
-  function reasons(you, them, trade) {
+  function reasons(you, them, trade, needs) {
     var out = [];
     var gone = you.unvalued.concat(them.unvalued.filter(function (r) { return you.unvalued.indexOf(r) < 0; }));
     if (gone.length) out.push({kind: "unvalued", amount: Infinity,
       text: list(gone.map(function (r) { return r.name; })) + (gone.length === 1 ? " has" : " have") + " no value yet, so " + (gone.length === 1 ? "it is" : "they are") + " left out here, never counted as 0."});
-    needAt(you).forEach(function (p) {
-      var x = you.arriving.filter(function (y) { return y.row.pos === p && y.slot; })[0];
+    POS.forEach(function (p) {
+      var x = you.arriving.filter(function (y) { return y.row.pos === p; }).sort(function (a, b) { return (b.slot ? 1 : 0) - (a.slot ? 1 : 0); })[0];
+      if (!x) return;
+      var need = needs.you.indexOf(p) >= 0, gain = you.posDelta[p] >= FLOOR;
+      if (!need && !gain) return;
       var bumped = you.displaced.filter(function (r) { return r.pos === p; })[0];
-      var how = you.emptyBefore > you.emptyAfter ? ", a slot you could not fill before" : bumped ? ", ahead of " + bumped.name : "";
-      out.push({kind: "need", pos: p, amount: you.posDelta[p], text: "Fills your " + p + " need: " + x.row.name + " " + role(x) + how + "."});
+      var how = !x.slot ? "" : you.emptyBefore > you.emptyAfter ? ", a slot you could not fill before" : bumped ? ", ahead of " + bumped.name : "";
+      out.push({kind: need ? "need" : "upgrade", pos: p, amount: Math.max(you.posDelta[p], need ? FLOOR : 0),
+        text: (need ? "Fills your " + p + " need: " + x.row.name + (x.slot ? " " + role(x) : " adds " + p + " depth")
+          : "Upgrades your " + p + " starters: " + x.row.name + " " + role(x)) + how + "."});
+    });
+    needs.youSurplus.forEach(function (p) {
+      var d = you.fit.depth[p];
+      out.push({kind: "surplus", pos: p, amount: FLOOR * 0.6, text: "You have " + p + " to spare: " + d.before + " counted now, " + d.after + " after (" + d.range + " expected)."});
     });
     POS.forEach(function (p) {
       if (!(you.posDelta[p] <= -FLOOR)) return;
@@ -136,9 +149,9 @@
     var opened = trade.give.length - trade.receive.length;
     if (opened > 0) out.push({kind: "spots", amount: FLOOR / 2,
       text: "You send " + trade.give.length + " players for " + trade.receive.length + ", which opens " + (opened === 1 ? "a roster spot" : opened + " roster spots") + "."});
-    needAt(them).forEach(function (p) {
-      var x = them.arriving.filter(function (y) { return y.row.pos === p && y.slot; })[0];
-      out.push({kind: "partner", pos: p, amount: them.posDelta[p], text: "They fill their " + p + " need with " + x.row.name + "."});
+    needs.them.forEach(function (p) {
+      var x = them.arriving.filter(function (y) { return y.row.pos === p; })[0];
+      out.push({kind: "partner", pos: p, amount: Math.max(them.posDelta[p], FLOOR), text: "They fill their " + p + " need with " + x.row.name + "."});
     });
     if (finite(them.starterDelta) && them.starterDelta <= -FLOOR) {
       var lost = POS.filter(function (p) { return them.posDelta[p] <= -FLOOR; });
@@ -147,13 +160,20 @@
     return out.sort(function (a, b) { return b.amount - a.amount; });
   }
 
+  // Led by the card's own number (your starters' change); the bench-weighted net is named when it reads differently.
+  // Their side is read the way the fit judges it (their roster, bench counted): a gain only past the 0.05 floor,
+  // "about even" inside the charts' disagreement (tradeFit's tolerance), never a gain that is not there.
   function headline(you, them, natural, needs) {
-    var up = you.net !== null ? you.net >= FLOOR : you.starterDelta >= FLOOR;
-    var themNet = them.net !== null ? them.net : them.starterDelta;
-    if (natural) return "Both teams get better: you fill " + list(needs.you) + " and they fill " + list(needs.them) + ".";
-    if (!up) return "This does not make your team better.";
-    if (themNet <= -FLOOR) return "Your team gets better, but theirs gets worse, so it is a harder sell.";
-    return themNet >= FLOOR ? "Your team gets better, and so does theirs." : "Your team gets better, and theirs holds steady.";
+    var sign = function (n) { return !finite(n) ? null : n >= FLOOR ? 1 : n <= -FLOOR ? -1 : 0; };
+    var ys = sign(you.starterDelta), yn = sign(you.net);
+    if (ys < 1 && !(yn === 1)) return "This does not make your team better.";
+    var mineText = ys === 1 ? "Your starters get better" : ys === 0 ? "Your starters stay about the same" : "Your starters get weaker";
+    if (yn !== null && yn !== ys) mineText += " (counting your bench, your roster " + (yn === 1 ? "gains" : yn === 0 ? "is about even" : "loses") + ")";
+    var tn = them.net !== null ? them.net : them.starterDelta, tau = them.fit ? them.fit.tau : FLOOR;
+    var theirs = tn >= FLOOR ? "their roster gets better too" : tn >= -tau ? "their roster stays about even, within how much the sources disagree"
+      : "their roster gets worse, so it is a harder sell";
+    var fill = natural ? ": you fill " + list(needs.you) + " and they fill " + list(needs.them) : "";
+    return mineText + (tn >= -tau ? ", and " : ", but ") + theirs + fill + ".";
   }
   function netWords(v) {
     var w = function (n, up, down) { return !finite(n) ? null : n >= FLOOR ? up : n <= -FLOOR ? down : null; };
@@ -174,20 +194,25 @@
     var f = F();
     if (!f || !trade || !ctx || !ctx.shape || !Array.isArray(trade.mine) || !Array.isArray(trade.theirs)) return null;
     var k = keys(ctx);
+    if (!ctx.expected || (k.avg && !ctx.analyst)) return null;   // find-engine's `judged`: no chart average, no depth -> not judged
     var widen = function (rows) { return k.avg && ctx.analyst ? f.withChartAverage(rows, ctx.analyst) : rows; };
     var mine = widen(trade.mine), theirs = widen(trade.theirs);
     var byKey = new Map(mine.concat(theirs).map(function (r) { return [keyOf(r), r]; }));
     var wide = function (rows) { return rows.map(function (r) { return byKey.get(keyOf(r)) || widen([r])[0]; }); };
     var give = wide(trade.give || []), recv = wide(trade.receive || []);
     // The fit exactly as find-engine.js computes it (both sides, Natural fit predicate, bench weighted by benchWeight).
-    var fit = ctx.expected ? f.tradeFit({mine: {roster: mine, leaving: give, arriving: recv}, theirs: {roster: theirs, leaving: recv, arriving: give}},
-      {shape: ctx.shape, expected: ctx.expected, weights: ctx.weights, ourKey: k.our, marketKey: k.market, chartKeys: ctx.analyst || undefined, z: f.FIT_Z}) : null;
-    var you = view(mine, give, recv, ctx.shape, k.our, fit && fit.us);
-    var them = view(theirs, recv, give, ctx.shape, k.market, fit && fit.them);
-    var needs = {you: needAt(you), them: needAt(them)};
-    // "Natural fit" only when the predicate holds and need and surplus line up both ways.
-    var natural = Boolean(fit && fit.label === "natural" && needs.you.length && needs.them.length);
-    var rs = reasons(you, them, {give: give, receive: recv});
+    var fit = f.tradeFit({mine: {roster: mine, leaving: give, arriving: recv}, theirs: {roster: theirs, leaving: recv, arriving: give}},
+      {shape: ctx.shape, expected: ctx.expected, weights: ctx.weights, ourKey: k.our, marketKey: k.market, chartKeys: ctx.analyst || undefined, z: f.FIT_Z});
+    if (!fit) return null;   // the trade is not judged (find-engine leaves it unjudged): no Why
+    var you = view(mine, give, recv, ctx.shape, k.our, fit.us);
+    var them = view(theirs, recv, give, ctx.shape, k.market, fit.them);
+    you.fit = fit.us; them.fit = fit.them;
+    var gp = positionsOf(give), rp = positionsOf(recv);
+    var needs = {you: depthNeeds(fit.us, rp), them: depthNeeds(fit.them, gp), youSurplus: depthSurplus(fit.us, gp), themSurplus: depthSurplus(fit.them, rp)};
+    // "Natural fit" only when tradeFit's predicate holds AND, for both teams, the side received is a need and the side
+    // given is a surplus (tradeFit's depth readout).
+    var natural = Boolean(fit.label === "natural" && needs.you.length && needs.youSurplus.length && needs.them.length && needs.themSurplus.length);
+    var rs = reasons(you, them, {give: give, receive: recv}, needs);
     var p = pct({mine: trade.mine, theirs: trade.theirs, give: trade.give, receive: trade.receive}, ctx);
     return {headline: headline(you, them, natural, needs), pct: p, natural: natural, needs: needs,
       table: {give: you.leaving.map(function (x) { return {name: x.row.name, pos: x.row.pos, role: roleBefore(x)}; }),
