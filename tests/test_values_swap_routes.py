@@ -420,14 +420,13 @@ class ValuesSwapRoutesTest(unittest.TestCase):
                 page.goto(f'{base_url}/index.html#s=abc',
                           wait_until='networkidle', timeout=60000)
                 try:
-                    page.wait_for_timeout(2000)
-                except PlaywrightError:
-                    pass
+                    page.wait_for_function("() => document.body.classList.contains('connect')", timeout=20000)
+                except PlaywrightError as exc:
+                    self.fail(f'connect.html never loaded after #s= redirect: {exc}')
 
                 final_url = page.url
-                # connect.html is owned by JEG-1538; it may not be fully built yet - check URL only.
                 self.assertIn('connect.html', final_url,
-                              f'Did not redirect to connect.html; got {final_url!r}')
+                              f'Did not land on connect.html; got {final_url!r}')
                 self.assertIn('#s=abc', final_url,
                               f'Hash #s=abc not preserved; got {final_url!r}')
             finally:

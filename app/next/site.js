@@ -641,10 +641,12 @@ document.querySelectorAll('[data-slideshow]').forEach(function(slideshow){
   function accept(state){
     current = stripContext(state); lastError = null;
     DDF.state.set('league', current);
+    DDF.state.remove('pasted');   /* a league from a link replaces a pasted one in this tab (JEG-1538) */
     DDF.state.set('link', {source:'chat', at:Date.now()});
     return state;
   }
   function pageFor(view){ return VIEW_PAGES[view] || 'team.html'; }
+  function livePage(view){ var p = pageFor(view); return p.indexOf('#') >= 0 ? 'values.html' : p; }
   function isConnectPage(){ return /(^|\/)connect\.html$/.test(location.pathname) || document.body.classList.contains('connect'); }
 
   /* Pretty JSON with primitive arrays on one line, so a 12-team block stays readable in a chat. */
@@ -703,11 +705,14 @@ document.querySelectorAll('[data-slideshow]').forEach(function(slideshow){
     clear: function(){ current = null; fromLink = false; DDF.state.remove('league'); DDF.state.remove('link'); },
     update: function(patch){ var s = DDF.link.current(); if(!s) return null; return accept(Object.assign(clone(s), patch)); },
     pageFor: pageFor,
-    go: function(state){ return DDF.link.encode(state, {page:pageFor(state.view)}).then(function(u){ location.assign(u); }); },
+    /* A view whose page is not live yet maps to a live hash route at the root build ('./#compare-trade'), where no page
+       reads the league. Until that page swaps in, such a link opens Values with the token, as v2 did before the entry
+       pages moved (values.html applies the link's overrides and basis to the live store) (JEG-1538). */
+    go: function(state){ return DDF.link.encode(state, {page:livePage(state.view)}).then(function(u){ location.assign(u); }); },
     applyRouting: function(){
       var s = current;
       if(!s || !fromLink || !isConnectPage()) return false;
-      location.replace(pageFor(s.view) + location.hash);
+      location.replace(livePage(s.view) + location.hash);
       return true;
     },
     registerTable: function(version, rows){

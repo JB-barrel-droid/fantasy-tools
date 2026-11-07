@@ -36,9 +36,11 @@ ROOT_PAGES = ("values.html", "learn.html", "build.html",
               # JEG-1539 (step 5): the workspace pages and the new front door. index.html replaces the v2 shell at
               # the root; build_v2_page writes the v2 shell build-only (build/v2/index.html) for the render harnesses.
               "index.html", "team.html", "explore.html", "partners.html", "find.html", "waivers.html",
-              "settings.html", "ai.html", "compare.html")
+              "settings.html", "ai.html", "compare.html",
+              # JEG-1538: the entry pages; connect.html reads pasted rosters against the engine's player rows.
+              "connect.html", "setup.html")
 # A page gets the engine when its source carries the <!-- ddf-engine --> marker (values.html and learn.html must).
-ENGINE_REQUIRED = frozenset({"values.html", "learn.html", "build.html"})
+ENGINE_REQUIRED = frozenset({"values.html", "learn.html", "build.html", "connect.html"})
 # Files the root pages load from beside them (copied from app/next/). v2/*.js are already published by build_v2_page.
 ROOT_FILES = ("site.js", "styles.css", "players-table-1.json", "ddf-engine.js",
               "values-chart.js", "values-buysell.js", "values-overrides.js",
@@ -54,7 +56,10 @@ ROOT_FILES = ("site.js", "styles.css", "players-table-1.json", "ddf-engine.js",
               # waivers.html how-to slides (the provider walkthrough).
               # Build a Trade (JEG-1537): the page script, the trade chart component.
               "build-trade.js", "tradechart.js", "tradechart.css",
-              "assets/howto/slides")
+              "assets/howto/slides",
+              # Entry pages (JEG-1538): paste reader, page scripts, league ID screenshots (actionbar.* listed above).
+              "rosterparse.js", "league-paste.js", "connect-entry.js", "setup-entry.js",
+              "img/league-id")
 # Shared scripts copied as they are: legacy-routes.js names the redesigned pages on purpose (it is the redirect map).
 NO_REWRITE = frozenset({"legacy-routes.js"})
 ENGINE_MARKER = "<!-- ddf-engine -->"
