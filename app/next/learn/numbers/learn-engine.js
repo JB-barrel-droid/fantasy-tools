@@ -59,7 +59,8 @@
       var blended = row.ddfByVersion && row.ddfByVersion.blended;
       /* The model's own DDF Value: with a reader override, applyDdfOverride keeps it in pipelineValue. */
       var overridden = row.valueOverride !== undefined && row.valueOverride !== null;
-      var ddf = finite(blended && (overridden && finite(blended.pipelineValue) !== null ? blended.pipelineValue : blended.value));
+      if (overridden && !(blended && finite(blended.pipelineValue) !== null)) return;   // no model value to explain
+      var ddf = finite(blended && (overridden ? blended.pipelineValue : blended.value));
       if (ddf === null) return;
       var irow = (ins.rows && ins.rows[pk]) || {};
       var sources = {};

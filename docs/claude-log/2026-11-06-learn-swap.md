@@ -24,6 +24,18 @@ What changed
   `learn.html#numbers/logic`, `#writing/*` -> `learn.html`, `#values-auditing/health-check` -> `#numbers/pie`,
   `#values-auditing/single-source` -> `#numbers/build-up`, `#values-auditing/*` -> `#numbers/pie`.
 
+Independent review (separate Opus subagent, diff only, head 97160a729): CHANGES NEEDED, fixed at b768948f3:
+- Trace showed a stored override as "the model's own value" (blended.value holds the override): Learn now reads
+  `blended.pipelineValue` when overridden, and sets a custom value basis aside on this page only (engine setter,
+  publish off); both are named on the page. New test `test_overrides_and_basis_not_applied` compares against a
+  clean browser.
+- Real engine zeros showed as dashes when a chart does not list the player: indexed and adjusted now come from the
+  engine row; only the published value is a dash. The parity test reads the engine the same independent way.
+- Settings query appended twice after a fallback replaceState; the projection worked path (waiver line, starter
+  line, parts, rates) from the old build-up restored; "Set one on Values" -> "Add one on Values".
+- Kept as is: no "Change" column and no "≈" mark in the build-up (Indexed and Adjusted are side by side; est. marks
+  filled-in players).
+
 ### Verified (check named)
 - `tests/test_learn_engine_parity.py` `test_numbers_match_engine`: at 3 scorings x 10/12 teams x superflex on/off,
   every picker DDF Value, the Trace (published, factor, indexed, adjusted per chart) for the top three, the Value pie,
@@ -35,7 +47,8 @@ What changed
 - Same file `test_old_routes_redirect`: 11 old hashes (incl. legacy `#manifesto`, `#how-values`, `#research/x`,
   `#values-auditing/value-pie`) from `/` and `/v2/` land on the right Learn view; `value-logic/` ends on
   `learn.html#numbers/logic` with the explainer framed.
-- Same file `test_no_snapshots_or_drafts_published`.
+- Same file `test_no_snapshots_or_drafts_published` and `test_overrides_and_basis_not_applied`.
+- `make validate-base` passed locally at 97160a729 (before the review fixes).
 - QA sweep (scratch script, Playwright, hermetic): 13 views x 1440/390 x no league / saved league = 52 views,
   0 page errors, 0 failed same-host requests, 0 horizontal overflow, 0 broken same-host links (345 links),
   no banned words outside the Manifesto. The only console errors were the hermetic DNS block of Google Fonts.
