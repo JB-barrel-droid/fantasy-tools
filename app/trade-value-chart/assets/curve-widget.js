@@ -3021,16 +3021,18 @@
     }
     return {...weekValuesSync(source, prior, view), ...extra};
   }
-  // Every history read the prior week needs (each served week's prior week,
-  // the served versions). Awaited once before the first rebuild; a failure
-  // only leaves the sources without a prior week (VP-1.2).
+  // Load each possible view's prior before the first rebuild. A minority
+  // on served week N (including unmatched sources in the denominator) keeps
+  // the default on N-1, whose prior is N-2. The same applies when a reader
+  // selects the previous view. A failure leaves that prior unavailable (VP-1.2).
   async function preloadCompositeHistory() {
     try {
       const index = await historyIndex();
       const weeks = new Set(Object.values(index?.served || {}).map(rec => rec?.week).filter(Number.isInteger));
-      const servedNeeded = [...weeks].some(week => PIPELINE_SOURCE_KEYS.some(key => servedVersionAt(index, key, week - 1)));
+      const priors = new Set([...weeks].flatMap(week => [week - 1, week - 2]));
+      const servedNeeded = [...priors].some(week => PIPELINE_SOURCE_KEYS.some(key => servedVersionAt(index, key, week)));
       await Promise.all([
-        ...[...weeks].map(week => historyWeekDoc(index, week - 1).catch(() => null)),
+        ...[...priors].map(week => historyWeekDoc(index, week).catch(() => null)),
         ...(servedNeeded ? [historyServedVersions().catch(() => null)] : []),
       ]);
     } catch (error) {

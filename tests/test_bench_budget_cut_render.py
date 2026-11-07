@@ -201,7 +201,9 @@ def transition_reference():
         (hist / "index.json").write_text(overrides["assets/history/index.json"], encoding="utf-8")
         fixture = Path(tmp) / "fixture.json"
         fixture.write_text(overrides[W.FIXTURE_ASSET], encoding="utf-8")
-        yield R, R.Inputs.load(fixture), R.History(hist), lagging, W.newest_week(lagging), overrides
+        players = Path(tmp) / "players.json"
+        players.write_text(overrides["assets/transition-players.json"], encoding="utf-8")
+        yield R, R.Inputs.load(fixture, players), R.History(hist), lagging, W.newest_week(lagging), overrides
 
 
 # --- the served page ---------------------------------------------------------
@@ -255,7 +257,9 @@ def page_runs(overrides=None, settings=None):
             page = browser.new_page()
             errors = []
             page.on("pageerror", lambda e: errors.append(str(e)))
-            page.add_init_script(f"window.TRADE_VALUE_TODAY = {json.dumps(_fixture_today())};")
+            replay = (overrides or {}).get("assets/comparison-sources-data.json")
+            today = _fixture_today(json.loads(replay) if replay else None)
+            page.add_init_script(f"window.TRADE_VALUE_TODAY = {json.dumps(today)};")
             page.goto(f"{base}/{ENGINE_URL}")
             page.on("console", lambda m: errors.append(f"console {m.type}: {m.text}") if m.type == "error" else None)
             page.wait_for_function("() => (window.TradeValueCurveControls && window.TradeValueCurveControls.isReady())"

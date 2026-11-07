@@ -110,6 +110,76 @@ class ReferenceMatchesEngine(unittest.TestCase):
             self.assertGreater(report["series"][key]["compared"], 0, key)
 
 
+class TransitionHistoryPreload(unittest.TestCase):
+    """A minority on the newest week needs the previous view's own prior.
+
+    Fixed Week 8/9 provenance replays the Nov 4 rail failure independently
+    of the live served-week counts. Numeric inputs and saved history are
+    identical on both implementations; only the in-memory replay is changed.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        _pipeline_engine_or_skip()
+
+    def test_known_newest_and_unmatched_sources_agree(self):
+        import shutil
+        import tempfile
+
+        fixture = json.loads((DIST / "assets/comparison-sources-data.json").read_text())
+        index = json.loads((DIST / "assets/history/index.json").read_text())
+        fixture["built_at"] = "2026-11-04T00:00:00Z"
+        index["fixture_built_at"] = fixture["built_at"]
+        for section in fixture["sources"].values():
+            section.pop("validationHold", None)
+            section.pop("promotionHold", None)
+            section["week_designated"] = section["content_vintage"] = "Week 9"
+        # These synthetic candidate charts differ from their saved inputs;
+        # unmatched provenance must not simply rename an unchanged saved week.
+        for key in ("cbs", "usatoday", "fantasycalc", "fantasypros"):
+            for combo in fixture["sources"][key]["combos"].values():
+                if isinstance(combo.get("native"), dict):
+                    combo["native"] = {k: v * 1.05 for k, v in combo["native"].items()}
+        body = json.dumps(fixture).encode()
+        settings = [{"scoring": "standard", "teams": 8, "superflex": 0}]
+        today = date(2026, 11, 4)
+        projections = {"espn", "cbsros", "razzball"}
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp)
+            (path / "fixture.json").write_bytes(body)
+            shutil.copytree(DIST / "assets/history", path / "history")
+            for minority in (True, False):
+                with self.subTest(minority_newest=minority):
+                    known = projections if minority else set(ref.SOURCES)
+                    index["served"] = {
+                        key: {"week": 9} if key in known else {
+                            "week": None, "reason": "the served inputs match no saved week"}
+                        for key in ref.SOURCES
+                    }
+                    idx = json.dumps(index).encode()
+                    (path / "history/index.json").write_bytes(idx)
+                    engine = vc.run_engine(settings, today, overrides={
+                        "assets/comparison-sources-data.json": body,
+                        "assets/history/index.json": idx,
+                    })
+                    self.assertEqual(engine["page_errors"], [])
+                    reference = vc.run_reference(settings, today,
+                        fixture=path / "fixture.json", history=path / "history")
+                    report = vc.compare(engine["settings"], reference)
+                    print(f"\n[JEG-1176 transition history] known_newest={len(known)}/7 "
+                          f"values_compared={report['values_compared']} verdict={report['verdict']}")
+                    bad = {k: a["examples"][:1] for k, a in report["series"].items() if a["mismatches"]}
+                    self.assertEqual(bad, {})
+                    self.assertEqual(report["verdict"], "agree")
+                    self.assertGreater(report["values_compared"], 10000)
+                    for sid, result in reference.items():
+                        self.assertEqual(set(result["composite_inputs"]), known, sid)
+                        prior = engine["settings"][sid]["prior"]["indexed"]["ddf_value"]
+                        self.assertTrue(prior["available"], prior["reason"])
+                        self.assertEqual(prior["currentWeek"], 8 if minority else 9)
+                        self.assertEqual(prior["priorWeek"], 7 if minority else 8)
+
+
 class SeededMismatch(unittest.TestCase):
     @classmethod
     def setUpClass(cls):

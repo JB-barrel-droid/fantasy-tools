@@ -304,7 +304,8 @@ class TestEngineKeepsOrderInTransition(unittest.TestCase):
             try:
                 for scoring, teams in cls.SETTINGS:
                     page = browser.new_page(viewport={"width": 1440, "height": 1000})
-                    page.add_init_script(_render_env.pin_data_week_script())
+                    today = W._fixture_today(json.loads(cls.overrides[W.FIXTURE_ASSET]))
+                    page.add_init_script(f"window.TRADE_VALUE_TODAY = {json.dumps(today)};")
                     page.on("pageerror", lambda e: errors.append(str(e)))
                     page.route(lambda u: not u.startswith("http://127.0.0.1"), lambda route: route.abort())
                     page.goto(url, wait_until="networkidle", timeout=120000)
