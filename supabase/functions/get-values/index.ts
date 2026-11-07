@@ -316,7 +316,7 @@ function formatResponse(
 
 // --- Allowed origins for CORS -----------------------------------------------
 const ALLOWED_ORIGINS = new Set([
-  "https://datadrivenfootball.com",
+  "https://datadrivenfootball.github.io",
   "https://jb-barrel-droid.github.io",
   "http://localhost:3000",
   "http://localhost:5173",
