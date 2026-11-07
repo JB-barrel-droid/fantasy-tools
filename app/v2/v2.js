@@ -7107,6 +7107,12 @@
   const SWAPPED_ROUTES = {
     "#player-values": "values.html",   // JEG-1535
     "#value-overrides": "values.html#overrides",   // JEG-1535
+    "#writing/manifesto": "learn.html#manifesto",   // JEG-1536
+    "#writing/how-values": "learn.html#numbers/logic",   // JEG-1536: the framed value logic moves with it
+    "#writing/*": "learn.html",   // JEG-1536: Research (no published posts) and any other Writing route
+    "#values-auditing/health-check": "learn.html#numbers/pie",   // JEG-1536
+    "#values-auditing/single-source": "learn.html#numbers/build-up",   // JEG-1536
+    "#values-auditing/*": "learn.html#numbers/pie",   // JEG-1536
   };
   function swappedTarget(base) {
     if (Object.prototype.hasOwnProperty.call(SWAPPED_ROUTES, base)) return SWAPPED_ROUTES[base];

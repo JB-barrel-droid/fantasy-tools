@@ -262,6 +262,53 @@ class LearnEngineParity(unittest.TestCase):
                     self.assertEqual(n, 1, f"{h} at {viewport[0]}: {n} visible h1")
                 browser.close()
 
+    def test_old_routes_redirect(self):
+        """The live #writing/* and #values-auditing/* links (and their legacy forms) land on the right Learn view.
+        navigator.webdriver is masked so the page behaves as for a reader (v2.js keeps automated browsers on the
+        classic views unless ?swapped=1)."""
+        cases = [
+            ("#writing/manifesto", "learn.html#manifesto"),
+            ("#manifesto", "learn.html#manifesto"),
+            ("#writing/how-values", "learn.html#numbers/logic"),
+            ("#how-values", "learn.html#numbers/logic"),
+            ("#writing/research", "learn.html"),
+            ("#research/some-post", "learn.html"),
+            ("#writing", "learn.html"),
+            ("#values-auditing/health-check", "learn.html#numbers/pie"),
+            ("#values-auditing/value-pie", "learn.html#numbers/pie"),
+            ("#values-auditing/single-source", "learn.html#numbers/build-up"),
+            ("#values-auditing", "learn.html#numbers/pie"),
+        ]
+        with serve() as base, self.sync_playwright() as p:
+            browser = p.chromium.launch(executable_path=chromium_executable(p), args=_render_env.HERMETIC_ARGS)
+            ctx = browser.new_context(viewport={"width": 1440, "height": 900})
+            ctx.add_init_script("Object.defineProperty(Navigator.prototype, 'webdriver', {get: () => false});")
+            page = ctx.new_page()
+            failures = []
+            for prefix in ("/", "/v2/"):
+                for old, want in cases:
+                    page.goto(base + prefix + old)
+                    try:
+                        page.wait_for_url(re.compile(re.escape(base + "/" + want.split("#")[0]) + r"(#.*)?$"), timeout=30000)
+                    except Exception:
+                        failures.append(f"{prefix}{old} stayed at {page.url}")
+                        continue
+                    got = page.url[len(base) + 1:]
+                    if not (got == want or got.startswith(want + "?") or got.startswith(want + "/")):
+                        failures.append(f"{prefix}{old} -> {got}, want {want}")
+            # The classic values explainer URL ends on the Learn tab that frames it.
+            page.goto(base + "/value-logic/")
+            try:
+                page.wait_for_url(re.compile(r".*/learn\.html#numbers/logic.*"), timeout=30000)
+                page.wait_for_function("() => { const f = document.getElementById('logic-frame'); return f && f.offsetHeight > 700; }", timeout=30000)
+            except Exception:
+                failures.append(f"value-logic/ ended at {page.url} without the framed explainer")
+            # Reader-facing check: the manifesto view renders after the redirect.
+            page.goto(base + "/#writing/manifesto")
+            page.wait_for_selector("#post-body h1", timeout=30000)
+            browser.close()
+        self.assertEqual(failures, [], "\n".join(failures))
+
     def test_no_snapshots_or_drafts_published(self):
         self.assertFalse((DIST / "learn" / "data").exists(), "week snapshot files are published (D8)")
         posts = (DIST / "learn" / "posts.json").read_text(encoding="utf-8")

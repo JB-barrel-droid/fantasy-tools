@@ -422,7 +422,7 @@ window.addEventListener('DOMContentLoaded', () => {
   let first = true;
   async function route() {
     if (window.DDFNumbers && window.DDFNumbers.isNumbersHash()) { first = false; return; }
-    const slug = decodeURIComponent(location.hash.replace(/^#\/?/, '')).trim();
+    const slug = decodeURIComponent(location.hash.replace(/^#\/?/, '').split('?')[0]).trim();
     let focusEl;
     if (!slug) {
       show('learn-index');
