@@ -4,7 +4,7 @@ The redesign lives in app/next/ (served as the private /next/ preview by build_n
 live root in its swap step by being listed in ROOT_PAGES. Per listed page the build:
 
 - writes dist/<page> from app/next/<page> (no noindex: it is a public page);
-- for ENGINE_PAGES, injects the live value engine exactly as the v2 front door carries it: the build-only engine page's
+- for a page whose source carries <!-- ddf-engine --> (values.html and learn.html must), injects the live value engine exactly as the v2 front door carries it: the build-only engine page's
   body (hidden, inert) and its scripts and data islands (build_v2_page.ENGINE_SCRIPT_MARKER to </body>), at the page's
   <!-- ddf-engine --> marker, before the page's own deferred scripts. No second copy of the value math: the page reads
   the engine's rows through app/next/ddf-engine.js;
@@ -15,7 +15,7 @@ live root in its swap step by being listed in ROOT_PAGES. Per listed page the bu
 - replaces dist/next/<page> with a redirect to the root copy, so the preview has one source of truth for a swapped page.
 
 Re-running with the same tag gives the same output. Adding a page later (Learn, Build a Trade, ...) is one entry in
-ROOT_PAGES (and ENGINE_PAGES when it needs numbers) plus the files it loads in ROOT_FILES.
+ROOT_PAGES (and the <!-- ddf-engine --> marker when it needs numbers) plus the files it loads in ROOT_FILES.
 """
 from __future__ import annotations
 
@@ -32,14 +32,21 @@ sys.path.insert(0, str(ROOT / "pipelines"))
 from build_next_preview import DATA_VERSION, LOCAL_ASSET, data_version_script  # noqa: E402
 from build_v2_page import ENGINE_PAGE, ENGINE_SCRIPT_MARKER, FETCH_SHARE_SHIM  # noqa: E402
 
-ROOT_PAGES = ("values.html", "learn.html")
-ENGINE_PAGES = frozenset({"values.html", "learn.html"})
+ROOT_PAGES = ("values.html", "learn.html",
+              # JEG-1539 (step 5): the workspace pages and the new front door. index.html replaces the v2 shell at
+              # the root; build_v2_page writes the v2 shell build-only (build/v2/index.html) for the render harnesses.
+              "index.html", "team.html", "explore.html", "partners.html", "find.html", "waivers.html",
+              "settings.html", "ai.html", "compare.html")
+# A page gets the engine when its source carries the <!-- ddf-engine --> marker (values.html and learn.html must).
+ENGINE_REQUIRED = frozenset({"values.html", "learn.html"})
 # Files the root pages load from beside them (copied from app/next/). v2/*.js are already published by build_v2_page.
 ROOT_FILES = ("site.js", "styles.css", "players-table-1.json", "ddf-engine.js",
               "values-chart.js", "values-buysell.js", "values-overrides.js",
               # Learn (JEG-1536): the posts, the markdown renderer and the numbers tabs.
               "learn/render.js", "learn/posts.json", "learn/posts",
-              "learn/numbers/learn-engine.js", "learn/numbers/numbers.js")
+              "learn/numbers/learn-engine.js", "learn/numbers/numbers.js",
+              # Workspace pages (JEG-1539).
+              "actionbar.js", "actionbar.css", "legacy-routes.js")
 ENGINE_MARKER = "<!-- ddf-engine -->"
 ICON_BLANK = '<link rel="icon" href="data:,">'
 ICON_SITE = '<link rel="icon" href="icon.jpg">'
@@ -112,7 +119,7 @@ def root_page_html(html: str, name: str, engine_html: str | None, tag: str | Non
         if not head:
             raise ValueError(f"{name}: no <head> to carry the build tag")
         html = html[:head.end()] + BUILD_META.format(tag=html_lib.escape(tag)) + data_version_script(tag) + html[head.end():]
-    if name in ENGINE_PAGES:
+    if name in ENGINE_REQUIRED or ENGINE_MARKER in html:
         if engine_html is None:
             raise ValueError(f"{name}: needs the engine page, which is not built")
         if html.count(ENGINE_MARKER) != 1:
