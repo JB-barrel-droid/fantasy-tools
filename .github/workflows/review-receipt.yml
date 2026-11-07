@@ -1,0 +1,62 @@
+name: Review receipt
+
+# JEG-1551 (Jeremy, 2026-11-06, option A): a green PR with an independent
+# `ddf-review: PASS` review on its current head merges itself through the
+# merge queue. `review-receipt` is a required check on main; when it passes on
+# a ready PR, this workflow turns on auto-merge so GitHub queues the PR once
+# `preview` and `v2-render` are green too. Value math and migrations also need
+# Jeremy's `jeremy-approved` label. See pipelines/review_receipt.py.
+
+on:
+  merge_group:
+    types: [checks_requested]
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft, labeled, unlabeled]
+  pull_request_review:
+    types: [submitted, edited, dismissed]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: review-receipt-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  review-receipt:
+    name: review-receipt
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha || github.sha }}
+      - name: Independent review on the current head
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 -m pipelines.review_receipt check
+
+  enable-auto-merge:
+    needs: review-receipt
+    if: github.event_name != 'merge_group' && github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Queue the PR once its required checks are green
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: |
+          # Only behind the merge queue: there GitHub runs every required check
+          # on the merged result first. Without the queue, auto-merge could
+          # land a PR before its checks finish, so do nothing.
+          rules="$(gh api "repos/$GITHUB_REPOSITORY/rules/branches/main" --jq '[.[].type] | join(",")')"
+          echo "main rules: $rules"
+          case ",$rules," in
+            *,merge_queue,*) gh pr merge --auto --squash "$PR_URL" ;;
+            *) echo "Merge queue is not on for main yet; auto-merge left off." | tee -a "$GITHUB_STEP_SUMMARY" ;;
+          esac

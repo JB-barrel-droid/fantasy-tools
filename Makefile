@@ -395,6 +395,7 @@ test-unit-modules:
 	python3 -m unittest tests.test_preview_workflow_matches_pages
 	python3 -m unittest tests.test_v2_render_runs_on_data_push
 	python3 -m unittest tests.test_ci_speedup_workflows
+	python3 -m unittest tests.test_jeg1551_merge_flow
 	python3 -m unittest tests.test_validate_shards
 	python3 -m unittest tests.test_sync_monitor_fixture
 	python3 -m unittest tests.test_rebuild_chain_workflow
