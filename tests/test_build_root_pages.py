@@ -50,8 +50,8 @@ class RewriteLinksTest(unittest.TestCase):
         self.assertEqual(result, '"./#compare-trade"')
 
     def test_learn_numbers_rewritten(self):
-        """learn.html#numbers/x -> ./#writing/how-values"""
-        result = brp.rewrite_links('"learn.html#numbers/anything"')
+        """learn.html#numbers/x -> ./#writing/how-values while Learn is not swapped (JEG-1536 swaps it)."""
+        result = brp.rewrite_links('"learn.html#numbers/anything"', root_pages=("values.html",))
         self.assertEqual(result, '"./#writing/how-values"')
 
     def test_values_html_untouched(self):
@@ -65,9 +65,15 @@ class RewriteLinksTest(unittest.TestCase):
         self.assertEqual(result, '"values.html#overrides"')
 
     def test_learn_bare_rewritten_to_manifesto(self):
-        """learn.html (bare, no hash) -> ./#writing/manifesto"""
-        result = brp.rewrite_links('"learn.html"')
+        """learn.html (bare, no hash) -> ./#writing/manifesto while Learn is not swapped."""
+        result = brp.rewrite_links('"learn.html"', root_pages=("values.html",))
         self.assertEqual(result, '"./#writing/manifesto"')
+
+    def test_learn_untouched_once_swapped(self):
+        """JEG-1536: learn.html is a root page, so links to it stay."""
+        self.assertIn("learn.html", brp.ROOT_PAGES)
+        for text in ('"learn.html"', '"learn.html#numbers/pie"', '"learn.html#manifesto"'):
+            self.assertEqual(brp.rewrite_links(text), text)
 
     def test_single_quotes_also_rewritten(self):
         result = brp.rewrite_links("'build.html'")
