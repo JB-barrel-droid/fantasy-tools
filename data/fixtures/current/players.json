@@ -4,9 +4,9 @@
   "prior_blend_snapshot": "2026-09-23",
   "espn_snapshot": "2026-11-06",
   "rz_snapshot": "2026-11-06",
-  "cbsros_snapshot": "2026-11-06",
+  "cbsros_snapshot": "2026-11-07",
   "espn_snapshot_id": "sha256:9e424505e800f71fae8dbe133d8d2b7f0e5a90ffae6ee882a93f50d320df6a3f",
-  "cbsros_snapshot_id": "sha256:b1ede38685e605b2855ff7ffac3b96b3ecf870c100e72a77425f4d495d7403fd",
+  "cbsros_snapshot_id": "sha256:e842b7cb9e4902d4f3835bb48fa455b09fec53f79bfe451a01b2731b2dc7c0f5",
   "rz_snapshot_id": "sha256:a275fab0e08bae59f670cdd84b5fa91009353c4e6f0350acacde4eb10b32c95b",
   "n_players": 1161,
   "n_espn_complete": 358,
@@ -18,6 +18,7 @@
    "n_espn_listed": 604,
    "n_not_on_espn": 557,
    "chart_only": [
+    568,
     3081,
     3735
    ],
@@ -54,22 +55,22 @@
      "snapshot": "data/raw/sources/fantasycalc/week-9/snapshot.json",
      "by_combo": {
       "half_ppr-12": {
-       "QB": 35,
-       "RB": 61,
-       "WR": 71,
-       "TE": 28
+       "QB": 36,
+       "RB": 60,
+       "WR": 73,
+       "TE": 27
       },
       "ppr-12": {
-       "QB": 35,
+       "QB": 36,
        "RB": 61,
-       "WR": 71,
-       "TE": 28
+       "WR": 73,
+       "TE": 27
       },
       "standard-12": {
-       "QB": 35,
+       "QB": 36,
        "RB": 61,
-       "WR": 71,
-       "TE": 28
+       "WR": 73,
+       "TE": 27
       }
      }
     },
@@ -139,7 +140,7 @@
     },
     "n_not_in_nfl_active": 168,
     "n_practice_squad_inferred": 176,
-    "n_universe_only": 348,
+    "n_universe_only": 346,
     "n_not_on_players_table": 0,
     "not_on_players_table": []
    }
@@ -169,7 +170,7 @@
   "pricing_note": "pricing labels are uniform 'espn_only' across all positions (JEG-ECR-EXIT 2026-10-05): the primary value IS ESPN, with ESPN-purity (every ESPN-labeled field sourced ONLY from ESPN projections) for every charted position. The source-accounting audit rejects any other label.",
   "content_observation_scopes": {},
   "dataset_status": {
-   "built_at": "2026-11-07T01:12:10Z",
+   "built_at": "2026-11-07T04:38:23Z",
    "as_of": "2026-11-07",
    "summary": {
     "live": 0,
@@ -214,7 +215,7 @@
         "last_observed_change_at": null,
         "normalized_content_hash": null,
         "coverage": null,
-        "evaluated_at": "2026-11-07T01:12:10.081875Z"
+        "evaluated_at": "2026-11-07T04:38:23.210285Z"
        }
       ]
      },
@@ -261,7 +262,7 @@
         "last_observed_change_at": null,
         "normalized_content_hash": null,
         "coverage": null,
-        "evaluated_at": "2026-11-07T01:12:10.081875Z"
+        "evaluated_at": "2026-11-07T04:38:23.210285Z"
        }
       ]
      },
@@ -307,7 +308,7 @@
         "last_observed_change_at": null,
         "normalized_content_hash": null,
         "coverage": null,
-        "evaluated_at": "2026-11-07T01:12:10.082060Z"
+        "evaluated_at": "2026-11-07T04:38:23.210528Z"
        }
       ]
      },
@@ -353,7 +354,7 @@
         "last_observed_change_at": null,
         "normalized_content_hash": null,
         "coverage": null,
-        "evaluated_at": "2026-11-07T01:12:10.082204Z"
+        "evaluated_at": "2026-11-07T04:38:23.210753Z"
        }
       ]
      },
@@ -399,7 +400,7 @@
         "last_observed_change_at": null,
         "normalized_content_hash": null,
         "coverage": null,
-        "evaluated_at": "2026-11-07T01:12:10.082336Z"
+        "evaluated_at": "2026-11-07T04:38:23.210974Z"
        }
       ]
      },
@@ -445,7 +446,7 @@
         "last_observed_change_at": null,
         "normalized_content_hash": null,
         "coverage": null,
-        "evaluated_at": "2026-11-07T01:12:10.082465Z"
+        "evaluated_at": "2026-11-07T04:38:23.211188Z"
        }
       ]
      },
@@ -474,7 +475,7 @@
       "note": "CBS native ROS stat coverage from the bake."
      },
      "freshness": {
-      "snapshot_date": "2026-11-06",
+      "snapshot_date": "2026-11-07",
       "content_date": null,
       "note": "Fetch and numeric-change clocks are independent; unknown vintage is non-green.",
       "observations": [
@@ -491,7 +492,7 @@
         "last_observed_change_at": null,
         "normalized_content_hash": null,
         "coverage": null,
-        "evaluated_at": "2026-11-07T01:12:10.082596Z"
+        "evaluated_at": "2026-11-07T04:38:23.211399Z"
        }
       ]
      },
@@ -37110,13 +37111,15 @@
    "espn_zeroed": true,
    "espn_status": "absent",
    "espn_missing_reason": "not on ESPN's list",
+   "universe_sources": [
+    "fantasycalc",
+    "fantasycalc:superflex"
+   ],
    "roster_status": "active_roster",
    "roster_status_label": "Active roster",
    "injury_status": "DNR",
    "depth_chart_order": 9,
    "sleeper_id": "6803",
-   "universe_only": true,
-   "unpriced_reason": "Active roster (SF). No chart or projection prices this player.",
    "games_remaining": 10,
    "espn_expected_games": null,
    "prior_espn_ros": null,
@@ -39816,13 +39819,9 @@
     "ppr",
     "standard"
    ],
-   "cbsros_complete": true,
-   "cbsros_comp_count": 3,
-   "cbsros_covered": [
-    "half_ppr",
-    "ppr",
-    "standard"
-   ],
+   "cbsros_complete": false,
+   "cbsros_comp_count": 0,
+   "cbsros_covered": [],
    "blend_ros": {
     "standard": 0.0,
     "half_ppr": 0.0,
@@ -39832,7 +39831,6 @@
    "espn_zeroed": true,
    "espn_status": "ineligible",
    "universe_sources": [
-    "cbsros",
     "razzball"
    ],
    "roster_status": "active_roster",
@@ -39862,11 +39860,6 @@
     "standard": 21.6,
     "half_ppr": 23.4,
     "ppr": 24.3
-   },
-   "cbsros_ppg": {
-    "standard": 0.356,
-    "half_ppr": 0.411,
-    "ppr": 0.467
    },
    "prior_espn_ros": null,
    "prior_blend_ros": {
@@ -44207,13 +44200,9 @@
     "ppr",
     "standard"
    ],
-   "cbsros_complete": true,
-   "cbsros_comp_count": 3,
-   "cbsros_covered": [
-    "half_ppr",
-    "ppr",
-    "standard"
-   ],
+   "cbsros_complete": false,
+   "cbsros_comp_count": 0,
+   "cbsros_covered": [],
    "blend_ros": {
     "standard": 0.0,
     "half_ppr": 0.0,
@@ -44222,9 +44211,6 @@
    "pricing": "espn_only",
    "espn_zeroed": true,
    "espn_status": "ineligible",
-   "universe_sources": [
-    "cbsros"
-   ],
    "roster_status": "active_roster",
    "roster_status_label": "Active roster",
    "injury_status": "PUP",
@@ -44252,11 +44238,6 @@
     "standard": 0.0,
     "half_ppr": 0.0,
     "ppr": 0.0
-   },
-   "cbsros_ppg": {
-    "standard": 0.211,
-    "half_ppr": 0.6,
-    "ppr": 0.989
    },
    "prior_espn_ros": null,
    "prior_blend_ros": {
@@ -47193,9 +47174,13 @@
    "rz_complete": false,
    "rz_comp_count": 0,
    "rz_covered": [],
-   "cbsros_complete": false,
-   "cbsros_comp_count": 0,
-   "cbsros_covered": [],
+   "cbsros_complete": true,
+   "cbsros_comp_count": 3,
+   "cbsros_covered": [
+    "half_ppr",
+    "ppr",
+    "standard"
+   ],
    "blend_ros": {
     "standard": 0.0,
     "half_ppr": 0.0,
@@ -47205,15 +47190,21 @@
    "espn_zeroed": true,
    "espn_status": "absent",
    "espn_missing_reason": "not on ESPN's list",
+   "universe_sources": [
+    "cbsros"
+   ],
    "roster_status": "active_roster",
    "roster_status_label": "Active roster",
    "depth_chart_position": "TE",
    "depth_chart_order": 4,
    "sleeper_id": "13122",
-   "universe_only": true,
-   "unpriced_reason": "Active roster (LV). No chart or projection prices this player.",
    "games_remaining": 9,
    "espn_expected_games": null,
+   "cbsros_ppg": {
+    "standard": 0.211,
+    "half_ppr": 0.544,
+    "ppr": 0.878
+   },
    "prior_espn_ros": null,
    "prior_blend_ros": {
     "standard": 4.74,
@@ -58623,9 +58614,13 @@
     "ppr",
     "standard"
    ],
-   "cbsros_complete": false,
-   "cbsros_comp_count": 0,
-   "cbsros_covered": [],
+   "cbsros_complete": true,
+   "cbsros_comp_count": 3,
+   "cbsros_covered": [
+    "half_ppr",
+    "ppr",
+    "standard"
+   ],
    "blend_ros": {
     "standard": 0.0,
     "half_ppr": 0.0,
@@ -58635,6 +58630,7 @@
    "espn_zeroed": true,
    "espn_status": "ineligible",
    "universe_sources": [
+    "cbsros",
     "razzball"
    ],
    "roster_status": "active_roster",
@@ -58663,6 +58659,11 @@
     "standard": 0.9,
     "half_ppr": 0.9,
     "ppr": 0.9
+   },
+   "cbsros_ppg": {
+    "standard": 0.356,
+    "half_ppr": 0.356,
+    "ppr": 0.356
    },
    "prior_espn_ros": null,
    "prior_blend_ros": {
