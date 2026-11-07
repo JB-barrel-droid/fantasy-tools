@@ -214,7 +214,7 @@ def _served():
         with Server(("127.0.0.1", 0), handler) as server:
             threading.Thread(target=server.serve_forever, daemon=True).start()
             try:
-                yield f"http://127.0.0.1:{server.server_address[1]}/v2/", dist
+                yield f"http://127.0.0.1:{server.server_address[1]}/v2-app.html", dist  # JEG-1539
             finally:
                 server.shutdown()
 
@@ -314,14 +314,15 @@ class Session:
                                                    body=_freshness(page.freshness["kind"])))
         ov = self.overrides
         if "shell" in ov:
-            built = (self.dist / "v2" / "index.html").read_text(encoding="utf-8")
+            # JEG-1539: the shell is build/v2/index.html (not dist/v2/index.html, which is now a redirect stub).
+            built = build_v2_page.V2_SHELL_PAGE.read_text(encoding="utf-8")
             posts = build_v2_page.load_posts()
             # The build places the Research page inside #v2App (JEG-543), so the embedded
             # shell is compose_shell(shell.html, posts), not shell.html itself.
             original = build_v2_page.compose_shell(SHELL.read_text(encoding="utf-8"), posts)
             assert original in built, "the built page no longer embeds shell.html verbatim"
             html = built.replace(original, build_v2_page.compose_shell(ov["shell"], posts), 1)
-            page.route(lambda u: urlparse(u).path in ("/v2/", "/v2/index.html"),
+            page.route(lambda u: urlparse(u).path in ("/v2/", "/v2/index.html", "/v2-app.html"),
                        functools.partial(_fulfill, html, "text/html"))
         if "v2.js" in ov:
             page.route("**/v2/v2.js*", functools.partial(_fulfill, ov["v2.js"], "text/javascript"))

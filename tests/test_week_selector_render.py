@@ -117,9 +117,14 @@ def served_dist(overrides: dict):
         shutil.copytree(DIST, dist, ignore=shutil.ignore_patterns("v2"))
         build_v2_page.build(dist)
 
+        from tests._dist_server import engine_path as _engine_path
+
         class Handler(http.server.SimpleHTTPRequestHandler):
             def log_message(self, *args):
                 pass
+
+            def translate_path(self, path):  # JEG-1539: v2 shell is at /v2-app.html
+                return _engine_path(path) or super().translate_path(path)
 
             def do_GET(self):
                 path = self.path.split("?")[0].lstrip("/")
@@ -138,7 +143,7 @@ def served_dist(overrides: dict):
             server.daemon_threads = True
             threading.Thread(target=server.serve_forever, daemon=True).start()
             try:
-                yield f"http://127.0.0.1:{server.server_address[1]}/v2/", dist
+                yield f"http://127.0.0.1:{server.server_address[1]}/v2-app.html", dist  # JEG-1539
             finally:
                 server.shutdown()
 
