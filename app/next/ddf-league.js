@@ -39,6 +39,7 @@
  *   partnerTags(team) {ddf, analyst, live, ratioAnalyst, ratioLive, tags:['edge'|'analyst'|'live']} starters, 15% edge rule
  *   held() / setHeld(keys)        explore.html Evaluate/Hold: held player keys (sessionStorage ddf:hold)
  *   skipped() / setSkipped(names) partners.html skipped teams by name (sessionStorage ddf:skip)
+ *   moves() / setMoves(list)      waivers.html roster moves [{add:key, drop:key|null, at}] (sessionStorage ddf:moves), applied to my team
  *   waiversOn() / setWaiversOn(b) the shared "also look for waiver pickups" switch (sessionStorage ddf:waivers "1"/"0")
  *   on(fn)           fn(current()) after a league or value change; returns an unsubscribe
  */
@@ -130,6 +131,32 @@
     var s = DDF.engine.settings(), r = s.roster || {};
     return {scoring: s.scoring, teams: s.teams, superflex: (r.SUPERFLEX || 0) > 0, slots: SLOT_KEYS.map(function (k) { return r[k] || 0; })};
   }
+  // Roster moves from waivers.html ("Confirm roster move", sessionStorage ddf:moves, in order): a local layer over the
+  // league, never written into ddf:league / ddf:pasted. add joins my team (skipped if rostered anywhere), drop leaves it.
+  function readMoves() {
+    var m = DDF.state ? DDF.state.get("moves", []) : [];
+    return Array.isArray(m) ? m.filter(function (x) { return x && x.add !== undefined && x.add !== null; }) : [];
+  }
+  function applyMoves(lg, rostered) {
+    var moves = readMoves();
+    if (!moves.length || lg.me === null) return;
+    var mine = lg.teams[lg.me];
+    mine.players = mine.players.slice();
+    moves.forEach(function (mv) {
+      var add = String(mv.add), drop = mv.drop === null || mv.drop === undefined ? null : String(mv.drop);
+      var rec = DDF.engine.player(add);
+      if (drop !== null && mine.players.some(function (p) { return !p.unpriced && p.key === drop; })) {
+        mine.players = mine.players.filter(function (p) { return p.unpriced || p.key !== drop; });
+        rostered.delete(drop);
+        if (lg.linkWaivers) { var dr = DDF.engine.player(drop); if (dr && dr.ddf !== null && !lg.linkWaivers.some(function (w) { return w.key === drop; })) lg.linkWaivers.push(dr); }
+      }
+      if (rec && !rostered.has(add)) {
+        mine.players.push(rec);
+        rostered.add(add);
+        if (lg.linkWaivers) lg.linkWaivers = lg.linkWaivers.filter(function (w) { return w.key !== add; });
+      }
+    });
+  }
   function build() {
     if (cache) return cache.value;
     var ix = index();
@@ -139,6 +166,7 @@
     if (!lg) { cache = {value: null}; return null; }
     var rostered = new Set();
     lg.teams.forEach(function (t) { t.players.forEach(function (p) { if (!p.unpriced) rostered.add(p.key); }); });
+    applyMoves(lg, rostered);
     var waivers = lg.linkWaivers || ix.recs.filter(function (r) { return r.ddf !== null && !rostered.has(r.key); })
       .sort(function (a, b) { return b.ddf - a.ddf || a.key.localeCompare(b.key); });
     var value = {name: lg.name, source: lg.source, settings: lg.source === "link" && lg.settings ? lg.settings : engineSettings(),
@@ -310,6 +338,8 @@
     leagueTable: leagueTable,
     partnerTags: partnerTags,
     tierOf: tierOf,
+    moves: function () { return readMoves(); },
+    setMoves: function (list) { if (DDF.state) DDF.state.set("moves", Array.isArray(list) ? list : []); changed(); },
     held: function () { return getList("hold"); },
     setHeld: function (keys) { setList("hold", keys); },
     skipped: function () { return getList("skip"); },
