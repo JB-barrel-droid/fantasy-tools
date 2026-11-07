@@ -199,6 +199,13 @@
   }
   function recOf(row) { return {key: keyOf(row), n: row.name}; }
   function hrefFor(t) { return DDF.engine.buildHref({give: t.give.map(recOf), get: t.receive.map(recOf)}); }
+  // JEG-1560 (Jeremy 2026-11-07): the chart count is a link to Build a Trade for this trade, scrolled to its charts
+  // (build.html?give=..&get=..#trade-charts, the anchor JEG-1559 adds). Same count: charts even or better for them.
+  function chartsHref(t) { return hrefFor(t) + "#trade-charts"; }
+  function chartsLink(t) {
+    return '<a class="charts-link" data-charts href="' + esc(chartsHref(t)) + '" aria-label="See the ' + t.rivalOkCount + " of " + t.chartCount
+      + ' public trade charts for this trade">' + t.rivalOkCount + "/" + t.chartCount + " public trade charts</a>";
+  }
   function card(g, k, mx) {
     var B = basis(), t = selected(g);
     var pct = function (v) { return v === null ? "0" : Math.max(0, Math.min(100, v / mx * 100)).toFixed(1); };
@@ -218,7 +225,7 @@
       + '<div class="pk-main"><div class="pk-ex"><div class="pk-side"><small>You give</small>' + giveCell + '</div><span class="pk-arrow" aria-hidden="true">&rarr;</span>'
       + '<div class="pk-side"><small>You get</small><b>' + gets + "</b></div></div>"
       + '<div class="pk-meta"><span class="ptag">' + esc(g.partner) + '</span><span class="fit">' + FIT_WORD[g.cls] + "</span>"
-      + '<span class="fit" title="Trade charts that have this even or better for them">' + t.rivalOkCount + "/" + t.chartCount + " charts even or better for them</span></div>"
+      + '<span class="fit">' + chartsLink(t) + " even or better for them</span></div>"
       + (added.length ? '<p class="muted pk-note">Players even out: ' + esc(added.join(", ")) + ".</p>" : "")
       + (throwIns.length ? '<p class="muted pk-note">Also seen with ' + esc(names(throwIns)) + " (worth 0.0) added.</p>" : "")
       + (t.unbalanced ? '<p class="muted pk-note">Uneven player counts: the team getting more players has no bench player left to add.</p>' : "")
