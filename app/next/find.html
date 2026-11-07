@@ -30,6 +30,9 @@
 .ptag{font-family:"IBM Plex Mono",monospace;font-size:12px;background:#eef1ec;border-radius:6px;padding:2px 8px;color:#12202c}
 .ptag.wv{background:#fff0e8;color:#a83e12}
 .fit{font-size:12px;color:#5c6a76;font-weight:600}
+.fit .charts-link{color:#176c4d;font-weight:700;text-decoration:underline;text-underline-offset:3px;display:inline-flex;align-items:center}
+.fit .charts-link:focus-visible{outline:3px solid #176c4d;outline-offset:2px;border-radius:3px}
+@media(max-width:760px){.fit .charts-link{min-height:44px}}
 .gain{display:block;font-family:"IBM Plex Mono",monospace;font-size:32px;font-weight:700;color:var(--green);line-height:1.05;font-variant-numeric:tabular-nums}
 .meter{display:grid;grid-template-columns:1fr 1fr;height:8px;margin-top:12px;background:#eef1ec;border-radius:4px;position:relative}
 .meter::after{content:"";position:absolute;left:50%;top:-3px;bottom:-3px;width:2px;margin-left:-1px;background:#39413b;border-radius:1px}
@@ -214,6 +217,7 @@ ALWAYS
 <script src="ddf-engine.js" defer></script>
 <script src="ddf-league.js" defer></script>
 <script src="find-engine.js" defer></script>
+<script src="ddf-why.js" defer></script>
 <script src="find-page.js" defer></script><script>
 (function(){
   var btn=document.getElementById('copy-prompt'); if(!btn) return;
