@@ -39,7 +39,14 @@ document.querySelectorAll('[data-slideshow]').forEach(function(slideshow){
   function leagueLoaded(){
     /* JEG-1539: DDF.league (ddf-league.js) sets DDF.leagueKnown after it reads the league, so a pasted or saved league counts too. */
     if(window.DDF && DDF.leagueKnown === true) return true;
-    try{ if(/^#s=/.test(location.hash)) return true; return !!sessionStorage.getItem('ddf:league'); }
+    try{
+      if(/^#s=/.test(location.hash) || sessionStorage.getItem('ddf:league')) return true;
+      /* JEG-1539: the same leagues DDF.league reads, so pages without ddf-league.js (Home, Values, Learn, Build a Trade) show the same nav. */
+      var pasted = JSON.parse(sessionStorage.getItem('ddf:pasted') || 'null');
+      if(pasted && Array.isArray(pasted.teams) && pasted.teams.length) return true;
+      var saved = JSON.parse(localStorage.getItem('ddf.v2.workspaces') || 'null');
+      return !!(saved && Array.isArray(saved.workspaces) && saved.workspaces.some(function(w){ return w && Array.isArray(w.teams) && w.teams.length; }));
+    }
     catch(e){ return false; }
   }
   var PRE = [['index.html','Home'],['connect.html','Add your league'],['build.html?mode=any','Quick trade check'],['values.html','Values'],['ai.html','Use with AI'],['learn.html','Learn']];

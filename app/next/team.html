@@ -72,7 +72,7 @@ body .sitemap .footer{max-width:1040px;margin:0 auto;padding:20px 28px 28px}
    1) Teams (league table): rank on that column among the 12 teams. Ranks 1-4 Strong, 5-8 Average, 9-12 Weak (thirds; ties share the better rank).
    2) Your positions: score = sum over starter slots of min(player DDF, 1.25 x league median for that slot); ratio = score / sum of slot medians.
       The cap stops one star hiding a thin slot. Strong >= 1.10, Average 0.90 to 1.09, Weak < 0.90.
-   League slot medians are sample benchmarks (the dataset holds only team totals, not per-position league values); see POSITIONS in the script. */
+   League slot medians are the real per-slot medians of every team's starters (DDF.league.positionTiers, JEG-1539). */
 .team-page{--t-strong:#176c4d;--t-avg:#b25e00;--t-weak:#b3261e;--t-strong-bg:#e8f5ee;--t-avg-bg:#fdf1d6;--t-weak-bg:#fbe4e1;--t-strong-tx:#0f5238;--t-avg-tx:#6b3a00;--t-weak-tx:#8f1a12;--t-strong-bar:#cfe8d6;--t-avg-bar:#f8e3a6;--t-weak-bar:#f4c0b8}
 .team-page .team-stats h2{margin:0;font-size:20px}
 .team-page .pos-table tbody th[scope=row]{background:#fff;color:var(--text);text-transform:none;letter-spacing:0;font-size:inherit}
@@ -142,7 +142,7 @@ body .sitemap .footer{max-width:1040px;margin:0 auto;padding:20px 28px 28px}
 }
 </style><style id="advance-pass">.team-page .next-label{flex:1 1 220px;font-size:15px;color:#4b5a66;margin:0}.team-page .next-top{margin:16px 0 8px;justify-content:flex-start;gap:16px}.team-page .next-top .next-label{flex:0 1 auto}.team-page .next-end{margin:32px 0 8px}@media(max-width:600px){.team-page .next-end .next-label,.team-page .next-top .next-label{flex:1 0 100%;order:-2}}</style><style id="imported-league">
 /* F01 (2026-11-06, Jeremy: "Show the imported league, mark numbers not priced"). A league from a #s= link or ddf:league shows its own names,
-   settings and players; every value, rank and tier the wireframe cannot compute for it reads "Not priced yet". */
+   settings and players; every value the engine does not price for it reads "Not priced" (JEG-1539). */
 body.league-pending .team-page{visibility:hidden}
 .team-page .np{color:#5c6a76;font-weight:500;font-family:"Archivo",system-ui,sans-serif;font-size:14px;white-space:nowrap}
 .team-page .np .info{vertical-align:1px;margin-left:4px;white-space:normal}

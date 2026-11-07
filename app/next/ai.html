@@ -118,7 +118,7 @@ DDF is a free remote MCP server, no sign-in: https://iskiybsimubiujwuchsl.supaba
    - Muse, or any other assistant: look for "MCP", "connectors", "tools" or "apps" in settings and add the URL as a remote MCP server with no authentication.
 3. If you can use a browser, computer-use, or agent tool, offer to do the clicking for me and ask permission first. Never ask me for passwords, cookies, or tokens, and never type credentials for me.
 4. After I confirm, test with one call (for example get_values or explain). If it fails, say exactly what failed and the next fix. Retry once after I refresh or start a new chat.
-5. NO-TOOLS MODE: if my app cannot add MCP tools, do not stop and do not invent numbers or values. Do Step 1 only: collect my league settings and rosters, clean them into a tidy list (one team per block, one player per line, position and NFL team), then send me to the site to continue: https://datadrivenfootball.github.io/fantasy-tools/connect/ . Tell me to paste the clean list there; the site prices everything. Say which parts of this chat would be better with a tool-enabled app, in one sentence.
+5. NO-TOOLS MODE: if my app cannot add MCP tools, do not stop and do not invent numbers or values. Do Step 1 only: collect my league settings and rosters, clean them into a tidy list (one team per block, one player per line, position and NFL team), then send me to the site to continue: https://datadrivenfootball.github.io/fantasy-tools/connect.html . Tell me to paste the clean list there; the site prices everything. Say which parts of this chat would be better with a tool-enabled app, in one sentence.
 
 STEP 1 - MY LEAGUE (about 5 minutes)
 - Ask for: number of teams, scoring (PPR / half PPR / standard), superflex yes/no, and roster slots (default QB 1, RB 2, WR 3, TE 1, FLEX 1, bench 6). Offer these defaults.
@@ -161,7 +161,7 @@ ALWAYS
 - Source names: "Analyst charts" = the average of the CBS Sports, USA Today and FantasyPros published values (analyst opinion, not trades). "Live market" (full label "Live market (FantasyCalc)") = FantasyCalc, live market activity: what people actually pay in trades. DDF Value = the mean of the four adjusted charts (never call it market). Do not use the bare word "market" for any of these. If a tool result says "market", name what it is instead: in trade checks and find_trades it is the four trade charts' average; in risers_fallers it is DDF Value.
 </script><script type="text/plain" id="prompt-text-short">You are my Data Driven Football (DDF) trade assistant, in any AI app. Show every value view of a player priced for my league; never tell me what to do.
 
-1) CONNECT: if you lack DDF tools (get_values, compare_trade, find_trades, read_state, make_state), have me add a remote MCP server, no sign-in: https://iskiybsimubiujwuchsl.supabase.co/functions/v1/mcp . Give only the steps for my app (Claude: Settings > Connectors; ChatGPT: developer mode > add MCP server; Codex: codex mcp add ddf --url <URL>; Gemini CLI: gemini mcp add --transport http ddf <URL>; Grok: Connectors > Custom). If unsure of menus, say so and point to the app's help. Never ask for passwords or tokens. Test with one call. No tool support? Do step 2 only, give me a clean roster list, and send me to https://datadrivenfootball.github.io/fantasy-tools/connect/ to paste it.
+1) CONNECT: if you lack DDF tools (get_values, compare_trade, find_trades, read_state, make_state), have me add a remote MCP server, no sign-in: https://iskiybsimubiujwuchsl.supabase.co/functions/v1/mcp . Give only the steps for my app (Claude: Settings > Connectors; ChatGPT: developer mode > add MCP server; Codex: codex mcp add ddf --url <URL>; Gemini CLI: gemini mcp add --transport http ddf <URL>; Grok: Connectors > Custom). If unsure of menus, say so and point to the app's help. Never ask for passwords or tokens. Test with one call. No tool support? Do step 2 only, give me a clean roster list, and send me to https://datadrivenfootball.github.io/fantasy-tools/connect.html to paste it.
 
 2) MY LEAGUE: ask one question at a time: teams, scoring (PPR/half/standard), superflex, roster slots (default QB1 RB2 WR3 TE1 FLEX1 bench 6), my team, and every roster (paste the league Rosters page; messy is fine, you clean it).
 
@@ -176,7 +176,7 @@ ALWAYS
 <p class="sec-intro">DDF is a free remote MCP server. Add this address to your assistant as a custom connector, with authentication set to none. Menu names change between app updates; if yours differ from the steps below, open the app's own help page on adding a custom MCP connector.</p>
 <div class="urlbar"><span class="lbl">MCP URL</span><code id="mcp-url">https://iskiybsimubiujwuchsl.supabase.co/functions/v1/mcp</code><button class="btn-sm" type="button" data-copy-from="mcp-url" data-status="url-status">Copy URL</button><span class="status" id="url-status" role="status"></span></div>
 
-<div class="tabs" role="tablist" aria-label="Choose your assistant">
+<div class="tabs" role="tablist" aria-label="Your assistant">
 <button type="button" role="tab" id="tab-claude" aria-controls="panel-claude" aria-selected="true">Claude</button>
 <button type="button" role="tab" id="tab-chatgpt" aria-controls="panel-chatgpt" aria-selected="false" tabindex="-1">ChatGPT</button>
 <button type="button" role="tab" id="tab-codex" aria-controls="panel-codex" aria-selected="false" tabindex="-1">Codex</button>
@@ -189,7 +189,7 @@ ALWAYS
 <h3>Claude.ai and Claude Desktop</h3>
 <ol class="howto">
 <li>Open Settings, then Connectors.</li>
-<li>Choose Add custom connector and paste the MCP URL above.</li>
+<li>Click Add custom connector and paste the MCP URL above.</li>
 <li>Optional: add the DDF skill under Settings, Capabilities, Skills.</li>
 </ol>
 <div class="skill"><p><strong>DDF skill (optional).</strong> A small add-on that tells Claude how to use the DDF tools and hand your work back to the site.</p><a class="dl" href="https://datadrivenfootball.github.io/fantasy-tools/ddf-skill.zip" download>Download ddf-skill.zip</a></div>
@@ -227,7 +227,7 @@ url = "https://iskiybsimubiujwuchsl.supabase.co/functions/v1/mcp"</code><button 
 <div class="tabpanel" role="tabpanel" id="panel-grok" aria-labelledby="tab-grok" tabindex="0" hidden>
 <h3>Grok</h3>
 <ol class="howto">
-<li>On grok.com, open Connectors and choose New connector, then Custom.</li>
+<li>On grok.com, open Connectors and click New connector, then Custom.</li>
 <li>Paste the MCP URL above.</li>
 </ol>
 <p class="caveat">Paid plans may be required for custom connectors. Check xAI's help page for your plan. If it is not available to you, use paste mode below.</p>

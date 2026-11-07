@@ -149,9 +149,9 @@ class LegacyRoutesResolveTest(unittest.TestCase):
         self.assertTarget("#waivers", "/waivers.html")
 
     def test_simplified_site_stays_on_front_door(self):
-        # #simplified-site -> index.html, which is the front door itself -> null at root
+        # The retired Simplified site -> the front door itself, without the old hash.
         result = self._resolve("#simplified-site", at_root=True)
-        self.assertIsNone(result, f"#simplified-site at root should be null (stay), got {result!r}")
+        self.assertTrue(result and result.endswith("/") and "#" not in result, f"#simplified-site -> front door, got {result!r}")
 
     def test_writing_manifesto(self):
         self.assertTarget("#writing/manifesto", "/learn.html#manifesto")

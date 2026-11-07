@@ -55,6 +55,8 @@ ROOT_FILES = ("site.js", "styles.css", "players-table-1.json", "ddf-engine.js",
               # Build a Trade (JEG-1537): the page script, the trade chart component.
               "build-trade.js", "tradechart.js", "tradechart.css",
               "assets/howto/slides")
+# Shared scripts copied as they are: legacy-routes.js names the redesigned pages on purpose (it is the redirect map).
+NO_REWRITE = frozenset({"legacy-routes.js"})
 ENGINE_MARKER = "<!-- ddf-engine -->"
 ICON_BLANK = '<link rel="icon" href="data:,">'
 ICON_SITE = '<link rel="icon" href="icon.jpg">'
@@ -162,7 +164,7 @@ def build(dist: Path = DIST, tag: str | None = None, source: Path = SOURCE, engi
             if out.exists():
                 shutil.rmtree(out)
             shutil.copytree(src, out, ignore=shutil.ignore_patterns("README.md", ".DS_Store"))
-        elif name.endswith(".js"):
+        elif name.endswith(".js") and name not in NO_REWRITE:
             out.write_text(rewrite_links(src.read_text(encoding="utf-8"), root_pages), encoding="utf-8")
         else:
             shutil.copy2(src, out)

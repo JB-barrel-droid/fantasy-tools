@@ -52,7 +52,7 @@ class RewriteLinksTest(unittest.TestCase):
     def test_build_untouched_once_swapped(self):
         """JEG-1537: build.html is a root page with the engine, so links to it stay (names in the query)."""
         self.assertIn("build.html", brp.ROOT_PAGES)
-        self.assertIn("build.html", brp.ENGINE_PAGES)
+        self.assertIn("build.html", brp.ENGINE_REQUIRED)
         for text in ('"build.html"', '"build.html?mode=any"', '"build.html?give=Josh%20Allen"'):
             self.assertEqual(brp.rewrite_links(text), text)
 
@@ -88,7 +88,7 @@ class RewriteLinksTest(unittest.TestCase):
             self.assertEqual(brp.rewrite_links(text), text)
 
     def test_single_quotes_also_rewritten(self):
-        result = brp.rewrite_links("'find.html'")
+        result = brp.rewrite_links("'find.html'", root_pages=("values.html",))
         self.assertEqual(result, "'./#find-trade'")
 
     def test_waivers_root_page_untouched(self):

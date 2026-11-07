@@ -130,8 +130,8 @@ document.addEventListener('ddf:link',()=>{const st=DDF.link.settings(),el=docume
   document.addEventListener('click',function(e){var b=e.target.closest&&e.target.closest('a[aria-disabled="true"][data-href]');if(b){e.preventDefault();e.stopImmediatePropagation()}},true);
     function validate(){
     var why='';
-    if(!document.getElementById('scoring').value)why='Choose a scoring format first';
-    else if(!document.getElementById('teams').value)why='Choose the number of teams first';
+    if(!document.getElementById('scoring').value)why='Add a scoring format first';
+    else if(!document.getElementById('teams').value)why='Add the number of teams first';
     else{
       var starters=0;
       for(var i=0;i<keys.length&&!why;i++){
