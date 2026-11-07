@@ -50,6 +50,14 @@ Independent review (separate Opus subagent, head 79cf42eb6): CHANGES NEEDED, fix
 - Tests: picker None and auto chart, the reader's option and edits surviving an engine rebuild, pasted league in Any
   players mode.
 
+Wired after main gained the shared modules (merge of origin/main, 2026-11-07):
+- build.html loads `ddf-opportunity.js` (JEG-1558) and `ddf-why.js` (JEG-1561). Both get the same inputs find.html
+  passes: whole rosters as engine rows, and context from finder.js `ui.depthContext()` / `ui.benchWeights()`.
+- The partner and sender roster % now reach the offer summary and the message roster line.
+- A Natural fit (DDFWhy `explain().natural`) adds "It fills your <positions> need." to Offer with the numbers.
+- The sender-facing Why panel (`DDFWhy.html`) sits under the trade checks in My league.
+- The Why panel's % line formatting is the module's own; reported to its owner.
+
 ### Verified (check named)
 - `node tests/node/build_offer_check.cjs`: 18 shape rows (sizes, add-in, positions, balance both ways, need, bench,
   league-only gating, shop, unknown analyst value, the five JEG-1558 bands): ids, preselect, exact texts, and for every
@@ -65,5 +73,5 @@ Independent review (separate Opus subagent, head 79cf42eb6): CHANGES NEEDED, fix
 
 ### Claimed, not confirmed
 - CI shards on the PR head (see checks); live verification on JEG-1559 after deploy.
-- The JEG-1558 roster line is tested with stubbed module output only; it appears live once ddf-opportunity.js is
-  loaded on build.html (one script tag, after JEG-1558 merges).
+- The JEG-1558 bands are table-tested with stubbed module output; the rendered test checks the real module's band
+  reaches the offer and the Why panel shows in My league.

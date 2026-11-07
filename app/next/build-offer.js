@@ -21,8 +21,8 @@
      partner:     null | {pct, shown, band, label}  the partner's roster change from DDFOpportunity.rosterImprovementPct
                   (JEG-1558, bands 'better' | 'unchanged' | 'slightly_worse' | 'clearly_worse' | 'unsized'); never
                   computed here. sender: the same for your roster (shown on the page only, not in the message).
-     rationale:   null | {text}  JEG-1561 SLOT: the natural-fit rationale line from the shared explanation module
-                  (Workspace agent). Appended to the value option when present; this file never computes it.
+     rationale:   null | {text}  the partner-facing Natural fit reason ("It fills your RB need.") from DDFWhy (JEG-1561),
+                  appended to the value option; this file never computes it.
    } */
 (function (root) {
   'use strict';

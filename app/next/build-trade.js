@@ -402,6 +402,9 @@
       $('check-pass').textContent = c.pass ? '✓ Trade checks pass' : 'Review trade checks';
       $('check-pass').classList.toggle('check-review', !c.pass);
       $('checks').innerHTML = c.html; S.fit = c.fit || null;
+      // JEG-1561: the sender-facing Why panel (tap to expand), from the shared module; nothing when it cannot judge.
+      const w = ready ? why() : null;
+      $('build-why').innerHTML = w && w.e && window.DDFWhy.html ? window.DDFWhy.html(w.I.trade, w.I.ctx, {id: 'build-why-panel'}) : '';
     } else S.fit = null;
     const shop = picked('give').length > 0 && !picked('get').length;
     $('empty-state').hidden = ready || shop; $('result').hidden = !(ready || shop); $('trade-charts').hidden = shop; $('shop-note').hidden = !shop;
@@ -699,6 +702,24 @@
     if (!X || !keys.length) return null;
     try { return new Set(X.Fd.lineupValue(rowsOf(keys), X.shape, 'ddf_value').starters.map(r => String(r.player_key))); } catch (e) { return null; }
   }
+  /* The shared modules' inputs (JEG-1558 DDFOpportunity, JEG-1561 DDFWhy): whole rosters as engine rows (the modules
+     add the Analyst charts average themselves) and the same context find.html passes (finder.js ui depth and bench
+     weights). League mode only: both rosters must be known. */
+  function sharedInputs() {
+    const X = fitBase(), f = F();
+    if (!X || !(S.mode === 'league' && L.available) || S.partner < 0) return null;
+    const raw = keys => keys.map(k => ROWS.get(String(k))).filter(Boolean);
+    const ui = f && f.ui, depth = ui && ui.depthContext ? ui.depthContext() : null;
+    const analyst = X.analyst.length === 3 ? X.analyst : null;
+    return {trade: {mine: raw(myRosterKeys()), theirs: raw(L.teams[S.partner].keys), give: raw(picked('give')), receive: raw(picked('get'))},
+      ctx: {shape: X.shape, expected: depth ? depth.expected : X.expected, weights: ui && ui.benchWeights ? ui.benchWeights() : X.weights,
+        analyst, chartKeys: analyst || undefined, senderKey: 'ddf_value', partnerKey: 'chart_avg'}};
+  }
+  function why() {
+    const I = sharedInputs(), W = window.DDFWhy;
+    if (!I || !W || !W.explain || !I.trade.give.length || !I.trade.receive.length) return null;
+    try { return {I, e: W.explain(I.trade, I.ctx)}; } catch (err) { console.warn('Build a Trade: no Why', err); return null; }
+  }
   function offerInput() {
     const userChart = S.chartUser && S.chartUser !== 'none' ? S.chartUser : '';
     const league = S.mode === 'league' && L.available;
@@ -715,22 +736,20 @@
     const pickedClaim = claimFor(userChart);
     // JEG-1558: each roster's % change (DDFOpportunity.rosterImprovementPct, ddf-opportunity.js) when that module is on
     // the page; not computed here. Without it the message says nothing about roster %.
+    const shared = sharedInputs();
     const pct = side => {
-      const O = window.DDFOpportunity, X = fitBase();
-      if (!league || !O || !O.rosterImprovementPct || !X || S.partner < 0) return null;
-      try {
-        return O.rosterImprovementPct({mine: rowsOf(myRosterKeys()), theirs: rowsOf(L.teams[S.partner].keys), give: rowsOf(give), receive: rowsOf(get)}, side,
-          {shape: X.shape, weights: X.weights, chartKeys: X.analyst, senderKey: 'ddf_value', partnerKey: 'chart_avg'});
-      } catch (e) { return null; }
+      const O = window.DDFOpportunity;
+      if (!shared || !O || !O.rosterImprovementPct || !get.length) return null;
+      try { return O.rosterImprovementPct(shared.trade, side, shared.ctx); } catch (e) { return null; }
     };
+    // JEG-1561: a Natural fit (DDFWhy) gives the partner-facing reason: the positions this fills for them.
+    const w = why(), needs = w && w.e && w.e.natural && w.e.needs && w.e.needs.them.length ? w.e.needs.them : null;
+    const fillsText = needs ? ` It fills your ${needs.length < 3 ? needs.join(' and ') : needs.slice(0, -1).join(', ') + ' and ' + needs[needs.length - 1]} need.` : '';
     return {give: give.map(k => player(k, mine)), get: get.map(k => player(k, theirs)), league, fit,
       // The value option cites the reader's chart; with none picked, the best chart for the pitch; after an explicit
       // None, no chart (and so no value option). Other pitches cite only a chart the reader picked.
       claim: S.chartUser === 'none' ? null : userChart ? pickedClaim : claimFor(chartRank().best), pickedClaim, shopText,
-      // JEG-1561 / JEG-1558 SLOT: the natural-fit rationale (shared explanation module, Workspace agent) and the roster %
-      // improvement ("your roster gets x% better", JEG-1558 denominator) go here as {text} once their signatures are
-      // published. Never computed on this page; null keeps the line out of the message.
-      rationale: null, partner: pct('partner'), sender: pct('sender')};
+      rationale: fillsText ? {text: fillsText.trim()} : null, partner: pct('partner'), sender: pct('sender')};
   }
   let OFFER = null;
   function renderOffer() {

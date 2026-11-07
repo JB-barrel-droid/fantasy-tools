@@ -31,6 +31,7 @@ READ_JS = """() => {
   return {wantIds: want.options.map(o => o.id), pre: want.preselect, texts: Object.fromEntries(want.options.map(o => [o.id, o.text])),
     ids: buttons.map(b => b.dataset.style), pressed, message: document.getElementById('message').value,
     summary: document.getElementById('offer-shape').textContent,
+    why: !!document.querySelector('#build-why details.why'), partner: (DDFBuild.offerInput().partner || {}).band || null,
     overflow: Math.max(document.body.scrollWidth, document.documentElement.scrollWidth) > innerWidth + 1};
 }"""
 
@@ -83,6 +84,9 @@ class BuildOfferRenderTest(unittest.TestCase):
         self.assertEqual(snap["pressed"], [snap["pre"]], label)
         self.assertEqual(snap["message"], snap["texts"][snap["pre"]], label)
         self.assertTrue(snap["summary"], label)
+        if seed:
+            self.assertTrue(snap["why"], f"{label}: no Why panel in My league")
+            self.assertIn(snap["partner"], ("better", "unchanged", "slightly_worse", "clearly_worse", "unsized"), label)
         self.assertFalse(snap["overflow"], f"{label}: horizontal overflow")
         for text in snap["texts"].values():
             self.assertNotRegex(text, r"DDF|Data Driven|Team Alpha|Team Bravo", label)
@@ -112,6 +116,8 @@ class BuildOfferRenderTest(unittest.TestCase):
             self.assertIn("ask", snap["ids"]); self.assertEqual(snap["pre"], "ask")
             snap = self.check(f"/build.html?mode=league&give={mine[3]}&give={mine[6]}&get={theirs[2]}", width, seed=keys)
             self.assertIn("2-for-1 (you consolidate)", snap["summary"])
+            # JEG-1558 / JEG-1561 modules on the page: the partner's roster % band reaches the offer, the Why panel shows.
+            self.assertRegex(snap["summary"], r"roster gets about [0-9.]+% (better|worse)|roster", snap["summary"])
             self.assertIn("consolidate", snap["ids"])
             self.check(f"/build.html?give={p[0]['key']}", width, expect_ids=["shop"])
 
