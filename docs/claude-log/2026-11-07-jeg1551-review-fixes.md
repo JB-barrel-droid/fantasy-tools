@@ -40,5 +40,7 @@ from any agent counted and that the receipt workflow ran on `pull_request`.
 - A PR could add a second job reporting a check named `review-receipt`; the
   independent review sees it in the diff. A code-owner rule on `.github/`
   would close it fully, and that is a GitHub setting for Jeremy.
-- Pages publishing on merge without a per-merge yes is an open question to
-  Jeremy (finding 7).
+- Pages publishing on merge needs no per-merge yes: Jeremy picked A on
+  2026-11-07 (03:46 UTC), "merged PRs publish the site the way data refreshes
+  already do"; his yes stays for Supabase and function deploys, migrations and
+  value math (finding 7). The first real merge will show the deploy runs.
