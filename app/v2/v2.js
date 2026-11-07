@@ -7100,6 +7100,9 @@
   // JEG-913: a hash no route claims (viewFor() gives null) lands on the default route and the address says so
   // (replaceState, so Back still works); its query goes with it. An empty hash is the landing page, not unknown.
   const DEFAULT_ROUTE = "#player-values";   // JEG-1106: new visitors land on the value chart (Jeremy, 2026-10-25)
+  // JEG-1539 (step 5 of JEG-1534): v2 no longer runs on the site. Old routes leave for their redesigned page in
+  // app/next/legacy-routes.js (the front door and the /v2/ stub), so this shell, now build-only for the render suites,
+  // keeps every view (the swap steps' SWAPPED_ROUTES and the ?swapped=1 automation escape are gone).
   function canonicalizeHash() {
     const [base, ...query] = location.hash.split("?");
     // JEG-1094: a league share link (#find-trade?workspace=) now belongs to the league-wide screen.

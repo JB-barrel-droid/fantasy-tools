@@ -731,6 +731,8 @@ test-core:
 	# JEG-1341: mutation proof for roster-paste.js (#1134, JEG-1272); ran in no target.
 	python3 -m unittest tests.test_roster_paste_mutation_proof
 	node tests/test_v2_league_paste.js
+	# JEG-1538: connect.html paste reader (live roster-paste.js parity + real Yahoo phone/markdown pastes).
+	node tests/test_entry_league_paste.js
 	node tests/test_v2_name_format.js
 	python3 -m unittest tests.test_v2_headlines
 	python3 -m unittest tests.test_v2_movers
@@ -760,12 +762,30 @@ test-core:
 	python3 -m unittest tests.test_v2_phone_zoom_render
 	python3 -m unittest tests.test_disagreement_units_render
 	python3 -m unittest tests.test_main_table_engine_parity
+	# JEG-1535: values.html engine parity, swap routes, and build_root_pages unit tests.
+	python3 -m unittest tests.test_values_page_engine_parity
+	# JEG-1539: team.html and find.html engine parity (same pattern as values page).
+	python3 -m unittest tests.test_team_engine_parity
+	python3 -m unittest tests.test_find_engine_parity
+	python3 -m unittest tests.test_values_swap_routes
+	# JEG-1539 step 5: redesigned front door legacy-routes.js coverage.
+	python3 -m unittest tests.test_legacy_routes
+	python3 -m unittest tests.test_legacy_links_state
+	python3 -m unittest tests.test_values_zero_override
+	python3 -m unittest tests.test_build_root_pages
+	# JEG-1537: build.html engine parity and the Compare a trade redirects.
+	python3 -m unittest tests.test_build_page_engine_parity
+	python3 -m unittest tests.test_build_swap_routes
 	python3 -m unittest tests.test_math_inspector
 	python3 -m unittest tests.test_view_invariants
 	python3 -m unittest tests.test_launch_front_door
 	# JEG-1534: the /next/ preview build stays noindex and inside dist/next/.
 	python3 -m unittest tests.test_next_preview
 	python3 -m unittest tests.test_launch_copy_guard
+	# JEG-1536: Learn > How we get our numbers equals the engine (3 scorings x 10/12 teams x superflex), Manifesto verbatim.
+	python3 -m unittest tests.test_learn_engine_parity
+	# JEG-1538: entry pages at the root (paste -> recognition, setup -> live league store, link codec vectors, routes).
+	python3 -m unittest tests.test_entry_pages
 	python3 -m unittest tests.test_week_history
 	python3 -m unittest tests.test_asset_load_retry
 	python3 -m unittest tests.test_espn_listed_rows
@@ -852,6 +872,8 @@ test-core-shard-2:
 	python3 -m unittest tests.test_v2_compare
 	python3 -m unittest tests.test_v2_finder_trifit
 	node tests/test_v2_league_paste.js
+	# JEG-1538: connect.html paste reader (live roster-paste.js parity + real Yahoo phone/markdown pastes).
+	node tests/test_entry_league_paste.js
 	python3 -m unittest tests.test_v2_trade_story
 	python3 -m unittest tests.test_v2_phone_customize_targets_render
 	python3 -m unittest tests.test_v2_phone_fallback_font_render
@@ -892,6 +914,20 @@ test-core-shard-3:
 	python3 -m unittest tests.test_v2_phone_source_links_render
 	python3 -m unittest tests.test_v2_phone_zoom_render
 	python3 -m unittest tests.test_main_table_engine_parity
+	# JEG-1535: values.html engine parity, swap routes, and build_root_pages unit tests.
+	python3 -m unittest tests.test_values_page_engine_parity
+	# JEG-1539: team.html and find.html engine parity (same pattern as values page).
+	python3 -m unittest tests.test_team_engine_parity
+	python3 -m unittest tests.test_find_engine_parity
+	python3 -m unittest tests.test_values_swap_routes
+	# JEG-1539 step 5: redesigned front door legacy-routes.js coverage.
+	python3 -m unittest tests.test_legacy_routes
+	python3 -m unittest tests.test_legacy_links_state
+	python3 -m unittest tests.test_values_zero_override
+	python3 -m unittest tests.test_build_root_pages
+	# JEG-1537: build.html engine parity and the Compare a trade redirects.
+	python3 -m unittest tests.test_build_page_engine_parity
+	python3 -m unittest tests.test_build_swap_routes
 	python3 -m unittest tests.test_espn_listed_rows
 	python3 -m unittest tests.test_page_load_no_404
 	python3 -m unittest tests.test_bench_share_low_pie
@@ -949,6 +985,10 @@ test-core-shard-5:
 	# JEG-1534: the /next/ preview build stays noindex and inside dist/next/.
 	python3 -m unittest tests.test_next_preview
 	python3 -m unittest tests.test_launch_copy_guard
+	# JEG-1536: Learn > How we get our numbers equals the engine (3 scorings x 10/12 teams x superflex), Manifesto verbatim.
+	python3 -m unittest tests.test_learn_engine_parity
+	# JEG-1538: entry pages at the root (paste -> recognition, setup -> live league store, link codec vectors, routes).
+	python3 -m unittest tests.test_entry_pages
 	python3 -m unittest tests.test_missing_section_render
 	python3 -m unittest tests.test_lineup_content_week_advance
 	python3 -m unittest tests.test_search_players_universe

@@ -4,8 +4,8 @@
 //   node live.mjs --url <url> --expected-build <tag> [--expected-build <tag2> ...] --out report.json
 //
 // GAP-038 (2026-10-08): after the root build-tag check, the same run renders
-// every page a reader can reach: each v2 tab on the root (Player values, Trade
-// targets, Risers & fallers, Compare a trade, How values work), the /v2/ copy,
+// every page a reader can reach: since JEG-1539 every redesigned page at the root
+// (ROOT_PAGES), the old addresses that redirect (LEGACY_REDIRECTS, /v2/ included),
 // /classic/ (a redirect to the root since JEG-453), and the 404 page. Each page must answer 200, carry the
 // root's build tag, show its section with content, and raise no uncaught page
 // error. Results land in report.pages[]; any failing page fails the run.
@@ -126,18 +126,19 @@ async function check(url, expectedBuilds) {
   }
 }
 
-// GAP-038: the pages and v2 tabs the scheduled synthetic renders. `section`
-// must be visible after the route applies; `rows` (when set) is a selector
-// that must match at least `minRows` elements, so an empty values table fails.
-export const V2_TABS = [
-  { hash: "#player-values", section: "#v2Main", rows: "#v2Table tr", minRows: 10 },
-  { hash: "#trade-targets", section: "#v2Targets" },
-  { hash: "#risers-fallers", section: "#v2Risers" },
-  { hash: "#compare-trade", section: "#v2Compare" },
-  { hash: "#writing/how-values", section: "#v2How" },
-  { hash: "#find-trade", section: "#v2FindTrade" },
-  { hash: "#value-overrides", section: "#v2Overrides" },
-  { hash: "#values-auditing", section: "#v2Audit" },
+// JEG-1539: the redesigned pages at the root replace the v2 tabs (the v2 shell is no longer published). Each page
+// must answer 200, carry the root's build tag, show <main> with content and raise no uncaught page error.
+export const ROOT_PAGES = ["", "values.html", "learn.html", "build.html", "team.html", "explore.html", "partners.html",
+  "find.html", "waivers.html", "settings.html", "ai.html", "connect.html"];
+// Old addresses (chat links, bookmarks) must land on the page that does that job now (app/next/legacy-routes.js).
+export const LEGACY_REDIRECTS = [
+  { from: "v2/", to: "" },
+  { from: "#player-values", to: "values.html" },
+  { from: "v2/#find-trade", to: "find.html" },
+  { from: "#compare-trade", to: "build.html" },
+  { from: "#waivers", to: "waivers.html" },
+  { from: "#writing/manifesto", to: "learn.html" },
+  { from: "#s=AAAA", to: "connect.html" },
 ];
 
 function siteRoot(url) {
@@ -175,36 +176,45 @@ function finish(result) {
   return result;
 }
 
-async function checkTab(page, tab) {
-  await page.evaluate((h) => { location.hash = h; }, tab.hash);
-  await page.waitForTimeout(1200);
-  return page.evaluate(({ section, rows }) => {
-    const el = document.querySelector(section);
-    const visible = !!el && !el.hidden && el.getBoundingClientRect().height > 0;
-    const text = el ? (el.innerText || "").trim().length : 0;
-    const rowCount = rows ? document.querySelectorAll(rows).length : null;
-    return { visible, text, rowCount };
-  }, { section: tab.section, rows: tab.rows || null });
-}
-
 async function checkPages(browser, url, rootTag) {
   const base = siteRoot(url);
   const pages = [];
-  for (const [name, pageUrl] of [["root", base], ["v2", new URL("v2/", base).toString()]]) {
-    const { page, result } = await loadPage(browser, pageUrl, rootTag);
-    result.name = name;
-    result.tabs = [];
+  for (const name of ROOT_PAGES) {
+    const { page, result } = await loadPage(browser, new URL(name, base).toString(), rootTag);
+    result.name = name || "root";
     if (!result.problems.length) {
-      // The /v2/ copy is the same page; its default tab is enough there.
-      for (const tab of name === "root" ? V2_TABS : V2_TABS.slice(0, 1)) {
-        const t = { hash: tab.hash, ...(await checkTab(page, tab)) };
-        t.problems = [];
-        if (!t.visible) t.problems.push(`${tab.section} not visible`);
-        if (t.text < 40) t.problems.push(`${tab.section} has almost no text (${t.text} chars)`);
-        if (tab.rows && t.rowCount < tab.minRows) t.problems.push(`${tab.rows} matched ${t.rowCount} (< ${tab.minRows})`);
-        result.tabs.push(t);
-        for (const p of t.problems) result.problems.push(`${tab.hash}: ${p}`);
+      const main = await page.evaluate(() => {
+        const el = document.querySelector("main");
+        return { visible: !!el && el.getBoundingClientRect().height > 0, text: el ? (el.innerText || "").trim().length : 0 };
+      });
+      if (!main.visible) result.problems.push("<main> not visible");
+      if (main.text < 40) result.problems.push(`<main> has almost no text (${main.text} chars)`);
+      if (name === "values.html") {
+        // A deploy where every DDF Value reads missing must fail: the Chart table needs 10+ rows with a number.
+        // The DDF column (the first value column after Player), not any number: CBS columns stay priced alone.
+        const valued = await page.waitForFunction(() => [...document.querySelectorAll("#rows tr")]
+          .filter(tr => /^\d+(\.\d+)?/.test((tr.querySelector("td:nth-child(2)")?.textContent || "").trim())).length >= 10
+          && window.DDF && DDF.engine && DDF.engine.players().filter(p => Number.isFinite(p.ddf)).length >= 10,
+          null, { timeout: 30000 }).then(() => true, () => false);
+        if (!valued) result.problems.push("values.html: fewer than 10 players with a DDF Value");
       }
+    }
+    await page.close();
+    pages.push(finish(result));
+  }
+  for (const r of LEGACY_REDIRECTS) {
+    const from = new URL(r.from, base).toString(), want = new URL(r.to, base).toString();
+    const result = { name: `redirect ${r.from}`, url: from, landedAt: null, pageErrors: [], problems: [] };
+    const page = await browser.newPage({ viewport: { width: 1400, height: 1000 } });
+    page.on("pageerror", (e) => result.pageErrors.push(String(e).slice(0, 240)));
+    const landed = (u) => { const x = new URL(String(u)); x.hash = ""; x.search = ""; return x.toString() === want; };
+    try {
+      await page.goto(from, { waitUntil: "commit", timeout: 60000 });
+      await page.waitForURL(landed, { timeout: 20000 }).catch(() => {});
+      result.landedAt = page.url();
+      if (!landed(result.landedAt)) result.problems.push(`landed at ${result.landedAt} (expected ${want})`);
+    } catch (e) {
+      result.problems.push(`did not load: ${String(e).slice(0, 200)}`);
     }
     await page.close();
     pages.push(finish(result));

@@ -34,7 +34,9 @@ Every post is a markdown file shown verbatim; the page adds only UI labels
    newest first automatically. `summary` here overrides the frontmatter one; with
    neither, the card shows the post's first paragraph.
    Add `"draft": true` to show a "Draft" tag beside the title in the list, the
-   post header and the pager (the methodology post is a draft until rewritten).
+   post header and the pager. A listed draft is public; keep unpublished text out
+   of `posts.json` (the methodology draft waits in `docs/learn-drafts/` for
+   Jeremy's rewrite, decision D6, 2026-11-06).
    Learn's list is the only index; there is no feed.
 
 3. Open `learn.html#/<slug>` to read it. Links are deep-linkable and the index
@@ -58,3 +60,14 @@ horizontal rules, and pipe tables. Raw HTML is escaped, not rendered.
   https://datadrivenfootball.github.io/fantasy-tools/#writing/manifesto
   (checked word for word on 2026-11-05). Date 2026-10-07 is the date the
   manifesto was stated (`docs/manifesto.md`).
+
+## How we get our numbers (`learn/numbers/`)
+
+The Value pie, Health check, Source build-up and Trace tabs read the live engine that
+runs hidden on `learn.html` (`ddf-engine.js` over `TradeValueCurveControls`), at the
+reader's league settings or the ones checked in the settings bar. `learn-engine.js`
+reads the engine (getInspection, getAllRows, getPublishedMath) and reuses the old
+audit tabs' models (`v2/audit-pie.js` AuditPie, `v2/audit-source.js` DDFAuditSource);
+`numbers.js` renders. Nothing here computes a value, and there are no snapshot files
+(decision D8, 2026-11-06). Routes take `?scoring=&teams=&roster=QB1.RB2.WR2.TE1.FLEX1.SF0.BN7`.
+The Full value logic tab frames `value-logic/` (built by `make sync`).

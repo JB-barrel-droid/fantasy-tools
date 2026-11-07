@@ -56,30 +56,21 @@ header :focus-visible,.entry-head :focus-visible{outline-color:#fff}
 <header class="entry-head"><div class="entry-head-inner"><a class="entry-wordmark" href="index.html">DDF</a><ol class="entry-steps" aria-label="League entry progress"><li class="is-complete"><a href="connect.html">✓ 1. League rosters</a></li><li aria-current="step">2. Your team</li><li>3. League settings</li></ol></div></header>
 <main>
 <h1>Which team is yours?</h1>
-<p class="muted setup-intro">We found these teams in your league. Confirm the one you manage so we can show your roster. Your team is already selected.</p>
+<p class="muted setup-intro">We found these teams in your league. Confirm the one you manage so we can show your roster.</p>
 <div class="row setup-actions setup-top"><a class="button primary" id="continue-top" href="settings.html">Next: confirm league settings →</a></div>
 <form id="team-form" action="team.html" method="get">
 <fieldset class="setup-selection" aria-label="Which team is yours?">
 <div class="setup-options">
-<label class="setup-option ddf-pop ddf-lift selected"><input type="radio" name="team" value="My team" required checked><span><strong>My team</strong><span class="player-count">15 players</span></span><span class="selection-check" aria-hidden="true">✓</span></label>
-<label class="setup-option ddf-pop ddf-lift"><input type="radio" name="team" value="Team 02" required><span><strong>Team 02</strong><span class="player-count">15 players</span></span><span class="selection-check" aria-hidden="true">✓</span></label>
-<label class="setup-option ddf-pop ddf-lift"><input type="radio" name="team" value="Team 03" required><span><strong>Team 03</strong><span class="player-count">15 players</span></span><span class="selection-check" aria-hidden="true">✓</span></label>
-<label class="setup-option ddf-pop ddf-lift"><input type="radio" name="team" value="Team 04" required><span><strong>Team 04</strong><span class="player-count">15 players</span></span><span class="selection-check" aria-hidden="true">✓</span></label>
-<label class="setup-option ddf-pop ddf-lift"><input type="radio" name="team" value="Team 05" required><span><strong>Team 05</strong><span class="player-count">15 players</span></span><span class="selection-check" aria-hidden="true">✓</span></label>
-<label class="setup-option ddf-pop ddf-lift"><input type="radio" name="team" value="Team 06" required><span><strong>Team 06</strong><span class="player-count">15 players</span></span><span class="selection-check" aria-hidden="true">✓</span></label>
-<label class="setup-option ddf-pop ddf-lift"><input type="radio" name="team" value="Team 07" required><span><strong>Team 07</strong><span class="player-count">15 players</span></span><span class="selection-check" aria-hidden="true">✓</span></label>
-<label class="setup-option ddf-pop ddf-lift"><input type="radio" name="team" value="Team 08" required><span><strong>Team 08</strong><span class="player-count">15 players</span></span><span class="selection-check" aria-hidden="true">✓</span></label>
-<label class="setup-option ddf-pop ddf-lift"><input type="radio" name="team" value="Team 09" required><span><strong>Team 09</strong><span class="player-count">15 players</span></span><span class="selection-check" aria-hidden="true">✓</span></label>
-<label class="setup-option ddf-pop ddf-lift"><input type="radio" name="team" value="Team 10" required><span><strong>Team 10</strong><span class="player-count">15 players</span></span><span class="selection-check" aria-hidden="true">✓</span></label>
-<label class="setup-option ddf-pop ddf-lift"><input type="radio" name="team" value="Team 11" required><span><strong>Team 11</strong><span class="player-count">15 players</span></span><span class="selection-check" aria-hidden="true">✓</span></label>
-<label class="setup-option ddf-pop ddf-lift"><input type="radio" name="team" value="Team 12" required><span><strong>Team 12</strong><span class="player-count">15 players</span></span><span class="selection-check" aria-hidden="true">✓</span></label>
 </div>
 </fieldset>
-<div class="row setup-actions"><a class="button" href="connect.html">Back</a><a class="button primary" id="continue-btn" href="settings.html" data-sticky-next data-back-href="connect.html" data-back-label="Back" data-next-label="Next: confirm league settings" data-summary="Team: My team">Next: confirm league settings →</a></div>
+<div id="bridge-ask" class="card" role="region" aria-label="Saved league" hidden><p>This browser already has a saved league on the Find a trade page. Replace it with these rosters?</p><div class="cluster"><button type="button" class="primary" id="bridge-replace">Replace it</button><button type="button" id="bridge-keep">Keep the saved league</button></div><p id="bridge-status" role="status" class="muted"></p></div>
+<p id="setup-empty" class="notice" hidden>No rosters added yet. <a href="connect.html">Add your league rosters</a> first.</p>
+<div class="row setup-actions"><a class="button" href="connect.html">Back</a><a class="button primary" id="continue-btn" href="settings.html" data-sticky-next data-back-href="connect.html" data-back-label="Back" data-next-label="Next: confirm league settings" data-summary="Confirm your team">Next: confirm league settings →</a></div>
 <span id="gate-reason" class="gate-reason" role="status"></span></form>
 </main>
 <footer class="su-foot">Data Driven Football</footer>
 <script src="site.js"></script>
+<script src="setup-entry.js"></script>
 <script>
 (() => {
   const form = document.getElementById('team-form');
@@ -102,7 +93,7 @@ header :focus-visible,.entry-head :focus-visible{outline-color:#fff}
   document.addEventListener('click',function(e){var b=e.target.closest&&e.target.closest('a[aria-disabled="true"][data-href]');if(b){e.preventDefault();e.stopImmediatePropagation()}},true);
     function gateTeam(){
     var ok=!!form.querySelector('input[name="team"]:checked');
-    ddfGate([document.getElementById('continue-top'),document.getElementById('continue-btn')],ok,'Pick your team first','gate-reason');
+    ddfGate([document.getElementById('continue-top'),document.getElementById('continue-btn')],ok,'Confirm your team first','gate-reason');
   }
   form.addEventListener('change', function(){updateSelection();gateTeam()});
   gateTeam();

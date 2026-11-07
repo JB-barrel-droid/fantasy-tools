@@ -543,7 +543,7 @@ def main() -> int:
     # It is the site's front door: written to dist/index.html (root) and
     # dist/v2/index.html (old links), both from the build-only engine page.
     from build_v2_page import build as build_v2_page
-    build_v2_page(DIST)
+    build_v2_page(DIST, site=True)   # JEG-1539: v2 retired from the site (stub at /v2/, build-only shell)
 
     # Internal math inspector (noindex, linked from no public page): the same
     # engine off-screen, every input and intermediate of the value math shown.
@@ -554,6 +554,11 @@ def main() -> int:
     # linked from no public page). Never replaces a live route.
     from build_next_preview import build as build_next_preview
     build_next_preview(DIST, tag)
+
+    # JEG-1535: redesign pages that have swapped in, at the root beside the v2 front door (the live engine injected,
+    # links to pages not live yet pointed at their live routes); their /next/ copies redirect to the root.
+    from build_root_pages import build as build_root_pages
+    build_root_pages(DIST, tag)
 
     # DDF Value Logic (JEG-1086, JEG-1107): the values explainer, shown inside
     # Writing > How values work (a frame of this page; opened alone it redirects there). It reads the engine headless from the dist/ built above,

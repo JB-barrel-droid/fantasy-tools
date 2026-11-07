@@ -15,9 +15,10 @@ from pipelines.lib.repository import SITE_URL as BASE
 
 
 # Markers that must be present in the deployed files for the current fix set.
+# JEG-1539 step 5: dist/index.html is now the redesigned front door, not the v2 shell.
 HTML_MARKERS = [
-    ("monthDayTime", "time-of-update formatter in index.html"),
-    ('src="v2/v2.js', "v2 shell script in index.html"),
+    ('src="legacy-routes.js', "legacy-routes.js loaded first in index.html"),
+    ('src="site.js', "site.js in index.html"),
 ]
 JS_MARKERS = {
     "assets/curve-widget.js": [

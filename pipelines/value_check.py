@@ -260,7 +260,9 @@ def run_engine(setting_list: list[dict], today: date, dist: Path | None = None,
                 page.add_init_script(f"window.TRADE_VALUE_TODAY = {json.dumps(today.isoformat())};")
                 if init_script:
                     page.add_init_script(init_script)
-                page.goto(base + "/", wait_until="networkidle")
+                # JEG-1539 step 5: dist/index.html is now the redesigned front door, not the
+                # v2 shell. The v2 shell (which has TradeValueCurveControls) is at /v2-app.html.
+                page.goto(base + "/v2-app.html", wait_until="networkidle")
                 page.wait_for_function(
                     "() => window.TradeValueCurveControls && window.TradeValueCurveControls.isReady()",
                     timeout=90000)

@@ -24,6 +24,9 @@ import path from "node:path";
 
 const SCORINGS = ["Standard", "Half", "Full"];
 const TEAMS = ["8", "10", "12", "14"];
+// JEG-1539 step 5: redesigned root pages to sweep for page errors (no league context).
+const ROOT_PAGES = ["/", "/values.html", "/learn.html", "/team.html", "/explore.html",
+  "/partners.html", "/find.html", "/waivers.html", "/settings.html", "/ai.html", "/build.html", "/compare.html"];
 const MIME = { ".html": "text/html", ".js": "text/javascript", ".json": "application/json",
   ".css": "text/css", ".jpg": "image/jpeg", ".png": "image/png", ".svg": "image/svg+xml" };
 const INJECT_FILE = "assets/comparison-dashboard.js";
@@ -47,17 +50,22 @@ export function verdict(report) {
   if (report.pageErrors.length) problems.push(`${report.pageErrors.length} uncaught page error(s)`);
   if (report.pieBad.length) problems.push(`DDF pie does not sum to 100.0 in ${report.pieBad.length} shape(s): ${report.pieBad.map(r => `${r.shape}=${r.sum}`).join(", ")}`);
   if (!report.shapesVisited) problems.push("no league shapes were exercised (page did not render controls)");
+  // JEG-1539 step 5: root pages sweep.
+  if (report.rootPageErrors && report.rootPageErrors.length)
+    problems.push(`${report.rootPageErrors.length} uncaught error(s) on root pages: ${report.rootPageErrors.join("; ").slice(0, 300)}`);
   return problems;
 }
 
 async function check(dir) {
   const server = await serve(dir);
+  const base = `http://127.0.0.1:${server.address().port}`;
   const browser = await chromium.launch({
     executablePath: process.env.CHROMIUM_PATH || undefined, args: ["--no-sandbox",
       // Hermetic (2026-10-08): no request leaves the machine; external
       // fonts made networkidle waits flaky.
       "--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1, EXCLUDE localhost"] });
-  const report = { pageErrors: [], shapesVisited: 0, pie: [], pieBad: [] };
+  const report = { pageErrors: [], shapesVisited: 0, pie: [], pieBad: [],
+    rootPageErrors: [] };
   try {
     const page = await browser.newPage({ viewport: { width: 1400, height: 1000 } });
     // JEG-1152: pin the page clock to the served data's week (the workflow sets
@@ -68,7 +76,7 @@ async function check(dir) {
       await page.addInitScript(`window.TRADE_VALUE_TODAY = ${JSON.stringify(process.env.TRADE_VALUE_TODAY)};`);
     }
     page.on("pageerror", e => report.pageErrors.push(String(e).slice(0, 240)));
-    await page.goto(`http://127.0.0.1:${server.address().port}/classic/`, { waitUntil: "networkidle" });
+    await page.goto(`${base}/classic/`, { waitUntil: "networkidle" });
     await page.waitForTimeout(1500);
     const click = async text => {
       const b = page.locator("button", { hasText: new RegExp(`^${text}$`) }).first();
@@ -88,6 +96,17 @@ async function check(dir) {
       const row = { shape: `${scoring}/${teams}`, labels, sum: Number(sum.toFixed(1)) };
       report.pie.push(row);
       if (Math.abs(sum - 100) > 0.05) report.pieBad.push(row);
+    }
+    // JEG-1539 step 5: sweep new root pages for uncaught errors, no league context.
+    const rootPage = await browser.newPage({ viewport: { width: 1400, height: 1000 } });
+    if (process.env.TRADE_VALUE_TODAY) {
+      await rootPage.addInitScript(`window.TRADE_VALUE_TODAY = ${JSON.stringify(process.env.TRADE_VALUE_TODAY)};`);
+    }
+    rootPage.on("pageerror", e =>
+      report.rootPageErrors.push(String(e).slice(0, 240)));
+    for (const p of ROOT_PAGES) {
+      await rootPage.goto(`${base}${p}`, { waitUntil: "networkidle", timeout: 20000 });
+      await rootPage.waitForTimeout(500);
     }
   } finally {
     await browser.close(); server.close();
@@ -125,6 +144,9 @@ async function main() {
   console.log(`uncaught page errors: ${real.pageErrors.length}`, real.pageErrors);
   console.log(`DDF fixed pie (blocking): ${real.pieBad.length} of ${real.pie.length} shapes do not sum to 100.0`,
     real.pieBad.map(r => `${r.shape}=${r.sum}`).join(", "));
+  // JEG-1539 step 5: root pages sweep result.
+  console.log(`root pages (${ROOT_PAGES.length}) uncaught errors: ${(real.rootPageErrors || []).length}`,
+    real.rootPageErrors || []);
   console.log(`self-test caught injected page error: ${caughtThrow}, bad pie: ${caughtPie}`);
   if (problems.length) { console.error("RENDERED GATE FAILED:", problems.join("; ")); process.exit(1); }
   console.log("rendered gate passed");

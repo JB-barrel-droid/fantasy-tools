@@ -48,7 +48,8 @@ class Browser:
         return self
 
     def open(self, hash_=""):
-        self.page.goto(self.base + "/v2/" + hash_, wait_until="networkidle")
+        # JEG-1539 step 5: v2 shell moved from /v2/ to /v2-app.html.
+        self.page.goto(self.base + "/v2-app.html" + hash_, wait_until="networkidle")
         self.page.wait_for_function(READY, timeout=90000)
         self.page.wait_for_timeout(300)
         return self.page
