@@ -416,8 +416,11 @@ def build(dist: Path = DIST, engine_page: Path = ENGINE_PAGE, research_dir: Path
     out_dir = dist / "v2"
     out_dir.mkdir(parents=True, exist_ok=True)
     posts = load_posts(research_dir)
-    shell_page.parent.mkdir(parents=True, exist_ok=True)
-    shell_page.write_text(build_v2_html(index_html, shell_html, at_root=True, posts=posts), encoding="utf-8")
+    if not site and Path(dist).resolve() == DIST.resolve():
+        raise ValueError("build_v2_page.build: the published dist/ needs site=True (the v2 shell is retired there)")
+    if site:   # the shared build-only shell the harnesses serve at /v2-app.html: only from the real site build
+        shell_page.parent.mkdir(parents=True, exist_ok=True)
+        shell_page.write_text(build_v2_html(index_html, shell_html, at_root=True, posts=posts), encoding="utf-8")
     if site:
         tag = re.search(r'<meta name="trade-chart-build" content="([^"]*)">', index_html)
         (out_dir / "index.html").write_text(v2_redirect_html(tag.group(1) if tag else None), encoding="utf-8")
