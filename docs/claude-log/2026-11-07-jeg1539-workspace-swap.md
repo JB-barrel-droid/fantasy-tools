@@ -45,6 +45,14 @@ Independent review (separate Opus agent, diff only, head 7a74beea): CHANGES NEED
   `ddf-v2-value-overrides` are now the one persistent store for settings and overrides; the `ddf:overrides` mirror
   feeds site.js link encoding). Converted links drop league extras (weeks, bench share, injury, confidence).
 
+Review round 2 (head 78384a1b) and round 3 (ee9dc767), same reviewer: chat league settings now apply on every engine
+page in the tab (`ddf-engine.js` chatLeague, visit only); live.mjs requires 10+ players with a DDF Value on values.html
+(DDF column and engine rows) and checks `#s=` lands on connect.html. Round 3: APPROVE after the DDF-column fix
+(30770ea8). Open minor: a chat league stays in the tab's ddf:league until a new paste (JEG-1538 clears it then).
+
+Merged main at c892bf97 (JEG-1538): connect.html and setup.html join ROOT_PAGES; v2.js keeps no redirect code;
+test_entry_pages drops ?swapped=1 and a team view link now lands on team.html (live since this PR).
+
 ### Verified (check named)
 - Local, head 7a74beea plus the review fixes, after `make sync` (Python 3.12, Chrome):
   `tests.test_validate_shards`, `test_build_root_pages`, `test_legacy_routes`, `test_legacy_links_state` (6 tests,

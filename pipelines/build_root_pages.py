@@ -39,8 +39,8 @@ ROOT_PAGES = ("values.html", "learn.html", "build.html",
               "settings.html", "ai.html", "compare.html",
               # JEG-1538: the entry pages; connect.html reads pasted rosters against the engine's player rows.
               "connect.html", "setup.html")
-# A page gets the engine when its source carries the <!-- ddf-engine --> marker (values.html and learn.html must).
-ENGINE_REQUIRED = frozenset({"values.html", "learn.html", "build.html", "connect.html"})
+# A page gets the engine when its source carries the <!-- ddf-engine --> marker; ENGINE_PAGES must carry it.
+ENGINE_PAGES = frozenset({"values.html", "learn.html", "build.html", "connect.html"})
 # Files the root pages load from beside them (copied from app/next/). v2/*.js are already published by build_v2_page.
 ROOT_FILES = ("site.js", "styles.css", "players-table-1.json", "ddf-engine.js",
               "values-chart.js", "values-buysell.js", "values-overrides.js",
@@ -135,7 +135,7 @@ def root_page_html(html: str, name: str, engine_html: str | None, tag: str | Non
         if not head:
             raise ValueError(f"{name}: no <head> to carry the build tag")
         html = html[:head.end()] + BUILD_META.format(tag=html_lib.escape(tag)) + data_version_script(tag) + html[head.end():]
-    if name in ENGINE_REQUIRED or ENGINE_MARKER in html:
+    if name in ENGINE_PAGES or ENGINE_MARKER in html:
         if engine_html is None:
             raise ValueError(f"{name}: needs the engine page, which is not built")
         if html.count(ENGINE_MARKER) != 1:
