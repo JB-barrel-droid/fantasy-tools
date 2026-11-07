@@ -243,7 +243,7 @@ class EntryPagesRenderTest(unittest.TestCase):
 
     def test_routes_into_entry_pages(self):
         page = self.page()
-        page.goto(f"{self.base}/index.html?swapped=1#s=abc", wait_until="networkidle", timeout=60000)
+        page.goto(f"{self.base}/index.html#s=abc", wait_until="networkidle", timeout=60000)
         self.assertTrue(page.url.endswith("/connect.html#s=abc"), page.url)
         self.assertTrue(page.is_visible("#paste-link"), "a broken token shows the paste-your-block notice")
         page.goto(f"{self.base}/next/connect.html?x=1#paste", wait_until="networkidle")
@@ -251,19 +251,19 @@ class EntryPagesRenderTest(unittest.TestCase):
         page.goto(f"{self.base}/next/setup.html", wait_until="networkidle")
         self.assertTrue(page.url.endswith("/setup.html") and "/next/" not in page.url, page.url)
         # a chat link for Build a Trade (view check, live since JEG-1537): build.html with the token and its overrides
-        page.goto(f"{self.base}/index.html?swapped=1#s={VECTOR_61}", wait_until="networkidle", timeout=60000)
+        page.goto(f"{self.base}/index.html#s={VECTOR_61}", wait_until="networkidle", timeout=60000)
         page.wait_for_function("() => /build\\.html#s=/.test(location.href)", timeout=20000)
         league = json.loads(page.evaluate("sessionStorage.getItem('ddf:league')"))
         self.assertEqual(league["trade"], VECTOR_6_STATE["trade"])
         page.wait_for_function("() => DDF.engine && DDF.engine.controls && DDF.engine.controls()", timeout=60000)
         page.wait_for_function("() => DDF.engine.overrides.count() > 0", timeout=20000)
         self.assertEqual(page.evaluate("DDF.engine.overrides.count()"), 2, "the link's two overrides apply")
-        # a view whose page is not live yet (team): Values with the token, never a token glued after a v2 hash route
+        # a team view (team.html live since JEG-1539): team.html with the token, never a token glued after a v2 hash route
         token = page.evaluate("""() => DDF.link.encodeToken({v: 1, view: 'team', settings: {scoring: 'ppr', teams: 10, superflex: false,
             slots: [1, 2, 2, 1, 1, 6]}, teams: [{name: 'A', players: ['Josh Allen']}, {name: 'B', players: ['Jordan Love']}],
             overrides: {'Josh Allen': 80}})""")
-        page.goto(f"{self.base}/index.html?swapped=1#s={token}", wait_until="networkidle", timeout=60000)
-        page.wait_for_function("() => /values\\.html#s=/.test(location.href)", timeout=20000)
+        page.goto(f"{self.base}/index.html#s={token}", wait_until="networkidle", timeout=60000)
+        page.wait_for_function("() => /team\\.html#s=/.test(location.href)", timeout=20000)
         page.wait_for_function("() => DDF.engine && DDF.engine.controls && DDF.engine.controls() && DDF.engine.overrides.count() > 0", timeout=60000)
         self.assertEqual(page.evaluate("DDF.engine.overrides.count()"), 1)
 

@@ -142,8 +142,8 @@ class ZeroOverrideTest(unittest.TestCase):
                 page = ctx.new_page()
                 page.goto(f"{base}/values.html", wait_until="domcontentloaded", timeout=90000)
                 page.evaluate(f"() => localStorage.setItem('ddf-v2-value-overrides', {json.dumps(record)})")
-                # The v2 page stays on its own views under automation (no ?swapped=1).
-                page.goto(f"{base}/index.html#value-overrides", wait_until="networkidle", timeout=90000)
+                # JEG-1539: the v2 shell is build-only; the harness serves it at /v2-app.html with every view.
+                page.goto(f"{base}/v2-app.html#value-overrides", wait_until="networkidle", timeout=90000)
                 page.wait_for_function("() => window.DDFOverrides && window.TradeValueCurveControls && TradeValueCurveControls.isReady()", timeout=90000)
                 page.wait_for_timeout(1500)
                 got = page.evaluate("() => ({all: DDFOverrides.all(), ddf: TradeValueCurveControls.getAllRows().find(r => r.player_key === 2227).values.ddf_value})")

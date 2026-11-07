@@ -71,7 +71,9 @@ def run(route_handler, glob=DETAIL_GLOB):
                     route_handler(route)
 
                 page.route(glob, handler)
-                page.goto(base + "/", wait_until="domcontentloaded")
+                # JEG-1539 step 5: dist/index.html is now the redesigned front door;
+                # the v2 shell with TradeValueCurveControls is at /v2-app.html.
+                page.goto(base + "/v2-app.html", wait_until="domcontentloaded")
                 page.wait_for_function(
                     "() => window.TradeValueCurveControls && window.TradeValueCurveControls.isReady()",
                     timeout=90000)

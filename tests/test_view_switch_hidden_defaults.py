@@ -87,7 +87,8 @@ class ViewSwitchHiddenDefaultsTest(unittest.TestCase):
         self.assertEqual(out["activeAfter"], out["activeBefore"], "the Indexed selection was not restored")
 
     def test_v2_front_door_view_switches_do_not_throw(self):
-        out = run("/", None)
+        # JEG-1539: the v2 shell left the root (build-only, served to the harness at /v2-app.html).
+        out = run("/v2-app.html", None)
         self.assertEqual(out["pageErrors"], [])
         self.assertTrue(all(ok for _tag, ok in out["steps"]), out["steps"])
         self.assertEqual(out["activeAfter"], out["activeBefore"])

@@ -61,7 +61,8 @@ class Session:
 
     def open(self, hash_, page=None):
         page = page or self.page
-        page.goto(self.base + "/v2/" + hash_, wait_until="networkidle")
+        # JEG-1539 step 5: v2 shell moved from /v2/ to /v2-app.html.
+        page.goto(self.base + "/v2-app.html" + hash_, wait_until="networkidle")
         page.wait_for_function(READY, timeout=90000)
         page.wait_for_timeout(300)
         return page

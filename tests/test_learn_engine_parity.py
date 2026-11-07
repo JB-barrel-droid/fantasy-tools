@@ -296,8 +296,8 @@ class LearnEngineParity(unittest.TestCase):
 
     def test_old_routes_redirect(self):
         """The live #writing/* and #values-auditing/* links (and their legacy forms) land on the right Learn view.
-        navigator.webdriver is masked so the page behaves as for a reader (v2.js keeps automated browsers on the
-        classic views unless ?swapped=1)."""
+        JEG-1539: legacy-routes.js (on the front door and /v2/ stub) handles redirects unconditionally;
+        no navigator.webdriver masking needed."""
         cases = [
             ("#writing/manifesto", "learn.html#manifesto"),
             ("#manifesto", "learn.html#manifesto"),
@@ -313,9 +313,7 @@ class LearnEngineParity(unittest.TestCase):
         ]
         with serve() as base, self.sync_playwright() as p:
             browser = p.chromium.launch(executable_path=chromium_executable(p), args=_render_env.HERMETIC_ARGS)
-            ctx = browser.new_context(viewport={"width": 1440, "height": 900})
-            ctx.add_init_script("Object.defineProperty(Navigator.prototype, 'webdriver', {get: () => false});")
-            page = ctx.new_page()
+            page = browser.new_page(viewport={"width": 1440, "height": 900})
             failures = []
             for prefix in ("/", "/v2/"):
                 for old, want in cases:

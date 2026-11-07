@@ -112,7 +112,8 @@ def run_page(args_by_league: dict, today: str) -> dict:
                 errors = []
                 page.on("pageerror", lambda exc: errors.append(str(exc)))
                 page.add_init_script(f"window.TRADE_VALUE_TODAY = {json.dumps(today)};")
-                page.goto(base + "/", wait_until="networkidle")
+                # JEG-1539 step 5: v2 shell moved to /v2-app.html.
+                page.goto(base + "/v2-app.html", wait_until="networkidle")
                 page.wait_for_function("() => window.TradeValueCurveControls && window.TradeValueCurveControls.isReady()", timeout=90000)
                 out = {name: page.evaluate(PAGE_LEVELS, args) for name, args in args_by_league.items()}
                 out["_errors"] = errors

@@ -763,7 +763,13 @@ test-core:
 	python3 -m unittest tests.test_main_table_engine_parity
 	# JEG-1535: values.html engine parity, swap routes, and build_root_pages unit tests.
 	python3 -m unittest tests.test_values_page_engine_parity
+	# JEG-1539: team.html and find.html engine parity (same pattern as values page).
+	python3 -m unittest tests.test_team_engine_parity
+	python3 -m unittest tests.test_find_engine_parity
 	python3 -m unittest tests.test_values_swap_routes
+	# JEG-1539 step 5: redesigned front door legacy-routes.js coverage.
+	python3 -m unittest tests.test_legacy_routes
+	python3 -m unittest tests.test_legacy_links_state
 	python3 -m unittest tests.test_values_zero_override
 	python3 -m unittest tests.test_build_root_pages
 	# JEG-1537: build.html engine parity and the Compare a trade redirects.
@@ -909,7 +915,13 @@ test-core-shard-3:
 	python3 -m unittest tests.test_main_table_engine_parity
 	# JEG-1535: values.html engine parity, swap routes, and build_root_pages unit tests.
 	python3 -m unittest tests.test_values_page_engine_parity
+	# JEG-1539: team.html and find.html engine parity (same pattern as values page).
+	python3 -m unittest tests.test_team_engine_parity
+	python3 -m unittest tests.test_find_engine_parity
 	python3 -m unittest tests.test_values_swap_routes
+	# JEG-1539 step 5: redesigned front door legacy-routes.js coverage.
+	python3 -m unittest tests.test_legacy_routes
+	python3 -m unittest tests.test_legacy_links_state
 	python3 -m unittest tests.test_values_zero_override
 	python3 -m unittest tests.test_build_root_pages
 	# JEG-1537: build.html engine parity and the Compare a trade redirects.

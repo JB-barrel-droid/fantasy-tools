@@ -198,7 +198,12 @@ def _pages_server(dist: Path, engine_at: str | None = None):
     """Serve dist/ under /fantasy-tools/ with dist/404.html for misses, like Pages.
 
     engine_at (e.g. "_engine/"): also serve the build-only engine page there.
-    Pages never serves it; this is for checks that read the engine alone."""
+    Pages never serves it; this is for checks that read the engine alone.
+    JEG-1539: also serves the build-only v2 shell at /fantasy-tools/v2-app.html."""
+    # JEG-1539: V2_SHELL_PAGE is defined in build_v2_page (ROOT/build/v2/index.html).
+    V2_SHELL_PAGE = build_v2_page.V2_SHELL_PAGE
+    V2_APP_REL = "v2-app.html"
+
     class Handler(http.server.SimpleHTTPRequestHandler):
         def log_message(self, *args):
             pass
@@ -218,8 +223,11 @@ def _pages_server(dist: Path, engine_at: str | None = None):
             prefix = "/fantasy-tools/"
             if not path.startswith(prefix):
                 return str(dist / "__outside_project__")
-            if engine_at and path.split("?", 1)[0] in (prefix + engine_at, prefix + engine_at + "index.html"):
+            rel = path.split("?", 1)[0]
+            if engine_at and rel in (prefix + engine_at, prefix + engine_at + "index.html"):
                 return str(build_v2_page.ENGINE_PAGE)
+            if rel == prefix + V2_APP_REL:
+                return str(V2_SHELL_PAGE)
             return super().translate_path("/" + path[len(prefix):])
 
     handler = functools.partial(Handler, directory=str(dist))
@@ -300,7 +308,9 @@ class FrontDoorRenderedTests(unittest.TestCase):
             raise _render_env.unavailable("Chromium is not available")
         return playwright.chromium.launch(args=_render_env.HERMETIC_ARGS, executable_path=executable)
 
-    def _table_vs_engine(self, browser, url, v2_body=None):
+    def _table_vs_engine(self, browser, v2_base_url, v2_body=None):
+        """Check v2 table vs engine. v2_base_url is the base URL for the v2 shell
+        (e.g. base + "v2-app.html"). JEG-1539: v2 shell moved to /v2-app.html."""
         page = browser.new_page(viewport={"width": 1440, "height": 1000})
         page.add_init_script(_render_env.pin_data_week_script())
         page.route(lambda u: not u.startswith("http://127.0.0.1"), lambda route: route.abort())
@@ -308,7 +318,7 @@ class FrontDoorRenderedTests(unittest.TestCase):
             page.route("**/v2/v2.js*", lambda route: route.fulfill(
                 status=200, content_type="text/javascript", body=v2_body))
         try:
-            page.goto(url + "#player-values", wait_until="networkidle", timeout=120000)
+            page.goto(v2_base_url + "#player-values", wait_until="networkidle", timeout=120000)
             page.wait_for_function("() => window.TradeValueV2 && window.TradeValueCurveControls"
                                    " && document.querySelector('#v2Table tbody tr')", timeout=60000)
             return page.evaluate(TABLE_VS_ENGINE_JS)
@@ -316,8 +326,9 @@ class FrontDoorRenderedTests(unittest.TestCase):
             page.close()
 
     def test_v2_table_equals_engine_and_guard_fails_on_drift(self):
-        if not (DIST / "index.html").exists():
-            raise _render_env.unavailable("dist/index.html is not built (run make sync)")
+        # JEG-1539: v2 shell is at /v2-app.html (build/v2/index.html), not the site root.
+        if not build_v2_page.V2_SHELL_PAGE.exists():
+            raise _render_env.unavailable("build/v2/index.html is not built (run make sync)")
         try:
             from playwright.sync_api import sync_playwright
         except Exception as exc:
@@ -329,20 +340,26 @@ class FrontDoorRenderedTests(unittest.TestCase):
         with _pages_server(DIST) as base, sync_playwright() as playwright:
             browser = self._browser(playwright)
             try:
-                good = self._table_vs_engine(browser, base)
+                v2_url = base + "v2-app.html"
+                good = self._table_vs_engine(browser, v2_url)
                 self.assertGreaterEqual(good["compared"], 25, good)
                 self.assertGreaterEqual(good["columns"], 3, good)
                 self.assertGreaterEqual(good["cells"], good["compared"] * 3, good)
                 self.assertEqual(0, good["skipped"], good)
                 self.assertEqual([], good["problems"][:10], f"{len(good['problems'])} cells differ")
-                bad = self._table_vs_engine(browser, base, drifted)
+                bad = self._table_vs_engine(browser, v2_url, drifted)
                 self.assertNotEqual([], bad["problems"], "the table check did not catch a 2% drift")
             finally:
                 browser.close()
 
     def test_rendered_front_door(self):
+        """JEG-1539: dist/index.html is the redesigned front door (legacy-routes.js first, site.js, no v2 shell).
+        The v2 shell is at /v2-app.html. The /v2/ path is a redirect stub that goes to the root.
+        """
         if not (DIST / "classic" / "index.html").exists() or not build_v2_page.ENGINE_PAGE.exists():
             raise _render_env.unavailable("dist/classic and build/engine are not built (run make sync)")
+        if not build_v2_page.V2_SHELL_PAGE.exists():
+            raise _render_env.unavailable("build/v2/index.html is not built (run make sync)")
         try:
             from playwright.sync_api import sync_playwright
         except Exception as exc:
@@ -367,41 +384,34 @@ class FrontDoorRenderedTests(unittest.TestCase):
                                            " && window.TradeValueCurveControls.getAllRows().length > 0",
                                            timeout=60000)
 
-                # Root: the v2 page itself, branded, canonical, no page errors.
+                # Root: the redesigned front door. legacy-routes.js first, site.js present, no v2 shell.
                 page, errors, _ = open_page(base)
+                page.wait_for_load_state("domcontentloaded")
+                self.assertEqual([], errors)
+                html = page.content()
+                self.assertIn('src="legacy-routes.js', html,
+                              "legacy-routes.js not loaded first in redesigned front door")
+                self.assertIn('src="site.js', html,
+                              "site.js not in redesigned front door")
+                self.assertNotIn('src="v2/v2.js', html,
+                                 "v2 shell script should not be in redesigned front door")
+                page.close()
+
+                # /v2/ is a redirect stub with legacy-routes.js; bare /v2/ (no hash) redirects to root.
+                page, errors, response = open_page(base + "v2/")
+                self.assertEqual(200, response.status, base + "v2/")
+                page.wait_for_url(lambda u: u.split("#")[0] == base, timeout=30000)
+                page.close()
+
+                # /v2-app.html serves the v2 shell: engine runs, table renders.
+                page, errors, _ = open_page(base + "v2-app.html#player-values")
                 engine_ready(page)
-                # Landing page is the value chart (Jeremy, 2026-10-25, JEG-1106; was Trade targets, 2026-10-08).
                 page.wait_for_selector("#v2Main:not([hidden])", timeout=60000)
                 self.assertEqual([], errors)
                 self.assertTitleNamesRoute("Player values", page.title())
-                self.assertEqual(SITE, page.eval_on_selector('link[rel="canonical"]', "e => e.href"))
                 v2_rows = page.evaluate(ROWS_JS)
                 self.assertGreater(len(v2_rows), 100)
-                # A tab click stays on the root page.
-                page.click("#v2NavToggle")
-                page.click('.v2-tab[data-view="targets"]')
-                page.wait_for_selector("#v2Targets:not([hidden])", timeout=30000)
-                self.assertEqual(base + "#trade-targets", page.url)
-                # Links v2.js builds at runtime as "v2/#view" (the drawer's
-                # "Open Compare a trade") also stay on the root page.
-                page.evaluate("""() => { const a = document.createElement('a');
-                    a.id = 'shimProbe'; a.href = 'v2/#compare-trade'; a.textContent = 'probe';
-                    document.body.prepend(a); }""")
-                page.evaluate("() => document.getElementById('shimProbe').click()")
-                page.wait_for_selector("#v2Compare:not([hidden])", timeout=30000)
-                self.assertEqual(base + "#compare-trade", page.url)
-                self.assertTrue(page.evaluate("() => !!document.getElementById('shimProbe')"),
-                                "the root page reloaded instead of switching tabs")
                 page.close()
-
-                # /v2/ and its deep links still work.
-                for url, shown in ((base + "v2/", "#v2Main"), (base + "v2/#trade-targets", "#v2Targets")):
-                    page, errors, response = open_page(url)
-                    self.assertEqual(200, response.status, url)
-                    page.wait_for_selector(f"{shown}:not([hidden])", timeout=60000)
-                    self.assertEqual([], errors, url)
-                    self.assertEqual(SITE, page.eval_on_selector('link[rel="canonical"]', "e => e.href"))
-                    page.close()
 
                 # /classic/ (JEG-453): retired; old links land on the root page.
                 for url in (base + "classic/", base + "classic/#weightsSection"):
@@ -410,17 +420,17 @@ class FrontDoorRenderedTests(unittest.TestCase):
                     page.route(lambda u: not u.startswith("http://127.0.0.1"), lambda route: route.abort())
                     response = page.goto(url, wait_until="commit", timeout=60000)
                     self.assertEqual(200, response.status, url)
+                    # /classic/ is a meta-refresh redirect to root; wait for root to load
                     page.wait_for_url(lambda u: u.split("#")[0] == base, timeout=30000)
-                    page.wait_for_selector("#v2Main:not([hidden])", timeout=60000)
-                    self.assertTitleNamesRoute("Player values", page.title())
                     page.close()
 
                 # The engine alone (the build-only engine page, no v2 around
-                # it) computes the same rows v2's hidden engine does.
+                # it) computes the same rows as the v2 shell's hidden engine.
                 page, errors, _ = open_page(base + "_engine/")
                 engine_ready(page)
                 self.assertEqual([], errors)
-                self.assertEqual(v2_rows, page.evaluate(ROWS_JS), "v2's engine rows differ from the engine page's")
+                self.assertEqual(v2_rows, page.evaluate(ROWS_JS),
+                                 "v2 shell's engine rows differ from the engine page's")
                 page.close()
 
                 # Retired pages and the 404 page lead back to the front door.

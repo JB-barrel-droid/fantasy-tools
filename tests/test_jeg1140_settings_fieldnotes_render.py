@@ -77,6 +77,10 @@ class Quiet(http.server.SimpleHTTPRequestHandler):
     def log_message(self, format, *args):
         pass
 
+    def translate_path(self, path):  # JEG-1539: v2 shell is at /v2-app.html
+        from tests._dist_server import engine_path as _engine_path
+        return _engine_path(path) or super().translate_path(path)
+
 
 @contextlib.contextmanager
 def serve(directory: Path):
@@ -297,7 +301,7 @@ class SettingsLivePageRenderTest(unittest.TestCase):
         page = context.new_page()
         errors = []
         page.on("pageerror", lambda e: errors.append(str(e)))
-        page.goto(f"{self.base}/v2/?design=fieldnotes{hash_}", wait_until="networkidle")
+        page.goto(f"{self.base}/v2-app.html?design=fieldnotes{hash_}", wait_until="networkidle")  # JEG-1539
         page.wait_for_function(READY, timeout=90000)
         page.wait_for_selector("#v2LgDownload", state="attached", timeout=30000)
         page.add_style_tag(content=(APP / "settings-fieldnotes.css").read_text(encoding="utf-8"))

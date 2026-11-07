@@ -121,7 +121,7 @@ class MissingSectionRenderTest(unittest.TestCase):
         self.assertTrue(state["toggleDisabled"], state)
         self.assertIn("unavailable", state["toggleText"] or "", state)
         # The v2 front door renders on the same engine.
-        v2 = load(overrides, "/")
+        v2 = load(overrides, "/v2-app.html")   # JEG-1539: the v2 shell is build-only, served at /v2-app.html
         self.assertEqual(v2["guards"], {"fixedPieIndexed": True, "sourceMapCoverage": True}, v2)
 
     def test_missing_espn_is_dropped_too(self):

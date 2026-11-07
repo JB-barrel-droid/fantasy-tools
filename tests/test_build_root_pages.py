@@ -88,12 +88,18 @@ class RewriteLinksTest(unittest.TestCase):
             self.assertEqual(brp.rewrite_links(text), text)
 
     def test_single_quotes_also_rewritten(self):
-        result = brp.rewrite_links("'find.html'")
+        result = brp.rewrite_links("'find.html'", root_pages=("values.html",))
         self.assertEqual(result, "'./#find-trade'")
 
-    def test_waivers_rewritten(self):
-        result = brp.rewrite_links('"waivers.html"')
-        self.assertEqual(result, '"./#waivers"')
+    def test_waivers_root_page_untouched(self):
+        """JEG-1539: waivers.html is a root page, so links to it stay; before the swap they went to ./#waivers."""
+        self.assertEqual(brp.rewrite_links('"waivers.html"'), '"waivers.html"')
+        self.assertEqual(brp.rewrite_links('"waivers.html"', root_pages=("values.html",)), '"./#waivers"')
+
+    def test_escaped_quotes_are_not_rewritten_into_broken_js(self):
+        """A rewritten shared script must still parse: the lane scripts avoid \\" inside strings (lane find, JEG-1539)."""
+        for name in ("find-engine.js", "find-page.js", "waivers-page.js"):
+            self.assertNotIn('\\"', (brp.SOURCE / name).read_text(encoding="utf-8"), name)
 
     def test_href_into_root_page_untouched(self):
         """An href that IS a root page (values.html) must stay."""
@@ -254,6 +260,22 @@ def _strip_text_plain(html: str) -> str:
         r'<script[^>]+type=["\']text/plain["\'][^>]*>.*?</script>',
         '', html, flags=re.DOTALL | re.IGNORECASE,
     )
+
+
+class FrontDoorDataIslandTest(unittest.TestCase):
+    """JEG-1539: get-values (supabase/functions/get-values/index.ts) parses players-data from the root page."""
+
+    def test_root_page_carries_players_data(self):
+        import json
+        import re
+        page = ROOT / "dist" / "index.html"
+        if not page.exists() or "legacy-routes.js" not in page.read_text(encoding="utf-8"):
+            self.skipTest("run make sync first")
+        html = page.read_text(encoding="utf-8")
+        m = re.search(r'id="players-data"[^>]*>([\s\S]*?)<\/script>', html)   # get-values' own pattern
+        self.assertIsNotNone(m, "players-data island missing from the front door: get-values would fail")
+        doc = json.loads(m.group(1))
+        self.assertGreater(len(doc["players"]), 100)
 
 
 if __name__ == '__main__':

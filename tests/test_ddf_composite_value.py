@@ -586,7 +586,9 @@ def run(script: str, history_edit=None, data_edit=None, init_script=None, week_e
                     page.add_init_script(init_script)
                 errors = []
                 page.on("pageerror", lambda exc: errors.append(str(exc)))
-                page.goto(base + "/", wait_until="networkidle")
+                # JEG-1539 step 5: dist/index.html is now the redesigned front door;
+                # the v2 shell with TradeValueCurveControls is at /v2-app.html.
+                page.goto(base + "/v2-app.html", wait_until="networkidle")
                 page.wait_for_function(
                     "() => window.TradeValueCurveControls && window.TradeValueCurveControls.isReady()", timeout=60000)
                 page.wait_for_timeout(300)

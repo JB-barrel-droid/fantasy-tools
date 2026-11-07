@@ -25,7 +25,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "pipelines"))
 
-from tests._dist_server import DIST, serve  # noqa: E402
+from tests._dist_server import DIST, V2_SHELL_PAGE, serve  # noqa: E402
 from tests import _render_env  # noqa: E402
 from sync_dashboard_artifacts import replace_inline_players  # noqa: E402
 
@@ -70,26 +70,33 @@ def run_probe():
         raise _render_env.unavailable(f"Playwright is not available: {exc}") from exc
     tmp = Path(tempfile.mkdtemp())
     try:
+        # JEG-1539 step 5: dist/index.html is now the redesigned front door, not the v2 shell.
+        # The v2 shell (build/v2/index.html) is served at /v2-app.html. Inject the
+        # practice-squad player into the v2 shell's inline players-data and serve it via
+        # the overrides mechanism.
         site = tmp / "dist"
         shutil.copytree(DIST, site)
-        html = (site / "index.html").read_text(encoding="utf-8")
-        start = html.index('<script id="players-data" type="application/json">') + len(
+        v2_html = V2_SHELL_PAGE.read_text(encoding="utf-8")
+        start = v2_html.index('<script id="players-data" type="application/json">') + len(
             '<script id="players-data" type="application/json">')
-        players = json.loads(html[start:html.index("</script>", start)])
+        players = json.loads(v2_html[start:v2_html.index("</script>", start)])
         players["players"].append(SQUAD)
-        (site / "index.html").write_text(replace_inline_players(html, players), encoding="utf-8")
+        v2_html_modified = replace_inline_players(v2_html, players)
+        v2_override = {"v2-app.html": v2_html_modified.encode("utf-8")}
         with sync_playwright() as p:
             exe = _render_env.chromium_executable(p)
             if exe is None:
                 raise _render_env.unavailable("no Chromium available")
             browser = p.chromium.launch(args=_render_env.HERMETIC_ARGS, executable_path=exe)
             try:
-                with serve(site) as base:
+                with serve(site, v2_override) as base:
                     page = browser.new_page(viewport={"width": 1280, "height": 900})
                     page.add_init_script(_render_env.pin_data_week_script())
                     errors = []
                     page.on("pageerror", lambda exc: errors.append(str(exc)))
-                    page.goto(base + "/", wait_until="domcontentloaded")
+                    # JEG-1539 step 5: dist/index.html is now the redesigned front door;
+                    # the v2 shell with TradeValueCurveControls is at /v2-app.html.
+                    page.goto(base + "/v2-app.html", wait_until="domcontentloaded")
                     page.wait_for_function(
                         "() => window.TradeValueCurveControls && window.TradeValueCurveControls.isReady()",
                         timeout=90000)

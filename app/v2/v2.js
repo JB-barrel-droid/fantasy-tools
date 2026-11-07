@@ -7100,83 +7100,15 @@
   // JEG-913: a hash no route claims (viewFor() gives null) lands on the default route and the address says so
   // (replaceState, so Back still works); its query goes with it. An empty hash is the landing page, not unknown.
   const DEFAULT_ROUTE = "#player-values";   // JEG-1106: new visitors land on the value chart (Jeremy, 2026-10-25)
-  // JEG-1534 swap steps: a route whose job moved to a redesigned page at the site root leaves for that page
-  // (location.replace, so Back skips the old route). The route's query goes along after the target's own hash, so a
-  // shared value context (?valuecontext=1&basis=..&ov=..) still applies. "#base/*" matches everything under #base/.
-  // The exact key wins over a "/*" key. Each swap step adds its own lines here.
-  const SWAPPED_ROUTES = {
-    "#player-values": "values.html",   // JEG-1535
-    "#value-overrides": "values.html#overrides",   // JEG-1535
-    "#writing/manifesto": "learn.html#manifesto",   // JEG-1536
-    "#writing/how-values": "learn.html#numbers/logic",   // JEG-1536: the framed value logic moves with it
-    "#writing/*": "learn.html",   // JEG-1536: Research (no published posts) and any other Writing route
-    "#values-auditing/health-check": "learn.html#numbers/pie",   // JEG-1536
-    "#values-auditing/single-source": "learn.html#numbers/build-up",   // JEG-1536
-    "#values-auditing/*": "learn.html#numbers/pie",   // JEG-1536
-    "#compare-trade": "build.html",   // JEG-1537: build.html reads the keys, league and value context from #?give=..&get=..
-  };
-  const LINK_ENTRY_PAGE = "connect.html";   // JEG-1538
-  // JEG-1537: a Compare link carrying a whole league state (mine/theirs/target, ddf-assist.js) or a carried trade (tc)
-  // stays on the classic view until the codec moves (JEG-1538); every other Compare link goes to Build a Trade.
-  const COMPARE_STAYS = ["mine", "theirs", "target", "tc"];
-  const COMPARE_STAYS_KEY = "ddf-v2-compare-stays";
-  function swappedTarget(base) {
-    if (Object.prototype.hasOwnProperty.call(SWAPPED_ROUTES, base)) return SWAPPED_ROUTES[base];
-    const prefix = Object.keys(SWAPPED_ROUTES).filter(key => key.endsWith("/*") && (base === key.slice(0, -2) || base.startsWith(key.slice(0, -1))))
-      .sort((a, b) => b.length - a.length)[0];
-    return prefix ? SWAPPED_ROUTES[prefix] : null;
-  }
-  // Automated browsers (navigator.webdriver) stay on the classic views unless the page URL has ?swapped=1, so the v2
-  // render suites keep covering those views until step 5 retires them (JEG-1539 removes this escape); the redirect
-  // tests pass ?swapped=1.
-  const stayForAutomation = () => navigator.webdriver === true && !/[?&]swapped=1(&|$)/.test(location.search);
-  let leavingFor = null;   // JEG-1537: the first redirect wins; a later hash handler in the same turn cannot replace it
-  function leaveForSwappedPage(base, query) {
-    if (leavingFor) return true;
-    const target = swappedTarget(base);
-    if (!target || stayForAutomation()) return false;
-    if (base === "#compare-trade") {
-      // An in-page jump (Add to trade, then #compare-trade) carries the trade it built (and a pending carried trade).
-      if (!query.length && (TR.give.length || TR.receive.length || carriedTrade) && C) query = [tradeHash().split("?").slice(1).join("?")].filter(Boolean);
-      // A staying link keeps the classic view, also after the view rewrites its address without mine/theirs (a reload):
-      // the tab remembers that trade (give|get) and stays only for it; any other Compare link clears it and leaves.
-      const params = new URLSearchParams(query.join("&"));
-      const trade = `${params.get("give") || ""}|${params.get("get") || ""}`;
-      let remembered = null;
-      try { remembered = sessionStorage.getItem(COMPARE_STAYS_KEY); } catch (error) { /* no session storage: decide by the link */ }
-      if (COMPARE_STAYS.some(key => params.has(key))) {
-        try { sessionStorage.setItem(COMPARE_STAYS_KEY, trade); } catch (error) { /* the link itself still stays */ }
-        return false;
-      }
-      if (remembered !== null && remembered === trade) return false;
-      try { sessionStorage.removeItem(COMPARE_STAYS_KEY); } catch (error) { /* nothing stored */ }
-    }
-    const rest = query.length ? "?" + query.join("?") : "";
-    const url = new URL(target.includes("#") || !rest ? target : target + "#", document.baseURI);
-    try { location.replace(url.href + rest); } catch (error) { return false; }
-    leavingFor = url.href + rest;
-    return true;
-  }
-  // JEG-1537: a Compare link opened inside the page leaves with the link as it arrived (the event's newURL): the compare
-  // view's own handlers rewrite the address to the bare route in the same turn.
-  window.addEventListener("hashchange", event => {
-    let hash = "";
-    try { hash = new URL(event.newURL).hash; } catch (error) { return; }
-    const [base, ...query] = hash.split("?");
-    if (canonicalBase(base) === "#compare-trade" && query.length) leaveForSwappedPage("#compare-trade", query);
-  });
+  // JEG-1539 (step 5 of JEG-1534): v2 no longer runs on the site. Old routes leave for their redesigned page in
+  // app/next/legacy-routes.js (the front door and the /v2/ stub), so this shell, now build-only for the render suites,
+  // keeps every view (the swap steps' SWAPPED_ROUTES and the ?swapped=1 automation escape are gone).
   function canonicalizeHash() {
     const [base, ...query] = location.hash.split("?");
     // JEG-1094: a league share link (#find-trade?workspace=) now belongs to the league-wide screen.
     const legacy = base === "#find-trade" && /^workspace=/.test(query[0] || "") ? "#find-league" : canonicalBase(base);
     const unknown = base !== "" && viewFor(legacy) === null;
     const next = unknown ? DEFAULT_ROUTE : legacy;
-    // A redesign chat-link token (#s=...) has no v2 route: it goes whole to connect.html (JEG-1538), the link's entry page,
-    // where site.js reads it and opens the page the link names.
-    if (unknown && base.startsWith("#s=") && !stayForAutomation()) {
-      try { location.replace(new URL(LINK_ENTRY_PAGE, document.baseURI).href + location.hash); return; } catch (error) { /* falls through */ }
-    }
-    if (leaveForSwappedPage(next, unknown ? [] : query)) return;
     if (next === base) return;
     try { history.replaceState(history.state, "", location.pathname + location.search + next + (query.length && !unknown ? "?" + query.join("?") : "")); }
     catch (error) { /* the route still works through hashBase() */ }

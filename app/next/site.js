@@ -37,7 +37,19 @@ document.querySelectorAll('[data-slideshow]').forEach(function(slideshow){
    League = a #s= link in the URL or ddf:league in sessionStorage. Pages without the main nav (entry flow) are untouched. */
 (function(){
   function leagueLoaded(){
-    try{ if(/^#s=/.test(location.hash)) return true; return !!sessionStorage.getItem('ddf:league'); }
+    /* JEG-1539: DDF.league (ddf-league.js) sets DDF.leagueKnown after it reads the league, so a pasted or saved league counts too. */
+    if(window.DDF && DDF.leagueKnown === true) return true;
+    try{
+      if(/^#s=/.test(location.hash) || sessionStorage.getItem('ddf:league')) return true;
+      /* JEG-1539: the same leagues DDF.league reads, so pages without ddf-league.js (Home, Values, Learn, Build a Trade) show the same nav. */
+      var pasted = JSON.parse(sessionStorage.getItem('ddf:pasted') || 'null');
+      if(pasted && Array.isArray(pasted.teams) && pasted.teams.length) return true;
+      var saved = JSON.parse(localStorage.getItem('ddf.v2.workspaces') || 'null');
+      if(!saved || saved.v !== 1 || !Array.isArray(saved.workspaces)) return false;
+      /* The active saved league only, as DDF.engine.league() reads it. */
+      var ws = saved.workspaces.filter(function(w){ return w && w.id === saved.activeId; })[0] || saved.workspaces[0];
+      return !!(ws && Array.isArray(ws.teams) && ws.teams.length);
+    }
     catch(e){ return false; }
   }
   var PRE = [['index.html','Home'],['connect.html','Add your league'],['build.html?mode=any','Quick trade check'],['values.html','Values'],['ai.html','Use with AI'],['learn.html','Learn']];
@@ -76,6 +88,7 @@ document.querySelectorAll('[data-slideshow]').forEach(function(slideshow){
     else if(window.DDF && DDF.link && DDF.link.current){
       var st = DDF.link.current();
       if(st && st.settings){ src = 'My league · From your chat'; set = DDF.link.settingsLabel(st.settings); }
+      else if(DDF.league && DDF.league.current && DDF.league.current()){ var lg = DDF.league.current(); src = lg.name; set = DDF.link.settingsLabel(lg.settings); }
     }
     wrap.querySelector('.ddf-cm-src').textContent = src;
     var p = wrap.querySelector('.ddf-cm-set'); p.textContent = set; p.hidden = !set;

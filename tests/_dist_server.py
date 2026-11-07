@@ -5,7 +5,11 @@ JEG-453: the old chart dashboard (the engine page v2 runs hidden) is no longer
 published; dist/classic/ is a redirect to the root. The engine page is built to
 build/engine/index.html, and the render harnesses serve it at /classic/ on
 their own servers (engine_path), so tests that drive the engine's own controls
-keep running against the same page."""
+keep running against the same page.
+
+JEG-1539: the same for the retired v2 shell. dist/index.html is the redesigned front door and dist/v2/ a redirect
+stub; the v2 shell is built to build/v2/index.html and served here at /v2-app.html (V2_URL), a root-level path, so
+its relative assets and in-page #route links work as they did at the root."""
 from __future__ import annotations
 
 import contextlib
@@ -21,6 +25,8 @@ ROOT = Path(__file__).resolve().parents[1]
 DIST = ROOT / "dist"
 ENGINE_PAGE = ROOT / "build" / "engine" / "index.html"
 ENGINE_URL = "classic/"
+V2_SHELL_PAGE = ROOT / "build" / "v2" / "index.html"
+V2_URL = "v2-app.html"
 
 
 def engine_path(url_path: str, prefix: str = "/") -> str | None:
@@ -31,6 +37,8 @@ def engine_path(url_path: str, prefix: str = "/") -> str | None:
     rel = rel[len(prefix):]
     if rel in (ENGINE_URL, ENGINE_URL + "index.html"):
         return str(ENGINE_PAGE)
+    if rel == V2_URL:
+        return str(V2_SHELL_PAGE)
     return None
 
 
@@ -60,7 +68,8 @@ def serve(directory: Path = DIST, overrides: dict[str, bytes] | None = None):
             for key, body in overrides.items():
                 if rel == key or rel.endswith("/" + key):
                     self.send_response(200)
-                    self.send_header("Content-Type", "text/javascript" if key.endswith(".js") else "application/json")
+                    self.send_header("Content-Type", "text/javascript" if key.endswith(".js")
+                                     else "text/html; charset=utf-8" if key.endswith(".html") else "application/json")
                     self.send_header("Content-Length", str(len(body)))
                     self.end_headers()
                     self.wfile.write(body)
