@@ -76,7 +76,8 @@ class Session:
         return self
 
     def open(self, hash_):
-        self.page.goto(self.base + "/v2/" + hash_, wait_until="networkidle")
+        # JEG-1539 step 5: v2 shell moved from /v2/ to /v2-app.html.
+        self.page.goto(self.base + "/v2-app.html" + hash_, wait_until="networkidle")
         self.page.wait_for_function(READY, timeout=90000)
         self.page.wait_for_timeout(300)
         return self.page
@@ -318,7 +319,7 @@ class RubricTest(unittest.TestCase):
             page.wait_for_timeout(400)
             page.evaluate("""(keys) => { const o = window.DDFOverrides; keys.forEach((k, i) => { o.state.values[k] = 20 + i; o.state.names[k] = 'p' + k; });
               window.TradeValueCurveControls.setValueOverrides(o.state.values); }""", [a["key"], b["key"]])
-            page.goto(s.base + f"/v2/#compare-trade?give={a['key']}&get={c_['key']}", wait_until="networkidle")
+            page.goto(s.base + f"/v2-app.html#compare-trade?give={a['key']}&get={c_['key']}", wait_until="networkidle")
             page.wait_for_function(READY, timeout=90000)
             page.wait_for_timeout(500)
             link = page.evaluate("() => location.hash")
@@ -328,7 +329,7 @@ class RubricTest(unittest.TestCase):
         # A different reader, no saved settings, opens the link.
         with Session() as r:
             page = r.page
-            page.goto(r.base + "/v2/" + link, wait_until="networkidle")
+            page.goto(r.base + "/v2-app.html" + link, wait_until="networkidle")
             page.wait_for_function(READY, timeout=90000)
             page.wait_for_timeout(500)
             banner = page.inner_text("#v2OvLinkBanner")
@@ -358,7 +359,7 @@ class RubricTest(unittest.TestCase):
         with Session() as s:
             page = s.open("#value-overrides")
             a, b = top_player(page, "RB", 2), top_player(page, "WR", 2)
-            page.goto(s.base + f"/v2/#compare-trade?give={a['key']}&get={b['key']}&scoring=ppr", wait_until="networkidle")
+            page.goto(s.base + f"/v2-app.html#compare-trade?give={a['key']}&get={b['key']}&scoring=ppr", wait_until="networkidle")
             page.wait_for_function(READY, timeout=90000)
             self.assertTrue(page.evaluate("() => window.TradeValueCurveControls.getBasis().isDefault"))
             self.assertEqual(page.locator("#v2OvLinkBanner").count(), 0)
@@ -375,7 +376,7 @@ class RubricTest(unittest.TestCase):
             self.assertLess(len(params["ov"]), 12 * 10)
             self.assertFalse(params["dropped"])
             # Round trip through the recipient's parser.
-            page.goto(s.base + f"/v2/#compare-trade?give={keys[0]}&get={keys[1]}", wait_until="networkidle")
+            page.goto(s.base + f"/v2-app.html#compare-trade?give={keys[0]}&get={keys[1]}", wait_until="networkidle")
             page.wait_for_function(READY, timeout=90000)
             page.wait_for_timeout(300)
             self.assertIn("ov=z:", page.evaluate("() => location.hash"))
@@ -384,7 +385,7 @@ class RubricTest(unittest.TestCase):
             keys = page.evaluate("() => window.TradeValueCurveControls.getAllRows().filter(r => Number.isFinite(r.values.ddf_value)).slice(0, 700).map(r => r.player_key)")
             page.evaluate("""(keys) => { const o = window.DDFOverrides; keys.forEach((k, i) => { o.state.values[k] = 10 + (i % 80); });
               window.TradeValueCurveControls.setValueOverrides(o.state.values); }""", keys)
-            page.goto(s.base + f"/v2/#compare-trade?give={keys[0]}&get={keys[1]}", wait_until="networkidle")
+            page.goto(s.base + f"/v2-app.html#compare-trade?give={keys[0]}&get={keys[1]}", wait_until="networkidle")
             page.wait_for_function(READY, timeout=90000)
             page.wait_for_timeout(300)
             self.assertNotIn("ov=", page.evaluate("() => location.hash"))
@@ -504,7 +505,7 @@ class RubricTest(unittest.TestCase):
         with Session(viewport=(1366, 768)) as s:
             page = s.open("#value-overrides")
             a, b = top_player(page, "RB", 2), top_player(page, "WR", 2)
-            url = s.base + f"/v2/#compare-trade?give={a['key']},{b['key']}&get={top_player(page, 'QB', 3)['key']}"
+            url = s.base + f"/v2-app.html#compare-trade?give={a['key']},{b['key']}&get={top_player(page, 'QB', 3)['key']}"
             # What the indicator could move is everything above the trade: measure where the Compare page starts.
             measure = """() => ({start: Math.round(document.querySelector('#v2Compare').getBoundingClientRect().top),
                 league: Math.round(document.querySelector('#v2Context').getBoundingClientRect().height),
