@@ -769,6 +769,8 @@ test-core:
 	# JEG-1534: the /next/ preview build stays noindex and inside dist/next/.
 	python3 -m unittest tests.test_next_preview
 	python3 -m unittest tests.test_launch_copy_guard
+	# JEG-1536: Learn > How we get our numbers equals the engine (3 scorings x 10/12 teams x superflex), Manifesto verbatim.
+	python3 -m unittest tests.test_learn_engine_parity
 	python3 -m unittest tests.test_week_history
 	python3 -m unittest tests.test_asset_load_retry
 	python3 -m unittest tests.test_espn_listed_rows
@@ -956,6 +958,8 @@ test-core-shard-5:
 	# JEG-1534: the /next/ preview build stays noindex and inside dist/next/.
 	python3 -m unittest tests.test_next_preview
 	python3 -m unittest tests.test_launch_copy_guard
+	# JEG-1536: Learn > How we get our numbers equals the engine (3 scorings x 10/12 teams x superflex), Manifesto verbatim.
+	python3 -m unittest tests.test_learn_engine_parity
 	python3 -m unittest tests.test_missing_section_render
 	python3 -m unittest tests.test_lineup_content_week_advance
 	python3 -m unittest tests.test_search_players_universe
