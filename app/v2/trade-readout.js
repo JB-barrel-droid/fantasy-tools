@@ -5,7 +5,7 @@
   "use strict";
   const finite = n => typeof n === "number" && Number.isFinite(n);
   const keyOf = row => String(row.player_key);
-  const VERSION = 1;
+  const VERSION = 2;   // 2: JEG-1323 second-half rows (readout.rows)
   // View ids and labels follow the JEG-1221 glossary; market keeps today's "Trade chart average" until #1071 renames it.
   const VIEWS = Object.freeze([
     Object.freeze({id: "ddf", label: "DDF Value"}),
@@ -159,7 +159,7 @@
     if (!shape) out.reason = "League roster shape is unavailable.";
     else if (!give.length || !receive.length) out.reason = "Add a player to both sides to see how each roster changes.";
     else if (outside.give.length || outside.receive.length) out.reason = "This trade includes players outside the selected rosters.";
-    if (!out.ready) return out;
+    if (!out.ready) { out.rows = secondHalf(F, input, out, null, deps); return out; }
     out.roster = rosterReadout(F, {mine, theirs}, give, receive, shape, reserveRule(deps));
     // Each view reads the same rows; the market view reads them with the chart average added (finder lineupContext).
     const rowsFor = id => {
@@ -181,6 +181,7 @@
       out.sides.theirs[id] = valued(rows.theirs.concat(giveRows))
         ? sideReadout(F, rows.theirs, receiveRows, giveRows, shape, view.valueKey, theirs.notEvaluated, theirs.unresolved) : null;
     });
+    out.rows = secondHalf(F, input, out, {mine, theirs, market, rowsFor, mineByKey, theirByKey}, deps);
     return out;
   }
 
@@ -196,8 +197,268 @@
       before: lineup(s.impact.before), after: lineup(s.impact.after)} : null);
     const views = Object.fromEntries(Object.entries(readout.views).map(([id, v]) => [id, {status: v.status, reason: v.reason, held: v.held || []}]));
     return {version: readout.version, ready: readout.ready, reason: readout.reason, outside: readout.outside, views, roster: readout.roster,
+      rows: readout.rows ? rowsSummary(readout.rows) : null,
       mine: Object.fromEntries(Object.entries(readout.sides.mine).map(([id, s]) => [id, side(s)])),
       theirs: Object.fromEntries(Object.entries(readout.sides.theirs).map(([id, s]) => [id, side(s)]))};
+  }
+
+  // ---------- JEG-1323: the readout's second half (spec docs/specs/trade-page-parity.md 3.2, slice 4) ----------
+  // Five rows: verdict, will they accept, sell gap, data labels, context line. Like the first half they only gather what
+  // finder.js (tradeFit, fitText, viabilityLabel, evaluateCombo, withChartAverage) and team-summary.js (marketGaps) already
+  // compute, plus what the caller hands in from #1084 (the appeal band) and #1105 (league depth). No new number, no new rule.
+  // Every row reads one basis (rest-of-season values); the week in the context line is the values' data week, never a
+  // weekly number, so no row mixes weekly and ROS data. Extra input fields, all optional:
+  //   fit:        {expected, weights, z?}, the depth and bench weights of finder.js fitContext / league.js mathContext.
+  //   appeal:     the #1084 recommendation for this deal and partner: {band: "likely"|"possible"|"longShot", likelihood, why?}.
+  //   leagueDepth:{check: {ok, reasons}, gapOf(key) -> {ours, theirs, gap} | null, floor?}: #1105's completeness check, its
+  //               per-player gap (DDF Value at the market level minus the DDF level) and its SELL_MIN_GAP. Used only when check.ok.
+  //   context:    {scoring, teams, superflex?, basis: {mode}, benchLevel: "modeled"|"league", week}. inputFromContext fills it.
+  // Labels reuse the finder's words and the JEG-1221 strings (S8, S9, S10, S13, GL-03 tags).
+  const FIT_NAME = Object.freeze({natural: "Natural fit", market: "Market supported", force: "Force fit"});
+  const VIABILITY_NAME = Object.freeze({High: "High viability", "Med-High": "Medium-high viability", Medium: "Medium viability"});
+  const APPEAL_BANDS = Object.freeze(["likely", "possible", "longShot"]);
+  const SCORING_NAME = Object.freeze({standard: "Standard", half_ppr: "Half PPR", ppr: "Full PPR"});
+  const MARKET_LABEL = "Trade chart average";
+  const CHART_NAMES = Object.freeze({usatoday: "USA Today", fantasycalc: "FantasyCalc", fantasypros: "FantasyPros", cbs: "CBS Sports"});   // finder.js CHART_NAMES
+  const LOW_CONFIDENCE_NOTE = "Only one source prices this player";   // v2.js LOW_CONFIDENCE_NOTE
+  const STRINGS = Object.freeze({
+    notEvaluated: "Not evaluated: kickers and defenses have no trade value. Kept on the roster, left out of every sum.",   // S8
+    noValueThisWeek: "No value this week: not in this week's sources. Left out of every sum, not counted as 0.",          // S9
+    noSeriesValue: series => `No ${series} value: left out of this series, not counted as 0.`,                           // S10
+    tooFewCharts: n => `Not enough trade charts this week (${n} of 3 needed), so we can't judge whether they'd accept.`, // S13
+    marketChip: n => `${MARKET_LABEL} unavailable (${n} of 3 charts).`                                                  // S13 chip
+  });
+  const overrideFmt = v => (finite(v) ? (Math.abs(v) < 0.05 ? "0.0" : v.toFixed(1).replace("-", "−")) : "—");   // overrides.js fmt
+  // overrides.js flag(): the page's own badge text when it is loaded, else the same words (modelValue, fmt).
+  function overrideText(row, deps) {
+    const O = (deps && deps.overrides) || root.DDFOverrides || null;
+    const badge = O && O.flag ? O.flag(row) : null;
+    if (badge && badge.title) return badge.title;
+    const base = finite(row.ddfPipelineValue) ? row.ddfPipelineValue : null;
+    return base !== null
+      ? `You set this player's value to ${overrideFmt(row.valueOverride)} (was ${overrideFmt(base)} from DDF Value). Reset on the Overrides tab.`
+      : `You set this player's value to ${overrideFmt(row.valueOverride)}. Reset on the Overrides tab.`;
+  }
+  const teamSummary = deps => (deps && deps.teamSummary) || root.TradeValueTeamSummary || (typeof require === "function" ? require("./team-summary.js") : null);
+  const unavailable = (status, reason) => ({status, reason});
+
+  // Verdict: finder.js tradeFit on the market rows (fitFor), with which of its tests failed. Fit needs the Trade chart
+  // average and the league's expected depth (fitContext returns null without them).
+  function verdictRow(F, input, out, w) {
+    if (!out.ready) return unavailable("not-ready", out.reason);
+    if (!w.market) return unavailable("unavailable", STRINGS.tooFewCharts((input.chartKeys || []).length));
+    const fitIn = input.fit || null;
+    if (!fitIn || !fitIn.expected) return unavailable("unavailable", "Fit is not judged: the league's expected roster depth is not known here.");
+    // tradeFit's lineup nets leave an unpriced player out, which would judge the deal as if that player were worth 0. So a
+    // moving player without DDF Value or the Trade chart average means no verdict, with who is missing (kickers and
+    // defenses are not evaluated and never block it). Like Compare's trade.js "incomplete" rule, but stricter: Compare
+    // judges on any 3 charts that price every moving player, while the chart average needs every available chart, and
+    // tradeFit can't judge on fewer without a new number.
+    const missing = [];
+    w.giveRows.concat(w.receiveRows).forEach(row => {
+      if (!row || F.isNotEvaluated(row)) return;
+      const v = row.values || {};
+      const series = [[out.ourKey, "DDF Value"], [F.MARKET_KEY, MARKET_LABEL]].filter(([k]) => !finite(v[k])).map(([, label]) => label);
+      if (series.length) missing.push({key: keyOf(row), name: row.name || keyOf(row), series});
+    });
+    if (missing.length) {
+      const who = missing.map(m => `${m.name} has no ${m.series.join(" or ")} value`).join("; ");
+      return {status: "incomplete", reason: `No verdict: ${who}, and a missing value is never counted as 0.`, missing};
+    }
+    const fit = F.tradeFit(w.sides, {shape: out.shape, expected: fitIn.expected, weights: fitIn.weights || {overall: 0},
+      ourKey: out.ourKey, marketKey: F.MARKET_KEY, chartKeys: w.market, z: finite(fitIn.z) ? fitIn.z : F.FIT_Z});
+    if (!fit) return unavailable("unavailable", STRINGS.tooFewCharts(w.market.length));
+    const tests = {
+      construction: {pass: fit.constructionOk, issues: (fit.myConstruction.issues || []).concat(fit.theirConstruction.issues || [])},
+      yourValue: {pass: fit.yourValueOk, net: fit.us.net, starterDelta: fit.us.starterDelta},
+      theirMarket: {pass: fit.theirOk, net: fit.them.net, tau: fit.them.tau},
+      marketSupported: {pass: fit.marketSupported}
+    };
+    // Natural fit 1a (JEG-1324, now inside tradeFit as `natural`): each side's DDF Value (projections) must not fall.
+    // pass is null when a side is not judged (a moving player has no projection), and a side not judged is not Natural,
+    // so null counts as failed here too. Read from tradeFit, never recomputed.
+    const nat = fit.natural || null;
+    if (nat) {
+      tests.yourProjections = {pass: nat.us.projections, net: nat.us.projNet};
+      tests.theirProjections = {pass: nat.them.projections, net: nat.them.projNet};
+    }
+    const failed = ["construction", "yourValue", "theirMarket", "yourProjections", "theirProjections"]
+      .filter(id => tests[id] && tests[id].pass !== true);
+    return {status: "available", reason: null, label: fit.label, name: FIT_NAME[fit.label], text: F.fitText(fit), tests, failed,
+      basis: "tradeFit", fit};
+  }
+
+  // Will they accept: the #1084 band when the reader has a profile for this manager, otherwise the finder's viability
+  // label and the count of charts that have them winning or even (evaluateCombo, the search's own count).
+  function acceptRow(F, input, out, w, verdict) {
+    if (!out.ready) return unavailable("not-ready", out.reason);
+    const appeal = input.appeal || null;
+    if (appeal && APPEAL_BANDS.includes(appeal.band) && typeof appeal.likelihood === "string" && appeal.likelihood) {
+      return {status: "available", reason: null, basis: "profile", band: appeal.band, likelihood: appeal.likelihood,
+        why: Array.isArray(appeal.why) ? appeal.why.slice() : [],
+        text: `${appeal.likelihood}: your own read of this manager from the Managers card, not a prediction.`};
+    }
+    const charts = (input.chartKeys || []).slice();
+    if (!w.market) return {...unavailable("unavailable", STRINGS.tooFewCharts(charts.length)), basis: "viability"};
+    // S8: K/DEF stay in the physical trade, but never participate in a value sum.
+    const evaluated = rows => rows.filter(row => !F.isNotEvaluated(row));
+    const combo = F.evaluateCombo(evaluated(w.giveRows), evaluated(w.receiveRows), {ourKey: out.ourKey, chartKeys: charts, minCharts: Math.min(F.MIN_CHARTS, charts.length)});
+    const chartsLine = `${combo.rivalOkCount} of ${combo.pricedCharts} charts have them winning or even.`;
+    const fit = verdict && verdict.fit;
+    const viability = fit ? F.viabilityLabel(fit, w.sides.mine.roster, w.sides.theirs.roster, w.sides.mine.leaving, w.sides.mine.arriving,
+      out.shape, out.ourKey, w.market) : null;
+    const name = viability ? VIABILITY_NAME[viability] || viability : null;
+    return {status: "available", reason: null, basis: "viability", viability, viabilityName: name,
+      charts: {even: combo.rivalOkCount, priced: combo.pricedCharts, available: charts.length}, heldCharts: (out.views.market.held || []).slice(),
+      text: name ? `${name}. ${chartsLine}` : fit ? `No viability label: a roster check fails or your DDF Value edge is below 0. ${chartsLine}`
+        : `Viability is not judged without a fit. ${chartsLine}`};
+  }
+
+  // Sell gap: each player in the deal, DDF Value against the Trade chart average (team-summary.js marketGaps, gap = DDF
+  // Value minus the chart average), or #1105's league depth when every team passes its completeness check (gap = DDF
+  // Value at the market level minus the DDF level). basis says which one is showing; a player either side cannot price
+  // keeps the reason, never a 0.
+  function sellGapRow(F, input, out, w, deps) {
+    if (!out.ready) return unavailable("not-ready", out.reason);
+    const moving = out.give.map(key => ({key, side: "give", row: w.mineByKey.get(key)}))
+      .concat(out.receive.map(key => ({key, side: "receive", row: w.theirByKey.get(key)})));
+    const depth = input.leagueDepth || null;
+    const leagueOk = Boolean(depth && depth.check && depth.check.ok && typeof depth.gapOf === "function");
+    const leagueReasons = depth && depth.check && !depth.check.ok ? (depth.check.reasons || []).slice() : [];
+    if (leagueOk) {
+      const players = moving.map(({key, side, row}) => {
+        const name = row ? row.name : key;
+        if (F.isNotEvaluated(row)) return {key, side, name, status: "not-evaluated", reason: STRINGS.notEvaluated};
+        const g = depth.gapOf(key);
+        if (!g || !finite(g.ours) || !finite(g.theirs) || !finite(g.gap)) return {key, side, name, status: "unpriced", reason: STRINGS.noSeriesValue("league-depth DDF Value")};
+        // A lean is named only at or above the caller's floor (#1105's SELL_MIN_GAP), else by sign alone.
+        const floor = finite(depth.floor) ? depth.floor : 0;
+        return {key, side, status: "priced", ours: g.ours, theirs: g.theirs, gap: g.gap,
+          direction: g.gap > 0 && g.gap >= floor ? "market-higher" : g.gap < 0 && -g.gap >= floor ? "ddf-higher" : "even", name};
+      });
+      return {status: "available", reason: null, basis: "league", label: "League depth: DDF Value at your league's market level against its DDF level",
+        leagueReasons: [], floor: finite(depth.floor) ? depth.floor : null, heldCharts: [], players};
+    }
+    const base = {basis: "market", label: `Per player: DDF Value against the ${MARKET_LABEL}`, leagueReasons};
+    if (!w.market) return {...unavailable("unavailable", STRINGS.marketChip((input.chartKeys || []).length)), ...base, players: []};
+    const TS = teamSummary(deps);
+    const rows = F.withChartAverage(moving.map(m => m.row), w.market);
+    // The gap is marketGaps' number (every non-zero gap at floor 0); a lean is named only above team-summary.js's
+    // NOISE_FLOOR, the rule the league page uses to list a player as under or overvalued (Q13 A).
+    // marketGaps reads F.OUR_KEY. Adapt its input to the selected basis, just as the displayed ddf below does;
+    // keep the chart average and original engine rows untouched.
+    const gapRows = rows.map(row => ({...row, values: {...row.values, [F.OUR_KEY]: row.values && row.values[out.ourKey]}}));
+    const all = TS.marketGaps(gapRows, 0);
+    const listed = TS.marketGaps(gapRows, TS.NOISE_FLOOR);
+    const byKey = new Map(all.under.concat(all.over).map(item => [item.key, item]));
+    const lean = new Map(listed.under.map(item => [item.key, "ddf-higher"]).concat(listed.over.map(item => [item.key, "market-higher"])));
+    const players = moving.map(({key, side, row}, i) => {
+      const r = rows[i];
+      const ddf = r.values ? r.values[out.ourKey] : null;
+      const chart = r.values ? r.values[F.MARKET_KEY] : null;
+      const name = row.name;
+      if (F.isNotEvaluated(r)) return {key, side, name, status: "not-evaluated", reason: STRINGS.notEvaluated};
+      if (!finite(ddf)) return {key, side, name, status: "unpriced", reason: STRINGS.noSeriesValue("DDF Value")};
+      if (!finite(chart)) return {key, side, name, status: "unpriced", reason: STRINGS.noSeriesValue(MARKET_LABEL)};
+      const item = byKey.get(key);
+      return {key, side, name, status: "priced", ddf, market: chart, gap: item ? item.gap : 0, direction: lean.get(key) || "even"};
+    });
+    return {status: "available", reason: null, ...base, floor: TS.NOISE_FLOOR, heldCharts: (out.views.market.held || []).slice(), players};
+  }
+
+  // Data labels: per team, every player on its roster before the trade (each player once), in the JEG-1221 words. Kinds:
+  // "single-source" (GL-03 "◐ 1 source"), "estimated" ("≈ estimated", per chart the market view reads), "not-evaluated"
+  // (S8), "no-value-this-week" (S9: no engine row, or no value in any view), "no-series-value" (S10), "override".
+  function dataLabelsRow(F, input, out, w, deps) {
+    const sideOf = who => {
+      const raw = (input[who] && input[who].rows) || [];
+      const entries = (input[who] && input[who].entries) || [];
+      const rows = raw.filter((row, i) => raw.findIndex(other => keyOf(other) === keyOf(row)) === i);   // each player once
+      const have = new Set(rows.map(keyOf));
+      const labels = [];
+      const views = VIEWS.filter(v => out.views[v.id].status === "available").map(v => ({...v, valueKey: out.views[v.id].valueKey}));
+      // The market view's own charts, ready deal or not: before both sides are picked w is null, and reading the chart
+      // average off w would label every priced player "No Trade chart average value".
+      const charts = out.views.market.status === "available" ? out.views.market.chartKeys : null;
+      const shown = rows.map(row => (charts ? F.withChartAverage([row], charts)[0] : row));
+      shown.forEach(row => {
+        const key = keyOf(row);
+        const name = row.name || key;
+        const v = row.values || {};
+        if (F.isNotEvaluated(row)) { labels.push({key, name, kind: "not-evaluated", text: STRINGS.notEvaluated}); return; }
+        const priced = views.filter(view => finite(v[view.valueKey]));
+        if (!priced.length) { labels.push({key, name, kind: "no-value-this-week", text: STRINGS.noValueThisWeek}); return; }
+        views.filter(view => !finite(v[view.valueKey])).forEach(view =>
+          labels.push({key, name, kind: "no-series-value", series: view.label, text: STRINGS.noSeriesValue(view.label)}));
+        if (row.ddfLowConfidence && finite(v[out.ourKey])) {
+          const count = finite(row.ddfCount) ? row.ddfCount : 1;
+          labels.push({key, name, kind: "single-source", tag: `◐ ${count} source${count === 1 ? "" : "s"}`, text: row.ddfConfidenceNote || LOW_CONFIDENCE_NOTE});
+        }
+        const est = row.estimated || {};
+        [out.ourKey].concat(charts || []).forEach(series => {
+          const reason = est[series];
+          if (typeof reason === "string" && reason.trim() && finite(v[series])) labels.push({key, name, kind: "estimated", series, tag: "≈ estimated", text: reason});
+        });
+        if (row.valueOverride !== null && row.valueOverride !== undefined) labels.push({key, name, kind: "override", text: overrideText(row, deps)});
+      });
+      entries.filter((entry, i) => !have.has(String(entry.key)) && entries.findIndex(e => String(e.key) === String(entry.key)) === i).forEach(entry => labels.push(F.isNotEvaluated(entry)
+        ? {key: String(entry.key), name: entry.name || String(entry.key), kind: "not-evaluated", text: STRINGS.notEvaluated}
+        : {key: String(entry.key), name: entry.name || String(entry.key), kind: "no-value-this-week", text: STRINGS.noValueThisWeek}));
+      return labels;
+    };
+    return {status: "available", reason: null, mine: sideOf("mine"), theirs: sideOf("theirs")};
+  }
+
+  // Context line: scoring, teams, superflex, basis, bench level, week. A part the caller does not know is left out, and
+  // listed in missing, never guessed.
+  function contextRow(input) {
+    const known = v => v !== undefined && v !== null;
+    const c = input.context || {};
+    const shape = input.shape || {};
+    const parts = [];
+    const missing = [];
+    if (SCORING_NAME[c.scoring]) parts.push(SCORING_NAME[c.scoring]); else missing.push("scoring");
+    const teams = known(c.teams) && finite(Number(c.teams)) && Number(c.teams) > 0 ? Number(c.teams) : null;
+    const week = known(c.week) && finite(Number(c.week)) && Number(c.week) > 0 ? Number(c.week) : null;
+    if (teams !== null) parts.push(`${teams} teams`); else missing.push("teams");
+    const sf = known(c.superflex) ? Boolean(c.superflex) : known(shape.SUPERFLEX) ? Number(shape.SUPERFLEX) > 0 : null;
+    const qb = known(shape.QB) && finite(Number(shape.QB)) && Number(shape.QB) > 0 ? Number(shape.QB) : null;
+    if (sf === null) missing.push("superflex"); else parts.push(sf ? "Superflex" : qb !== null ? `${qb}QB` : "No superflex");
+    const mode = c.basis && c.basis.mode;
+    if (mode === "default") parts.push("DDF Value basis"); else if (mode === "single" || mode === "blend") parts.push("Your basis, not ours");
+    else missing.push("basis");
+    if (c.benchLevel === "league") parts.push("Bench from your league's rosters"); else if (c.benchLevel === "modeled") parts.push("Standard bench");
+    else missing.push("bench level");
+    if (week !== null) parts.push(`Week ${week}`); else missing.push("week");
+    return {status: "available", reason: null, scoring: c.scoring || null, teams,
+      superflex: sf, basis: mode || null, benchLevel: c.benchLevel || null, week,
+      missing, text: parts.join(" · ")};
+  }
+
+  // w: the built sides (null when the readout is not ready). The verdict and acceptance read the market rows, as
+  // finder.js fitFor and league.js do (give and receive rows carry the chart average too).
+  function secondHalf(F, input, out, built, deps) {
+    let w = null;
+    if (built) {
+      const rows = built.market ? built.rowsFor("market") : null;
+      const pick = list => new Map(list.map(row => [keyOf(row), row]));
+      const mineM = rows ? pick(rows.mine) : null;
+      const theirM = rows ? pick(rows.theirs) : null;
+      const giveRows = out.give.map(key => (mineM ? mineM.get(key) : built.mineByKey.get(key)));
+      const receiveRows = out.receive.map(key => (theirM ? theirM.get(key) : built.theirByKey.get(key)));
+      w = {...built, giveRows, receiveRows,
+        sides: rows ? {mine: {roster: rows.mine, leaving: giveRows, arriving: receiveRows}, theirs: {roster: rows.theirs, leaving: receiveRows, arriving: giveRows}} : null};
+    }
+    const ready = w || {market: null, mineByKey: new Map(), theirByKey: new Map()};
+    const verdict = verdictRow(F, input, out, ready);
+    return {verdict, accept: acceptRow(F, input, out, ready, verdict), sellGap: sellGapRow(F, input, out, ready, deps),
+      dataLabels: dataLabelsRow(F, input, out, w, deps), context: contextRow(input)};
+  }
+  // Plain copy for golden fixtures and cross-route comparison (the fit object stays out; its numbers are in tests).
+  function rowsSummary(rows) {
+    const {fit, ...verdict} = rows.verdict;
+    void fit;
+    return {verdict, accept: rows.accept, sellGap: rows.sellGap, dataLabels: rows.dataLabels, context: rows.context};
   }
 
   const signedCount = n => (n > 0 ? `+${n}` : n < 0 ? `−${-n}` : "no change");
@@ -250,6 +511,62 @@
     return wrap;
   }
 
+
+  // JEG-1323: the second-half rows, drawn once for every page, in the spec's order. Each row says its value or why not.
+  function renderRows(readout, deps) {
+    const doc = (deps && deps.document) || root.document;
+    const rows = readout.rows;
+    const wrap = doc.createElement("div");
+    wrap.className = "v2-readout-rows";
+    const row = (id, title, status, lines) => {
+      const box = doc.createElement("div");
+      box.className = "v2-readout-row";
+      box.dataset.row = id;
+      box.dataset.status = status;
+      const h = doc.createElement("p");
+      h.className = "v2-readout-row-title";
+      const b = doc.createElement("b");
+      b.textContent = title;
+      h.appendChild(b);
+      box.appendChild(h);
+      lines.filter(Boolean).forEach(line => {
+        const p = doc.createElement("p");
+        p.className = "v2-meta";
+        if (typeof line === "string") p.textContent = line;
+        else { p.textContent = line.text; Object.entries(line.data || {}).forEach(([k, v]) => { p.dataset[k] = v; }); }
+        box.appendChild(p);
+      });
+      wrap.appendChild(box);
+    };
+    const heldLine = list => (list && list.length ? `Held this week (data check), not in the ${MARKET_LABEL}: ${list.map(k => CHART_NAMES[k] || k).join(", ")}.` : null);
+    const v = rows.verdict;
+    row("verdict", "Verdict", v.status, v.status === "available" ? [{text: v.text, data: {fit: v.label}}] : [v.reason]);
+    const a = rows.accept;
+    row("accept", "Will they accept", a.status, a.status === "available"
+      ? [{text: a.text, data: {basis: a.basis}}].concat(a.basis === "profile" ? a.why : [heldLine(a.heldCharts)]) : [a.reason]);
+    const g = rows.sellGap;
+    const gapLine = p => {
+      const who = p.side === "give" ? "you send" : "you get";
+      if (p.status !== "priced") return {text: `${p.name} (${who}): ${p.reason}`, data: {player: p.key, status: p.status}};
+      const size = Math.abs(p.gap).toFixed(1);
+      const pair = g.basis === "league" ? `market level ${p.theirs.toFixed(1)}, DDF level ${p.ours.toFixed(1)}`
+        : `${MARKET_LABEL} ${p.market.toFixed(1)}, DDF Value ${p.ddf.toFixed(1)}`;
+      const lean = p.direction === "market-higher" ? `the market prices them ${size} higher` : p.direction === "ddf-higher" ? `DDF Value prices them ${size} higher`
+        : g.floor !== null ? `within ${g.floor.toFixed(1)} points, not a gap` : "even";
+      return {text: `${p.name} (${who}): ${pair}; ${lean}.`, data: {player: p.key, direction: p.direction}};
+    };
+    row("sell-gap", "Sell gap", g.status, g.status === "available"
+      ? [{text: g.label, data: {basis: g.basis}}].concat(g.players.map(gapLine), [heldLine(g.heldCharts)])
+        .concat(g.leagueReasons.length ? [`League depth not used: ${g.leagueReasons.join("; ")}.`] : []) : [g.reason]);
+    const d = rows.dataLabels;
+    const labelLine = who => item => ({text: `${who}, ${item.name}: ${item.tag ? `${item.tag}: ` : ""}${item.text}`, data: {player: item.key, kind: item.kind}});
+    row("data-labels", "Data labels", d.status, d.mine.map(labelLine("Your team")).concat(d.theirs.map(labelLine("Their team")))
+      .concat(d.mine.length || d.theirs.length ? [] : ["Every player here has a full value."]));
+    const c = rows.context;
+    row("context", "Context", c.status, [c.text || "League settings are not known here."]);
+    return wrap;
+  }
+
   // JEG-1260: build's input from JEG-1229's TradeContext (fromCompare / fromLeague / fromPair), so the same context and
   // deal give the same readout on every route. env: {rowsByKey (Map of engine rows; the league's level rows when JEG-1188
   // supplies them), shape, ourKey?, chartKeys, sourceInfo?}. The partner is Their team, or on the league finder the one
@@ -268,12 +585,21 @@
     const sources = (ctx.common && ctx.common.sources) || {};
     const sourceInfo = e.sourceInfo || Object.keys(sources).map(key => ({key, available: sources[key].status === "available",
       ...(sources[key].status === "held" ? {excludedReason: `held: ${sources[key].reason || "data check"}`} : {})}));
+    // JEG-1323: the context line from common.league, common.valuation.basis and pricing.mode; the week is env.week.
+    const league = (ctx.common && ctx.common.league) || {};
+    const basis = ctx.common && ctx.common.valuation ? ctx.common.valuation.basis : null;
+    const pricing = ctx.pricing || null;
+    const roster = league.roster || null;
+    const contextLine = {scoring: league.scoring, teams: league.teams, basis: basis || null,
+      superflex: roster && roster.SUPERFLEX !== undefined ? Number(roster.SUPERFLEX) > 0 : undefined,
+      benchLevel: pricing ? (pricing.mode === "league" ? "league" : "modeled") : e.benchLevel, week: e.week};
     return {shape: e.shape, ourKey: e.ourKey, chartKeys: e.chartKeys, sourceInfo, mine: side(teams.mine), theirs: side(partner),
+      fit: e.fit || null, appeal: e.appeal || null, leagueDepth: e.leagueDepth || null, context: contextLine,
       give: (ctx.deal && ctx.deal.give) || [], receive: (ctx.deal && ctx.deal.get) || [],
       contextKey: TC && TC.cacheKey ? TC.cacheKey(ctx, "readout") : null};
   }
 
-  const api = {VERSION, VIEWS, build, summary, renderSide, sourceStatus, inputFromContext};
+  const api = {VERSION, VIEWS, build, summary, renderSide, renderRows, sourceStatus, inputFromContext, STRINGS, FIT_NAME, VIABILITY_NAME};
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.TradeValueReadout = api;
 })(typeof window !== "undefined" ? window : globalThis);

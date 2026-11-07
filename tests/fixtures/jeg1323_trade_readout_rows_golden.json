@@ -1,0 +1,155 @@
+{
+ "ticket": "JEG-1323",
+ "source": "trade-readout.js second-half rows",
+ "rows": {
+  "verdict": {
+   "status": "incomplete",
+   "reason": "No verdict: Sol Whitcombe has no Trade chart average value, and a missing value is never counted as 0.",
+   "missing": [
+    {
+     "key": "tWR3",
+     "name": "Sol Whitcombe",
+     "series": [
+      "Trade chart average"
+     ]
+    }
+   ]
+  },
+  "accept": {
+   "status": "available",
+   "reason": null,
+   "basis": "viability",
+   "viability": null,
+   "viabilityName": null,
+   "charts": {
+    "even": 0,
+    "priced": 2,
+    "available": 3
+   },
+   "heldCharts": [
+    "cbs"
+   ],
+   "text": "Viability is not judged without a fit. 0 of 2 charts have them winning or even."
+  },
+  "sellGap": {
+   "status": "available",
+   "reason": null,
+   "basis": "market",
+   "label": "Per player: DDF Value against the Trade chart average",
+   "leagueReasons": [],
+   "floor": 2,
+   "heldCharts": [
+    "cbs"
+   ],
+   "players": [
+    {
+     "key": "mWR1",
+     "side": "give",
+     "name": "Flynn Ashby",
+     "status": "priced",
+     "ddf": 22,
+     "market": 25.900000000000002,
+     "gap": -3.900000000000002,
+     "direction": "market-higher"
+    },
+    {
+     "key": "mRB2",
+     "side": "give",
+     "name": "Dax Fenwick",
+     "status": "priced",
+     "ddf": 17,
+     "market": 17.133333333333336,
+     "gap": -0.1333333333333364,
+     "direction": "even"
+    },
+    {
+     "key": "tRB1",
+     "side": "receive",
+     "name": "Nico Farrow",
+     "status": "priced",
+     "ddf": 28,
+     "market": 24.166666666666668,
+     "gap": 3.833333333333332,
+     "direction": "ddf-higher"
+    },
+    {
+     "key": "tWR1",
+     "side": "receive",
+     "name": "Quinn Talbot",
+     "status": "priced",
+     "ddf": 18,
+     "market": 18.133333333333336,
+     "gap": -0.1333333333333364,
+     "direction": "even"
+    },
+    {
+     "key": "tWR3",
+     "side": "receive",
+     "name": "Sol Whitcombe",
+     "status": "unpriced",
+     "reason": "No Trade chart average value: left out of this series, not counted as 0."
+    }
+   ]
+  },
+  "dataLabels": {
+   "status": "available",
+   "reason": null,
+   "mine": [
+    {
+     "key": "mWR3",
+     "name": "Hal Pryce",
+     "kind": "override",
+     "text": "You set this player's value to 7.0 (was 5.5 from DDF Value). Reset on the Overrides tab."
+    },
+    {
+     "key": "mK",
+     "name": "Kit Leclair",
+     "kind": "not-evaluated",
+     "text": "Not evaluated: kickers and defenses have no trade value. Kept on the roster, left out of every sum."
+    }
+   ],
+   "theirs": [
+    {
+     "key": "tWR1",
+     "name": "Quinn Talbot",
+     "kind": "single-source",
+     "tag": "◐ 1 source",
+     "text": "Only one source prices this player: ESPN."
+    },
+    {
+     "key": "tWR2",
+     "name": "Rory Castellan",
+     "kind": "estimated",
+     "series": "fantasycalc",
+     "tag": "≈ estimated",
+     "text": "Filled in from the other charts (VP-2.4)."
+    },
+    {
+     "key": "tWR3",
+     "name": "Sol Whitcombe",
+     "kind": "no-series-value",
+     "series": "Trade chart average",
+     "text": "No Trade chart average value: left out of this series, not counted as 0."
+    },
+    {
+     "key": "tGhost",
+     "name": "Vance Okafor",
+     "kind": "no-value-this-week",
+     "text": "No value this week: not in this week's sources. Left out of every sum, not counted as 0."
+    }
+   ]
+  },
+  "context": {
+   "status": "available",
+   "reason": null,
+   "scoring": "ppr",
+   "teams": 12,
+   "superflex": false,
+   "basis": "default",
+   "benchLevel": "modeled",
+   "week": 8,
+   "missing": [],
+   "text": "Full PPR · 12 teams · 1QB · DDF Value basis · Standard bench · Week 8"
+  }
+ }
+}
