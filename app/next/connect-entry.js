@@ -102,6 +102,11 @@
   function showResult(res) {
     var card = $("recognized");
     $("recognition-summary").textContent = summaryText(res);
+    var lg = res.league || {}, found = $("recognition-league");
+    if (found) {
+      found.textContent = lg.leagueName ? "We found: " + lg.leagueName + (lg.leagueId ? " · ID# " + lg.leagueId : "") + ". You can confirm or change the name on the next step." : "";
+      found.hidden = !lg.leagueName;
+    }
     $("recognition-teams").innerHTML = res.teams.map(function (t, i) {
       var issues = t.unmatched.filter(function (u) { return u.reason !== "kdef"; }).length;
       var label = esc(t.name) + " · " + plural(t.players.length, "player") + " matched" + (issues ? " · " + issues + " to check" : "");
@@ -146,6 +151,7 @@
         hideEditNames();
         showResult(res);
         save(DDF.leaguePaste.record(res, "paste"));
+        askBookmark(res);
         status(plural(res.teams.length, "team") + " found. Check the list below, then confirm your team.", "ok");
         if (focus) $("recognition-title").focus();
         return res;
@@ -180,6 +186,7 @@
       hideEditNames();
       showResult(res);
       save(DDF.leaguePaste.record(res, "paste"));
+      askBookmark(res);
       status(plural(res.teams.length, "team") + " found. Check the list below, then confirm your team.", "ok");
       $("recognition-title").focus();
     }).catch(function () { $("edit-names-status").textContent = "Player values are still loading. Try again in a moment."; });
@@ -193,10 +200,15 @@
   /* ---------- manual entry ---------- */
   var manual = {teams: []};
   function manualRecord() {
-    return {v: 1, source: "manual", site: "unknown", me: null,
+    return {v: 1, source: "manual", site: "unknown", me: null, enteredAt: DDF.leagueMeta ? DDF.leagueMeta.today() : null,
       teams: manual.teams.map(function (t) { return {name: t.name, players: t.players.slice(), unmatched: []}; })};
   }
   function manualSave() { if (manual.teams.length) save(manualRecord()); else drop(); }
+  /* JEG-1564: a roster read is a big input; the Bookmark button asks once, when it shows on a later page */
+  function askBookmark(res) {
+    if (!DDF.leagueMeta) return;
+    DDF.leagueMeta.want("rosters", res.teams.map(function (t) { return t.name + "/" + t.players.length; }).join("|"));
+  }
   function manualNames() {
     var names = $("manual-names").value.split(/\r?\n/).map(function (s) { return s.replace(/\s+/g, " ").trim().slice(0, 40); }).filter(Boolean);
     var byName = {};

@@ -134,6 +134,7 @@
     var liveTeams = (live.teams || []).map(function (t) { return team(t.teamName, t.players, t.unmatched, byKey, ids); });
     var parsed = r ? r.parse(raw, {players: opts.table}) : {teams: [], strategy: "none"};
     out.names = (parsed.teams || []).map(function (t) { return t.name; });
+    out.league = r && r.league ? r.league(raw, {teams: parsed.teams || []}) : null;
     var named = out.names.length > 1 ? byNames(raw, out.names, rows, byKey, ids) : [];
     var pick = null;
     if (withPlayers(liveTeams) >= 2) pick = {teams: liveTeams, how: "live"};
@@ -160,6 +161,7 @@
     var list = (names || []).map(function (n) { return String(n).replace(/\s+/g, " ").trim(); }).filter(Boolean);
     var byKey = rowsByKey(rows), ids = tableIds(opts.table);
     var out = {ok: false, reason: "unreadable", site: P() ? P().detectSite(String(text || "")) : "unknown", strategy: "edited-names", names: list, teams: []};
+    out.league = R() && R().league ? R().league(String(text || ""), {teams: list.map(function (n) { return {name: n}; })}) : null;
     if (list.length < 2) return summarize(out);
     var teams = byNames(text, list, rows, byKey, ids);
     var found = {};
@@ -173,8 +175,14 @@
   }
 
   /* the sessionStorage record setup.html and the workspace pages read (ddf:pasted) */
+  function today() { var d = new Date(); return d.getFullYear() + "-" + ("0" + (d.getMonth() + 1)).slice(-2) + "-" + ("0" + d.getDate()).slice(-2); }
+  /* JEG-1564: enteredAt = the local date of this read; suggestedName / leagueId / platform from the page header
+     (rosterparse league()). The name is only a suggestion: setup.html saves `name` when the reader confirms it.
+     leagueId stays on this device (never in links or titles). */
   function record(result, source) {
-    return {v: 1, source: source || "paste", site: result.site || "unknown", me: null,
+    var lg = result.league || {};
+    return {v: 1, source: source || "paste", site: result.site || "unknown", me: null, enteredAt: today(),
+      suggestedName: lg.leagueName || null, leagueId: lg.leagueId || null, platform: lg.platform || null,
       teams: result.teams.map(function (t) { return {name: t.name, players: t.players, unmatched: t.unmatched}; })};
   }
 

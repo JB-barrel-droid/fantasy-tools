@@ -6,7 +6,8 @@
    Layouts covered: Yahoo (desktop, phone, markdown print), ESPN, CBS, Sleeper and NFL.com style rosters,
    CSV/TSV with a Team column, "Team: player, player, ..." one line per team, and "Team 02" style names.
    When nothing scores well the caller shows an edit box, so a bad guess never blocks the user.
-   opts.players: optional array of known player names (lowercase ok). Defaults to the site's player table. */
+   opts.players: optional array of known player names (lowercase ok). Defaults to the site's player table.
+   DDF.rosterParse.league(text, {teams}) -> {leagueName, leagueId, platform, confidence} from the page header (below). */
 (function(){
   var SLOT = 'QB|RB|WR|TE|FLEX|SUPERFLEX|SFLX|W\\/R\\/T|W\\/R|W\\/T|R\\/W\\/T|OP|K|PK|DEF|D\\/ST|DST|BN|BE|BENCH|IR|TAXI|RES|NA';
   var POS = new RegExp('(^|[\\s\\-·|,(])(' + SLOT + ')([\\s\\-·|,)]|$)');
@@ -174,7 +175,50 @@
   }
 
   function teams(text, opts){ return parse(text, opts).teams; }
+
+  /* League name, league ID and platform from the page header (JEG-1564). Formats read from real pages:
+     Yahoo   "**USO Season XVIII (ID# 848938)**" above the rosters (markdown or plain);
+     ESPN    the line after "League Rosters" on the League Rosters page; "League ID" then the number (League Info);
+             leagueId=<n> in a pasted ESPN address.
+     Sleeper and CBS: platform only (their header layout is not verified). A section heading ("Starting Rosters",
+     "Settings") or a team name is never taken as the league name.
+     -> {leagueName, leagueId, platform, confidence}; leagueName/leagueId null when not found. */
+  var YAHOO_HEAD = /^[*_#\s]*(.{2,60}?)\s*\(\s*ID#\s*(\d{3,12})\s*\)[*_\s]*$/i;
+  function league(text, opts){
+    var raw = String(text || ''), lines = raw.split(/\r?\n/).map(function(l){ return l.replace(/\t+/g, ' ').trim(); });
+    var teamNames = {};
+    ((opts && opts.teams) || []).forEach(function(t){ teamNames[String(t.name || t).toLowerCase()] = 1; });
+    var plat = /\(\s*ID#\s*\d/.test(raw) || /^\s*\**\s*Yahoo Sports/im.test(raw) || /fantasysports\.yahoo\.com/i.test(raw) ? 'yahoo'
+      : /^\s*ESPN( Fantasy)?\s*$/im.test(raw) || /espn\.com/i.test(raw) ? 'espn'
+      : /^\s*Sleeper\s*$/im.test(raw) || /sleeper\.(com|app)/i.test(raw) ? 'sleeper'
+      : /CBS Sports/i.test(raw) ? 'cbs' : null;
+    var out = {leagueName: null, leagueId: null, platform: plat, confidence: 0};
+    var okName = function(n){
+      n = clean(n || '');
+      if (n.length < 2 || n.length > 60 || !/[A-Za-z]/.test(n) || STOP.test(n) || GAMEY.test(n) || teamNames[n.toLowerCase()]) return '';
+      if (/^(league rosters|starting rosters|league home|league info|basic settings)$/i.test(n)) return '';
+      return n;
+    };
+    for (var i = 0; i < lines.length; i++) {
+      var m = YAHOO_HEAD.exec(lines[i]);
+      if (m && okName(m[1])) { out.leagueName = okName(m[1]); out.leagueId = m[2]; out.platform = 'yahoo'; out.confidence = 0.9; return out; }
+    }
+    for (var j = 0; j < lines.length - 1; j++) {
+      if (/^league rosters$/i.test(lines[j])) {
+        var k = j + 1; while (k < lines.length && !lines[k]) k++;
+        var n = okName(lines[k]);
+        if (n && !isRow(lines[k]) && !/\(\s*\d{1,2}\s*-\s*\d{1,2}/.test(lines[k])) { out.leagueName = n; out.confidence = 0.75; break; }
+      }
+    }
+    for (var q = 0; q < lines.length; q++) {
+      var id = /^league id\s*:?\s*(\d{3,12})?$/i.exec(lines[q]);
+      if (id) { var v = id[1] || ((lines[q + 1] || '').match(/^(\d{3,12})$/) || [])[1]; if (v) { out.leagueId = v; break; } }
+    }
+    if (!out.leagueId) { var u = /[?&]leagueId=(\d{3,12})/i.exec(raw) || /fantasysports\.yahoo\.com\/f1\/(\d{3,12})/i.exec(raw) || /sleeper\.(?:com|app)\/leagues\/(\d{6,20})/i.exec(raw); if (u) out.leagueId = u[1]; }
+    if (!out.confidence && out.leagueId) out.confidence = 0.3;
+    return out;
+  }
   window.DDF = window.DDF || {};
-  window.DDF.rosterParse = {parse: parse, teams: teams};
+  window.DDF.rosterParse = {parse: parse, teams: teams, league: league};
   if (typeof module !== 'undefined') module.exports = window.DDF.rosterParse;
 })();
