@@ -17,3 +17,16 @@ Files: `pipelines/research_trade_value_audit.py` (evidence), `app/next/research/
 - USA Today and FantasyCalc method pages did not load (blocked); the article makes no method claim for either.
 - The reproduction test skips once the weekly refresh replaces `data/fixtures/current`; reproduce at this branch's commit.
 - Local `make validate` needs Python 3.12 (3.9 fails history parsing on '+00' offsets) and a Playwright matching the cached browser; see the PR for the run.
+
+## 2026-11-07 - JEG-1565 follow-up: single-file reader copy, more sources
+
+Contract: Jeremy (via coordinator, 2026-11-07) asked for a self-contained copy to read away from the Mac and for more graded sources where the data may legitimately be used. PR #1352 stays a draft.
+
+### Verified (check named)
+- `pipelines/build_trade_value_audit_single.py` writes `~/Desktop/ddf-handoff 2/06-audit/trade-value-audit-draft.html` from the real page, JS and JSON; Playwright from file:// at 1440, 390, 390 dark and 1440 reduced motion: 0 console errors, 0 external requests, 0 overflow.
+- DynastyProcess added as a graded source from its GPL-3.0 open data (`data/research/jeg1565/dynastyprocess/`, five weekly commits, license and SOURCE.md); independent review re-fetched all five files and found them identical on the kept columns. Names matched with `canonical_players.norm_player_name` (`tests.test_one_name_resolver` OK; a first version with its own normalizer failed that guard in `make validate`).
+- KeepTradeCut terms prohibit automated collection and redistribution; Footballguys terms prohibit scraping and copying without permission; Draft Sharks and Dynasty Nerds publish no data license we could find: method-only, no grades (independent review confirmed the terms readings).
+- `tests/test_research_trade_value_audit.py` 9 pass; two independent accuracy reviews (8da3c5eed, delta d61c4f335) with all findings applied.
+
+### Claimed, not confirmed
+- CI and the rendered gate have not run (draft PR; CI defers full verification on drafts).

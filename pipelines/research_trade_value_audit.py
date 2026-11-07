@@ -28,6 +28,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "pipelines"))
 import value_reference as vr  # noqa: E402
+from lib.canonical_players import norm_player_name  # noqa: E402  (the one name rule, JEG-438)
 
 OUT = REPO / "app" / "next" / "research" / "trade-value-audit-data.json"
 HISTORY_DIR = REPO / "data" / "history"
@@ -496,15 +497,6 @@ DP_CURRENT = DP_DATES[-1]
 AGE_BANDS = ((0, 25, "under 25"), (25, 28, "25 to 27"), (28, 30, "28 to 29"), (30, 99, "30 and over"))
 
 
-def _norm(name: str) -> str:
-    import re
-    import unicodedata
-    n = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode().lower()
-    n = re.sub(r"[.'\u2019\-]", "", n)
-    n = re.sub(r"\b(jr|sr|ii|iii|iv|v)\b", "", n)
-    return re.sub(r"\s+", " ", n).strip()
-
-
 def dp_snapshot(inp, day: str) -> dict:
     """{player_key: {"v1", "v2", "age"}} from the stored file, matched by
     normalized name and position; names that match no player, or more than
@@ -512,13 +504,13 @@ def dp_snapshot(inp, day: str) -> dict:
     import csv
     by = {}
     for k, p in inp.players.items():
-        by.setdefault((_norm(p["name"]), p["pos"]), []).append(k)
+        by.setdefault((norm_player_name(p["name"]), p["pos"]), []).append(k)
     out, unmatched, unmatched_max = {}, 0, 0.0
     with open(DP_DIR / f"values-players-{day}.csv", newline="", encoding="utf-8") as f:
         for row in csv.DictReader(f):
             if row["pos"] not in POS:
                 continue
-            keys = by.get((_norm(row["player"]), row["pos"]))
+            keys = by.get((norm_player_name(row["player"]), row["pos"]))
             if not keys or len(keys) > 1:
                 unmatched += 1
                 unmatched_max = max(unmatched_max, float(row["value_1qb"]))
