@@ -92,6 +92,27 @@
 .bs-list li.bs-hl{background:#fff0e8;box-shadow:inset 3px 0 0 #e96528;border-radius:8px}
 .bs-hlnote{margin:8px 0 14px;padding:8px 12px;border-left:3px solid #e96528;background:#fff7f2;max-width:75ch;font-size:14px}
 .ov-saved{margin:12px 0 0;padding:8px 12px;border-left:3px solid #176c4d;background:#eef6f0;font-size:14px;border-radius:0 8px 8px 0}.ov-saved a{color:#124f39;font-weight:600}
+.ov-session-note{margin:0 0 10px;padding:8px 12px;background:#f0f4ff;border:1px solid #c5cef5;border-radius:8px;font-size:13.5px;color:#2a3680}.ov-session-note[hidden]{display:none}
+.ov-modes{display:flex;flex-wrap:wrap;gap:4px 16px;border:0;margin:12px 0 4px;padding:0}.ov-modes label{display:flex;align-items:center;gap:7px;font-size:14px;font-weight:600}
+.ov-comparables{margin:8px 0 2px;padding:8px 10px;background:#f7f8f5;border:1px solid #e3e7e2;border-radius:9px}
+.ov-comp-list{list-style:none;margin:0;padding:0}.ov-comp-list li{display:flex;align-items:center;gap:8px;padding:4px 0;font-size:13.5px}
+.ov-comp-self{font-weight:700;background:var(--green-soft);border-radius:5px;padding:2px 6px;margin:0 -6px}
+.ov-comp-val{margin-left:auto;font:500 13px 'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums;color:#39413b}
+.ov-basis-section{margin-bottom:18px}
+.ov-basis-grp{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 6px}
+.ov-basis-btn{padding:6px 14px;min-height:38px;font-size:13.5px}
+.ov-basis-btn.is-on{background:var(--green-soft)!important;border-color:var(--green)!important;color:var(--green)!important;font-weight:700}
+.ov-basis-btn[aria-disabled=true]{opacity:.5;cursor:not-allowed}
+.ov-basis-label{margin:8px 0 0;font-size:13.5px;color:#39413b;line-height:1.5;padding:8px 10px;background:#f7f8f5;border:1px solid #e3e7e2;border-radius:8px}
+.ov-wlist{display:flex;flex-direction:column;gap:8px;margin:10px 0}
+.ov-wrow{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;padding:8px 10px;background:#f7f8f5;border:1px solid #e3e7e2;border-radius:9px}
+.ov-wrow.is-paused{opacity:.6}.ov-wlabel{flex:1 1 120px;min-width:0;font-size:14px;font-weight:600;cursor:pointer}
+.ov-wnum{width:62px;min-height:38px;font:600 14px 'IBM Plex Mono',monospace;text-align:right}
+.ov-wpct{font:600 11.5px 'IBM Plex Mono',monospace;min-width:34px;text-align:right;color:#39413b}
+.ov-wnote{flex-basis:100%;font-size:12px;color:#5c6a76;margin-top:2px}
+.ov-wrow input[type=range]{flex:1;min-width:80px;min-height:0;accent-color:var(--green)}
+.ov-io{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 4px}
+.ov-io-note{font-size:13px;color:#5c6a76;align-self:center}.ov-io-note:empty{display:none}
 @media(hover:hover) and (pointer:fine){.values-page tbody tr .vp-acts{opacity:0}.values-page tbody tr:hover .vp-acts,.values-page tbody tr:focus-within .vp-acts,.values-page tbody tr.values-hl .vp-acts{opacity:1}}
 @media(max-width:760px){.values-page tbody td.pl .vp-acts{display:flex;margin:2px 0 0 -8px}}
 @media(pointer:coarse),(max-width:760px){.values-page button.vp-act{min-height:44px;min-width:44px;padding:8px 10px}.values-card .vp-act{padding:8px 12px!important}.ov-saved a{display:inline-block;padding:12px 4px}}
@@ -277,25 +298,35 @@
 <section class="bs-box" id="bs-fit"></section>
 <div class="bs-act"><a class="btn primary" id="bs-open" href="build.html">Open in Build a Trade →</a></div>
 </section>
-<p class="bs-fine">Charts = the average of the analyst charts (CBS Sports, USA Today, FantasyPros) and the live market (FantasyCalc) that list the player; the badge next to it (for example 3/4) counts the charts that went in. Values at or below zero are never targets.</p>
+<p class="bs-fine">Charts = the average of the analyst charts (CBS Sports, USA Today, FantasyPros) and the live market (FantasyCalc) that list the player; the badge next to it (n/4) counts the charts that went in. Values at or below zero, and players no chart lists, are never targets. Natural fit uses the same test as Build a Trade.</p>
 </div><div role="tabpanel" id="panel-ov" aria-labelledby="tab-ov" tabindex="0" hidden>
 <h2 class="bs-h" id="ov-h">Change a player’s value and see what follows</h2>
 <p class="bs-sub">Think a player is worth more or less? Set your own value. It replaces DDF Value on every tab, applied after DDF’s numbers are computed, and this page shows what it changes.</p>
 <p class="ov-loaded" id="ov-loaded" hidden><span id="ov-loaded-t"></span> <button type="button" class="btn" id="ov-loaded-clear">Reset all</button></p>
-<p class="ov-privacy"><strong>Overrides are yours.</strong> <a href="learn.html#numbers/glossary/override">What an override is</a>. They are kept in this browser tab for this visit and not saved to a server. Your overrides are included when you share a link or send this league to your chat.</p>
+<p id="ov-session-note" class="ov-session-note" hidden></p>
+<p class="ov-privacy"><strong>Overrides are yours.</strong> They are kept in this browser — not on a server — and also apply on the rest of the site. A link or export carries them. <a href="learn.html#numbers/glossary/override">What an override is</a>.</p>
+<section class="bs-card ov-basis-section" aria-labelledby="ov-basis-h">
+<h3 id="ov-basis-h">What DDF Value is built from</h3>
+<p class="bs-note">Our method is the average of four trade charts (Analyst charts: CBS Sports, USA Today, FantasyPros; Live market: FantasyCalc), adjusted and averaged for your league settings. Pick one source, or blend sources with your own weights. It applies everywhere right away; your player overrides below stay.</p>
+<div id="ov-basis-presets"></div>
+<div id="ov-basis-blend" hidden></div>
+<p id="ov-basis-label" class="ov-basis-label" role="status"></p>
+</section>
 <div class="ov-grid">
 <section class="bs-card ov-pick" aria-labelledby="ov-pick-h">
 <h3 id="ov-pick-h">Set your value</h3>
 <label class="ov-lbl" for="ov-search">Player</label>
-<div class="ov-combo"><input id="ov-search" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="ov-list" aria-describedby="ov-hint" autocomplete="off" spellcheck="false" placeholder="Search a player…"><ul id="ov-list" role="listbox" aria-label="Players on this page" hidden></ul></div>
-<p class="bs-note" id="ov-hint">Any of the 25 players on the Chart tab.</p>
+<div class="ov-combo"><input id="ov-search" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="ov-list" aria-describedby="ov-hint" autocomplete="off" spellcheck="false" placeholder="Search a player…"><ul id="ov-list" role="listbox" aria-label="Players" hidden></ul></div>
+<p class="bs-note" id="ov-hint">Search any priced player by name.</p>
 <div id="ov-editor" hidden>
 <div class="ov-sel"><strong id="ov-name"></strong><span id="ov-pos" class="pos"></span><small id="ov-team"></small></div>
 <dl class="ov-ref"><div><dt>DDF Value</dt><dd id="ov-ddf"></dd></div><div><dt>Charts</dt><dd id="ov-mkt"></dd></div><div><dt>Your value now</dt><dd id="ov-cur"></dd></div></dl>
-<label class="ov-lbl" for="ov-num">Your value (0 to 100)</label>
+<fieldset class="ov-modes"><legend class="vsr">Override mode</legend><label><input type="radio" name="ov-mode" id="ov-mode-abs" value="absolute" checked> Your value (absolute)</label><label><input type="radio" name="ov-mode" id="ov-mode-adj" value="adjustment"> Adjust by (+/−)</label></fieldset>
+<label class="ov-lbl" id="ov-num-lbl" for="ov-num">Your value (0 to 100)</label>
 <div class="ov-set"><input id="ov-num" type="number" min="0" max="100" step="0.1" inputmode="decimal" aria-describedby="ov-err ov-preview"><input id="ov-range" type="range" min="0" max="100" step="0.1" aria-label="Your value slider" aria-describedby="ov-preview"></div>
 <p class="ov-err" id="ov-err" role="alert"></p>
 <p class="ov-preview" id="ov-preview"></p>
+<div id="ov-comparables" class="ov-comparables" hidden aria-label="Comparable players" role="region"></div>
 <div class="ov-btns"><button type="button" class="btn primary" id="ov-apply">Set override</button><button type="button" class="btn" id="ov-reset">Reset to DDF</button></div>
 <p class="ov-saved" id="ov-saved" hidden></p>
 </div>
@@ -303,11 +334,12 @@
 <section class="bs-card" aria-labelledby="ov-list-h">
 <div class="ov-lhead"><h3 id="ov-list-h">Your overrides (<span id="ov-n">0</span>)</h3><div class="ov-lbtns"><button type="button" class="btn" id="ov-copylink" hidden>Copy link with my overrides</button><button type="button" class="btn" id="ov-chat" hidden>Send to my chat</button><button type="button" class="btn" id="ov-clear" hidden>Reset all</button></div></div><p class="ov-share" id="ov-share" role="status"></p>
 <ul class="ov-active" id="ov-active"></ul>
+<div class="ov-io"><button type="button" class="btn" id="ov-export">Export</button><button type="button" class="btn" id="ov-import">Import</button><span id="ov-import-note" class="ov-io-note" role="status"></span></div>
 </section>
 </div>
 <section class="bs-card ov-what" aria-labelledby="ov-what-h">
 <h3 id="ov-what-h">What changes</h3>
-<p class="bs-note">What your overrides move on this page: ranks by DDF Value and the Buy / Sell lists. Trade &amp; Waiver Recommendations and Build a Trade use the same values. The trade charts do not change: overrides replace DDF Value only.</p>
+<p class="bs-note">What your overrides move on this page: ranks by DDF Value and the Buy / Sell lists.</p>
 <p class="vsr" id="ov-live" role="status" aria-live="polite"></p>
 <div id="ov-what"></div>
 </section>

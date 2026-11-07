@@ -88,7 +88,10 @@ def engine_block(engine_html: str) -> str:
     end_at = engine_html.rindex("</body>")
     return (FETCH_SHARE_SHIM
             + '<div id="legacyEngine" class="legacy-engine" hidden aria-hidden="true" inert style="display:none">'
-            + engine_html[body_at:scripts_at] + "</div>\n  " + engine_html[scripts_at:end_at])
+            + engine_html[body_at:scripts_at] + "</div>\n  "
+            # The tail (scripts, data islands, the engine page's own build footer) stays hidden too.
+            + '<div class="legacy-engine-tail" hidden aria-hidden="true" style="display:none">'
+            + engine_html[scripts_at:end_at] + "</div>\n")
 
 
 def build_tag_of(engine_html: str) -> str | None:
