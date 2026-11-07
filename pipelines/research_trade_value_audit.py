@@ -269,7 +269,7 @@ def curves(inp) -> dict:
 
 def consolidation(inp) -> dict:
     """2-for-1 test at half PPR: of all pairs of players ranked 25-60 on a
-    chart, the share whose summed chart value beats each top-12 player, raw
+    chart, the share whose summed chart value is strictly greater than each top-12 player's, raw
     and after each piece's own waiver-line value is subtracted (the receiving
     team cuts a waiver-level player to make room)."""
     s = setting(inp)
@@ -284,15 +284,15 @@ def consolidation(inp) -> dict:
         pairs = list(combinations(mids, 2))
         raw_hits = vaw_hits = 0
         for st in stars:
-            raw_hits += sum(1 for a, b in pairs if nat[a] + nat[b] >= nat[st])
-            vaw_hits += sum(1 for a, b in pairs if vaw[a] + vaw[b] >= vaw[st])
+            raw_hits += sum(1 for a, b in pairs if nat[a] + nat[b] > nat[st])
+            vaw_hits += sum(1 for a, b in pairs if vaw[a] + vaw[b] > vaw[st])
         total = len(stars) * len(pairs)
         out[k] = {"pairs_tested": total, "raw_beats_star_pct": r(100 * raw_hits / total, 0),
                   "after_waiver_beats_star_pct": r(100 * vaw_hits / total, 0)}
     ddf = ddf_values(s)  # already value above waivers: nothing to subtract
     order = overall_order(ddf, s.pos_of)
     stars, pairs = order[:12], list(combinations(order[24:60], 2))
-    hits = sum(1 for st in stars for a, b in pairs if ddf[a] + ddf[b] >= ddf[st])
+    hits = sum(1 for st in stars for a, b in pairs if ddf[a] + ddf[b] > ddf[st])
     out["ddf"] = {"pairs_tested": len(stars) * len(pairs),
                   "after_waiver_beats_star_pct": r(100 * hits / (len(stars) * len(pairs)), 0)}
     return out
@@ -508,6 +508,12 @@ def headline(d: dict) -> dict:
         "agreement_min": min(d["agreement"]["overall"].values()),
         "agreement_max": max(d["agreement"]["overall"].values()),
         "held_sources": sorted(k for k, m in d["sources"].items() if m["held_this_week"]),
+        "held_count": sum(1 for m in d["sources"].values() if m["held_this_week"]),
+        "source_count": len(d["sources"]),
+        "superflex_qbs_min": min(sfx[k]["superflex_qbs_listed"] for k in CHARTS),
+        "superflex_qbs_max": max(sfx[k]["superflex_qbs_listed"] for k in CHARTS),
+        "wr_tilt_min_of_three": min(wr_tilt[k] for k in ("cbs", "fantasycalc", "usatoday")),
+        "wr_tilt_max_of_three": max(wr_tilt[k] for k in ("cbs", "fantasycalc", "usatoday")),
         "filled_in_total": {k: sum(d["sources"][k]["filled_in"].values()) for k in CHARTS},
     }
 
