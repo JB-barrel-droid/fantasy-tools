@@ -53,6 +53,8 @@ ROOT_FILES = ("site.js", "styles.css", "players-table-1.json", "ddf-engine.js",
               "ddf-league.js",
               # Lane "find" (JEG-1539): the recommendation and waiver searches, and the two pages' scripts.
               "find-engine.js", "find-page.js", "waivers-page.js",
+              # JEG-1558: opportunity size and the roster-improvement percent (team page, Why panel, trade messages).
+              "ddf-opportunity.js",
               # waivers.html how-to slides (the provider walkthrough).
               # Build a Trade (JEG-1537): the page script, the trade chart component.
               "build-trade.js", "tradechart.js", "tradechart.css",
