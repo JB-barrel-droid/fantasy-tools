@@ -27,7 +27,7 @@
   const LIVE_CANDS = 'ddf.v2.waiverCandidates';   // the live Waivers tab's available players (v2/waivers.js)
 
   let C = null, ROWS = new Map(), BYNAME = new Map(), RC = new Map(), INS = null, FX = null;
-  let L = null, S = {style: 'Friendly', chart: ''}, W = null, P = null, linkNote = '';
+  let L = null, S = {style: '', chart: ''}, W = null, P = null, linkNote = '';
   const undoLog = [];
 
   /* ---------- engine records ---------- */
@@ -100,6 +100,15 @@
         keys: (t && Array.isArray(t.players) ? t.players : []).map(linkEntryKey).filter(Boolean)}));
       const me = Number.isInteger(st.me) && teams[st.me] ? st.me : -1;
       return Object.assign(summarize('link', 'From your chat', teams, me, +st.settings.teams || teams.length), {st});
+    }
+    // The shared league read (ddf-league.js: a chat link, a pasted league from connect/setup, or the saved League tab),
+    // the same one the header pill and the workspace pages use (JEG-1559: a pasted league was missed here).
+    const shared = window.DDF && DDF.league && DDF.league.current ? DDF.league.current() : null;
+    if (shared && shared.teams && shared.teams.length) {
+      const teams = shared.teams.map(t => ({id: String(t.index), name: t.name,
+        keys: (t.players || []).map(p => p && p.key != null ? String(p.key) : null).filter(k => k && ROWS.has(k))}));
+      const me = Number.isInteger(shared.me) ? teams.findIndex(t => t.id === String(shared.me)) : -1;
+      return summarize(shared.source === 'saved' ? 'live' : shared.source === 'link' ? 'pasted' : shared.source, shared.name || 'Your league', teams, me, (shared.settings && +shared.settings.teams) || teams.length);
     }
     const lg = E().league();
     if (lg) {
@@ -289,7 +298,7 @@
     const st = L.st;
     const wv = S.wv || {min: 2, pos: 'All'};
     S = {mode: 'any', kind: P.waivers || (st && st.view === 'waivers') ? 'waivers' : 'trade', any: {give: [], get: []}, lg: {give: new Set(), get: new Set()},
-      partner: L.partners.length ? L.partners[0] : -1, extras: {give: [], get: {}}, style: S.style || 'Friendly', chart: S.chart || '', prevStyle: null, dirty: false,
+      partner: L.partners.length ? L.partners[0] : -1, extras: {give: [], get: {}}, style: S.style || '', userStyle: Boolean(S.userStyle), chart: S.chart || '', chartUser: S.chartUser || '', dirty: false,
       wv: {drop: P.drop ? resolve(P.drop) : null, add: P.add ? resolve(P.add) : null, min: wv.min, pos: wv.pos, countKey: ''}, claimDirty: false};
     let note = '';
     const trade = st && st.trade && (present(st.trade.give) || present(st.trade.get)) ? st.trade : null;
@@ -317,7 +326,7 @@
     if (linkNote) note = (note ? note + ' ' : '') + linkNote;
     for (const k of S.lg.give) addExtra('give', k);
     if (S.partner >= 0) for (const k of S.lg.get) addExtra('get', k);
-    S.mode = L.full ? 'league' : P.mode || (P.partner && P.fromQuery && L.available ? 'league' : (L.source === 'link' && L.available ? 'league' : (S.kind === 'waivers' && L.hasRoster ? 'league' : 'any')));
+    S.mode = L.full ? 'league' : P.mode || (P.partner && P.fromQuery && L.available ? 'league' : (L.source !== 'none' && L.available ? 'league' : (S.kind === 'waivers' && L.hasRoster ? 'league' : 'any')));
     $('prefill-note').hidden = !note; $('prefill-note').textContent = note.trim();
     const relabel = s => s.replace(/(valuation: )Market\b/g, '$1Analyst charts').replace(/(valuation: )FantasyCalc\b/g, '$1Live market (FantasyCalc)');
     $('constraints').textContent = P.constraints ? relabel(P.constraints) : defaultConstraints;
@@ -339,7 +348,7 @@
   /* ---------- rendering ---------- */
   function show(key) {
     const any = S.mode === 'any';
-    return {any, league: !any && L.available, 'league-off': !any && !L.available, full: !any && L.full, note: !any && !L.full, roster: !any && L.hasRoster, 'roster-off': !any && !L.hasRoster}[key];
+    return {any, 'any-noleague': any && !L.hasRoster, league: !any && L.available, 'league-off': !any && !L.available, full: !any && L.full, note: !any && !L.full, roster: !any && L.hasRoster, 'roster-off': !any && !L.hasRoster}[key];
   }
   function rosterNote() {
     if (L.source === 'none') return 'No league added yet · <a href="connect.html">add your league</a>';
@@ -393,14 +402,13 @@
       $('check-pass').textContent = c.pass ? '✓ Trade checks pass' : 'Review trade checks';
       $('check-pass').classList.toggle('check-review', !c.pass);
       $('checks').innerHTML = c.html; S.fit = c.fit || null;
+      // JEG-1561: the sender-facing Why panel (tap to expand), from the shared module; nothing when it cannot judge.
+      const w = ready ? why() : null;
+      $('build-why').innerHTML = w && w.e && window.DDFWhy.html ? window.DDFWhy.html(w.I.trade, w.I.ctx, {id: 'build-why-panel'}) : '';
     } else S.fit = null;
     const shop = picked('give').length > 0 && !picked('get').length;
-    $('empty-state').hidden = ready || shop; $('result').hidden = !(ready || shop); $('charts-section').hidden = shop; $('shop-note').hidden = !shop;
-    const SHOP = 'Shop a player', setPressed = () => document.querySelectorAll('[data-style]').forEach(x => x.setAttribute('aria-pressed', String(x.dataset.style === S.style)));
-    document.querySelectorAll('[data-style]').forEach(b => { b.disabled = shop && b.dataset.style !== SHOP; });
-    if (shop && S.style !== SHOP) { S.prevStyle = S.style; S.style = SHOP; S.dirty = false; setPressed(); }
-    else if (!shop && S.prevStyle) { S.style = S.prevStyle; S.prevStyle = null; S.dirty = false; setPressed(); }
-    if (ready || shop) { renderChartPick(); if (ready) renderCharts(); if (!S.dirty) writeMessage(); }
+    $('empty-state').hidden = ready || shop; $('result').hidden = !(ready || shop); $('trade-charts').hidden = shop; $('shop-note').hidden = !shop;
+    if (ready || shop) { renderChartPick(); if (ready) renderCharts(); if (!S.dirty) writeMessage(); else renderOffer(); }
   }
   function matchRow(p, label) {
     const v = finite(p.ddf) ? 'DDF ' + p.ddf.toFixed(2) : finite(p.an) ? 'Analyst charts ' + p.an.toFixed(2) : '';
@@ -678,56 +686,87 @@
       else live.textContent = 'No chart is picked, so the message makes no chart claim.';
     }
   }
-  function chartClaim() {
-    if (!S.chart) return null;
-    const e = chartEval(S.chart);
+  function claimFor(k) {
+    if (!k) return null;
+    const e = chartEval(k);
     if (e.status !== 'helps' && e.status !== 'even') return null;   // claims only when the chart's numbers support them
     const nums = `${e.k === 'fantasycalc' ? 'they have' : 'it has'} it at ${cfmt(e.k, e.give)} for ${cfmt(e.k, e.get)}`, pct = Math.round(e.pct);
     const line = e.status === 'even' ? 'you get about even value' : pct <= PCT_CAP ? `you get about ${pct}% more value than you give` : 'you get a lot more value than you give';
     const src = chartSrc(e.k);
-    return {e, text: `${src[0].toUpperCase() + src.slice(1)} ${e.k === 'fantasycalc' ? 'show' : 'shows'} ${line} (${nums}).`};
+    return {k: e.k, status: e.status, text: `${src[0].toUpperCase() + src.slice(1)} ${e.k === 'fantasycalc' ? 'show' : 'shows'} ${line} (${nums}).`};
   }
 
-  /* ---------- trade message (no site name, no team-name greeting: team names are not manager names) ---------- */
-  const NEAR_ZERO = 1.0;   // an analyst-charts value under 1.0 carries no trade value: named as an add-in, an uneven offer allowed
-  function message() {
-    const give = picked('give'), get = picked('get'), league = S.mode === 'league';
-    const nz = k => { const m = rec(k).an; return finite(m) && m < NEAR_ZERO; };
-    const split = list => { const add = list.filter(nz); return add.length && add.length < list.length ? {core: list.filter(k => !nz(k)), add} : {core: list, add: []}; };
-    const G = split(give), R = split(get), uneven = G.add.length > 0 || R.add.length > 0;
-    const gAll = joinKeys(give), rAll = joinKeys(get);
-    const addNote = a => `${joinKeys(a)} as ${a.length > 1 ? 'add-ins' : 'an add-in'}`;
-    const giveText = joinKeys(G.core) + (G.add.length ? ` (plus ${addNote(G.add)})` : '');
-    const getText = joinKeys(R.core) + (R.add.length ? `, plus ${addNote(R.add)}` : '');
-    const tag = `${G.core.length}-for-${R.core.length}` + (G.core.length === R.core.length ? ' with an add-in' : '');
-    const terms = uneven ? (league ? `${tag}: I send ${giveText} for ${getText}.` : `Would you do a ${tag}? I send ${giveText} for ${getText}.`)
-      : (league ? `I send ${gAll}; you send ${rAll}.` : `Would you trade ${rAll} for ${gAll}?`);
-    const hi = 'Hi! ';
-    const claim = chartClaim(), cl = claim ? ' ' + claim.text : '';
-    const mkt = list => list.map(k => rec(k).an).reduce((t, x) => t === null || !finite(x) ? null : t + x, 0);
-    const gm = mkt(give), rm = mkt(get);
-    const fit = S.fit, lineups = fit && fit.us.starterDelta > 0.05 && fit.them.starterDelta > 0.05 ? ` My starting lineup improves by ${fit.us.starterDelta.toFixed(2)} and yours by ${fit.them.starterDelta.toFixed(2)}.` : '';
-    const analytic = (claim ? cl : '') + (lineups || (!claim && gm !== null && rm !== null ? ` On the average of the CBS Sports, FantasyPros and USA Today trade charts that is ${gm.toFixed(2)} for ${rm.toFixed(2)}.` : (claim ? '' : ' How does this fit your roster?')));
-    const consolidate = G.core.length > R.core.length ? "I'd rather have fewer, better players in my lineup, and you'd get useful depth." : G.core.length < R.core.length ? "I'd be taking more pieces, and you'd get the stronger player in one spot." : 'It simplifies both lineups.';
-    const shopVal = (() => {
-      if (!S.chart) return '';
-      const vs = give.map(k => cval(S.chart, k));
-      if (!vs.length || vs.some(v => v === null)) return '';
-      return ` By ${chartSrc(S.chart)} ${give.length > 1 ? "they're" : "he's"} about ${cfmt(S.chart, csum(vs))}${give.length > 1 ? ' together' : ''}, so I'm looking for something close.`;
-    })();
-    const shop = `${hi}I'm looking to move ${gAll}. Is there someone on your roster you'd part with for ${give.length > 1 ? 'them' : 'him'}?` + (get.length ? ` ${rAll} would interest me.` : '') + shopVal;
-    if (!get.length) return shop;
-    return {Friendly: `Hey! Interested in a trade? ${terms}${cl} Let me know what you think.`,
-      Straightforward: (league ? hi : '') + terms + cl + (league ? ' Would that work for you?' : ''),
-      Analytical: (league ? hi : '') + terms + analytic,
-      Brief: `${giveText} for ${getText}?`,
-      'Direct offer': `${hi}I'd like to make you a direct offer. ${terms}${cl} I think it helps both of us. Open to it?`,
-      'Ask what they want': `${hi}I'm interested in ${rAll}. What would it take to get a deal done? To start, I could send ${gAll}.`,
-      '2-for-1 consolidation': `${hi}Would you consider ${G.core.length > R.core.length ? 'a consolidation' : uneven ? `a ${tag}` : 'a swap'}? ${uneven ? `I send ${giveText} for ${getText}.` : terms}${cl} ${consolidate}`,
-      'Swap positions of need': `${hi}Looks like we're deep where the other is thin. ${terms}${cl} It fills a need on both sides. Interested?`,
-      'Shop a player': shop}[S.style];
+  /* ---------- the offer message: options by the shape of the offer (build-offer.js, JEG-1559) ---------- */
+  function lineupStarters(keys) {
+    const X = fitBase();
+    if (!X || !keys.length) return null;
+    try { return new Set(X.Fd.lineupValue(rowsOf(keys), X.shape, 'ddf_value').starters.map(r => String(r.player_key))); } catch (e) { return null; }
   }
-  function writeMessage() { $('message').value = message(); S.dirty = false; }
+  /* The shared modules' inputs (JEG-1558 DDFOpportunity, JEG-1561 DDFWhy): whole rosters as engine rows (the modules
+     add the Analyst charts average themselves) and the same context find.html passes (finder.js ui depth and bench
+     weights). League mode only: both rosters must be known. */
+  function sharedInputs() {
+    const X = fitBase(), f = F();
+    if (!X || !(S.mode === 'league' && L.available) || S.partner < 0) return null;
+    const raw = keys => keys.map(k => ROWS.get(String(k))).filter(Boolean);
+    const ui = f && f.ui, depth = ui && ui.depthContext ? ui.depthContext() : null;
+    const analyst = X.analyst.length === 3 ? X.analyst : null;
+    return {trade: {mine: raw(myRosterKeys()), theirs: raw(L.teams[S.partner].keys), give: raw(picked('give')), receive: raw(picked('get'))},
+      ctx: {shape: X.shape, expected: depth ? depth.expected : X.expected, weights: ui && ui.benchWeights ? ui.benchWeights() : X.weights,
+        analyst, chartKeys: analyst || undefined, senderKey: 'ddf_value', partnerKey: 'chart_avg'}};
+  }
+  function why() {
+    const I = sharedInputs(), W = window.DDFWhy;
+    if (!I || !W || !W.explain || !I.trade.give.length || !I.trade.receive.length) return null;
+    try { return {I, e: W.explain(I.trade, I.ctx)}; } catch (err) { console.warn('Build a Trade: no Why', err); return null; }
+  }
+  function offerInput() {
+    const userChart = S.chartUser && S.chartUser !== 'none' ? S.chartUser : '';
+    const league = S.mode === 'league' && L.available;
+    const mine = league ? lineupStarters(myRosterKeys()) : null, theirs = league && S.partner >= 0 ? lineupStarters(L.teams[S.partner].keys) : null;
+    const player = (k, starters) => { const p = rec(k); return {n: p.n, pos: p.pos, ddf: p.ddf, an: p.an, starter: starters ? starters.has(k) : null}; };
+    const give = picked('give'), get = picked('get');
+    const fit = league && S.fit ? {usStarter: S.fit.us.starterDelta, themStarter: S.fit.them.starterDelta, themNeed: S.fit.them.towardAt || []} : null;
+    const shopText = (() => {
+      if (!userChart || get.length) return '';
+      const vs = give.map(k => cval(userChart, k));
+      if (!vs.length || vs.some(v => v === null)) return '';
+      return ` By ${chartSrc(userChart)} ${give.length > 1 ? "they're" : "he's"} about ${cfmt(userChart, csum(vs))}${give.length > 1 ? ' together' : ''}, so I'm looking for something close.`;
+    })();
+    const pickedClaim = claimFor(userChart);
+    // JEG-1558: each roster's % change (DDFOpportunity.rosterImprovementPct, ddf-opportunity.js) when that module is on
+    // the page; not computed here. Without it the message says nothing about roster %.
+    const shared = sharedInputs();
+    const pct = side => {
+      const O = window.DDFOpportunity;
+      if (!shared || !O || !O.rosterImprovementPct || !get.length) return null;
+      try { return O.rosterImprovementPct(shared.trade, side, shared.ctx); } catch (e) { return null; }
+    };
+    // JEG-1561: a Natural fit (DDFWhy) gives the partner-facing reason: the positions this fills for them.
+    const w = why(), needs = w && w.e && w.e.natural && w.e.needs && w.e.needs.them.length ? w.e.needs.them : null;
+    const fillsText = needs ? ` It fills your ${needs.length < 3 ? needs.join(' and ') : needs.slice(0, -1).join(', ') + ' and ' + needs[needs.length - 1]} need.` : '';
+    return {give: give.map(k => player(k, mine)), get: get.map(k => player(k, theirs)), league, fit,
+      // The value option cites the reader's chart; with none picked, the best chart for the pitch; after an explicit
+      // None, no chart (and so no value option). Other pitches cite only a chart the reader picked.
+      claim: S.chartUser === 'none' ? null : userChart ? pickedClaim : claimFor(chartRank().best), pickedClaim, shopText,
+      rationale: fillsText ? {text: fillsText.trim()} : null, partner: pct('partner'), sender: pct('sender')};
+  }
+  let OFFER = null;
+  function renderOffer() {
+    OFFER = window.DDFOffer.options(offerInput());
+    if (!OFFER.options.some(o => o.id === S.style) || !S.userStyle) S.style = OFFER.preselect;
+    // "Offer with the numbers" cites a chart: with none picked it uses the best one for the pitch, and the picker says so.
+    // The picker shows the chart the message cites: the reader's pick, else (value option on) the best chart, re-picked
+    // on every render so a trade change never leaves a stale chart; nothing after an explicit None.
+    const userChart = S.chartUser && S.chartUser !== 'none' ? S.chartUser : '';
+    const auto = !userChart && S.chartUser !== 'none' && S.style === 'value' ? (offerInput().claim || {}).k || '' : '';
+    const want = userChart || auto;
+    if (want !== S.chart) { S.chart = want; $('ref-chart').value = S.chart; chartLive(); }
+    $('offer-shape').textContent = OFFER.summary;
+    $('styles').innerHTML = OFFER.options.map(o => `<button type="button" data-style="${o.id}" aria-pressed="${o.id === S.style}"><span class="style-label">${esc(o.label)}</span><small>${esc(o.hint)}</small></button>`).join('');
+  }
+  function message() { const o = OFFER && OFFER.options.find(x => x.id === S.style); return o ? o.text : ''; }
+  function writeMessage() { renderOffer(); $('message').value = message(); S.dirty = false; }
 
   /* ---------- events ---------- */
   function changed() { $('copy-status').textContent = ''; render(); }
@@ -761,9 +800,9 @@
     $('partner').onchange = () => { S.partner = Number($('partner').value); S.lg.get = new Set(); $('get-search').value = ''; changed(); };
     $('your-valuation').onchange = () => changed();
     $('their-valuation').onchange = () => changed();
-    document.querySelectorAll('[data-style]').forEach(b => b.onclick = () => { S.style = b.dataset.style; document.querySelectorAll('[data-style]').forEach(x => x.setAttribute('aria-pressed', String(x === b))); writeMessage(); });
-    $('ref-chart').onchange = () => { S.chart = $('ref-chart').value; chartLive(); writeMessage(); };
-    $('chart-live').onclick = e => { const b = e.target.closest('#chart-best'); if (!b) return; S.chart = b.dataset.chart; $('ref-chart').value = S.chart; chartLive(); writeMessage(); $('ref-chart').focus(); };
+    $('styles').onclick = e => { const b = e.target.closest('[data-style]'); if (!b) return; S.style = b.dataset.style; S.userStyle = true; writeMessage(); const again = $('styles').querySelector(`[data-style="${b.dataset.style}"]`); if (again) again.focus(); };
+    $('ref-chart').onchange = () => { S.chart = $('ref-chart').value; S.chartUser = S.chart || 'none'; chartLive(); writeMessage(); };
+    $('chart-live').onclick = e => { const b = e.target.closest('#chart-best'); if (!b) return; S.chart = b.dataset.chart; S.chartUser = S.chart; $('ref-chart').value = S.chart; chartLive(); writeMessage(); $('ref-chart').focus(); };
     document.addEventListener('keydown', e => { if (e.key === 'Escape') document.querySelectorAll('details.info[open]').forEach(d => { d.open = false; d.querySelector('summary').focus(); }); });
     document.addEventListener('click', e => { document.querySelectorAll('details.info[open]').forEach(d => { if (!d.contains(e.target)) d.open = false; }); });
     $('message').oninput = () => { S.dirty = true; }; $('regenerate').onclick = writeMessage;
@@ -829,20 +868,36 @@
   }
   function setUrl(fn) { try { const u = new URL(location.href); fn(u.searchParams); history.replaceState(history.state, '', u); } catch (e) { /* the page still works */ } }
 
+  /* A link to the trade charts (build.html?give=..&get=..#trade-charts, from the "N/4 public trade charts" labels):
+     the section appears only once the trade renders, so the browser's own jump misses it. Scroll there after the
+     render, below the sticky header (and the sub-nav when it is shown). A visit without the anchor is unchanged. */
+  const CHARTS_ANCHOR = /^#trade-charts(\?|$)/;
+  let scrolledToCharts = false;
+  function scrollToChartsIfLinked() {
+    const el = $('trade-charts');
+    if (scrolledToCharts || !CHARTS_ANCHOR.test(location.hash) || !el || el.hidden || $('result').hidden) return;
+    const stuck = [...document.querySelectorAll('header, .subnav')].filter(n => n.offsetParent !== null && /sticky|fixed/.test(getComputedStyle(n).position));
+    const offset = stuck.reduce((t, n) => t + n.getBoundingClientRect().height, 0) + 12;
+    const top = el.getBoundingClientRect().top + window.scrollY - offset;
+    window.scrollTo({top: Math.max(0, top), behavior: 'auto'});
+    scrolledToCharts = true;
+  }
+
   /* ---------- start ---------- */
   wire();
   if (!E()) { $('build-status').textContent = 'The value engine did not load. Reload the page to try again.'; return; }
-  E().ready.then(c => {
+  E().ready.then(c => Promise.resolve(window.DDF && DDF.league && DDF.league.ready ? DDF.league.ready.catch(() => null) : null).then(() => c)).then(c => {
     C = c;
     reindex();
     const league = linkLeague(linkParams());
     if (league) { E().applyVisit(league); linkNote = `Opened with the link's league settings: ${settingsText()} (this visit only).`; }
     init();
     document.body.classList.add('build-live');
+    requestAnimationFrame(scrollToChartsIfLinked);
     let busy = false;
     E().on(() => { if (busy) return; busy = true; try { gainCache.clear(); reindex(); render(); } finally { busy = false; } });
-    if (window.DDF && DDF.link && DDF.link.ready) DDF.link.ready.then(r => { if (r && r.source === 'link' && !r.error) init(); });
+    if (window.DDF && DDF.link && DDF.link.ready) DDF.link.ready.then(r => { if (r && r.source === 'link' && !r.error) { init(); requestAnimationFrame(scrollToChartsIfLinked); } });
   }).catch(err => { console.error(err); $('build-status').textContent = 'The value engine did not load. Reload the page to try again.'; });
 
-  window.DDFBuild = {state: () => S, picked, rec, tradeSources, chartEval, gainFor, league: () => L};
+  window.DDFBuild = {state: () => S, picked, rec, tradeSources, chartEval, gainFor, league: () => L, offer: () => OFFER, offerInput};
 })();

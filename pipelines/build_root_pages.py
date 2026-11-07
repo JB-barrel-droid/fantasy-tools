@@ -59,7 +59,7 @@ ROOT_FILES = ("site.js", "styles.css", "players-table-1.json", "ddf-engine.js",
               "ddf-why.js",
               # waivers.html how-to slides (the provider walkthrough).
               # Build a Trade (JEG-1537): the page script, the trade chart component.
-              "build-trade.js", "tradechart.js", "tradechart.css",
+              "build-offer.js", "build-trade.js", "tradechart.js", "tradechart.css",
               "assets/howto/slides",
               # Entry pages (JEG-1538): paste reader, page scripts, league ID screenshots (actionbar.* listed above).
               "rosterparse.js", "league-paste.js", "connect-entry.js", "setup-entry.js",
