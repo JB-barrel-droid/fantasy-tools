@@ -618,6 +618,10 @@ jobs:
             git add data/inputs/espn_projections.csv \
                     data/fixtures/current/players.json \
                     data/fixtures/current/players.naming-manifest.json || true
+            # JEG-860: make validate syncs players into this tracked template.
+            # Publish it with the fixture, even on a no-bake run that repairs
+            # older drift. Never stage generated HTML on the failure path.
+            git add app/trade-value-chart/index.html || true
             MESSAGE="Automated comparison rebuild (GitHub Actions)"
             if [ "${BAKE_OUTCOME:-}" = "success" ]; then MESSAGE="$MESSAGE + players.json bake"; fi
           else

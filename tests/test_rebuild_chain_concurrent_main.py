@@ -159,6 +159,23 @@ PUBLICATION = "Automated comparison rebuild (GitHub Actions)"
 
 
 class ConcurrentMainTest(unittest.TestCase):
+    def test_synced_engine_template_publishes_with_the_fixture(self):
+        index = "app/trade-value-chart/index.html"
+        r = scenario(WORKFLOW, {}, run_writes={index: "SYNCED-PLAYERS"})
+        self.assertPublishedOnTop(r)
+        self.assertEqual("NEW", r["file"](FIXTURE))
+        self.assertEqual("SYNCED-PLAYERS", r["file"](index))
+
+    def test_newer_engine_template_on_main_requires_regeneration(self):
+        index = "app/trade-value-chart/index.html"
+        r = scenario(WORKFLOW, {index: "MAIN-HTML-CODE"},
+                     run_writes={index: "OLDER-SYNCED-PLAYERS"})
+        self.assertEqual(0, r["rc"], r["log"])
+        self.assertTrue(r["head_is_moved"], "never overwrite a newer template edit")
+        self.assertEqual("MAIN-HTML-CODE", r["file"](index))
+        self.assertEqual("OLD", r["file"](FIXTURE))
+        self.assertIn("regenerate-after-conflict", r["dispatch"] or "")
+
     def test_branch_rebuild_cannot_publish_to_main_or_its_branch(self):
         # Execute the real shared script, even if a caller bypasses job gates.
         # Both refs on this throwaway local remote must stay at their baseline.
