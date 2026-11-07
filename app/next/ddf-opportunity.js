@@ -186,6 +186,17 @@
     }
     return (cur.waivers || []).map(function (r) { return {key: r.key, name: r.n, pos: r.pos, team: r.team}; });
   }
+  // Keeps the best move that beats its own noise floor; a move under its floor is kept only while none beats one
+  // (each move has its own tau, so the biggest raw gain is not always the biggest counted gain).
+  function better(best, gain, tau, extra) {
+    if (!finite(gain)) return best;
+    var c = {gain: gain, tau: tau};
+    Object.keys(extra || {}).forEach(function (k) { c[k] = extra[k]; });
+    if (!best) return c;
+    var on = counted(c) > 0, bestOn = counted(best) > 0;
+    if (on !== bestOn) return on ? c : best;
+    return gain > best.gain ? c : best;
+  }
   function computeTeam(cur, mine) {
     return new Promise(function (resolve) {
       setTimeout(function () {
@@ -195,7 +206,7 @@
         var cand = candidates(cur), waiver = null;
         if (cand.length && root.TradeValueWaivers) {
           var pk = DDF.find.pickups(ctx, DDF.find.entriesOf(mine), cand, "DDF");
-          pk.results.forEach(function (r) { if (finite(r.totalDelta) && (!waiver || r.totalDelta > waiver.gain)) waiver = {gain: r.totalDelta, tau: r.tau}; });
+          pk.results.forEach(function (r) { waiver = better(waiver, r.totalDelta, r.tau); });
         }
         var trade = null, teams = [];
         cur.teams.forEach(function (t) {
@@ -205,8 +216,7 @@
           if (t.index === mine.index) return;
           DDF.find.searchPartner(ctx, mineRows, rows, {your: "DDF", their: "Market", sizes: [1, 2]}).trades.forEach(function (tr) {
             if (tr.cls !== "natural") return;
-            var g = tr.fit.us.net;
-            if (!trade || g > trade.gain) trade = {gain: g, tau: tr.fit.us.tau, partner: t.index};
+            trade = better(trade, tr.fit.us.net, tr.fit.us.tau, {partner: t.index});
           });
         });
         var res = assess({worth: w, waiver: waiver, trade: trade, hole: whereToLook(teams, mine.index, ctx.shape, ctx.analyst || ANALYST, ctx.weights)});
