@@ -135,6 +135,10 @@ Sync the finished fixtures into the static dashboard and deployable `dist/` outp
 make sync
 ```
 
+The published site is marked `noindex, nofollow` on every HTML page (JEG-1567) while source-data permissions
+are settled. To let search engines in again, set `SITE_NOINDEX = False` in `pipelines/site_noindex.py` and re-run
+`make sync`.
+
 ## Modular Pipeline
 
 The project should move in four stages:

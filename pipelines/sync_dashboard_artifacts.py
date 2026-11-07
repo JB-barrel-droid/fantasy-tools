@@ -574,6 +574,11 @@ def main() -> int:
         from build_values_explainer import main as build_values_explainer
         build_values_explainer(["--skip-sync", "--out", str(DIST / "value-logic" / "index.html")])
 
+    # JEG-1567: last step, after every page (including value-logic) is written.
+    from site_noindex import apply_site_noindex
+    noindexed = apply_site_noindex(DIST)
+    print(f"noindex: {len(noindexed)} html files marked (site_noindex.SITE_NOINDEX)")
+
     print(f"Dashboard artifacts synced to app/trade-value-chart and dist{f' (build {tag})' if tag else ''}.")
     return 0
 
