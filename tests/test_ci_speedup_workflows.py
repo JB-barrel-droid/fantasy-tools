@@ -153,6 +153,43 @@ def filter_problems(name, text):
     return out
 
 
+# The probes the old paths filter was held to (filter_problems above), now
+# applied to the classifier that replaced it (JEG-1551).
+MUST_BUILD = ("tests/test_example.py", "pipelines/x.py", ".github/workflows/preview.yml",
+              "app/llm/skill/SKILL.md", "Makefile")
+DOCS_ONLY = ("README.md", "docs/claude-log/x.md", "docs/runbook.txt")
+
+
+def classifier_problems(classify=None):
+    """Every build input runs the check, alone or beside a docs file; docs alone do not."""
+    if classify is None:
+        from pipelines.ci_change_scope import docs_only as classify
+    out = []
+    probes = list(MUST_BUILD) + [p.replace("**", "skill/SKILL.md") for p in BUILD_DOCS] \
+        + [p.replace("**", "deep/nested/notes.md") for p in BUILD_DOCS if "**" in p]
+    for path in probes:
+        if classify([path]) or classify(["README.md", path]):
+            out.append(f"ci_change_scope: a PR changing {path} would skip the build")
+    for path in DOCS_ONLY:
+        if not classify([path]):
+            out.append(f"ci_change_scope: a docs-only PR ({path}) still runs the build")
+    return out
+
+
+def scope_problems(name, text):
+    """JEG-1551: required checks always report; docs-only is decided in pr-state."""
+    out = []
+    if pr_paths(text):
+        out.append(f"{name}: a pull_request paths filter leaves the required check pending on docs-only PRs")
+    if "run: python3 -m pipelines.ci_change_scope" not in text:
+        out.append(f"{name}: pr-state must run pipelines.ci_change_scope")
+    if "        if: steps.scope.outputs.docs_only != 'true'\n" not in text:
+        out.append(f"{name}: docs-only PRs must skip the gate (and so the heavy jobs)")
+    if '[ "$STATE_RESULT" = "success" ] && [ "$DOCS_ONLY" = "true" ]' not in text:
+        out.append(f"{name}: the aggregate check must pass a docs-only PR (DOCS_ONLY)")
+    return out
+
+
 class CiSpeedupTest(unittest.TestCase):
     def test_render_matrix_runs_the_complete_gate_once(self):
         self.assertEqual([], render_schedule_problems(read("v2-render-test.yml")))
@@ -192,6 +229,18 @@ class CiSpeedupTest(unittest.TestCase):
     def test_real_docs_only_filter(self):
         for name in PR_FILTERED:
             self.assertEqual([], filter_problems(name, read(name)))
+            self.assertEqual([], scope_problems(name, read(name)))
+        self.assertEqual([], classifier_problems())
+
+    def test_classifier_dropping_any_build_input_is_caught(self):
+        from unittest import mock
+        from pipelines import ci_change_scope
+        for dropped in ci_change_scope.BUILD_DOCS:
+            kept = tuple(p for p in ci_change_scope.BUILD_DOCS if p != dropped)
+            with self.subTest(dropped=dropped), mock.patch.object(ci_change_scope, "BUILD_DOCS", kept):
+                self.assertTrue(classifier_problems(ci_change_scope.docs_only))
+        self.assertTrue(classifier_problems(lambda files: True))
+        self.assertTrue(classifier_problems(lambda files: False))
 
     def test_pages_has_no_path_filter(self):
         self.assertIsNone(re.search(r"paths", read("pages.yml")))
@@ -220,12 +269,28 @@ class CiSpeedupTest(unittest.TestCase):
             self.assertIsNone(job_timeout(text, job), job)
 
     def test_filter_skipping_tests_is_caught(self):
-        text = read("preview.yml").replace('      - "!docs/**"\n', '      - "!docs/**"\n      - "!tests/**"\n', 1)
+        text = read("preview.yml").replace(
+            "    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]\n",
+            "    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]\n"
+            '    paths:\n      - "**"\n      - "!tests/**"\n', 1)
         self.assertTrue(any("tests/test_example.py" in p for p in filter_problems("preview.yml", text)))
+        self.assertTrue(any("paths filter" in p for p in scope_problems("preview.yml", text)))
 
     def test_filter_dropping_build_docs_is_caught(self):
-        text = read("v2-render-test.yml").replace('      - "docs/methodology.md"\n', "", 1)
+        text = read("v2-render-test.yml").replace(
+            "    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]\n",
+            "    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]\n"
+            '    paths:\n      - "**"\n      - "!docs/**"\n', 1)
         self.assertTrue(any("docs/methodology.md" in p for p in filter_problems("v2-render-test.yml", text)))
+
+    def test_docs_only_check_that_never_reports_is_caught(self):
+        for name in PR_FILTERED:
+            text = read(name).replace("run: python3 -m pipelines.ci_change_scope", "run: true", 1)
+            self.assertTrue(any("ci_change_scope" in p for p in scope_problems(name, text)), name)
+            text = read(name).replace('[ "$DOCS_ONLY" = "true" ]', '[ "$DOCS_ONLY" = "never" ]', 1)
+            self.assertTrue(any("DOCS_ONLY" in p for p in scope_problems(name, text)), name)
+            text = read(name).replace("        if: steps.scope.outputs.docs_only != 'true'\n", "", 1)
+            self.assertTrue(any("skip the gate" in p for p in scope_problems(name, text)), name)
 
     def test_matcher_semantics(self):
         self.assertTrue(matches("**/*.md", "README.md"))

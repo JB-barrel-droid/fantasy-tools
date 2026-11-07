@@ -1,0 +1,20 @@
+name: Review receipt trigger
+
+# JEG-1551: a review does not start pull_request_target, so this records that
+# one happened. review-receipt.yml listens for this run (workflow_run, which
+# always runs main's own file) and re-runs the trusted check for the head.
+# Nothing here is trusted or required: a PR that edits this file only stops
+# reviews from re-running the check, which then stays red.
+
+on:
+  pull_request_review:
+    types: [submitted, edited, dismissed]
+
+permissions: {}
+
+jobs:
+  note-review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - run: echo "Review ${{ github.event.action }} on ${{ github.event.pull_request.head.sha }}"

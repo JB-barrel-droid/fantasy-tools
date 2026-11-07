@@ -1,0 +1,103 @@
+name: Review receipt
+
+# JEG-1551 (Jeremy, 2026-11-06, option A): a green PR with an independent
+# review on its current head merges itself through the merge queue.
+# `review-receipt` is a required check on main; when it passes on a ready PR,
+# this workflow turns on auto-merge so GitHub queues the PR once `preview` and
+# `v2-render` are green too. Value math and migrations also need Jeremy's
+# `jeremy-approved` label. See pipelines/review_receipt.py.
+#
+# pull_request_target: this file and the script always come from main, so a PR
+# cannot edit the check into passing. Nothing from the PR is checked out or
+# run here. A review does not start pull_request_target, so "Review receipt
+# trigger" (review-receipt-trigger.yml) fires on reviews and the
+# `rerun-after-review` job below re-runs the PR's trusted check, found by the
+# PR rather than by head SHA (a pull_request_target run records main's SHA).
+
+on:
+  merge_group:
+    types: [checks_requested]
+  pull_request_target:
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft, labeled, unlabeled]
+  workflow_run:
+    workflows: ["Review receipt trigger"]
+    types: [completed]
+
+permissions:
+  contents: read
+  pull-requests: read
+  issues: read
+  checks: read
+
+concurrency:
+  group: review-receipt-${{ github.event.pull_request.number || github.event.workflow_run.head_sha || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  review-receipt:
+    name: review-receipt
+    if: github.event_name != 'workflow_run'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      # Main's own code (pull_request_target's default), never the PR's.
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Independent review on the current head
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DDF_REVIEW_LOGINS: ${{ vars.DDF_REVIEW_LOGINS }}
+        run: python3 -m pipelines.review_receipt check
+
+  enable-auto-merge:
+    needs: review-receipt
+    if: github.event_name == 'pull_request_target' && github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Queue the PR once its required checks are green
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: |
+          # Only behind the merge queue: there GitHub runs every required check
+          # on the merged result first. Without the queue, auto-merge could
+          # land a PR before its checks finish, so do nothing.
+          rules="$(gh api "repos/$GITHUB_REPOSITORY/rules/branches/main" --jq '[.[].type] | join(",")')"
+          echo "main rules: $rules"
+          case ",$rules," in
+            *,merge_queue,*) gh pr merge --auto --squash "$PR_URL" ;;
+            *) echo "Merge queue is not on for main yet; auto-merge left off." | tee -a "$GITHUB_STEP_SUMMARY" ;;
+          esac
+
+  rerun-after-review:
+    # Not named review-receipt: its own result never counts as the check.
+    # workflow_run always runs main's file and checks out main.
+    if: github.event_name == 'workflow_run'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: write
+      contents: read
+      pull-requests: read
+      checks: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Re-run the trusted check for the reviewed PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # A pull_request_target run records main's commit, not the PR head,
+          # so the run is found by the PR (pipelines/review_receipt.py).
+          run_id="$(python3 -m pipelines.review_receipt find-run)" || {
+            echo "No trusted review-receipt run for this review; the next PR event runs it." | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 1
+          }
+          gh run rerun "$run_id" --repo "$GITHUB_REPOSITORY" \
+            || echo "Run $run_id is still going; it reads the reviews when it checks." | tee -a "$GITHUB_STEP_SUMMARY"

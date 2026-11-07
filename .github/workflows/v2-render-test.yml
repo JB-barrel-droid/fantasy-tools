@@ -19,18 +19,9 @@ on:
     types: [checks_requested]
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
-    # JEG-1169: skip docs-only PRs. A PR runs this check unless every changed
-    # file is Markdown or under docs/. Tests-only PRs still run it. The docs
-    # the build reads (sync_dashboard_artifacts -> build_values_explainer,
-    # build_llm_surfaces) stay included.
-    paths:
-      - "**"
-      - "!**/*.md"
-      - "!docs/**"
-      - "docs/methodology.md"
-      - "docs/math-review-agenda.md"
-      - "docs/use-ddf-in-claude-chatgpt.md"
-      - "app/llm/**"
+    # JEG-1169 docs-only skip, moved into pr-state by JEG-1551: a required
+    # check that never runs stays pending, so the workflow always runs and
+    # pipelines/ci_change_scope.py decides (same rule as the old paths filter).
   push:
     branches: [main]
     paths:
@@ -41,6 +32,7 @@ on:
   workflow_dispatch:
 
 permissions:
+  actions: read
   contents: read
   pull-requests: read
 
@@ -58,14 +50,27 @@ jobs:
     timeout-minutes: 5
     outputs:
       run_expensive: ${{ steps.gate.outputs.run_expensive }}
+      docs_only: ${{ steps.scope.outputs.docs_only }}
+      data_pin: ${{ steps.pin.outputs.data_pin }}
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - name: Cheap draft CI guards
         run: python3 -m unittest tests.test_draft_ci_workflows tests.test_ci_speedup_workflows
+      - name: Pick known-good data for this run (JEG-1551)
+        id: pin
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 -m pipelines.ci_data_pin plan
+      - name: Docs-only change? (JEG-1551)
+        id: scope
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 -m pipelines.ci_change_scope
       - name: Check current PR head and draft state
         id: gate
+        if: steps.scope.outputs.docs_only != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: python3 -m pipelines.ci_pr_gate gate
@@ -108,6 +113,11 @@ jobs:
           python3 -m pip install --quiet playwright==1.49.1
           python3 -m playwright install --with-deps chromium
           echo "RENDER_TESTS_REQUIRED=1" >> "$GITHUB_ENV"
+      - name: Test on known-good data (JEG-1551)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DATA_PIN: ${{ needs.pr-state.outputs.data_pin }}
+        run: python3 -m pipelines.ci_data_pin apply
       - run: make sync
       - if: matrix.lane == 'contract'
         run: python3 -m unittest tests.test_v2_contract_render
@@ -188,9 +198,14 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           STATE_RESULT: ${{ needs.pr-state.result }}
           RUN_EXPENSIVE: ${{ needs.pr-state.outputs.run_expensive }}
+          DOCS_ONLY: ${{ needs.pr-state.outputs.docs_only }}
           RENDER_RESULT: ${{ needs.render-tests.result }}
         run: |
           echo "state: $STATE_RESULT, render: $RENDER_RESULT"
+          if [ "$STATE_RESULT" = "success" ] && [ "$DOCS_ONLY" = "true" ]; then
+            echo "Docs-only change: nothing the build reads changed" | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
           if [ "$STATE_RESULT" != "success" ] || [ "$RUN_EXPENSIVE" != "true" ] || \
              [ "$RENDER_RESULT" != "success" ]; then
             echo "Full render verification deferred or incomplete; required v2-render check cannot pass" | tee -a "$GITHUB_STEP_SUMMARY"

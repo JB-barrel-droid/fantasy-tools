@@ -63,7 +63,8 @@ def problems(render, chain):
         out.append("pull_request trigger removed")
     if not re.search(r"^  workflow_dispatch:", on_block(render), re.M):
         out.append("workflow_dispatch trigger removed (manual rendering remains supported)")
-    if not re.search(r"^permissions:\s*\n\s+contents:\s*read\s*$", render, re.M):
+    # JEG-1551 adds actions: read (the data pin reads the last passing data run); still read-only.
+    if not re.search(r"^permissions:\s*\n(?:\s+actions:\s*read\s*\n)?\s+contents:\s*read\s*$", render, re.M):
         out.append("v2-render must stay contents: read")
     if re.search(r"git (commit|push)|contents:\s*write", render):
         out.append("v2-render must not commit or push (loop risk)")

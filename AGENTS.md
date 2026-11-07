@@ -133,6 +133,51 @@ Parallel work is uncapped (Jeremy, 2026-10-09), limited only by: no two agents
 on one code path, value changes paired with the Python reference on one branch,
 merges ordered so main stays green.
 
+## Merge flow (JEG-1551; Jeremy, 2026-11-06)
+
+Jeremy, 2026-11-06 8:48 PM CT, picked A: "Assume I have no firm requirements
+about how we manage merges and ci outside of just getting things to work and
+not making a bad product". At 8:53 PM CT: "I don't need only two merges per
+day right now". This section wins over conflicting text below and in
+`HANDOFF.md`; the specific-yes list below still holds.
+
+- **Known-good data.** PR and merge-queue checks build on the data of the
+  last main commit whose own data check (`v2 render test` on push) passed
+  (`pipelines/ci_data_pin.py`). A data rebuild that breaks a test turns that
+  data run red; it holds the data, never the code PRs. Fix the data or the
+  test on its own ticket.
+- **Review receipt.** Every agent posts to GitHub as the PR author, so an
+  agent's own comment proves nothing. The independent review that counts is
+  the Codex GitHub app (`chatgpt-codex-connector[bot]`): it reviews a PR when
+  it opens or is marked ready, and again on an `@codex review` comment, which
+  the PR owner posts after each push. An app review with no P0 or P1 finding
+  passes; one with a P0 or P1 finding fails; the app's thumbs-up after the
+  push passes that head. A thumbs-up fires no workflow, so after one the
+  owner re-runs the PR's `review-receipt` run. Logins in the repository
+  variable `DDF_REVIEW_LOGINS` (never the author) may also post a COMMENT
+  review whose first line is `ddf-review: PASS` or `ddf-review: FAIL`. The
+  required `review-receipt` check (`pipelines/review_receipt.py`, run from
+  main through `pull_request_target`, so a PR cannot change it) passes on a
+  pass for the current head, or for an older head when a clean catch-up left
+  the net change identical.
+- **Self-merging.** Once Jeremy's ruleset clicks are in (required checks
+  `preview`, `v2-render`, `review-receipt`; merge queue, squash), the
+  `review-receipt` workflow turns on auto-merge and GitHub's merge queue
+  lands the PR when everything is green on the merged result. Nobody merges
+  by hand and there are no merge windows. Before the clicks, each merge needs
+  Jeremy's yes for that PR.
+- **Jeremy's yes, as a label.** A PR changing value math (the
+  `review_receipt.VALUE_MATH` list) or a database migration needs the
+  `jeremy-approved` label, added only after his yes for that PR, with the
+  value before/after on the ticket. Supabase function deploys, migrations
+  applied to production, production-data deletes and credentials still need
+  his yes each time; merging never deploys them.
+- **No shared notes in PRs.** PRs don't edit `HANDOFF.md` (the check fails
+  unless the PR has the `handoff-edit` label); per-PR notes go in
+  `docs/claude-log/` and Linear.
+- **About 10 open PRs.** Rank by closeness to merge; park the rest as
+  Linear-only work. Closing a PR still needs Jeremy's OK.
+
 ## Review and merge protocol (Jeremy, 2026-10-29)
 
 Jeremy, 2026-11-01 at 10:02 PM CT (JEG-1444): "They don't have to be opus reviewed, they can just be codex reviewed".

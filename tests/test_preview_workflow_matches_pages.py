@@ -31,6 +31,28 @@ WORKFLOW_GUARDS = ("python3 -m unittest tests.test_validate_shards "
                    "tests.test_preview_workflow_matches_pages "
                    "tests.test_deploy_gate_unconditional tests.test_ci_speedup_workflows")
 SHARD_COMMANDS = ["make reference", "make sync", "make test-core-shard-${{ matrix.shard }}"]
+# JEG-1551: the one deliberate extra build step. PR and merge-queue runs pin
+# the bot-written data paths to the last main commit whose data check passed;
+# production builds what main has, so pages.yml has no such step.
+DATA_PIN_STEP = """      - name: Test on known-good data (JEG-1551)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DATA_PIN: ${{ needs.pr-state.outputs.data_pin }}
+        run: python3 -m pipelines.ci_data_pin apply
+"""
+
+
+def data_pin_problems(preview_text):
+    """preview-build and preview-shard each pin data once, before their first make step."""
+    problems = []
+    for name, first in (("preview-build", "      - run: make sync\n"),
+                        ("preview-shard", "      - run: make reference\n")):
+        body = job(preview_text, name) or ""
+        if body.count(DATA_PIN_STEP) != 1:
+            problems.append(f"{name} must run the known-good data step exactly once")
+        elif first not in body or body.index(DATA_PIN_STEP) > body.index(first):
+            problems.append(f"{name} must pin data before {first.split('run: ')[1].strip()}")
+    return problems
 
 
 def job(text, name):
@@ -79,7 +101,8 @@ def setting(text, key):
 
 def check_preview(preview_text, pages_text):
     """Return a list of problems; empty means the preview matches production."""
-    problems = []
+    problems = data_pin_problems(preview_text)
+    preview_text = preview_text.replace(DATA_PIN_STEP, "")
     build = job(preview_text, "preview-build")
     if build is None:
         return ["preview.yml must have a preview-build job"]
@@ -275,6 +298,15 @@ class PreviewMatchesPagesTest(unittest.TestCase):
         self.assertIn("make validate-base", flags)
         self.assertFalse(flags["make validate-base"],
                          "make validate must block the deploy in pages.yml")
+
+    def test_dropping_the_data_pin_is_caught(self):
+        self.assertCaught(PREVIEW.replace(DATA_PIN_STEP, "", 1), "known-good data step")
+
+    def test_pinning_after_the_build_is_caught(self):
+        moved = PREVIEW.replace(DATA_PIN_STEP + "      - run: make reference\n",
+                                "      - run: make reference\n" + DATA_PIN_STEP, 1)
+        self.assertNotEqual(moved, PREVIEW)
+        self.assertCaught(moved, "must pin data before make reference")
 
     def test_dropping_a_build_step_is_caught(self):
         mutated = PREVIEW.replace("      - run: make sync\n", "")
