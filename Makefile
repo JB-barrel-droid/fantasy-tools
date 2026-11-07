@@ -772,6 +772,8 @@ test-core:
 	python3 -m unittest tests.test_ddf_why
 	python3 -m unittest tests.test_league_card_pasted
 	python3 -m unittest tests.test_find_engine_parity
+	# JEG-1558: opportunity tiers and roster-improvement percent (node unit tests).
+	python3 -m unittest tests.test_ddf_opportunity
 	python3 -m unittest tests.test_values_swap_routes
 	# JEG-1539 step 5: redesigned front door legacy-routes.js coverage.
 	python3 -m unittest tests.test_legacy_routes
@@ -791,6 +793,8 @@ test-core:
 	python3 -m unittest tests.test_learn_engine_parity
 	# JEG-1538: entry pages at the root (paste -> recognition, setup -> live league store, link codec vectors, routes).
 	python3 -m unittest tests.test_entry_pages
+	# JEG-1557: mobile defects, connect rework, caveats note, touch behavior (390 and 360, 1440 for the note).
+	python3 -m unittest tests.test_jeg1557_mobile_connect
 	# JEG-1564: bookmark prompts, titles, league names, roster date freshness bands, header chip fit.
 	python3 -m unittest tests.test_bookmark_freshness
 	python3 -m unittest tests.test_week_history
@@ -932,6 +936,8 @@ test-core-shard-3:
 	python3 -m unittest tests.test_ddf_why
 	python3 -m unittest tests.test_league_card_pasted
 	python3 -m unittest tests.test_find_engine_parity
+	# JEG-1558: opportunity tiers and roster-improvement percent (node unit tests).
+	python3 -m unittest tests.test_ddf_opportunity
 	python3 -m unittest tests.test_values_swap_routes
 	# JEG-1539 step 5: redesigned front door legacy-routes.js coverage.
 	python3 -m unittest tests.test_legacy_routes
@@ -1002,6 +1008,8 @@ test-core-shard-5:
 	python3 -m unittest tests.test_learn_engine_parity
 	# JEG-1538: entry pages at the root (paste -> recognition, setup -> live league store, link codec vectors, routes).
 	python3 -m unittest tests.test_entry_pages
+	# JEG-1557: mobile defects, connect rework, caveats note, touch behavior (390 and 360, 1440 for the note).
+	python3 -m unittest tests.test_jeg1557_mobile_connect
 	# JEG-1564: bookmark prompts, titles, league names, roster date freshness bands, header chip fit.
 	python3 -m unittest tests.test_bookmark_freshness
 	python3 -m unittest tests.test_missing_section_render

@@ -48,11 +48,13 @@ ROOT_FILES = ("site.js", "styles.css", "players-table-1.json", "ddf-engine.js",
               "learn/render.js", "learn/posts.json", "learn/posts",
               "learn/numbers/learn-engine.js", "learn/numbers/numbers.js",
               # Workspace pages (JEG-1539).
-              "actionbar.js", "actionbar.css", "legacy-routes.js",
+              "actionbar.js", "actionbar.css", "caveats.js", "legacy-routes.js",
               # Lane "team" (JEG-1539): the shared league adapter (DDF.league) for team/explore/partners/settings/find/waivers.
               "ddf-league.js",
               # Lane "find" (JEG-1539): the recommendation and waiver searches, and the two pages' scripts.
               "find-engine.js", "find-page.js", "waivers-page.js",
+              # JEG-1558: opportunity size and the roster-improvement percent (team page, Why panel, trade messages).
+              "ddf-opportunity.js",
               # JEG-1561 (lane partners-ranking): the shared "Why" panel for a trade (DDFWhy).
               "ddf-why.js",
               # waivers.html how-to slides (the provider walkthrough).

@@ -30,7 +30,7 @@ FIXTURES = ROOT / "tests" / "fixtures" / "entry_paste"
 IPHONE_UA = ("Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) "
              "Version/18.0 Mobile/15E148 Safari/604.1")
 ENGINE_READY = "() => window.DDF && DDF.engine && DDF.engine.controls && DDF.engine.controls() && DDF.leaguePaste"
-STATIC_SAMPLE = "12 teams found. 164 players matched"
+STATIC_SAMPLE = "Found 12 teams and 164 players"
 
 # LINK-FORMAT.md section 6 (Chrome bytes) and 6.1 (with reader context).
 VECTOR_6 = ("LAECAwEBBgMBf_AwHclLCoAgFAXQrcRt6sSavSVEmzC7qPRFxAixtUed6SnIEK2QAy8IrKddoJDMtPKPFM1MSIELmRC03TMwcgu38c14ZELBMX2joXCa"
@@ -129,7 +129,7 @@ class EntryPagesRenderTest(unittest.TestCase):
         self.paste(page, (FIXTURES / "02-yahoo-markdown.txt").read_text(encoding="utf-8"))
         page.wait_for_selector("#recognized:not([hidden])", timeout=20000)
         summary = page.text_content("#recognition-summary")
-        self.assertTrue(summary.startswith("3 teams found."), summary)
+        self.assertTrue(summary.startswith("Found 3 teams and "), summary)
         self.assertNotIn(STATIC_SAMPLE, page.content())
         teams = page.eval_on_selector_all(".recognition-team > summary", "els => els.map(e => e.textContent)")
         self.assertEqual([t.split(" · ")[0] for t in teams], ["Fourth Down Club", "Hail Marys", "Kingdom of Caleb"])
@@ -144,7 +144,7 @@ class EntryPagesRenderTest(unittest.TestCase):
         self.connect(page)
         self.paste(page, "Alpha Squad\nfoo bar\nBeta Crew\nbaz qux")
         page.wait_for_selector("#edit-names:not([hidden])", timeout=20000)
-        self.assertIn("could not read the teams", page.text_content("#entry-status"))
+        self.assertIn("could not find any teams in that paste", page.text_content("#entry-status"))
         self.assertTrue(page.is_hidden("#recognized"))
         self.assertEqual(page.get_attribute("#connect-next", "aria-disabled"), "true")
         page.fill("#rosters", "zzz\nGG!\nJosh Allen\nBijan Robinson\nTT!\nJordan Love\nSaquon Barkley\n")

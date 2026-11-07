@@ -141,10 +141,17 @@ header :focus-visible,.entry-head :focus-visible{outline-color:#fff}
  .connect .cslide .slide-title{font-size:17px}
 }
 </style>
-<style id="advance-pass">.connect .advance-end{margin:32px 0 8px;display:flex;justify-content:space-between;align-items:center;gap:16px}@media(max-width:760px){.connect .advance-end{flex-direction:column-reverse;align-items:stretch}.connect .advance-end .button{text-align:center}}</style><link rel="stylesheet" href="actionbar.css"><script src="actionbar.js"></script><style id="gating-pass">.connect a.button.primary[aria-disabled="true"],.connect a.button.primary[aria-disabled="true"]:hover,.connect a.button.primary[aria-disabled="true"]:active{background:#e3e7e4;color:#59666f;border-color:#e3e7e4;box-shadow:none;transform:none;filter:none;cursor:not-allowed}.connect .gate-reason{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}</style></head><body class="connect"><header class="entry-head"><div class="entry-head-inner"><a class="entry-wordmark" href="index.html">DDF</a><ol class="entry-steps" aria-label="League entry progress"><li aria-current="step">1. League rosters</li><li>2. Your team</li><li>3. League settings</li></ol></div></header><main>
+<style id="advance-pass">.connect .advance-end{margin:32px 0 8px;display:flex;justify-content:space-between;align-items:center;gap:16px}@media(max-width:760px){.connect .advance-end{flex-direction:column-reverse;align-items:stretch}.connect .advance-end .button{text-align:center}}</style><style id="mobile-pass">
+.connect .jump-paste{margin:0 0 4px;font-size:15px}.connect .jump-paste a{display:inline-block;padding:10px 0}
+.connect #link-result{margin:12px 0 0}.connect #link-result .button{margin-bottom:8px}
+.connect .dv-toggle{min-height:44px;padding:10px 0}
+@media(max-width:760px){.connect .jump-paste a{padding:12px 0}}
+</style>
+<link rel="stylesheet" href="actionbar.css"><script src="actionbar.js"></script><style id="gating-pass">.connect a.button.primary[aria-disabled="true"],.connect a.button.primary[aria-disabled="true"]:hover,.connect a.button.primary[aria-disabled="true"]:active{background:#e3e7e4;color:#59666f;border-color:#e3e7e4;box-shadow:none;transform:none;filter:none;cursor:not-allowed}.connect .gate-reason{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}</style></head><body class="connect"><header class="entry-head"><div class="entry-head-inner"><a class="entry-wordmark" href="index.html">DDF</a><ol class="entry-steps" aria-label="League entry progress"><li aria-current="step">1. League rosters</li><li>2. Your team</li><li>3. League settings</li></ol></div></header><main>
 <h1>Add your league rosters</h1>
-<p class="muted">Two steps: find the page that lists every team's roster, then copy and paste it here.</p>
-<div class="provider-field"><span class="provider-label">Provider</span><div class="provider-toggle" role="group" aria-label="Provider"><button type="button" data-provider="espn" aria-pressed="true" class="selected">ESPN</button><button type="button" data-provider="yahoo" aria-pressed="false">Yahoo</button><button type="button" data-provider="sleeper" aria-pressed="false">Sleeper</button></div></div>
+<p class="muted">Open the page that lists every team's roster, copy it, and paste it here.</p>
+<p class="jump-paste"><a href="#entry">Already copied your rosters? Jump to the paste box.</a></p>
+<div class="provider-field"><span class="provider-label">Where is your league?</span><div class="provider-toggle" role="group" aria-label="Where is your league?"><button type="button" data-provider="espn" aria-pressed="true" class="selected">ESPN</button><button type="button" data-provider="yahoo" aria-pressed="false">Yahoo</button><button type="button" data-provider="sleeper" aria-pressed="false">Sleeper</button></div></div>
 <details class="section paste-link" id="paste-link" hidden><summary><h2>Paste your link or DDF block</h2></summary>
 <p>Already added your league in an AI chat? Paste the DDF link or the ddf-state block it gave you and we will pick up where you left off.</p>
 <p id="paste-link-error" class="paste-link-error" role="alert" hidden>That link looks incomplete. Paste the block from your chat instead.</p>
@@ -152,9 +159,9 @@ header :focus-visible,.entry-head :focus-visible{outline-color:#fff}
 <div class="row"><button type="button" class="button primary" id="paste-link-go">Load my league</button><span id="paste-link-status" role="status"></span></div>
 </details>
 <section class="step" id="step-1" aria-labelledby="step1-title">
-<h2 id="step1-title"><span class="step-num">Step 1</span>Find the page that lists every team's roster</h2>
+<h2 id="step1-title"><span class="step-num">Step 1</span>Open your rosters page</h2>
 <div class="routes" id="routes">
-<div class="way way-link"><h3>Have a link or league ID?</h3><p>League numbers only work on Sleeper. For ESPN or Yahoo, paste any page link from your league, or just the league ID, and we'll hand back the link to your rosters page.</p><label for="league-ref">League link or ID</label><div class="cluster"><input type="text" id="league-ref"><button type="button" id="get-link">Get my rosters link</button></div><p id="link-result" aria-live="polite"></p><details class="id-help" id="id-help"><summary>Where do I find my league ID?</summary>
+<div class="way way-link"><h3>Have a link or league ID?</h3><p>Paste a link from your league, or your league ID, and we'll give you the link to your rosters page.</p><label for="league-ref">League link or ID</label><div class="cluster"><input type="text" id="league-ref" placeholder="A league link or ID, such as 123456"><button type="button" id="get-link">Get rosters link</button></div><p id="link-result" aria-live="polite"></p><details class="id-help" id="id-help"><summary>Where do I find my league ID?</summary>
 <div data-idhelp="espn"><p><strong>ESPN Fantasy app</strong></p><ol><li>Open your league in the ESPN Fantasy app.</li><li>Tap the <strong>League</strong> tab.</li><li>Tap <strong>League Info</strong>.</li><li>Check <strong>League ID</strong> under Basic Settings.</li></ol>
 <p>In a web address it is the number after <code>leagueId=</code>:</p><p class="id-example">fantasy.espn.com/football/league?leagueId=<strong>123456</strong></p>
 <div class="id-shots"><figure><a href="img/league-id/espn-app-league.jpg" target="_blank" rel="noopener"><img src="img/league-id/espn-app-league.jpg" alt="ESPN Fantasy app, League tab: League Info is the first icon in the row under the league name" width="600" height="483" loading="lazy" decoding="async"><span class="sr-only"> (opens full size)</span></a><figcaption>League tab: tap League Info.</figcaption></figure><figure><a href="img/league-id/espn-app-league-info.jpg" target="_blank" rel="noopener"><img src="img/league-id/espn-app-league-info.jpg" alt="ESPN Fantasy app, League Info screen: League ID is listed under Basic Settings" width="600" height="1062" loading="lazy" decoding="async"><span class="sr-only"> (opens full size)</span></a><figcaption>League ID under Basic Settings.</figcaption></figure></div></div>
@@ -169,31 +176,32 @@ header :focus-visible,.entry-head :focus-visible{outline-color:#fff}
 <details class="tutorial" id="tutorial"><summary>Show me how to copy every team's roster</summary>
 <div data-walkthrough="espn"><div><div class="carousel" data-carousel role="group" aria-roledescription="carousel" aria-label="ESPN: how to copy your rosters" tabindex="0">
 <div class="car-viewport"><div class="car-track">
-<figure class="cslide"><h4 class="slide-title">Step 1 of 3: Open League, then Rosters</h4><p class="slide-cap">That's the page with every team's players.</p><img src="assets/howto/slides/espn-rosters-1-click-clean.jpg" alt="ESPN league page with the Rosters link circled" width="720" height="480"></figure>
-<figure class="cslide"><h4 class="slide-title">Step 2 of 3: Select everything, then copy</h4><p class="slide-cap">Click the page, then select everything: Ctrl+A (Mac: Cmd+A). It all highlights, like this. Copy it: Ctrl+C (Mac: Cmd+C).</p><img src="assets/howto/slides/espn-rosters-2-select-clean.jpg" alt="The ESPN League Rosters page with everything highlighted after Select All" width="720" height="480" loading="lazy"></figure>
-<figure class="cslide"><h4 class="slide-title">Step 3 of 3: Paste into the box below</h4><p class="slide-cap">Paste into the League rosters box in step 2: Ctrl+V (Mac: Cmd+V). It lands messy, with extra columns and stray headers. That's expected. We clean it up.</p><img src="assets/howto/slides/espn-rosters-3-paste-clean.jpg" alt="Pasted roster text sitting in the League rosters box" width="720" height="480" loading="lazy"></figure>
+<figure class="cslide"><h4 class="slide-title">1 of 3: Open League, then Rosters</h4><p class="slide-cap">That's the page with every team's players.</p><img src="assets/howto/slides/espn-rosters-1-click-clean.jpg" alt="ESPN league page with the Rosters link circled" width="720" height="480"></figure>
+<figure class="cslide"><h4 class="slide-title">2 of 3: Select everything, then copy</h4><p class="slide-cap">Click the page, then select everything: Ctrl+A (Mac: Cmd+A). The whole page highlights. Copy it: Ctrl+C (Mac: Cmd+C).</p><img src="assets/howto/slides/espn-rosters-2-select-clean.jpg" alt="The ESPN League Rosters page with everything highlighted after Select All" width="720" height="480" loading="lazy"></figure>
+<figure class="cslide"><h4 class="slide-title">3 of 3: Paste into the box below</h4><p class="slide-cap">Paste into the Every team's roster box in step 2: Ctrl+V (Mac: Cmd+V). It lands messy, with extra columns and stray headers. That's expected. We clean it up.</p><img src="assets/howto/slides/espn-rosters-3-paste-clean.jpg" alt="Pasted roster text sitting in the Every team's roster box" width="720" height="480" loading="lazy"></figure>
 </div></div>
-<div class="car-nav"><button type="button" class="car-btn" data-cprev>&larr; Back</button><div class="car-mid"><div class="car-dots" role="group" aria-label="Steps"></div><span class="slide-step" role="status" aria-atomic="true">Step 1 of 3</span></div><button type="button" class="car-btn" data-cnext>Next &rarr;</button></div>
+<div class="car-nav"><button type="button" class="car-btn" data-cprev>&larr; Back</button><div class="car-mid"><div class="car-dots" role="group" aria-label="Steps"></div><span class="slide-step" role="status" aria-atomic="true">1 of 3</span></div><button type="button" class="car-btn" data-cnext>Next &rarr;</button></div>
 </div></div>
-</div><div data-walkthrough="yahoo" hidden><p class="dv-switch"><button type="button" class="dv-toggle to-desktop" data-show-device="desktop">On a computer</button><button type="button" class="dv-toggle to-phone" data-show-device="phone">On a phone</button></p><div class="dv-phone"><p><strong>Yahoo on iPhone (Safari)</strong></p><ol class="phone-steps"><li>Open your league's rosters page in Safari. Use <strong>Get my rosters link</strong> above to get it.</li><li>Long-press the page, tap <strong>Select All</strong>, then tap <strong>Copy</strong>.</li><li>Paste into the box in step 2.</li></ol></div><div class="dv-desktop"><div class="carousel" data-carousel role="group" aria-roledescription="carousel" aria-label="Yahoo: how to copy your rosters" tabindex="0">
+</div><div data-walkthrough="yahoo" hidden><p class="dv-switch"><button type="button" class="dv-toggle to-desktop" data-show-device="desktop">On a computer</button><button type="button" class="dv-toggle to-phone" data-show-device="phone">On a phone</button></p><div class="dv-phone"><p><strong>Yahoo on iPhone (Safari)</strong></p><ol class="phone-steps"><li>Open your league's rosters page in Safari. The link box above can find it for you.</li><li>Long-press the page, tap <strong>Select All</strong>, then tap <strong>Copy</strong>.</li><li>Paste into the Every team's roster box in step 2.</li></ol></div><div class="dv-desktop"><div class="carousel" data-carousel role="group" aria-roledescription="carousel" aria-label="Yahoo: how to copy your rosters" tabindex="0">
 <div class="car-viewport"><div class="car-track">
-<figure class="cslide"><h4 class="slide-title">Step 1 of 3: Open League, then Rosters</h4><p class="slide-cap">That's the page with every team's players.</p><img src="assets/howto/slides/yahoo-rosters-1-click-clean.jpg" alt="Yahoo team page with the League menu circled" width="720" height="480"></figure>
-<figure class="cslide"><h4 class="slide-title">Step 2 of 3: Select everything, then copy</h4><p class="slide-cap">Click the page, then select everything: Ctrl+A (Mac: Cmd+A). It all highlights, like this. Copy it: Ctrl+C (Mac: Cmd+C).</p><img src="assets/howto/slides/yahoo-rosters-2-select-clean.jpg" alt="The Yahoo roster page with everything highlighted after Select All" width="720" height="480" loading="lazy"></figure>
-<figure class="cslide"><h4 class="slide-title">Step 3 of 3: Paste into the box below</h4><p class="slide-cap">Paste into the League rosters box in step 2: Ctrl+V (Mac: Cmd+V). It lands messy, with extra columns and stray headers. That's expected. We clean it up.</p><img src="assets/howto/slides/yahoo-rosters-3-paste-clean.jpg" alt="Pasted roster text sitting in the League rosters box" width="720" height="480" loading="lazy"></figure>
+<figure class="cslide"><h4 class="slide-title">1 of 3: Open League, then Rosters</h4><p class="slide-cap">That's the page with every team's players.</p><img src="assets/howto/slides/yahoo-rosters-1-click-clean.jpg" alt="Yahoo team page with the League menu circled" width="720" height="480"></figure>
+<figure class="cslide"><h4 class="slide-title">2 of 3: Select everything, then copy</h4><p class="slide-cap">Click the page, then select everything: Ctrl+A (Mac: Cmd+A). The whole page highlights. Copy it: Ctrl+C (Mac: Cmd+C).</p><img src="assets/howto/slides/yahoo-rosters-2-select-clean.jpg" alt="The Yahoo roster page with everything highlighted after Select All" width="720" height="480" loading="lazy"></figure>
+<figure class="cslide"><h4 class="slide-title">3 of 3: Paste into the box below</h4><p class="slide-cap">Paste into the Every team's roster box in step 2: Ctrl+V (Mac: Cmd+V). It lands messy, with extra columns and stray headers. That's expected. We clean it up.</p><img src="assets/howto/slides/yahoo-rosters-3-paste-clean.jpg" alt="Pasted roster text sitting in the Every team's roster box" width="720" height="480" loading="lazy"></figure>
 </div></div>
-<div class="car-nav"><button type="button" class="car-btn" data-cprev>&larr; Back</button><div class="car-mid"><div class="car-dots" role="group" aria-label="Steps"></div><span class="slide-step" role="status" aria-atomic="true">Step 1 of 3</span></div><button type="button" class="car-btn" data-cnext>Next &rarr;</button></div>
+<div class="car-nav"><button type="button" class="car-btn" data-cprev>&larr; Back</button><div class="car-mid"><div class="car-dots" role="group" aria-label="Steps"></div><span class="slide-step" role="status" aria-atomic="true">1 of 3</span></div><button type="button" class="car-btn" data-cnext>Next &rarr;</button></div>
 </div></div>
-</div><div data-walkthrough="sleeper" hidden><p>On Sleeper, open your league and go to Rosters. Select everything on the page (Ctrl+A, or Cmd+A on a Mac), copy it, and paste it into the box in step 2. Sleeper also takes a league number: use the box on the left.</p></div>
+</div><div data-walkthrough="sleeper" hidden><p>On Sleeper, open your league and go to Rosters. Select everything on the page (Ctrl+A, or Cmd+A on a Mac), copy it, and paste it into the Every team's roster box in step 2. Sleeper also takes a league ID: use the box above.</p></div>
 </details></div>
 </div>
 </section>
-<section id="entry" class="step" aria-labelledby="step2-title"><h2 id="step2-title"><span class="step-num">Step 2</span>Copy and paste every team's roster</h2><p class="step-help">We need all the teams in your league, not just yours.<span class="dv-desktop"> On the page that lists every team's roster, select everything (Ctrl+A, or Cmd+A on a Mac), copy it (Ctrl+C or Cmd+C), then paste it here (Ctrl+V or Cmd+V).</span></p><p class="phone-tip dv-phone" id="phone-tip">On iPhone: long-press the page, tap Select All, tap Copy, then paste here.</p><p class="dv-switch"><button type="button" class="dv-toggle to-desktop" data-show-device="desktop">On a computer</button><button type="button" class="dv-toggle to-phone" data-show-device="phone">On a phone</button></p><form id="roster-form"><label for="rosters"><strong>Every team's roster</strong></label><textarea aria-describedby="entry-help entry-status one-team-error-text" id="rosters" rows="6" placeholder="Paste the rosters for all teams in your league here. Messy is fine, we will clean it up."></textarea><div id="one-team-error" role="alert" hidden><h3>That looks like one team, not the whole league</h3><p id="one-team-error-text">We need every team's roster to value trades. Either copy the full rosters page (League, then Rosters) or add the teams by hand.</p><a class="button" id="error-manual" href="#manual">Enter teams manually</a></div><span id="entry-help" hidden></span><div class="row entry-actions"><a class="button" href="index.html">Back</a><div class="entry-right"><button class="primary" aria-controls="recognized" aria-expanded="false" id="recognize-button">Check my rosters</button><a class="button manual-link" id="manual-toggle" href="#manual" aria-controls="manual" aria-expanded="false">Enter rosters manually</a></div></div><p id="entry-status" role="status" class="notice"></p></form></section>
+<section id="entry" class="step" aria-labelledby="step2-title"><h2 id="step2-title"><span class="step-num">Step 2</span>Paste every team's roster</h2><p class="step-help">We need every team in your league, not just yours.<span class="dv-desktop"> On the page that lists every team's roster, select everything (Ctrl+A, or Cmd+A on a Mac), copy it (Ctrl+C or Cmd+C), then paste it here (Ctrl+V or Cmd+V).</span></p><p class="phone-tip dv-phone" id="phone-tip">On iPhone: long-press the page, tap Select All, tap Copy, then paste here.</p><p class="dv-switch"><button type="button" class="dv-toggle to-desktop" data-show-device="desktop">On a computer</button><button type="button" class="dv-toggle to-phone" data-show-device="phone">On a phone</button></p><form id="roster-form"><label for="rosters"><strong>Every team's roster</strong></label><textarea aria-describedby="entry-help entry-status one-team-error-text" id="rosters" rows="6" placeholder="Paste the rosters for all teams in your league here. Messy is fine, we will clean it up."></textarea><div id="one-team-error" role="alert" hidden><h3>That looks like one team, not the whole league</h3><p id="one-team-error-text">We need every team's roster to value trades. Either copy the full rosters page (League, then Rosters) or add the teams by hand.</p><a class="button" id="error-manual" href="#manual">Enter teams manually</a></div><span id="entry-help" hidden></span><div class="row entry-actions"><a class="button" href="index.html">Back</a><div class="entry-right"><button class="primary" aria-controls="recognized" aria-expanded="false" id="recognize-button">Check my rosters</button><a class="button manual-link" id="manual-toggle" href="#manual" aria-controls="manual" aria-expanded="false">Enter rosters manually</a></div></div><p id="entry-status" role="status" class="notice"></p></form></section>
 <section class="card connect-recognition" id="recognized" hidden aria-labelledby="recognition-title">
 <div class="row"><h2 id="recognition-title" tabindex="-1">Here's what we read from your paste</h2><button type="button" class="link-button" id="edit-team-names">Edit team names</button></div>
 <p class="muted" id="recognition-summary" role="status"></p>
 <p id="recognition-league" hidden></p>
 <div id="recognition-teams"></div>
-<p>Partial rosters are fine. You can continue with matched players while lines that need a look or were not found remain.</p>
+<p id="recognition-partial" class="muted" hidden>Some lines were not matched. You can continue with the matched players.</p>
+<div data-ddf-caveats="entry"></div>
 </section>
 <section class="card" id="edit-names" hidden aria-labelledby="edit-names-title">
 <h2 id="edit-names-title">Check your team names</h2>
@@ -204,12 +212,11 @@ header :focus-visible,.entry-head :focus-visible{outline-color:#fff}
 <p id="edit-names-status" role="status" class="muted"></p>
 </section>
 <section id="manual" hidden aria-labelledby="manual-title">
-<h2 id="manual-title" tabindex="-1">Enter your league rosters</h2><p class="muted">Add each team's name, then add its players.</p>
+<h2 id="manual-title" tabindex="-1">Enter your league rosters</h2><p class="muted">Type your team names, then add each team's players.</p>
 <label for="manual-names"><strong>Team names, one per line</strong></label><textarea id="manual-names" rows="6" spellcheck="false"></textarea>
 <div class="cluster manual-fields"><div><label for="manual-team">Team</label><select id="manual-team"></select></div><div><label for="find-player">Find a player</label><input id="find-player" type="text" list="player-options" autocomplete="off"><datalist id="player-options"></datalist></div><button type="button" id="manual-add">Add player</button></div>
 <p id="manual-status" role="status" class="muted"></p>
 <section class="card"><h3 id="manual-roster-title">Add your team names first</h3><div class="table-wrap"><table><thead><tr><th scope="col">PLAYER</th><th scope="col">POSITION</th><th scope="col"><span class="sr-only">Remove</span></th></tr></thead><tbody id="manual-rows"></tbody></table></div></section>
-<p class="muted">Player values appear once your league's settings are confirmed.</p>
 <div class="row"><button type="button" id="manual-back">Back</button></div>
 <section class="card"><h3>Just checking one trade?</h3><p>You can evaluate a one-off trade with only your roster. Add the players you want to compare.</p><button type="button" data-copy="Help me prepare fantasy football roster text for DDF. Ask me for each team name and its players, then format the rosters as plain text with team names, player names, and positions.">Copy AI prompt</button><p class="muted">A desktop or laptop is easier for league entry. Your AI chat can help prepare the roster text.</p></section>
 </section>
@@ -286,8 +293,8 @@ ALWAYS
 4) THEN, if I stay: team assessment, pick players, pick trading partners (waivers are never a partner), Trade & Waiver Recommendations, build a trade (any players, or with my league) (original numbers, winner per source, several message styles, open slightly worse than you would accept). Name sources "Analyst charts" (CBS Sports, USA Today, FantasyPros average) and "Live market" (FantasyCalc: what people actually pay in trades), never plain "market". Say "available players", never invent values, cite Data Driven Football, and end every league answer with the make_state link. If I paste a ddf-state block or site link, call read_state first.
 </script>
 </section>
-<div class="row advance-end"><a class="button" href="index.html">Back</a><a class="button primary" id="connect-next" href="setup.html" data-sticky-next data-back-href="index.html" data-back-label="Back" data-next-label="Next: confirm your team" data-summary="Paste rosters, enter them manually or add a link first">Next: confirm your team</a><span id="gate-reason" class="gate-reason" role="status"></span></div>
-</main><footer class="cn-foot">Data Driven Football</footer><script src="site.js"></script><!-- ddf-engine --><script src="v2/ddf-value-link.js"></script><script src="ddf-engine.js"></script><script src="v2/roster-paste.js"></script><script src="rosterparse.js"></script><script src="league-paste.js"></script><script src="connect-entry.js"></script><script>
+<div class="row advance-end"><a class="button" href="index.html">Back</a><a class="button primary" id="connect-next" href="setup.html" data-sticky-next data-back-href="index.html" data-back-label="Back" data-next-label="Next: confirm your team" data-summary="Paste your rosters to continue." data-disabled-reason="Paste your rosters to continue.">Next: confirm your team</a><span id="gate-reason" class="gate-reason" role="status"></span></div>
+</main><footer class="cn-foot">Data Driven Football</footer><script src="site.js"></script><!-- ddf-engine --><script src="v2/ddf-value-link.js"></script><script src="ddf-engine.js"></script><script src="v2/roster-paste.js"></script><script src="rosterparse.js"></script><script src="league-paste.js"></script><script src="connect-entry.js"></script><script src="caveats.js"></script><script>
 (() => {
 const page = document.querySelector('main');
 page.querySelector('#manual-toggle').addEventListener('click', event => {
@@ -327,14 +334,14 @@ page.querySelector('#get-link').addEventListener('click', () => {
   : (value.match(/\d{10,}/) || value.match(/\d+/));
  const out = page.querySelector('#link-result');
  if (!match) {
-  out.textContent = "That doesn't look like it has a league ID in it. Copy the address from any page in your league and paste that here.";
+  out.textContent = value.trim() ? "We could not find a league ID in that. Paste a link from your league, or just the number." : "Paste a link or league ID first.";
   return;
  }
  const id = match[1] || match[0];
  const link = selectedProvider === 'espn' ? 'https://fantasy.espn.com/football/league/rosters?leagueId=' + id
   : selectedProvider === 'yahoo' ? 'https://football.fantasysports.yahoo.com/f1/' + id + '/starters'
   : 'https://sleeper.com/leagues/' + id + '/rosters';
- out.innerHTML = 'Your rosters page: <a href="' + link + '" target="_blank" rel="noopener">' + link + '</a><br>Open it, copy the whole page, and paste it into the box in step 2 below.';
+ out.innerHTML = '<a class="button primary" href="' + link + '" target="_blank" rel="noopener">Open your rosters page</a><br>Copy the whole page, then come back and paste it in step 2 below.';
 });
 page.querySelector('#rosters').addEventListener('input', event => {
  event.target.removeAttribute('aria-invalid');
@@ -419,7 +426,7 @@ document.addEventListener('keydown', event => { if (event.key === 'Escape' && wr
     function go(k){
       i=(k+n)%n;
       track.style.transform='translateX(-'+(i*100)+'%)';
-      step.textContent='Step '+(i+1)+' of '+n;
+      step.textContent=(i+1)+' of '+n;
       slides.forEach(function(sl,j){sl.setAttribute('aria-hidden',String(j!==i));});
       dots.forEach(function(d,j){d.setAttribute('aria-current',String(j===i));});
     }
@@ -497,7 +504,7 @@ document.addEventListener('keydown', event => { if (event.key === 'Escape' && wr
     var kept=null;try{kept=DDF.state.get('pasted',null)}catch(e){}
     try{linked=!!DDF.state.get('league',null)}catch(e){}
     var has=!!(linked||(kept&&Array.isArray(kept.teams)&&kept.teams.length>1));
-    ddfGate([document.getElementById('connect-next')],has,'Check your pasted rosters, enter them manually or add a link first','gate-reason');
+    ddfGate([document.getElementById('connect-next')],has,'Paste your rosters to continue.','gate-reason');
     if(window.DDF&&DDF.actionBar&&has)DDF.actionBar.setSummary('Rosters added, next: confirm your team');
   }
   if(ta)ta.addEventListener('input',upd);
