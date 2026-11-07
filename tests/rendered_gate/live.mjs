@@ -191,10 +191,12 @@ async function checkPages(browser, url, rootTag) {
       if (main.text < 40) result.problems.push(`<main> has almost no text (${main.text} chars)`);
       if (name === "values.html") {
         // A deploy where every DDF Value reads missing must fail: the Chart table needs 10+ rows with a number.
+        // The DDF column (the first value column after Player), not any number: CBS columns stay priced alone.
         const valued = await page.waitForFunction(() => [...document.querySelectorAll("#rows tr")]
-          .filter(tr => [...tr.querySelectorAll("td")].some(td => /^\d+(\.\d+)?$/.test(td.textContent.trim()))).length >= 10,
+          .filter(tr => /^\d+(\.\d+)?/.test((tr.querySelector("td:nth-child(2)")?.textContent || "").trim())).length >= 10
+          && window.DDF && DDF.engine && DDF.engine.players().filter(p => Number.isFinite(p.ddf)).length >= 10,
           null, { timeout: 30000 }).then(() => true, () => false);
-        if (!valued) result.problems.push("values.html: fewer than 10 Chart rows with a value");
+        if (!valued) result.problems.push("values.html: fewer than 10 players with a DDF Value");
       }
     }
     await page.close();
