@@ -50,3 +50,7 @@ leagues. Re-check them on superflex and full-PPR leagues: JEG-1562.
   - too few priced players (no move named).
   Test: `test_none_reasons_are_honest`.
 - Tiers and bands read the same truncated percent the page shows, so they always agree (`test_shown_and_tier_always_agree`). No −0 (`test_no_negative_zero`).
+- Delta review on 79ee3b9b7:
+  - a search where no trade could be judged (charts or expected depth missing) is no longer "checked", so it never reads "already sharp" (`test_unjudged_search_is_not_called_sharp`, fails on the earlier head);
+  - an older render's search stops when a newer one starts;
+  - the cache key reads the override values and what decides judging.
