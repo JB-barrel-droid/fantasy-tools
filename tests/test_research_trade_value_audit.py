@@ -100,8 +100,7 @@ class AuditData(unittest.TestCase):
         self.assertEqual("Weak", card["fantasypros"]["scoring"]["label"])
         self.assertEqual("OK", card["fantasycalc"]["scoring"]["label"])
         self.assertEqual("Weak", card["cbs"]["depth"]["label"])
-        for k in audit.PROJ:
-            self.assertEqual("Not measured", card[k]["balance"]["label"])
+        self.assertEqual(set(audit.CHARTS) | {"dynastyprocess"}, set(card))  # trade charts only; no self-grading
         self.assertEqual("Not measured", card["dynastyprocess"]["balance"]["label"])
         self.assertEqual("Weak", card["dynastyprocess"]["scoring"]["label"])
 
@@ -140,6 +139,26 @@ class AuditData(unittest.TestCase):
         for row in self.fresh["players"]:
             for v in row["pct_of_top"].values():
                 self.assertTrue(v is None or 0 <= v <= 100)
+
+    def test_every_source_link_is_listed_and_alive(self):
+        links = {l["url"] for l in self.fresh["source_links"]["links"]}
+        hrefs = {h.replace("&amp;", "&") for h in re.findall(r'href="(https?://[^"]+)"', self.html)}
+        self.assertEqual(set(), hrefs - links, "every external link on the page must be in SOURCE_LINKS")
+        self.assertEqual(set(), links - hrefs, "every SOURCE_LINKS entry must appear on the page")
+        check = {row["url"]: row for row in json.loads((ROOT / "data/research/jeg1565/link-check.json").read_text(encoding="utf-8"))}
+        for url in links:
+            self.assertIn(url, check, "run pipelines/check_trade_value_audit_links.py")
+            status = check[url]["status"]
+            self.assertTrue(status == "not_checked_robots" or (isinstance(status, int) and 200 <= status < 400), (url, status))
+        self.assertEqual(len(re.findall(r'href="https?://', self.html)), len(re.findall(r'target="_blank" rel="noopener noreferrer"', self.html)))
+
+    def test_no_projection_sources_or_self_grading_on_the_page(self):
+        p = Spans()
+        p.feed(self.html)
+        text = " ".join(p.text)
+        for word in ("ESPN", "Razzball", "our model gives", "Our model on the same scorecard"):
+            self.assertNotIn(word, text)
+        self.assertNotIn("ddf", self.fresh["scorecard"])
 
     def test_curve_readout_names_line_up_with_values(self):
         for sc, lines in self.fresh["curves"].items():

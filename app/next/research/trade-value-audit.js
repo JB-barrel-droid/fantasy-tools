@@ -8,7 +8,7 @@
   var CHARTS = ['cbs', 'usatoday', 'fantasypros', 'fantasycalc'];
   var GRADED = CHARTS.concat(['dynastyprocess']);  /* the four redraft charts plus the open dynasty values */
   var NAME = { cbs: 'CBS Sports', usatoday: 'USA Today', fantasypros: 'FantasyPros', fantasycalc: 'FantasyCalc', dynastyprocess: 'DynastyProcess (dynasty)',
-    espn: 'ESPN', cbsros: 'CBS rest-of-season', razzball: 'Razzball', ddf: 'Our model (DDF Value)',
+    espn: 'ESPN', cbsros: 'CBS rest-of-season', razzball: 'Razzball', ddf: 'DDF Value (reference)', ddf_value: 'DDF Value (reference)',
     proj: 'Projections (our model)', analyst: 'Analyst charts' };
   var POS = ['QB', 'RB', 'WR', 'TE'];
   var SHORT = { dynastyprocess: 'DynastyProc.', cbsros: 'CBS ROS', fantasycalc: 'FantasyCalc', fantasypros: 'FantasyPros' };
@@ -96,7 +96,7 @@
   }
   function scorecard() {
     var fig = $('#scorecard'), tb = $('tbody', fig);
-    GRADED.concat(['espn', 'cbsros', 'razzball', 'ddf']).forEach(function (k) {
+    GRADED.forEach(function (k) {
       var tr = el('tr');
       tr.appendChild(el('th', { scope: 'row' }, NAME[k] + (k === 'fantasycalc' ? ' (Live market)' : '')));
       DIMS.forEach(function (dname) { var td = el('td'); td.appendChild(badge(D.scorecard[k][dname])); tr.appendChild(td); });
@@ -122,7 +122,7 @@
   /* 1. Position shares: stacked bars that reshuffle between settings */
   function positions() {
     var fig = $('#fig-pos'), host = $('.stack', fig), cur = 'half_ppr/12/1qb', shown = false;
-    var rowsK = ['cbs', 'usatoday', 'fantasypros', 'fantasycalc', 'dynastyprocess', 'analyst', 'proj'];
+    var rowsK = ['cbs', 'usatoday', 'fantasypros', 'fantasycalc', 'dynastyprocess', 'analyst', 'ddf'];
     var segs = {};
     rowsK.forEach(function (k) {
       host.appendChild(el('div', { class: 'name' }, NAME[k]));
@@ -139,7 +139,7 @@
     });
     function shares(c, k) {
       var pw = D.position_weighting[c];
-      return k === 'proj' ? pw.projections_mean : k === 'analyst' ? pw.analyst_charts_mean : pw.sources[k];
+      return k === 'ddf' ? pw.ddf_value : k === 'analyst' ? pw.analyst_charts_mean : pw.sources[k];
     }
     function draw() {
       rowsK.forEach(function (k) {
@@ -224,7 +224,7 @@
           used.forEach(function (u) { if (Math.abs(u - y) < 14) y = u + 14; });
           used.push(y);
           var t = svg('text', { x: g.w - g.r + 8, y: y + 4, class: 'lbl', style: 'fill:' + color(k) });
-          t.textContent = k === 'ddf' ? 'Our model' : k === 'dynastyprocess' ? 'DynastyProcess' : NAME[k];
+          t.textContent = k === 'ddf' ? 'DDF Value' : k === 'dynastyprocess' ? 'DynastyProcess' : NAME[k];
           s.appendChild(t);
         });
       }
@@ -256,7 +256,7 @@
       var narrow = width(host) < 500, said = [], tb = el('tbody');
       keys.forEach(function (k) {
         var v = D.curves[sc][k][rk - 1], who = (D.curve_players[sc][k] || [])[rk - 1];
-        var label = k === 'ddf' ? 'Our model' : k === 'dynastyprocess' ? 'DynastyProcess' : NAME[k];
+        var label = k === 'ddf' ? 'DDF Value' : k === 'dynastyprocess' ? 'DynastyProcess' : NAME[k];
         var name = who ? shortName(who[0], narrow) + ' (' + who[1] + ')' : 'not listed';
         var tr = el('tr');
         var th = el('th', { scope: 'row' }); var sw = el('span', { 'aria-hidden': 'true', style: 'display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;background:' + color(k) });
@@ -294,7 +294,7 @@
     });
     range.addEventListener('input', cross);
     function tbl() {
-      table($('[data-table=curve]'), ['Overall rank'].concat(keys.map(function (k) { return k === 'ddf' ? 'Our model' : NAME[k]; })),
+      table($('[data-table=curve]'), ['Overall rank'].concat(keys.map(function (k) { return k === 'ddf' ? 'DDF Value' : NAME[k]; })),
         [1, 6, 12, 24, 36, 50, 75, 100, 120].map(function (rk) {
           return ['#' + rk].concat(keys.map(function (k) { return fmt(D.curves[sc][k][rk - 1]); }));
         }));
@@ -350,14 +350,12 @@
         bars: [{ value: c[k].raw_beats_star_pct, color: color(k), opacity: .4 }, { value: c[k].after_waiver_beats_star_pct, color: color(k) }],
         cells: [NAME[k], fmt(c[k].raw_beats_star_pct), fmt(c[k].after_waiver_beats_star_pct)] };
     });
-    rows.push({ name: NAME.ddf, text: fmt(c.ddf.after_waiver_beats_star_pct) + '%', label: 'Our model: ' + fmt(c.ddf.after_waiver_beats_star_pct) + '%',
-      bars: [{ value: c.ddf.after_waiver_beats_star_pct, color: color('ddf') }], cells: [NAME.ddf, 'n/a', fmt(c.ddf.after_waiver_beats_star_pct)] });
     race($('#pairs'), rows, 100, $('[data-table=pairs]'), ['Source', 'Raw %', 'After waiver %']);
   }
 
   /* 4. Superflex dumbbell */
   function superflex() {
-    var host = $('#sf'), ks = GRADED.concat(['espn', 'cbsros', 'razzball']), started = REDUCE;
+    var host = $('#sf'), ks = GRADED.concat(['ddf_value']), started = REDUCE;
     function render() {
       var w = width(host), rowH = 40, l = w < 500 ? 120 : 190, r = 20, h = ks.length * rowH + 34;
       var x = function (v) { return l + v / 60 * (w - l - r); };
@@ -454,12 +452,6 @@
         li.appendChild(el('div', null, fmt(r.listed) + ' listed; last player listed: ' + name + ', ' + fmt(r.last_pct_of_top) + '% of its top ' + pos + '. ' + where.charAt(0).toUpperCase() + where.slice(1) + '.'));
         ul.appendChild(li);
       });
-      var m = dv.ddf[teams][pos], li = el('li'), hd = el('div', { class: 'dl-head' });
-      hd.appendChild(el('span', { 'aria-hidden': 'true', class: 'sw', style: 'background:' + color('ddf') }));
-      hd.appendChild(el('b', null, NAME.ddf));
-      li.appendChild(hd);
-      li.appendChild(el('div', null, fmt(m.valued) + ' players valued above a token amount (0.05); ' + (m.valued < m.rostered ? (m.rostered - m.valued) + ' rostered players below it.' : 'every rostered player valued.') + (m.past_line_valued ? ' ' + m.past_line_valued + ' past the line valued above zero.' : '')));
-      ul.appendChild(li);
       host2.appendChild(ul);
     }
     function draw(anim) { var el2 = render(); readout(); if (!anim && started) animateIn(el2); }
@@ -510,8 +502,6 @@
         var r = verdictRow(NAME[k], color(k), gv, x == null || y == null ? null : x + y);
         out.appendChild(r[0]); said.push(r[1]);
       });
-      var r = verdictRow(NAME.ddf, color('ddf'), a.ddf, b.ddf + c.ddf);
-      out.appendChild(r[0]); said.push(r[1]);
       if (+g1.value === +g2.value || +give.value === +g1.value || +give.value === +g2.value) {
         out.appendChild(el('p', { class: 'meta' }, 'Pick three different players for a real 2-for-1.'));
       }
@@ -612,7 +602,7 @@
   }
 
   function freshness() {
-    var ks = GRADED.concat(['espn', 'cbsros', 'razzball']), w = D.weekly;
+    var ks = GRADED, w = D.weekly;
     table($('[data-table=fresh]'), ['Source', 'Snapshot dates (weeks 5 to 9)', 'Rank move per week', 'Same number per week %'],
       ks.map(function (k) { return [NAME[k], w[k].snapshot_dates.join(', '), w[k].rank_move.map(fmt).join(', '), w[k].unchanged_pct.map(fmt).join(', ')]; }));
   }
@@ -624,7 +614,6 @@
     Object.keys(D.curves).forEach(function (sc) { D.curves[sc][k] = dp.curve; });
     Object.keys(D.curve_players).forEach(function (sc) { D.curve_players[sc][k] = dp.curve_players; });
     D.superflex[k] = dp.superflex;
-    D.headline.reorder_avg_pct.ddf = D.ddf_card.reorder_avg_pct;
     D.sources[k] = { listed: dp.listed, rostered: dp.rostered, filled_in: dp.filled_in };
     D.consolidation[k] = dp.consolidation;
     D.weekly[k] = { snapshot_dates: dp.weekly.snapshot_dates, rank_move: dp.weekly.rank_move, unchanged_pct: dp.weekly.unchanged_pct };

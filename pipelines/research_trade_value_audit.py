@@ -117,7 +117,7 @@ def l1_points(a: dict, b: dict) -> float:
 
 def source_meta(inp, base_diag) -> dict:
     out = {}
-    for k in (*CHARTS, *PROJ):
+    for k in CHARTS:
         sec = inp.section(k) or {}
         hold = sec.get("validationHold") or sec.get("promotionHold")
         d = base_diag["sources"].get(k, {})
@@ -145,16 +145,14 @@ def position_weighting(inp) -> dict:
     out = {}
     for cid, (sc, t, sf) in cases.items():
         diag = setting(inp, sc, t, sf).diagnostics()
-        shares = {k: pos_shares(diag["sources"][k]) for k in (*CHARTS, *PROJ) if k in diag["sources"]}
-        proj_mean = mean_shares([shares[k] for k in PROJ])
-        chart_mean = mean_shares([shares[k] for k in CHARTS])
+        shares = {k: pos_shares(diag["sources"][k]) for k in CHARTS}
+        w = diag["ddfWeights"]
+        ddf = {p: w[f"{p}|starter"] + w[f"{p}|bench"] for p in POS}  # DDF Value's position budget (VP-4)
         out[cid] = {
             "sources": {k: pct(v) for k, v in shares.items()},
-            "projections_mean": pct(proj_mean),
+            "ddf_value": pct(ddf),
             "analyst_charts_mean": pct(mean_shares([shares[k] for k in ("cbs", "usatoday", "fantasypros")])),
-            "charts_mean": pct(chart_mean),
-            "gap_vs_projections": {k: r(l1_points(shares[k], proj_mean), 1) for k in CHARTS},
-            "gap_vs_each_projection": {k: {j: r(l1_points(shares[k], shares[j]), 1) for j in PROJ} for k in CHARTS},
+            "gap_vs_ddf": {k: r(l1_points(shares[k], ddf), 1) for k in CHARTS},
         }
     return out
 
@@ -179,7 +177,7 @@ def scoring_awareness(inp) -> dict:
     std, full = setting(inp, "standard"), setting(inp, "ppr")
     pos_of = std.pos_of
     out = {}
-    for k in (*CHARTS, *PROJ):
+    for k in CHARTS:
         a, b = std.natives(k), full.natives(k)
         row = {}
         for p in POS:
@@ -214,9 +212,7 @@ def superflex(inp, pw) -> dict:
             "top_qb_vs_top_player_1qb_pct": r(100 * top_q1 / top_nonqb, 0) if top_q1 and top_nonqb else None,
             "top_qb_vs_top_player_sf_pct": r(100 * top_q2 / top_nonqb, 0) if top_q2 and top_nonqb else None,
         }
-    for k in PROJ:
-        out[k] = {"qb_share_1qb": pw["half_ppr/12/1qb"]["sources"][k]["QB"],
-                  "qb_share_sf": pw["half_ppr/12/sf"]["sources"][k]["QB"]}
+    out["ddf_value"] = {"qb_share_1qb": pw["half_ppr/12/1qb"]["ddf_value"]["QB"], "qb_share_sf": pw["half_ppr/12/sf"]["ddf_value"]["QB"]}
     return out
 
 
@@ -400,7 +396,7 @@ def weekly(inp) -> dict:
     docs = {w: json.loads((HISTORY_DIR / f"week-{w}.json").read_text(encoding="utf-8")) for w in WEEKS}
     pos_of = {k: p["pos"] for k, p in inp.players.items()}
     out = {}
-    for k in (*CHARTS, *PROJ):
+    for k in CHARTS:
         dates, moves, unchanged = [], [], []
         prev = None
         for w in WEEKS:
@@ -434,8 +430,8 @@ def weekly(inp) -> dict:
 # ---------------------------------------------------------------------------
 
 RULES = {
-    "balance": "Position balance: share of value that would have to move between positions to match the projections (ESPN, CBS rest-of-season, Razzball run through our model, averaged), Half PPR, 12 teams. Strong up to 5 points, OK up to 10, Weak above 10. Section 1 shows the range against each projection set alone.",
-    "scoring": "Scoring formats: compare Standard with Full PPR for the top 36 at RB, WR and TE. Strong when at least 20% of those players change places on average; OK when the numbers change but fewer change places; Weak when the numbers do not change. For ESPN the formats are our scoring of its projected stats, for CBS rest-of-season we add points per catch to its Standard total; Razzball publishes its own columns.",
+    "balance": "Position balance: share of value that would have to move between positions to match DDF Value's position budget, Half PPR, 12 teams. Strong up to 5 points, OK up to 10, Weak above 10.",
+    "scoring": "Scoring formats: compare Standard with Full PPR for the top 36 at RB, WR and TE. Strong when at least 20% of those players change places on average; OK when the numbers change but fewer change places; Weak when the numbers do not change.",
     "superflex": "Superflex: Strong with superflex values for 24 or more QBs (two per team); OK with fewer; Weak with none.",
     "league_size": "League size: Strong when the source offers its own numbers by team count; Weak with one table for every league size.",
     "depth": "Depth: the thinnest position's listed players as a share of the players a 12-team league with our lineup rosters there (the waiver line). Strong at 100% or more, OK at 70% or more, Weak below. Lists that reach past the line are reported in section 5, not graded.",
@@ -474,7 +470,7 @@ def scorecard(meta, pw, sc, sfx, wk, cons) -> dict:
     out = {}
     league_size_offered = {"fantasycalc"}  # its public values API takes numTeams (pipelines/pull_fantasycalc_12team.py)
     for k in CHARTS:
-        gap = pw["half_ppr/12/1qb"]["gap_vs_projections"][k]
+        gap = pw["half_ppr/12/1qb"]["gap_vs_ddf"][k]
         n_sf = sfx[k]["superflex_qbs_listed"]
         depth = min(meta[k]["listed"][p] / meta[k]["rostered"][p] for p in POS)
         fl, fw = fresh_level(wk[k])
@@ -487,14 +483,6 @@ def scorecard(meta, pw, sc, sfx, wk, cons) -> dict:
             "depth": {"level": grade(100 * depth, 100, 70, True), "value": r(100 * depth, 0)},
             "freshness": {"level": fl, "value": fw},
             "consolidation": {"level": grade(cgap, 10, 25), "value": r(cgap, 0)},
-        }
-    for k in PROJ:
-        fl, fw = fresh_level(wk[k])
-        out[k] = {
-            "balance": {"level": None}, "superflex": {"level": None}, "league_size": {"level": None},
-            "consolidation": {"level": None}, "depth": {"level": None},
-            "scoring": {"level": scoring_level(sc[k])},
-            "freshness": {"level": fl, "value": fw},
         }
     for k in out:
         for dim in out[k].values():
@@ -623,8 +611,8 @@ def dynastyprocess(inp, data: dict) -> dict:
         _, _, det = dp_run(inp, snap, sc, sf)
         w = det["weights"]
         shares[cid] = pct({p: w[f"{p}|starter"] + w[f"{p}|bench"] for p in POS})
-        proj = {p: pw[cid]["projections_mean"][p] / 100 for p in POS}
-        out.setdefault("gap_vs_projections", {})[cid] = r(l1_points({p: shares[cid][p] / 100 for p in POS}, proj), 1)
+        ref = {p: pw[cid]["ddf_value"][p] / 100 for p in POS}
+        out.setdefault("gap_vs_ddf", {})[cid] = r(l1_points({p: shares[cid][p] / 100 for p in POS}, ref), 1)
     out["shares"] = shares
     s, nat, det = dp_run(inp, snap)
     pos_of = s.pos_of
@@ -750,7 +738,7 @@ def depth_vs_waiver(inp, data: dict) -> dict:
     teams (Half PPR, our default lineup). The waiver line at a position is the
     value of the first player past the number the league rosters there (VP-2)."""
     snap = dp_snapshot(inp, DP_CURRENT)
-    out = {"teams": list(DEPTH_TEAMS), "rostered": {}, "sources": {}, "ddf": {}}
+    out = {"teams": list(DEPTH_TEAMS), "rostered": {}, "sources": {}}
     keys = (*CHARTS, DP)
     for t in DEPTH_TEAMS:
         s = setting(inp, "half_ppr", t)
@@ -781,68 +769,82 @@ def depth_vs_waiver(inp, data: dict) -> dict:
                 if t == 12:
                     row[p]["curve"] = [r(100 * nat[i] / top, 1) for i in order[:DEPTH_CURVE_MAX]]
             row["value_past_line_pct"] = r(100 * past_value / total, 1)
-        # Our model against the same line. "Valued" = DDF Value above a token 0.05 (the page states the cutoff).
-        ddf = ddf_values(s)
-        drow = out["ddf"].setdefault(t, {})
-        for p in POS:
-            order = sorted((i for i in ddf if pos_of.get(i) == p), key=lambda i: (-ddf[i], i))
-            ros = out["rostered"][t][p]
-            drow[p] = {"valued": sum(1 for i in order if ddf[i] > 0.05), "rostered": ros,
-                       "past_line_valued": sum(1 for i in order[ros:] if ddf[i] > 0.05)}
-        tot = sum(v for v in ddf.values() if v > 0)
-        past = 0.0
-        for p in POS:
-            order = sorted((i for i in ddf if pos_of.get(i) == p), key=lambda i: (-ddf[i], i))
-            past += sum(max(0.0, ddf[i]) for i in order[out["rostered"][t][p]:])
-        drow["value_past_line_pct"] = r(100 * past / tot, 3)
     out["filled_in_12"] = {k: sum(data["sources"][k]["filled_in"].values()) for k in CHARTS}
     return out
 
 
-def ddf_scorecard(inp, data: dict) -> dict:
-    """Our model (DDF Value) on the same rows, where the row can be measured
-    without grading the model against itself."""
+def ddf_reference(inp, data: dict) -> dict:
+    """DDF Value as the reference line: how far its order moves with scoring.
+    It is the charts' weighted, adjusted average, so it is never graded."""
     pos_of = {k: p["pos"] for k, p in inp.players.items()}
-    out = {}
-    shares = {}
-    for cid, (sc, sf) in {"half_ppr/12/1qb": ("half_ppr", 0), "half_ppr/12/sf": ("half_ppr", 1)}.items():
-        ddf = ddf_values(setting(inp, sc, 12, sf))
-        tot = sum(max(0.0, v) for v in ddf.values())
-        shares[cid] = {p: sum(max(0.0, v) for i, v in ddf.items() if pos_of.get(i) == p) / tot for p in POS}
-    proj = {p: data["position_weighting"]["half_ppr/12/1qb"]["projections_mean"][p] / 100 for p in POS}
-    gap = r(l1_points(shares["half_ppr/12/1qb"], proj), 1)
     a, b = ddf_values(setting(inp, "standard")), ddf_values(setting(inp, "ppr"))
     reo = _reorder(a, b, pos_of)
     moved = sum(reo[p]["reordered"] / reo[p]["n"] for p in FLEX) / 3 * 100
-    dv = data["depth_vs_waiver"]["ddf"][12]
-    depth = min(dv[p]["valued"] / dv[p]["rostered"] for p in POS)
-    card = {
-        # Balance is shown, not graded: DDF's position budget is built partly from the yardstick.
-        "balance": {"level": None, "value": gap},
-        "scoring": {"level": 3 if moved >= 20 else 2, "value": r(moved, 0)},
-        # Superflex: DDF prices superflex from the charts' own superflex lists, so the count test does not apply.
-        "superflex": {"level": None},
-        "league_size": {"level": 3},
-        "depth": {"level": grade(100 * depth, 100, 70, True), "value": r(100 * depth, 0)},
-        "freshness": {"level": None},
-        "consolidation": {"level": None},
+    return {"reorder_avg_pct": r(moved, 0)}
+
+def should_be(inp, data: dict) -> dict:
+    """Reference numbers for the five headline findings. Where a number is DDF Value,
+    it is the league-aware consensus of the same charts, not an independent truth."""
+    h, sfx = data["headline"], data["superflex"]
+    return {
+        "scoring_columns_reorder_min": min(h["reorder_avg_pct"]["cbs"], h["reorder_avg_pct"]["usatoday"]),
+        "scoring_columns_reorder_max": max(h["reorder_avg_pct"]["cbs"], h["reorder_avg_pct"]["usatoday"]),
+        "scoring_ddf_reorder": data["ddf_reference"]["reorder_avg_pct"],
+        "pairs_ddf": h["pairs_after_waiver"]["ddf"],
+        "pairs_gap_fantasypros": r(h["pairs_after_waiver"]["fantasypros"] - h["pairs_after_waiver"]["ddf"], 0),
+        "pairs_gap_usatoday": r(h["pairs_after_waiver"]["usatoday"] - h["pairs_after_waiver"]["ddf"], 0),
+        "superflex_ddf_qb": sfx["ddf_value"]["qb_share_sf"],
+        "superflex_gap": {k: r(sfx["ddf_value"]["qb_share_sf"] - sfx[k]["qb_share_sf"], 1) for k in CHARTS},
+        "te_ddf_pct": h["top_te_pct"]["ddf"],
+        "te_gap": h["top_te_gap_vs_ddf"],
     }
-    for dim in card.values():
-        dim["label"] = LEVEL[dim["level"]]
-    out["card"] = card
-    out["shares"] = {cid: pct(v) for cid, v in shares.items()}
-    out["reorder_avg_pct"] = r(moved, 0)
-    data["scorecard"]["ddf"] = card
-    return out
+
+# Public pages a reader can open to check the article (JEG-1565). Checked by
+# pipelines/check_trade_value_audit_links.py; results in data/research/jeg1565/link-check.json.
+LINKS_READ = "2026-11-07"
+SOURCE_LINKS = [
+    {"source": "CBS Sports", "label": "CBS Sports week 9 trade chart (Dave Richard)", "kind": "chart",
+     "url": "https://www.cbssports.com/fantasy/football/news/dave-richards-week-9-fantasy-football-trade-chart-rest-of-season-rankings/"},
+    {"source": "USA Today", "label": "USA Today week 9 trade value charts", "kind": "chart",
+     "url": "https://www.usatoday.com/story/sports/fantasy/football/2026/11/03/fantasy-trade-value-charts-week-9-ros-rankings/92593100007/"},
+    {"source": "FantasyPros", "label": "FantasyPros trade value chart, week 9", "kind": "chart",
+     "url": "https://www.fantasypros.com/2026/09/fantasy-football-trade-value-chart-week-9-2026/"},
+    {"source": "FantasyPros", "label": "FantasyPros legal terms", "kind": "terms",
+     "url": "https://www.fantasypros.com/about/legal/"},
+    {"source": "FantasyCalc", "label": "FantasyCalc redraft rankings page", "kind": "chart",
+     "url": "https://fantasycalc.com/redraft-rankings"},
+    {"source": "FantasyCalc", "label": "FantasyCalc values, Standard (raw data: ppr=0)", "kind": "endpoint",
+     "url": "https://api.fantasycalc.com/values/current?isDynasty=false&numQbs=1&numTeams=12&ppr=0"},
+    {"source": "FantasyCalc", "label": "FantasyCalc values, Full PPR (raw data: ppr=1)", "kind": "endpoint",
+     "url": "https://api.fantasycalc.com/values/current?isDynasty=false&numQbs=1&numTeams=12&ppr=1"},
+    {"source": "DynastyProcess", "label": "DynastyProcess values and formula", "kind": "method",
+     "url": "https://dynastyprocess.com/values"},
+    {"source": "DynastyProcess", "label": "DynastyProcess open data (GPL-3.0)", "kind": "data",
+     "url": "https://github.com/dynastyprocess/data"},
+    {"source": "KeepTradeCut", "label": "KeepTradeCut: how player values work", "kind": "method",
+     "url": "https://keeptradecut.com/about/player-values"},
+    {"source": "KeepTradeCut", "label": "KeepTradeCut terms and conditions", "kind": "terms",
+     "url": "https://keeptradecut.com/terms-and-conditions"},
+    {"source": "Footballguys", "label": "Footballguys dynasty trade value chart (June 2026)", "kind": "chart",
+     "url": "https://www.footballguys.com/article/2026-dynasty-trade-value-chart-june"},
+    {"source": "Footballguys", "label": "Footballguys terms of service", "kind": "terms",
+     "url": "https://www.footballguys.com/terms"},
+    {"source": "Draft Sharks", "label": "Draft Sharks dynasty trade value charts", "kind": "chart",
+     "url": "https://www.draftsharks.com/article/dynasty-trade-value-charts"},
+    {"source": "Dynasty Nerds", "label": "Dynasty Nerds home page (no method or data terms found)", "kind": "home",
+     "url": "https://dynastynerds.com/"},
+]
 
 
 def headline(d: dict) -> dict:
-    """The numbers the article quotes in its text, gathered in one place."""
+    """The numbers the article quotes in its text, gathered in one place.
+    The yardstick everywhere is DDF Value (the reference), never a participant."""
     sc, pw, sfx, cons, cs = d["scoring"], d["position_weighting"], d["superflex"], d["consolidation"], d["curve_stats"]
     reorder = {k: r(sum(sc[k][p]["order_changed_pct"] for p in FLEX) / 3, 0) for k in sc}
     sf_chart_qb = [sfx[k]["qb_share_sf"] for k in CHARTS]
     base = pw["half_ppr/12/1qb"]
-    wr_tilt = {k: r(base["sources"][k]["WR"] - base["projections_mean"]["WR"], 1) for k in CHARTS}
+    wr_tilt = {k: r(base["sources"][k]["WR"] - base["ddf_value"]["WR"], 1) for k in CHARTS}
+    rb_tilt = {k: r(base["sources"][k]["RB"] - base["ddf_value"]["RB"], 1) for k in CHARTS}
     return {
         "reorder_avg_pct": reorder,
         "fantasypros_numbers_changed_pct": max(sc["fantasypros"][p]["changed_pct"] for p in POS),
@@ -850,23 +852,20 @@ def headline(d: dict) -> dict:
                                               for p in FLEX),
         "fantasycalc_top_flex_compared": sum(sc["fantasycalc"][p]["n"] for p in FLEX),
         "superflex_chart_qb_min": min(sf_chart_qb), "superflex_chart_qb_max": max(sf_chart_qb),
-        "superflex_projection_qb": pw["half_ppr/12/sf"]["projections_mean"]["QB"],
-        "oneqb_projection_wr": base["projections_mean"]["WR"], "oneqb_projection_rb": base["projections_mean"]["RB"],
-        "wr_tilt_vs_projections": wr_tilt,
+        "superflex_ddf_qb": sfx["ddf_value"]["qb_share_sf"],
+        "superflex_cbs_gap": r(sfx["ddf_value"]["qb_share_sf"] - sfx["cbs"]["qb_share_sf"], 1),
+        "wr_tilt_vs_ddf": wr_tilt, "rb_tilt_vs_ddf": rb_tilt,
         "pairs_raw": {k: cons[k]["raw_beats_star_pct"] for k in CHARTS},
         "pairs_after_waiver": {k: cons[k]["after_waiver_beats_star_pct"] for k in (*CHARTS, "ddf")},
         "top_te_pct": {k: cs[k]["position_top_pct"]["TE"] for k in (*CHARTS, "ddf")},
+        "top_te_gap_vs_ddf": {k: r(cs[k]["position_top_pct"]["TE"] - cs["ddf"]["position_top_pct"]["TE"], 0) for k in CHARTS},
         "rank24_pct": {k: cs[k]["rank24_pct"] for k in (*CHARTS, "ddf")},
         "agreement_min": min(d["agreement"]["overall"].values()),
         "agreement_max": max(d["agreement"]["overall"].values()),
-        "held_sources": sorted(k for k, m in d["sources"].items() if m["held_this_week"]),
-        "held_count": sum(1 for m in d["sources"].values() if m["held_this_week"]),
-        "source_count": len(d["sources"]),
         "superflex_qbs_min": min(sfx[k]["superflex_qbs_listed"] for k in CHARTS),
         "superflex_qbs_max": max(sfx[k]["superflex_qbs_listed"] for k in CHARTS),
-        "wr_tilt_min_of_three": min(wr_tilt[k] for k in ("cbs", "fantasycalc", "usatoday")),
-        "wr_tilt_max_of_three": max(wr_tilt[k] for k in ("cbs", "fantasycalc", "usatoday")),
         "filled_in_total": {k: sum(d["sources"][k]["filled_in"].values()) for k in CHARTS},
+        "usatoday_hold": d["sources"]["usatoday"]["hold_level"],
     }
 
 
@@ -919,7 +918,7 @@ def build() -> dict:
     data["dynastyprocess"] = dynastyprocess(inp, data)
     data["scoring_provenance"] = scoring_provenance(inp)
     data["depth_vs_waiver"] = depth_vs_waiver(inp, data)
-    data["ddf_card"] = ddf_scorecard(inp, data)
+    data["ddf_reference"] = ddf_reference(inp, data)
     data["headline"] = headline(data)
     data["headline"]["reorder_avg_pct"][DP] = r(sum(_reorder(
         {k: v["v1"] for k, v in dp_snapshot(inp, DP_CURRENT)["players"].items()},
@@ -927,6 +926,8 @@ def build() -> dict:
         {k: p["pos"] for k, p in inp.players.items()})[p]["reordered"] for p in FLEX) / 3, 0)  # one value set
     cbs_top = max(setting(inp).natives("cbs").values())
     data["cbs_four_points_pct"] = r(100 * 4 / cbs_top, 1)
+    data["source_links"] = {"read": LINKS_READ, "links": SOURCE_LINKS}
+    data["should_be"] = should_be(inp, data)
     data["cbs_waiver_rb_pct"] = r(data["waiver_line"]["cbs"]["RB"], 1)
     return data
 

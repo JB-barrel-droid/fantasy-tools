@@ -9182,55 +9182,8 @@
    ]
   }
  },
- "ddf_card": {
-  "card": {
-   "balance": {
-    "label": "Not measured",
-    "level": null,
-    "value": 3.7
-   },
-   "consolidation": {
-    "label": "Not measured",
-    "level": null
-   },
-   "depth": {
-    "label": "OK",
-    "level": 2,
-    "value": 85.0
-   },
-   "freshness": {
-    "label": "Not measured",
-    "level": null
-   },
-   "league_size": {
-    "label": "Strong",
-    "level": 3
-   },
-   "scoring": {
-    "label": "Strong",
-    "level": 3,
-    "value": 37.0
-   },
-   "superflex": {
-    "label": "Not measured",
-    "level": null
-   }
-  },
-  "reorder_avg_pct": 37.0,
-  "shares": {
-   "half_ppr/12/1qb": {
-    "QB": 8.3,
-    "RB": 47.1,
-    "TE": 7.8,
-    "WR": 36.8
-   },
-   "half_ppr/12/sf": {
-    "QB": 34.9,
-    "RB": 32.7,
-    "TE": 5.2,
-    "WR": 27.2
-   }
-  }
+ "ddf_reference": {
+  "reorder_avg_pct": 37.0
  },
  "ddf_value_inputs": [
   "usatoday",
@@ -9239,77 +9192,6 @@
   "cbs"
  ],
  "depth_vs_waiver": {
-  "ddf": {
-   "10": {
-    "QB": {
-     "past_line_valued": 0,
-     "rostered": 18,
-     "valued": 18
-    },
-    "RB": {
-     "past_line_valued": 0,
-     "rostered": 59,
-     "valued": 51
-    },
-    "TE": {
-     "past_line_valued": 2,
-     "rostered": 15,
-     "valued": 17
-    },
-    "WR": {
-     "past_line_valued": 2,
-     "rostered": 48,
-     "valued": 50
-    },
-    "value_past_line_pct": 0.068
-   },
-   "12": {
-    "QB": {
-     "past_line_valued": 0,
-     "rostered": 20,
-     "valued": 19
-    },
-    "RB": {
-     "past_line_valued": 0,
-     "rostered": 65,
-     "valued": 55
-    },
-    "TE": {
-     "past_line_valued": 0,
-     "rostered": 21,
-     "valued": 21
-    },
-    "WR": {
-     "past_line_valued": 1,
-     "rostered": 62,
-     "valued": 63
-    },
-    "value_past_line_pct": 0.013
-   },
-   "14": {
-    "QB": {
-     "past_line_valued": 2,
-     "rostered": 24,
-     "valued": 26
-    },
-    "RB": {
-     "past_line_valued": 0,
-     "rostered": 74,
-     "valued": 63
-    },
-    "TE": {
-     "past_line_valued": 2,
-     "rostered": 25,
-     "valued": 27
-    },
-    "WR": {
-     "past_line_valued": 0,
-     "rostered": 73,
-     "valued": 73
-    },
-    "value_past_line_pct": 0.019
-   }
-  },
   "filled_in_12": {
    "cbs": 67,
    "fantasycalc": 14,
@@ -11974,11 +11856,11 @@
    "TE": 0,
    "WR": 0
   },
-  "gap_vs_projections": {
-   "half_ppr/12/1qb": 18.5,
-   "half_ppr/12/sf": 17.8,
-   "ppr/12/1qb": 11.2,
-   "standard/12/1qb": 28.5
+  "gap_vs_ddf": {
+   "half_ppr/12/1qb": 14.8,
+   "half_ppr/12/sf": 9.8,
+   "ppr/12/1qb": 10.6,
+   "standard/12/1qb": 20.7
   },
   "listed": {
    "QB": 90,
@@ -12115,15 +11997,6 @@
    "fantasypros": 25,
    "usatoday": 1
   },
-  "held_count": 4,
-  "held_sources": [
-   "cbsros",
-   "espn",
-   "razzball",
-   "usatoday"
-  ],
-  "oneqb_projection_rb": 50.8,
-  "oneqb_projection_wr": 33.5,
   "pairs_after_waiver": {
    "cbs": 2.0,
    "ddf": 9.0,
@@ -12144,22 +12017,31 @@
    "fantasypros": 51.0,
    "usatoday": 65.0
   },
+  "rb_tilt_vs_ddf": {
+   "cbs": -4.3,
+   "fantasycalc": -5.0,
+   "fantasypros": 4.0,
+   "usatoday": -5.8
+  },
   "reorder_avg_pct": {
    "cbs": 32.0,
-   "cbsros": 78.0,
    "dynastyprocess": 0.0,
-   "espn": 83.0,
    "fantasycalc": 0.0,
    "fantasypros": 0.0,
-   "razzball": 73.0,
    "usatoday": 59.0
   },
-  "source_count": 7,
+  "superflex_cbs_gap": 12.8,
   "superflex_chart_qb_max": 34.6,
   "superflex_chart_qb_min": 22.1,
-  "superflex_projection_qb": 45.0,
+  "superflex_ddf_qb": 34.9,
   "superflex_qbs_max": 38,
   "superflex_qbs_min": 32,
+  "top_te_gap_vs_ddf": {
+   "cbs": 0.0,
+   "fantasycalc": 21.0,
+   "fantasypros": -5.0,
+   "usatoday": 38.0
+  },
   "top_te_pct": {
    "cbs": 42.0,
    "ddf": 42.0,
@@ -12167,13 +12049,12 @@
    "fantasypros": 37.0,
    "usatoday": 80.0
   },
-  "wr_tilt_max_of_three": 8.5,
-  "wr_tilt_min_of_three": 6.9,
-  "wr_tilt_vs_projections": {
-   "cbs": 8.5,
-   "fantasycalc": 7.2,
-   "fantasypros": 0.4,
-   "usatoday": 6.9
+  "usatoday_hold": "amber",
+  "wr_tilt_vs_ddf": {
+   "cbs": 5.2,
+   "fantasycalc": 3.9,
+   "fantasypros": -2.9,
+   "usatoday": 3.6
   }
  },
  "model_missed_game_rate_pct": {
@@ -15387,45 +15268,17 @@
     "TE": 7.9,
     "WR": 38.8
    },
-   "charts_mean": {
-    "QB": 8.4,
-    "RB": 44.3,
-    "TE": 8.1,
-    "WR": 39.3
-   },
-   "gap_vs_each_projection": {
-    "cbs": {
-     "cbsros": 8.7,
-     "espn": 9.8,
-     "razzball": 10.8
-    },
-    "fantasycalc": {
-     "cbsros": 7.5,
-     "espn": 10.5,
-     "razzball": 11.5
-    },
-    "fantasypros": {
-     "cbsros": 5.5,
-     "espn": 1.4,
-     "razzball": 2.5
-    },
-    "usatoday": {
-     "cbsros": 8.0,
-     "espn": 11.3,
-     "razzball": 12.3
-    }
-   },
-   "gap_vs_projections": {
-    "cbs": 8.5,
-    "fantasycalc": 8.8,
-    "fantasypros": 0.8,
-    "usatoday": 9.6
-   },
-   "projections_mean": {
+   "ddf_value": {
     "QB": 8.3,
-    "RB": 50.8,
-    "TE": 7.4,
-    "WR": 33.5
+    "RB": 47.1,
+    "TE": 7.8,
+    "WR": 36.8
+   },
+   "gap_vs_ddf": {
+    "cbs": 5.2,
+    "fantasycalc": 5.0,
+    "fantasypros": 4.0,
+    "usatoday": 5.9
    },
    "sources": {
     "cbs": {
@@ -15433,18 +15286,6 @@
      "RB": 42.8,
      "TE": 7.1,
      "WR": 42.0
-    },
-    "cbsros": {
-     "QB": 11.4,
-     "RB": 46.4,
-     "TE": 9.0,
-     "WR": 33.2
-    },
-    "espn": {
-     "QB": 7.4,
-     "RB": 52.6,
-     "TE": 6.2,
-     "WR": 33.8
     },
     "fantasycalc": {
      "QB": 8.7,
@@ -15457,12 +15298,6 @@
      "RB": 51.1,
      "TE": 6.9,
      "WR": 33.9
-    },
-    "razzball": {
-     "QB": 6.1,
-     "RB": 53.6,
-     "TE": 7.0,
-     "WR": 33.4
     },
     "usatoday": {
      "QB": 8.5,
@@ -15479,45 +15314,17 @@
     "TE": 5.9,
     "WR": 31.5
    },
-   "charts_mean": {
-    "QB": 27.3,
-    "RB": 34.0,
-    "TE": 6.4,
-    "WR": 32.3
+   "ddf_value": {
+    "QB": 34.9,
+    "RB": 32.7,
+    "TE": 5.2,
+    "WR": 27.2
    },
-   "gap_vs_each_projection": {
-    "cbs": {
-     "cbsros": 28.1,
-     "espn": 22.5,
-     "razzball": 17.9
-    },
-    "fantasycalc": {
-     "cbsros": 23.8,
-     "espn": 18.7,
-     "razzball": 17.1
-    },
-    "fantasypros": {
-     "cbsros": 15.7,
-     "espn": 10.0,
-     "razzball": 5.5
-    },
-    "usatoday": {
-     "cbsros": 24.2,
-     "espn": 18.6,
-     "razzball": 15.7
-    }
-   },
-   "gap_vs_projections": {
-    "cbs": 22.9,
-    "fantasycalc": 18.5,
-    "fantasypros": 10.4,
-    "usatoday": 18.9
-   },
-   "projections_mean": {
-    "QB": 45.0,
-    "RB": 31.0,
-    "TE": 3.7,
-    "WR": 20.4
+   "gap_vs_ddf": {
+    "cbs": 12.8,
+    "fantasycalc": 10.1,
+    "fantasypros": 3.7,
+    "usatoday": 8.8
    },
    "sources": {
     "cbs": {
@@ -15525,18 +15332,6 @@
      "RB": 35.8,
      "TE": 5.9,
      "WR": 36.2
-    },
-    "cbsros": {
-     "QB": 50.3,
-     "RB": 26.7,
-     "TE": 4.0,
-     "WR": 19.1
-    },
-    "espn": {
-     "QB": 44.6,
-     "RB": 31.6,
-     "TE": 3.3,
-     "WR": 20.5
     },
     "fantasycalc": {
      "QB": 26.5,
@@ -15549,12 +15344,6 @@
      "RB": 36.4,
      "TE": 4.2,
      "WR": 24.8
-    },
-    "razzball": {
-     "QB": 40.1,
-     "RB": 34.6,
-     "TE": 3.7,
-     "WR": 21.6
     },
     "usatoday": {
      "QB": 26.0,
@@ -15571,45 +15360,17 @@
     "TE": 7.9,
     "WR": 43.3
    },
-   "charts_mean": {
-    "QB": 7.9,
-    "RB": 40.8,
+   "ddf_value": {
+    "QB": 7.7,
+    "RB": 41.3,
     "TE": 8.1,
-    "WR": 43.2
+    "WR": 42.9
    },
-   "gap_vs_each_projection": {
-    "cbs": {
-     "cbsros": 4.9,
-     "espn": 4.2,
-     "razzball": 2.8
-    },
-    "fantasycalc": {
-     "cbsros": 2.6,
-     "espn": 4.0,
-     "razzball": 3.8
-    },
-    "fantasypros": {
-     "cbsros": 6.4,
-     "espn": 2.8,
-     "razzball": 6.0
-    },
-    "usatoday": {
-     "cbsros": 4.3,
-     "espn": 6.5,
-     "razzball": 4.6
-    }
-   },
-   "gap_vs_projections": {
-    "cbs": 2.7,
-    "fantasycalc": 1.8,
-    "fantasypros": 4.2,
-    "usatoday": 4.4
-   },
-   "projections_mean": {
-    "QB": 7.5,
-    "RB": 41.9,
-    "TE": 8.1,
-    "WR": 42.5
+   "gap_vs_ddf": {
+    "cbs": 2.4,
+    "fantasycalc": 1.3,
+    "fantasypros": 4.6,
+    "usatoday": 3.8
    },
    "sources": {
     "cbs": {
@@ -15617,18 +15378,6 @@
      "RB": 39.8,
      "TE": 7.5,
      "WR": 45.2
-    },
-    "cbsros": {
-     "QB": 10.4,
-     "RB": 39.5,
-     "TE": 9.4,
-     "WR": 40.7
-    },
-    "espn": {
-     "QB": 6.7,
-     "RB": 44.0,
-     "TE": 7.0,
-     "WR": 42.3
     },
     "fantasycalc": {
      "QB": 8.5,
@@ -15641,12 +15390,6 @@
      "RB": 45.9,
      "TE": 6.7,
      "WR": 39.8
-    },
-    "razzball": {
-     "QB": 5.4,
-     "RB": 42.1,
-     "TE": 8.0,
-     "WR": 44.5
     },
     "usatoday": {
      "QB": 8.1,
@@ -15663,45 +15406,17 @@
     "TE": 7.7,
     "WR": 32.9
    },
-   "charts_mean": {
+   "ddf_value": {
     "QB": 8.5,
-    "RB": 49.8,
-    "TE": 7.9,
-    "WR": 33.8
+    "RB": 55.7,
+    "TE": 6.9,
+    "WR": 28.8
    },
-   "gap_vs_each_projection": {
-    "cbs": {
-     "cbsros": 14.6,
-     "espn": 17.8,
-     "razzball": 20.1
-    },
-    "fantasycalc": {
-     "cbsros": 15.3,
-     "espn": 19.1,
-     "razzball": 21.3
-    },
-    "fantasypros": {
-     "cbsros": 4.1,
-     "espn": 6.8,
-     "razzball": 9.0
-    },
-    "usatoday": {
-     "cbsros": 14.3,
-     "espn": 17.7,
-     "razzball": 19.9
-    }
-   },
-   "gap_vs_projections": {
-    "cbs": 16.2,
-    "fantasycalc": 17.5,
-    "fantasypros": 5.7,
-    "usatoday": 16.4
-   },
-   "projections_mean": {
-    "QB": 8.6,
-    "RB": 63.6,
-    "TE": 5.6,
-    "WR": 22.2
+   "gap_vs_ddf": {
+    "cbs": 8.6,
+    "fantasycalc": 9.7,
+    "fantasypros": 2.7,
+    "usatoday": 8.4
    },
    "sources": {
     "cbs": {
@@ -15709,18 +15424,6 @@
      "RB": 47.3,
      "TE": 6.7,
      "WR": 37.3
-    },
-    "cbsros": {
-     "QB": 11.9,
-     "RB": 58.2,
-     "TE": 7.2,
-     "WR": 22.7
-    },
-    "espn": {
-     "QB": 7.7,
-     "RB": 65.2,
-     "TE": 4.6,
-     "WR": 22.5
     },
     "fantasycalc": {
      "QB": 8.8,
@@ -15734,12 +15437,6 @@
      "TE": 6.9,
      "WR": 26.6
     },
-    "razzball": {
-     "QB": 6.2,
-     "RB": 67.4,
-     "TE": 4.9,
-     "WR": 21.5
-    },
     "usatoday": {
      "QB": 8.3,
      "RB": 47.5,
@@ -15750,12 +15447,12 @@
   }
  },
  "rules": {
-  "balance": "Position balance: share of value that would have to move between positions to match the projections (ESPN, CBS rest-of-season, Razzball run through our model, averaged), Half PPR, 12 teams. Strong up to 5 points, OK up to 10, Weak above 10. Section 1 shows the range against each projection set alone.",
+  "balance": "Position balance: share of value that would have to move between positions to match DDF Value's position budget, Half PPR, 12 teams. Strong up to 5 points, OK up to 10, Weak above 10.",
   "consolidation": "2-for-1 sense: the share of mid-tier pairs (ranks 25-60) that the raw chart says beat a top-12 player, minus the share once each player's waiver-level value is subtracted. Strong up to 10 points of difference, OK up to 25, Weak above 25.",
   "depth": "Depth: the thinnest position's listed players as a share of the players a 12-team league with our lineup rosters there (the waiver line). Strong at 100% or more, OK at 70% or more, Weak below. Lists that reach past the line are reported in section 5, not graded.",
   "freshness": "Weekly change: Strong when each of the four week-to-week changes in our saved weekly snapshots (weeks 5 to 9) is a distinct capture and moves last week's top 24 per position by at least a quarter of a rank on average; OK when one week did not; Weak otherwise.",
   "league_size": "League size: Strong when the source offers its own numbers by team count; Weak with one table for every league size.",
-  "scoring": "Scoring formats: compare Standard with Full PPR for the top 36 at RB, WR and TE. Strong when at least 20% of those players change places on average; OK when the numbers change but fewer change places; Weak when the numbers do not change. For ESPN the formats are our scoring of its projected stats, for CBS rest-of-season we add points per catch to its Standard total; Razzball publishes its own columns.",
+  "scoring": "Scoring formats: compare Standard with Full PPR for the top 36 at RB, WR and TE. Strong when at least 20% of those players change places on average; OK when the numbers change but fewer change places; Weak when the numbers do not change.",
   "superflex": "Superflex: Strong with superflex values for 24 or more QBs (two per team); OK with fewer; Weak with none."
  },
  "scorecard": {
@@ -15763,7 +15460,7 @@
    "balance": {
     "label": "OK",
     "level": 2,
-    "value": 8.5
+    "value": 5.2
    },
    "consolidation": {
     "label": "Strong",
@@ -15792,70 +15489,6 @@
     "label": "Strong",
     "level": 3,
     "value": 34
-   }
-  },
-  "cbsros": {
-   "balance": {
-    "label": "Not measured",
-    "level": null
-   },
-   "consolidation": {
-    "label": "Not measured",
-    "level": null
-   },
-   "depth": {
-    "label": "Not measured",
-    "level": null
-   },
-   "freshness": {
-    "label": "Strong",
-    "level": 3,
-    "value": 4
-   },
-   "league_size": {
-    "label": "Not measured",
-    "level": null
-   },
-   "scoring": {
-    "label": "Strong",
-    "level": 3
-   },
-   "superflex": {
-    "label": "Not measured",
-    "level": null
-   }
-  },
-  "ddf": {
-   "balance": {
-    "label": "Not measured",
-    "level": null,
-    "value": 3.7
-   },
-   "consolidation": {
-    "label": "Not measured",
-    "level": null
-   },
-   "depth": {
-    "label": "OK",
-    "level": 2,
-    "value": 85.0
-   },
-   "freshness": {
-    "label": "Not measured",
-    "level": null
-   },
-   "league_size": {
-    "label": "Strong",
-    "level": 3
-   },
-   "scoring": {
-    "label": "Strong",
-    "level": 3,
-    "value": 37.0
-   },
-   "superflex": {
-    "label": "Not measured",
-    "level": null
    }
   },
   "dynastyprocess": {
@@ -15892,42 +15525,11 @@
     "value": 90
    }
   },
-  "espn": {
-   "balance": {
-    "label": "Not measured",
-    "level": null
-   },
-   "consolidation": {
-    "label": "Not measured",
-    "level": null
-   },
-   "depth": {
-    "label": "Not measured",
-    "level": null
-   },
-   "freshness": {
-    "label": "Strong",
-    "level": 3,
-    "value": 4
-   },
-   "league_size": {
-    "label": "Not measured",
-    "level": null
-   },
-   "scoring": {
-    "label": "Strong",
-    "level": 3
-   },
-   "superflex": {
-    "label": "Not measured",
-    "level": null
-   }
-  },
   "fantasycalc": {
    "balance": {
-    "label": "OK",
-    "level": 2,
-    "value": 8.8
+    "label": "Strong",
+    "level": 3,
+    "value": 5.0
    },
    "consolidation": {
     "label": "Strong",
@@ -15962,7 +15564,7 @@
    "balance": {
     "label": "Strong",
     "level": 3,
-    "value": 0.8
+    "value": 4.0
    },
    "consolidation": {
     "label": "OK",
@@ -15993,42 +15595,11 @@
     "value": 32
    }
   },
-  "razzball": {
-   "balance": {
-    "label": "Not measured",
-    "level": null
-   },
-   "consolidation": {
-    "label": "Not measured",
-    "level": null
-   },
-   "depth": {
-    "label": "Not measured",
-    "level": null
-   },
-   "freshness": {
-    "label": "Strong",
-    "level": 3,
-    "value": 4
-   },
-   "league_size": {
-    "label": "Not measured",
-    "level": null
-   },
-   "scoring": {
-    "label": "Strong",
-    "level": 3
-   },
-   "superflex": {
-    "label": "Not measured",
-    "level": null
-   }
-  },
   "usatoday": {
    "balance": {
     "label": "OK",
     "level": 2,
-    "value": 9.6
+    "value": 5.9
    },
    "consolidation": {
     "label": "OK",
@@ -16087,58 +15658,6 @@
     "rank_corr": 0.994
    }
   },
-  "cbsros": {
-   "QB": {
-    "changed_pct": 0.0,
-    "n": 36,
-    "order_changed_pct": 0.0,
-    "rank_corr": 1.0
-   },
-   "RB": {
-    "changed_pct": 100.0,
-    "n": 36,
-    "order_changed_pct": 75.0,
-    "rank_corr": 0.955
-   },
-   "TE": {
-    "changed_pct": 100.0,
-    "n": 36,
-    "order_changed_pct": 75.0,
-    "rank_corr": 0.979
-   },
-   "WR": {
-    "changed_pct": 100.0,
-    "n": 36,
-    "order_changed_pct": 83.0,
-    "rank_corr": 0.973
-   }
-  },
-  "espn": {
-   "QB": {
-    "changed_pct": 0.0,
-    "n": 36,
-    "order_changed_pct": 0.0,
-    "rank_corr": 1.0
-   },
-   "RB": {
-    "changed_pct": 100.0,
-    "n": 36,
-    "order_changed_pct": 89.0,
-    "rank_corr": 0.956
-   },
-   "TE": {
-    "changed_pct": 100.0,
-    "n": 36,
-    "order_changed_pct": 86.0,
-    "rank_corr": 0.954
-   },
-   "WR": {
-    "changed_pct": 100.0,
-    "n": 36,
-    "order_changed_pct": 75.0,
-    "rank_corr": 0.926
-   }
-  },
   "fantasycalc": {
    "QB": {
     "changed_pct": 100.0,
@@ -16189,32 +15708,6 @@
     "n": 36,
     "order_changed_pct": 0.0,
     "rank_corr": 1.0
-   }
-  },
-  "razzball": {
-   "QB": {
-    "changed_pct": 0.0,
-    "n": 36,
-    "order_changed_pct": 0.0,
-    "rank_corr": 1.0
-   },
-   "RB": {
-    "changed_pct": 100.0,
-    "n": 36,
-    "order_changed_pct": 83.0,
-    "rank_corr": 0.934
-   },
-   "TE": {
-    "changed_pct": 100.0,
-    "n": 36,
-    "order_changed_pct": 61.0,
-    "rank_corr": 0.991
-   },
-   "WR": {
-    "changed_pct": 100.0,
-    "n": 36,
-    "order_changed_pct": 75.0,
-    "rank_corr": 0.968
    }
   },
   "usatoday": {
@@ -16440,6 +15933,123 @@
    ]
   }
  },
+ "should_be": {
+  "pairs_ddf": 9.0,
+  "pairs_gap_fantasypros": 36.0,
+  "pairs_gap_usatoday": 33.0,
+  "scoring_columns_reorder_max": 59.0,
+  "scoring_columns_reorder_min": 32.0,
+  "scoring_ddf_reorder": 37.0,
+  "superflex_ddf_qb": 34.9,
+  "superflex_gap": {
+   "cbs": 12.8,
+   "fantasycalc": 8.4,
+   "fantasypros": 0.3,
+   "usatoday": 8.9
+  },
+  "te_ddf_pct": 42.0,
+  "te_gap": {
+   "cbs": 0.0,
+   "fantasycalc": 21.0,
+   "fantasypros": -5.0,
+   "usatoday": 38.0
+  }
+ },
+ "source_links": {
+  "links": [
+   {
+    "kind": "chart",
+    "label": "CBS Sports week 9 trade chart (Dave Richard)",
+    "source": "CBS Sports",
+    "url": "https://www.cbssports.com/fantasy/football/news/dave-richards-week-9-fantasy-football-trade-chart-rest-of-season-rankings/"
+   },
+   {
+    "kind": "chart",
+    "label": "USA Today week 9 trade value charts",
+    "source": "USA Today",
+    "url": "https://www.usatoday.com/story/sports/fantasy/football/2026/11/03/fantasy-trade-value-charts-week-9-ros-rankings/92593100007/"
+   },
+   {
+    "kind": "chart",
+    "label": "FantasyPros trade value chart, week 9",
+    "source": "FantasyPros",
+    "url": "https://www.fantasypros.com/2026/09/fantasy-football-trade-value-chart-week-9-2026/"
+   },
+   {
+    "kind": "terms",
+    "label": "FantasyPros legal terms",
+    "source": "FantasyPros",
+    "url": "https://www.fantasypros.com/about/legal/"
+   },
+   {
+    "kind": "chart",
+    "label": "FantasyCalc redraft rankings page",
+    "source": "FantasyCalc",
+    "url": "https://fantasycalc.com/redraft-rankings"
+   },
+   {
+    "kind": "endpoint",
+    "label": "FantasyCalc values, Standard (raw data: ppr=0)",
+    "source": "FantasyCalc",
+    "url": "https://api.fantasycalc.com/values/current?isDynasty=false&numQbs=1&numTeams=12&ppr=0"
+   },
+   {
+    "kind": "endpoint",
+    "label": "FantasyCalc values, Full PPR (raw data: ppr=1)",
+    "source": "FantasyCalc",
+    "url": "https://api.fantasycalc.com/values/current?isDynasty=false&numQbs=1&numTeams=12&ppr=1"
+   },
+   {
+    "kind": "method",
+    "label": "DynastyProcess values and formula",
+    "source": "DynastyProcess",
+    "url": "https://dynastyprocess.com/values"
+   },
+   {
+    "kind": "data",
+    "label": "DynastyProcess open data (GPL-3.0)",
+    "source": "DynastyProcess",
+    "url": "https://github.com/dynastyprocess/data"
+   },
+   {
+    "kind": "method",
+    "label": "KeepTradeCut: how player values work",
+    "source": "KeepTradeCut",
+    "url": "https://keeptradecut.com/about/player-values"
+   },
+   {
+    "kind": "terms",
+    "label": "KeepTradeCut terms and conditions",
+    "source": "KeepTradeCut",
+    "url": "https://keeptradecut.com/terms-and-conditions"
+   },
+   {
+    "kind": "chart",
+    "label": "Footballguys dynasty trade value chart (June 2026)",
+    "source": "Footballguys",
+    "url": "https://www.footballguys.com/article/2026-dynasty-trade-value-chart-june"
+   },
+   {
+    "kind": "terms",
+    "label": "Footballguys terms of service",
+    "source": "Footballguys",
+    "url": "https://www.footballguys.com/terms"
+   },
+   {
+    "kind": "chart",
+    "label": "Draft Sharks dynasty trade value charts",
+    "source": "Draft Sharks",
+    "url": "https://www.draftsharks.com/article/dynasty-trade-value-charts"
+   },
+   {
+    "kind": "home",
+    "label": "Dynasty Nerds home page (no method or data terms found)",
+    "source": "Dynasty Nerds",
+    "url": "https://dynastynerds.com/"
+   }
+  ],
+  "read": "2026-11-07"
+ },
  "sources": {
   "cbs": {
    "claimed_settings": "12-team, 1-QB leagues. non / 0.5 / PPR columns; QB table has 1QB-4 / 1QB-6 / 2QB columns. QB uses the 1QB-4 column for all scoring (no per-scoring 1QB column published).",
@@ -16463,64 +16073,6 @@
     "WR": 43
    },
    "name": "CBS Sports",
-   "rostered": {
-    "QB": 20,
-    "RB": 65,
-    "TE": 21,
-    "WR": 62
-   }
-  },
-  "cbsros": {
-   "claimed_settings": null,
-   "content_vintage": "2026-11-07",
-   "family": "projection",
-   "fetched_at": null,
-   "filled_in": {
-    "QB": 0,
-    "RB": 0,
-    "TE": 0,
-    "WR": 0
-   },
-   "held_this_week": true,
-   "hold_level": "amber",
-   "hold_reason": "fidelity: publisher_vs_stored",
-   "kind": "model projections, valued by our model",
-   "listed": {
-    "QB": 69,
-    "RB": 100,
-    "TE": 99,
-    "WR": 100
-   },
-   "name": "CBS rest-of-season projections",
-   "rostered": {
-    "QB": 20,
-    "RB": 65,
-    "TE": 21,
-    "WR": 62
-   }
-  },
-  "espn": {
-   "claimed_settings": "ESPN season fantasy projections (Mike Clay model) where priced; ECR fills the rest. Valued through our pinned starter model.",
-   "content_vintage": null,
-   "family": "projection",
-   "fetched_at": "2026-11-07T09:42:52Z",
-   "filled_in": {
-    "QB": 0,
-    "RB": 0,
-    "TE": 0,
-    "WR": 0
-   },
-   "held_this_week": true,
-   "hold_level": "red",
-   "hold_reason": "fidelity: scrape_validity",
-   "kind": "model projections, valued by our model",
-   "listed": {
-    "QB": 82,
-    "RB": 152,
-    "TE": 130,
-    "WR": 240
-   },
-   "name": "ESPN",
    "rostered": {
     "QB": 20,
     "RB": 65,
@@ -16586,35 +16138,6 @@
     "WR": 62
    }
   },
-  "razzball": {
-   "claimed_settings": null,
-   "content_vintage": "2026-11-06",
-   "family": "projection",
-   "fetched_at": null,
-   "filled_in": {
-    "QB": 0,
-    "RB": 0,
-    "TE": 0,
-    "WR": 0
-   },
-   "held_this_week": true,
-   "hold_level": "red",
-   "hold_reason": "fidelity: scrape_validity",
-   "kind": "model projections, valued by our model",
-   "listed": {
-    "QB": 81,
-    "RB": 134,
-    "TE": 126,
-    "WR": 175
-   },
-   "name": "Razzball",
-   "rostered": {
-    "QB": 20,
-    "RB": 65,
-    "TE": 21,
-    "WR": 62
-   }
-  },
   "usatoday": {
    "claimed_settings": "12-team, 1-QB leagues. STD / Half / Full PPR columns; QB table has 1QB / 6-pt-TD / Superflex columns. QB uses the 1QB column for all scoring (no per-scoring QB column published).",
    "content_vintage": "2026-11-03",
@@ -16653,13 +16176,9 @@
    "top_qb_vs_top_player_1qb_pct": 37.0,
    "top_qb_vs_top_player_sf_pct": 81.0
   },
-  "cbsros": {
-   "qb_share_1qb": 11.4,
-   "qb_share_sf": 50.3
-  },
-  "espn": {
-   "qb_share_1qb": 7.4,
-   "qb_share_sf": 44.6
+  "ddf_value": {
+   "qb_share_1qb": 8.3,
+   "qb_share_sf": 34.9
   },
   "fantasycalc": {
    "qb_share_1qb": 8.7,
@@ -16674,10 +16193,6 @@
    "superflex_qbs_listed": 32,
    "top_qb_vs_top_player_1qb_pct": 39.0,
    "top_qb_vs_top_player_sf_pct": 93.0
-  },
-  "razzball": {
-   "qb_share_1qb": 6.1,
-   "qb_share_sf": 40.1
   },
   "usatoday": {
    "qb_share_1qb": 8.5,
@@ -16775,62 +16290,6 @@
     9
    ]
   },
-  "cbsros": {
-   "rank_move": [
-    2.17,
-    1.94,
-    2.28,
-    1.06
-   ],
-   "snapshot_dates": [
-    "2026-10-12",
-    "2026-10-19",
-    "2026-10-26",
-    "2026-11-02",
-    "2026-11-07"
-   ],
-   "unchanged_pct": [
-    5.0,
-    1.0,
-    4.0,
-    50.0
-   ],
-   "weeks": [
-    5,
-    6,
-    7,
-    8,
-    9
-   ]
-  },
-  "espn": {
-   "rank_move": [
-    2.56,
-    1.55,
-    2.59,
-    3.39
-   ],
-   "snapshot_dates": [
-    "2026-10-12",
-    "2026-10-19",
-    "2026-10-25",
-    "2026-10-31",
-    "2026-11-06"
-   ],
-   "unchanged_pct": [
-    0.0,
-    4.0,
-    0.0,
-    0.0
-   ],
-   "weeks": [
-    5,
-    6,
-    7,
-    8,
-    9
-   ]
-  },
   "fantasycalc": {
    "rank_move": [
     1.97,
@@ -16878,34 +16337,6 @@
     37.0,
     50.0,
     32.0
-   ],
-   "weeks": [
-    5,
-    6,
-    7,
-    8,
-    9
-   ]
-  },
-  "razzball": {
-   "rank_move": [
-    3.43,
-    4.12,
-    3.19,
-    2.77
-   ],
-   "snapshot_dates": [
-    "2026-10-11",
-    "2026-10-19",
-    "2026-10-24",
-    "2026-11-02",
-    "2026-11-06"
-   ],
-   "unchanged_pct": [
-    5.0,
-    6.0,
-    4.0,
-    8.0
    ],
    "weeks": [
     5,
