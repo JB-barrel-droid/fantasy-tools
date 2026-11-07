@@ -83,7 +83,7 @@
       for (var k = 0; k < keys.length; k++) {
         if (!keys[k] || have.indexOf(keys[k] + " ") !== 0 || INLINE.test(line)) continue;
         var rest = have.slice(keys[k].length).trim();
-        if (/^[\d ]+$/.test(rest) || (/\(/.test(line) && rest.split(" ").length <= 3)) return k;
+        if (/^[\d ]+$/.test(rest) || nameKey(line.replace(/\s*\([^)]*\)\s*/g, " ")) === keys[k]) return k;
       }
       return -1;
     };

@@ -45,7 +45,7 @@
       var now = Date.now(), old = readStore();
       var prev = old ? (old.workspaces.filter(function (w) { return w && w.id === old.activeId; })[0] || old.workspaces[0]) : null;
       var ours = !!(prev && prev.id && prev.id === DDF.state.get("bridgedWs", null));
-      var occupied = !!(prev && Array.isArray(prev.teams) && prev.teams.length);
+      var occupied = !!(prev && ((Array.isArray(prev.teams) && prev.teams.length) || prev.settings));
       if (occupied && !ours && !(opts && opts.replace)) return "ask";
       var oldTeams = ours && Array.isArray(prev.teams) ? prev.teams : [];
       var teams = rec.teams.slice(0, 20).map(function (t, i) {

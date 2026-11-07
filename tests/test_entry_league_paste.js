@@ -81,6 +81,8 @@ test("readWithNames: a typed name not in the paste is still a team, one name is 
 test("a team named like a player's first name does not swallow that player", () => {
   const res = LP.read("Josh\nJosh Allen\nBijan Robinson\nMike\nJordan Love\nSaquon Barkley\n", TABLE_ROWS, {table: TABLE});
   assert.deepStrictEqual(res.teams.map(t => [t.name, t.players.map(p => p.name)]), [["Josh", ["Josh Allen", "Bijan Robinson"]], ["Mike", ["Jordan Love", "Saquon Barkley"]]]);
+  const paren = LP.readWithNames("Josh (5-2)\nJosh Allen (QB BUF)\nMike (Walt)\nMike Evans (WR TB)\n", ["Josh", "Mike"], TABLE_ROWS);
+  assert.deepStrictEqual(paren.teams.map(t => [t.name, t.players.map(p => p.name)]), [["Josh", ["Josh Allen"]], ["Mike", ["Mike Evans"]]]);
   const named = LP.readWithNames("Allen\nKyler Murray\nJosh Allen\nKyler\nJordan Love\n", ["Allen", "Kyler"], TABLE_ROWS);
   assert.deepStrictEqual(named.teams.map(t => [t.name, t.players.map(p => p.name)]), [["Allen", ["Kyler Murray", "Josh Allen"]], ["Kyler", ["Jordan Love"]]]);
 });
