@@ -121,6 +121,31 @@ class BuildSwapRoutesTest(unittest.TestCase):
         s = self.state(page)
         self.assertEqual((s["give"], s["get"]), ([a["key"]], [b["key"]]))
 
+    def test_advanced_and_weeks_match_the_classic_view(self):
+        """The link's advanced settings and season weeks reach build.html: the same DDF Value as the classic view."""
+        a, b = self.players[:2]
+        for extra in ("&bso=0.300&inj=all&conf=1.5", "&regend=12&playoffs=13-15&optimize=playoffs"):
+            link = f"#compare-trade?give={a['key']}&get={b['key']}&scoring=half_ppr&teams=12&roster=QB1.RB2.WR3.TE1.FLEX1.SF0.BN6{extra}"
+            classic = self.open(f"/index.html{link}", wait_live=False)   # automation escape: the classic view stays
+            classic.wait_for_function("() => window.TradeValueCurveControls && TradeValueCurveControls.isReady && TradeValueCurveControls.isReady()", timeout=60000)
+            classic.wait_for_timeout(2500)
+            want = classic.evaluate(f"() => TradeValueCurveControls.getAllRows().find(r => String(r.player_key) === '{a['key']}').values.ddf_value")
+            page = self.open(f"/index.html?swapped=1{link}")
+            got = page.evaluate(f"() => DDFBuild.rec('{a['key']}').ddf")
+            self.assertAlmostEqual(got, want, places=6, msg=extra)
+            self.assertIsNone(self.state(page)["saved"], extra)
+
+    def test_staying_link_survives_a_reload(self):
+        """A mine= link stays on the classic view, and a reload of that tab stays too (the view drops mine= from the address)."""
+        a = self.players[0]
+        page = self.browser.new_page()   # no storage-clearing init script: the reload must see this tab's session
+        self.addCleanup(page.close)
+        page.goto(f"{self.base}/index.html?swapped=1#compare-trade?give={a['key']}&mine={a['key']}", wait_until="load", timeout=60000)
+        page.wait_for_timeout(3000)
+        page.reload(wait_until="load")
+        page.wait_for_timeout(3000)
+        self.assertNotIn("build.html", page.url)
+
     def test_next_stub_and_page_links(self):
         page = self.open("/next/build.html?mode=any", wait_live=True)
         self.assertRegex(urlparse(page.url).path, r"/fantasy-tools/build\.html$|^/build\.html$")

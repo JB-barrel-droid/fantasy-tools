@@ -154,6 +154,28 @@
     String(q.get('shares') || '').split('_').forEach(part => { const m = /^(QB|RB|WR|TE)(\d*\.?\d+)$/.exec(part); if (m) shares[m[1]] = Number(m[2]); });
     if (Object.keys(shares).length === 4) out.shares = shares;
     if (q.has('wk') && Number.isInteger(Number(q.get('wk')))) out.week = Number(q.get('wk'));
+    // A link that carries a league carries its advanced settings and season weeks too; missing ones mean the defaults
+    // (v2 applyLinkLeague, JEG-537 / JEG-527).
+    if (q.has('scoring') && C.getLineupSettingsDefaults) {
+      const def = C.getLineupSettingsDefaults();
+      if (C.getLineupSettings && C.setLineupSettings) {
+        const inj = q.get('inj'), conf = Number(q.get('conf'));
+        let bso = q.has('bso') ? Number(q.get('bso')) : null;
+        if (!q.has('bso') && q.has('bench')) { const old = Number(q.get('bench')); bso = Number.isFinite(old) && Math.abs(old - 0.15) > 5e-4 ? old : null; }
+        out.adv = {injuryHistory: ['recent', 'all'].includes(inj) ? inj : def.injuryHistory,
+          projectionConfidence: [0.5, 1, 1.5].includes(conf) ? conf : def.projectionConfidence,
+          benchShareOverride: Number.isFinite(bso) && bso !== null ? Math.min(0.30, Math.max(0.01, bso)) : null};
+      }
+      const build = C.getBuildContentWeek ? C.getBuildContentWeek() : null;
+      if (Number.isInteger(build) && C.setLeagueWeeks && C.getLeagueWeeks && C.setOptimizeFor && C.setContentWeek) {
+        const po = /^(\d+)-(\d+)$/.exec(q.get('playoffs') || ''), optimize = q.get('optimize') || def.optimizeFor;
+        const week = q.has('week') ? Number(q.get('week')) : build;
+        out.weeks = {build, content: Number.isInteger(week) ? week : build,
+          regularEnd: q.has('regend') && Number.isInteger(Number(q.get('regend'))) ? Number(q.get('regend')) : def.regularSeasonEnd,
+          playoffLo: po ? Number(po[1]) : def.playoffWeeks[0], playoffHi: po ? Number(po[2]) : def.playoffWeeks[1],
+          optimize: ['season', 'regular', 'playoffs'].includes(optimize) ? optimize : def.optimizeFor};
+      }
+    }
     return Object.keys(out).length ? out : null;
   }
   function settingsText() {
@@ -170,8 +192,10 @@
     const keep = new URLSearchParams();
     hashQ.forEach((v, k) => { if (VALUE_CONTEXT.includes(k)) keep.append(k, v); else if (!['give', 'get'].includes(k) && !q.has(k)) q.append(k, v); });
     q.delete('give'); q.delete('get');
-    give.forEach(k => q.append('give', nm(k)));
-    get.forEach(k => q.append('get', nm(k)));
+    // A name two engine rows share keeps its key, so a reload opens the same player.
+    const token = k => (/^\d+$/.test(k) && BYNAME.get(normName(nm(k))) !== k) ? k : nm(k);
+    give.forEach(k => q.append('give', token(k)));
+    get.forEach(k => q.append('get', token(k)));
     const rest = keep.toString(), base = location.hash.slice(0, at) === '#' ? '' : location.hash.slice(0, at);
     try { history.replaceState(history.state, '', location.pathname + (q.toString() ? '?' + q : '') + (rest ? (base || '#') + '?' + rest : base)); } catch (e) { /* the link still worked */ }
   }
@@ -210,7 +234,8 @@
       const market = Fd.CHART_KEYS.filter(k => avail.has(k));
       const readout = C.getBenchShareReadout ? C.getBenchShareReadout() : null;
       const overall = readout && finite(readout.overall) ? readout.overall : (C.getBenchShare ? C.getBenchShare() : null);
-      const weights = {overall: finite(overall) ? overall : 0};
+      if (!finite(overall)) return null;   // no bench share: the checks and gains say not evaluated rather than count the bench as 0
+      const weights = {overall};
       ['QB', 'RB', 'WR', 'TE'].forEach(pos => { if (readout && finite(readout[pos])) weights[pos] = readout[pos]; });
       if (!shape || !expected) return null;
       // Analyst charts = the three analyst charts' mean (all three, as finder.js withChartAverage), only when all three run.

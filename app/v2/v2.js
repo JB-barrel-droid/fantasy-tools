@@ -7118,6 +7118,7 @@
   // JEG-1537: a Compare link carrying a whole league state (mine/theirs/target, ddf-assist.js) or a carried trade (tc)
   // stays on the classic view until the codec moves (JEG-1538); every other Compare link goes to Build a Trade.
   const COMPARE_STAYS = ["mine", "theirs", "target", "tc"];
+  const COMPARE_STAYS_KEY = "ddf-v2-compare-stays";
   function swappedTarget(base) {
     if (Object.prototype.hasOwnProperty.call(SWAPPED_ROUTES, base)) return SWAPPED_ROUTES[base];
     const prefix = Object.keys(SWAPPED_ROUTES).filter(key => key.endsWith("/*") && (base === key.slice(0, -2) || base.startsWith(key.slice(0, -1))))
@@ -7134,9 +7135,15 @@
     const target = swappedTarget(base);
     if (!target || stayForAutomation()) return false;
     if (base === "#compare-trade") {
-      if (COMPARE_STAYS.some(key => new URLSearchParams(query.join("&")).has(key))) return false;
-      // An in-page jump (Add to trade, then #compare-trade) carries the trade it built.
-      if (!query.length && (TR.give.length || TR.receive.length) && C) query = [tradeHash().split("?").slice(1).join("?")].filter(Boolean);
+      // An in-page jump (Add to trade, then #compare-trade) carries the trade it built (and a pending carried trade).
+      if (!query.length && (TR.give.length || TR.receive.length || carriedTrade) && C) query = [tradeHash().split("?").slice(1).join("?")].filter(Boolean);
+      // A tab that opened a staying link keeps the classic view: its address loses mine/theirs once the view rewrites it.
+      let stays = false;
+      try { stays = sessionStorage.getItem(COMPARE_STAYS_KEY) === "1"; } catch (error) { /* no session storage: decide by the link */ }
+      if (stays || COMPARE_STAYS.some(key => new URLSearchParams(query.join("&")).has(key))) {
+        try { sessionStorage.setItem(COMPARE_STAYS_KEY, "1"); } catch (error) { /* the link itself still stays */ }
+        return false;
+      }
     }
     const rest = query.length ? "?" + query.join("?") : "";
     const url = new URL(target.includes("#") || !rest ? target : target + "#", document.baseURI);

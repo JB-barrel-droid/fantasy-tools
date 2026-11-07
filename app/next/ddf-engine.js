@@ -21,7 +21,7 @@
  *   player(key)           one record
  *   settings()            {scoring, teams, roster:{QB,RB,WR,TE,FLEX,SUPERFLEX,BENCH,K,DST}}
  *   apply(partial)        set scoring / teams / superflex (bool) / roster; saves; returns settings()
- *   applyVisit(partial)   the same (plus shares, week) for this visit only, never saved (a shared trade link's league)
+ *   applyVisit(partial)   the same (plus weeks, week, adv, shares) for this visit only, never saved (a shared trade link's league)
  *   meta()                {buildTag, asOf, week}
  *   on(fn)                fn() after every rebuild (settings, basis or override change); returns an unsubscribe
  *   overrides.*           all(), get(key), set(key, value|{type:'adjustment', delta}), remove(key), clear(), count(),
@@ -180,12 +180,27 @@
   function applyVisit(partial) {
     partial = partial || {};
     var attempt = function (fn) { try { fn(); } catch (e) { /* a part the engine does not accept is skipped */ } };
+    // v2 applyLinkLeague's order: season weeks, the league, the week, advanced settings, position shares last.
+    var w = partial.weeks;
+    if (w && C.setLeagueWeeks) attempt(function () {
+      var cur = C.getLeagueWeeks();
+      if (w.regularEnd !== cur.regularSeasonEnd || w.playoffLo !== cur.playoffWeeks[0] || w.playoffHi !== cur.playoffWeeks[1]) {
+        C.setLeagueWeeks({regularSeasonEnd: w.regularEnd, playoffWeeks: [w.playoffLo, w.playoffHi]});
+      }
+      if (w.optimize !== C.getOptimizeFor()) C.setOptimizeFor(w.optimize);
+      if (w.content !== C.getContentWeek()) C.setContentWeek(w.content === w.build ? null : w.content);
+    });
     if (partial.scoring) attempt(function () { C.setScoring(partial.scoring, false); });
     if (partial.teams) attempt(function () { C.setTeams(Number(partial.teams), false); });
     if (typeof partial.superflex === "boolean") attempt(function () { C.setRosterSpot("SUPERFLEX", partial.superflex ? 1 : 0, false); });
     if (partial.roster) Object.keys(partial.roster).forEach(function (k) { attempt(function () { C.setRosterSpot(k, partial.roster[k], false); }); });
-    if (partial.shares && C.setPositionWeights) attempt(function () { C.setPositionWeights(partial.shares, false); });
     if (Number.isInteger(partial.week) && C.setWeek) attempt(function () { C.setWeek(partial.week, false); });
+    if (partial.adv && C.setLineupSettings) attempt(function () {
+      var cur = C.getLineupSettings(), diff = {};
+      ["injuryHistory", "projectionConfidence", "benchShareOverride"].forEach(function (k) { if (k in partial.adv && partial.adv[k] !== cur[k]) diff[k] = partial.adv[k]; });
+      if (Object.keys(diff).length) C.setLineupSettings(diff);
+    });
+    if (partial.shares && C.setPositionWeights) attempt(function () { C.setPositionWeights(partial.shares, false); });
     changed();
     return settings();
   }
