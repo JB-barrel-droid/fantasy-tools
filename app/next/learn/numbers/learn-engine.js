@@ -52,7 +52,7 @@
     var inputs = (comp && comp.inputs) || CHARTS;
     var charts = CHARTS.filter(function (k) { return inputs.indexOf(k) >= 0; });
 
-    var factor = {};
+    var factor = {}, factorTotals = {};
     var players = [];
     rows.forEach(function (row) {
       var pk = String(row.player_key);
@@ -73,6 +73,8 @@
         if (factor[s] === undefined) {
           var pm = C.getPublishedMath(row.player_key, s);
           factor[s] = pm ? finite(pm.factor) : null;
+          /* The factor's own two totals, over the same players (the ones the chart lists; estimates excluded). */
+          factorTotals[s] = pm ? { ddf: finite(pm.anchorTotal), published: finite(pm.chartTotal), players: finite(pm.sharedPlayers) } : null;
         }
         sources[s] = {
           published: p ? finite(p.native) : null, indexed: idx, adjusted: adj, role: p ? p.role || null : null,
@@ -110,7 +112,7 @@
       var excluded = (ins.excluded || []).filter(function (e) { return e.key === s; })[0] || null;
       srcMeta[s] = {
         key: s, label: LABELS[s], players: keys.length, listed: keys.length - filled, filledIn: filled,
-        totals: totals, factor: factor[s] === undefined ? null : factor[s],
+        totals: totals, factor: factor[s] === undefined ? null : factor[s], factorTotals: factorTotals[s] || null,
         inDdf: charts.indexOf(s) >= 0, excludedReason: excluded ? excluded.reason : null
       };
     });
@@ -144,6 +146,25 @@
   function buildUp(snap, source, position) {
     var S = window.DDFAuditSource;
     return S ? S.build(snap.inspection, source, position) : null;
+  }
+  /* One player's path from a source's own number to its Adjusted value (JEG-1393, R1-CX-07 / R1-OP-07): the engine's
+     own intermediates (getInspection players[source][key] and valuePipeline.sources[source]), for a trade chart as well
+     as a projection. Nothing is derived here; a readout the engine does not expose stays null. */
+  function worked(snap, source, key) {
+    var ins = snap && snap.inspection;
+    var p = ins && ins.players && ins.players[source] && ins.players[source][String(key)];
+    if (!p) return null;
+    var vsrc = (ins.valuePipeline && ins.valuePipeline.sources && ins.valuePipeline.sources[source]) || {};
+    var posInfo = (vsrc.positions && vsrc.positions[p.pos]) || {};
+    var rates = vsrc.rates || {};
+    return {
+      source: source, key: String(key), pos: p.pos, estimated: Boolean(p.estimated), role: p.role || null,
+      published: finite(p.native), waiver: finite(posInfo.waiver), starterLine: finite(posInfo.starterLine),
+      availability: finite(posInfo.avail), aboveWaivers: finite(p.vorp), startWorthy: finite(p.startWorthy),
+      lineupShare: finite(p.lineupShare), starterPart: finite(p.starterSlice), fillInPart: finite(p.benchSlice),
+      starterRate: finite(rates[p.pos + '|starter']), fillInRate: finite(rates[p.pos + '|bench']),
+      adjusted: finite(p.adjusted)
+    };
   }
   function buildUpSources() {
     var S = window.DDFAuditSource;
@@ -197,7 +218,7 @@
 
   window.DDFLearnEngine = {
     CHARTS: CHARTS, LABELS: LABELS, SCORING_LABEL: SCORING_LABEL,
-    load: load, snapshot: snapshot, health: health, buildUp: buildUp, buildUpSources: buildUpSources, sourceUrl: sourceUrl,
+    load: load, snapshot: snapshot, health: health, buildUp: buildUp, worked: worked, buildUpSources: buildUpSources, sourceUrl: sourceUrl,
     rosterLabel: rosterLabel, onRebuild: function (fn) { var E = engine(); if (E && E.on) E.on(fn); }
   };
 })();

@@ -100,7 +100,10 @@ ENGINE = """() => {
   const totals = {};
   Object.keys(ins.players).forEach(s => {
     if (!ins.valuePipeline.sources[s]) return;
-    totals[s] = Object.values(ins.players[s]).reduce((t, p) => t + (['QB','RB','WR','TE'].includes(p.pos) && (p.role === 'starter' || p.role === 'bench') ? (p.adjusted || 0) : 0), 0);
+    /* JEG-1393 (R1-CX-03): the total is every priced player's adjusted value; the waiver-role remainder is its own column. */
+    const ps = Object.values(ins.players[s]).filter(p => ['QB','RB','WR','TE'].includes(p.pos));
+    totals[s] = {all: ps.reduce((t, p) => t + (p.adjusted || 0), 0),
+      waiver: ps.reduce((t, p) => t + (p.role !== 'starter' && p.role !== 'bench' ? (p.adjusted || 0) : 0), 0)};
   });
   return {scoring: st.scoring, teams: st.teams, sf: shape.SUPERFLEX || 0, rows, factor, order, totals};
 }"""
@@ -111,6 +114,13 @@ PAGE_TRACE = """() => ({big: document.getElementById('tr-big').textContent.trim(
 PAGE_PIE = """() => ({big: document.querySelector('#pie-chart .nx-donut-val').textContent.trim(),
   rows: Object.fromEntries([...document.querySelectorAll('#pie-table tbody tr')].map(tr => [tr.dataset.src, [...tr.querySelectorAll('td')].map(td => td.textContent.trim())])),
   totals: Object.fromEntries([...document.querySelectorAll('#hc-body table.nx-hc')[0].querySelectorAll('tbody tr')].map(tr => [tr.dataset.src, [...tr.querySelectorAll('td')].map(td => td.textContent.trim())]))})"""
+# JEG-1393 (R1-CX-04/07/08): the chart's worked example and index-factor totals, read straight from the engine.
+ENGINE_WORKED = """(a) => { const C = window.TradeValueCurveControls, ins = C.getInspection(), p = ins.players[a.s][a.k];
+  const src = ins.valuePipeline.sources[a.s], pm = C.getPublishedMath(Number(a.k), a.s);
+  return {adjusted: p.adjusted, parts: [p.starterSlice, src.rates[p.pos + '|starter'], p.benchSlice, src.rates[p.pos + '|bench']],
+    anchor: pm.anchorTotal, chart: pm.chartTotal, factor: pm.factor}; }"""
+PAGE_WORKED = """() => ({eq: [...document.querySelectorAll('#bu-worked tbody tr')].pop().querySelector('td').textContent.trim(),
+  explain: document.getElementById('bu-explain').textContent})"""
 PAGE_BUILDUP = """() => [...document.querySelectorAll('#bu-table tbody tr')].map(tr => ({k: tr.dataset.key, cells: [...tr.querySelectorAll('td')].map(td => td.textContent.trim())}))"""
 
 
@@ -169,8 +179,10 @@ def compare(page, combo) -> list[str]:
             errors.append(f"{tag}: pie {s} adjusted {got}, engine {f1(e and e['adjusted'])}")
     for s, total in eng["totals"].items():
         cells = pie["totals"].get(s)
-        if not cells or cells[2] != f1(total):
-            errors.append(f"{tag}: health check {s} total {cells and cells[2]}, engine {f1(total)}")
+        if not cells or cells[3] != f1(total["all"]):
+            errors.append(f"{tag}: health check {s} total {cells and cells[3]}, engine {f1(total['all'])}")
+        if not cells or cells[2] != f1(total["waiver"]):
+            errors.append(f"{tag}: health check {s} waiver-role remainder {cells and cells[2]}, engine {f1(total['waiver'])}")
 
     for s in ("cbs", "fantasycalc"):
         go(page, f"#numbers/build-up/{s}{q}")
@@ -189,6 +201,22 @@ def compare(page, combo) -> list[str]:
                 errors.append(f"{tag}: build-up {s} {w['k']} page {g['cells'][3:6]}, engine {want}")
             if g["cells"][7] != (f1(ddf["ddf"]) if ddf else "—"):
                 errors.append(f"{tag}: build-up {s} {w['k']} DDF {g['cells'][7]}, engine {ddf and f1(ddf['ddf'])}")
+        if got:
+            ew = page.evaluate(ENGINE_WORKED, {"s": s, "k": got[0]["k"]})
+            pw = page.evaluate(PAGE_WORKED)
+            # The printed operands reproduce the printed result (R1-CX-08): a x b + c x d ~ X -> f1.
+            m = re.match(r"([\d.]+) × ([\d.]+) \+ ([\d.]+) × ([\d.]+) ≈ ([\d.]+) → ([\d.]+)$", pw["eq"])
+            if not m:
+                errors.append(f"{tag}: build-up {s} worked equation {pw['eq']!r} not in a x b + c x d form")
+            else:
+                a, b, c, d, approx, shown = (float(x) for x in m.groups())
+                if abs(a * b + c * d - ew["adjusted"]) > 0.005 or shown != round(ew["adjusted"], 1) or abs(approx - ew["adjusted"]) > 0.0006:
+                    errors.append(f"{tag}: build-up {s} worked {pw['eq']!r}, engine adjusted {ew['adjusted']}")
+            # The factor's two totals sit beside it and divide to it (R1-CX-04).
+            if f"({ew['anchor']:.2f})" not in pw["explain"] or ffactor(ew["factor"]) not in pw["explain"]:
+                errors.append(f"{tag}: build-up {s} factor text lacks DDF total {ew['anchor']:.2f} or factor {ffactor(ew['factor'])}")
+            elif abs(float(f"{ew['anchor']:.2f}") / ew["chart"] - float(ffactor(ew["factor"]))) > 5e-6 * ew["factor"] + 1e-9:
+                errors.append(f"{tag}: build-up {s} shown totals do not divide to the shown factor")
     return errors
 
 
