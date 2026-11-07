@@ -52,14 +52,29 @@ ticket the always-red workflows. No code, workflow or config file changed.
 - Moved #1260 and #1084 back to draft, bringing ready-for-review PRs from 10 to
   the cap of 8.
 
+- 2026-11-07: the 20 merged branches were deleted by bridge Mac job
+  `gh-cleanup-branch-deletes-2026-11-07` (Jeremy: "A", run through a bridge
+  worker; PSpice's runtime blocks api.github.com). The job's script checked
+  each branch's head SHA before deleting it and reported 20 DONE, 0 skipped,
+  0 failed. Independently confirmed afterwards with `git ls-remote --heads
+  origin` from the cloud session: all 20 are gone.
+- 2026-11-07: closed #1260 as superseded (Jeremy: "3A"), with notes on the
+  PR and on JEG-1451. Branch `codex/JEG-1451-fast-gate` is kept.
+- The phantom run 37642358642 cannot be deleted either: `DELETE
+  actions/runs/37642358642` returns 403 "Could not delete the workflow run"
+  from GitHub. Only GitHub Support can clear it; it is harmless.
+
 ### Claimed, not confirmed
+- The 7 orphaned workflows (the 6 listed plus `fast-gate.yml` after #1260
+  closed) are still enabled. No agent route can reach the API to disable
+  them, and they cannot start without a file on main or on an open PR branch.
 - `make validate` could not finish locally: one `test-core` error,
   `ModuleNotFoundError: No module named 'playwright'` in
   `tests.test_week_history` (Python Playwright is not installed in this
   container). The PR's preview CI is the authoritative run.
-- The branch deletes and workflow disables are not done. This cloud session
-  can push only to its own branch, and the API write path returns 403 through
-  the proxy. A paste-ready PSpice print with SHA-pinned branch checks was
-  handed to Jeremy.
+- (2026-11-06; superseded by the 2026-11-07 Verified bullet above for the
+  branches.) This cloud session can push only to its own branch, and the API
+  write path returns 403 through the proxy, so the deletes and disables were
+  first handed to Jeremy as a PSpice print.
 - The health-artifacts push failures likely share a cause with JEG-1519 (bot
   rate limit) and should clear with the JEG-1523 cutover. Not reproduced.
