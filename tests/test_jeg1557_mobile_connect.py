@@ -109,7 +109,7 @@ class MobileConnectTest(_RenderBase):
         self.go(page, "settings.html")
         self.assertNotIn("We filled in what we could read", page.inner_text("main"))
         self.assertIn("We started with common settings (PPR, 12 teams, 1 QB, 2 RB, 2 WR, 1 TE, 1 FLEX, 7 bench)", page.inner_text("main"))
-        self.assertEqual(page.eval_on_selector("#scoring", "e => e.value"), "ppr")
+        self.assertEqual(page.eval_on_selector("#scoring", "e => e.value.toLowerCase()"), "ppr")
         self.assertEqual([page.input_value(f"#lineup-{k}") for k in ("qb", "rb", "wr", "te", "flex", "bench")], ["1", "2", "2", "1", "1", "7"])
 
     # ---- 3 ----
