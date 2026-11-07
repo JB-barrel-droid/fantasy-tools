@@ -409,9 +409,9 @@ class ValuesSwapRoutesTest(unittest.TestCase):
                 browser.close()
 
     def test_redesign_token_on_v2_route(self):
-        """dist/index.html?swapped=1#s=abc redirects to values.html keeping #s=abc.
-        The #s= token is not a v2 route; v2.js routes it to swappedTarget(DEFAULT_ROUTE)
-        and preserves the hash so site.js on values.html can read the redesign link."""
+        """dist/index.html?swapped=1#s=abc redirects to connect.html keeping #s=abc.
+        The #s= token is not a v2 route; since JEG-1538 v2.js sends it to connect.html, the link's entry page,
+        and preserves the hash so site.js there can read the redesign link (tests/test_entry_pages.py has more)."""
         sync_playwright, PlaywrightError = _pw()
         with serve() as base_url, sync_playwright() as pw:
             browser = self._browser(pw, PlaywrightError)
@@ -427,13 +427,13 @@ class ValuesSwapRoutesTest(unittest.TestCase):
                 page.goto(f'{base_url}/index.html?swapped=1#s=abc',
                           wait_until='networkidle', timeout=60000)
                 try:
-                    page.wait_for_function(OVERRIDES_READY, timeout=20000)
+                    page.wait_for_function("() => document.body.classList.contains('connect')", timeout=20000)
                 except PlaywrightError as exc:
-                    self.fail(f'values.html never became live after #s= redirect: {exc}')
+                    self.fail(f'connect.html never loaded after #s= redirect: {exc}')
 
                 final_url = page.url
-                self.assertIn('values.html', final_url,
-                              f'Did not land on values.html; got {final_url!r}')
+                self.assertIn('connect.html', final_url,
+                              f'Did not land on connect.html; got {final_url!r}')
                 self.assertIn('#s=abc', final_url,
                               f'Hash #s=abc not preserved; got {final_url!r}')
             finally:

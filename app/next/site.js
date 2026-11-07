@@ -690,11 +690,18 @@ document.querySelectorAll('[data-slideshow]').forEach(function(slideshow){
     clear: function(){ current = null; fromLink = false; DDF.state.remove('league'); DDF.state.remove('link'); },
     update: function(patch){ var s = DDF.link.current(); if(!s) return null; return accept(Object.assign(clone(s), patch)); },
     pageFor: pageFor,
-    go: function(state){ return DDF.link.encode(state, {page:pageFor(state.view)}).then(function(u){ location.assign(u); }); },
+    /* A view whose page is not live yet maps to a live hash route at the root build ('./#compare-trade'): a #s= token
+       cannot ride after that hash, so the league goes on in this tab's store instead (JEG-1538). */
+    go: function(state){
+      var page = pageFor(state.view);
+      if(page.indexOf('#') >= 0){ accept(state); location.assign(page); return Promise.resolve(); }
+      return DDF.link.encode(state, {page:page}).then(function(u){ location.assign(u); });
+    },
     applyRouting: function(){
       var s = current;
       if(!s || !fromLink || !isConnectPage()) return false;
-      location.replace(pageFor(s.view) + location.hash);
+      var page = pageFor(s.view);
+      location.replace(page.indexOf('#') >= 0 ? page : page + location.hash);
       return true;
     },
     registerTable: function(version, rows){

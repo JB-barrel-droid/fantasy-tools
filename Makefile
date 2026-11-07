@@ -730,6 +730,8 @@ test-core:
 	# JEG-1341: mutation proof for roster-paste.js (#1134, JEG-1272); ran in no target.
 	python3 -m unittest tests.test_roster_paste_mutation_proof
 	node tests/test_v2_league_paste.js
+	# JEG-1538: connect.html paste reader (live roster-paste.js parity + real Yahoo phone/markdown pastes).
+	node tests/test_entry_league_paste.js
 	node tests/test_v2_name_format.js
 	python3 -m unittest tests.test_v2_headlines
 	python3 -m unittest tests.test_v2_movers
@@ -771,6 +773,8 @@ test-core:
 	python3 -m unittest tests.test_launch_copy_guard
 	# JEG-1536: Learn > How we get our numbers equals the engine (3 scorings x 10/12 teams x superflex), Manifesto verbatim.
 	python3 -m unittest tests.test_learn_engine_parity
+	# JEG-1538: entry pages at the root (paste -> recognition, setup -> live league store, link codec vectors, routes).
+	python3 -m unittest tests.test_entry_pages
 	python3 -m unittest tests.test_week_history
 	python3 -m unittest tests.test_asset_load_retry
 	python3 -m unittest tests.test_espn_listed_rows
@@ -857,6 +861,8 @@ test-core-shard-2:
 	python3 -m unittest tests.test_v2_compare
 	python3 -m unittest tests.test_v2_finder_trifit
 	node tests/test_v2_league_paste.js
+	# JEG-1538: connect.html paste reader (live roster-paste.js parity + real Yahoo phone/markdown pastes).
+	node tests/test_entry_league_paste.js
 	python3 -m unittest tests.test_v2_trade_story
 	python3 -m unittest tests.test_v2_phone_customize_targets_render
 	python3 -m unittest tests.test_v2_phone_fallback_font_render
@@ -960,6 +966,8 @@ test-core-shard-5:
 	python3 -m unittest tests.test_launch_copy_guard
 	# JEG-1536: Learn > How we get our numbers equals the engine (3 scorings x 10/12 teams x superflex), Manifesto verbatim.
 	python3 -m unittest tests.test_learn_engine_parity
+	# JEG-1538: entry pages at the root (paste -> recognition, setup -> live league store, link codec vectors, routes).
+	python3 -m unittest tests.test_entry_pages
 	python3 -m unittest tests.test_missing_section_render
 	python3 -m unittest tests.test_lineup_content_week_advance
 	python3 -m unittest tests.test_search_players_universe

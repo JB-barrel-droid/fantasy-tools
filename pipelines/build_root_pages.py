@@ -32,14 +32,18 @@ sys.path.insert(0, str(ROOT / "pipelines"))
 from build_next_preview import DATA_VERSION, LOCAL_ASSET, data_version_script  # noqa: E402
 from build_v2_page import ENGINE_PAGE, ENGINE_SCRIPT_MARKER, FETCH_SHARE_SHIM  # noqa: E402
 
-ROOT_PAGES = ("values.html", "learn.html")
-ENGINE_PAGES = frozenset({"values.html", "learn.html"})
+# JEG-1538: the entry pages. connect.html reads pasted rosters against the engine's player rows (v2/roster-paste.js).
+ROOT_PAGES = ("values.html", "learn.html", "connect.html", "setup.html")
+ENGINE_PAGES = frozenset({"values.html", "learn.html", "connect.html"})
 # Files the root pages load from beside them (copied from app/next/). v2/*.js are already published by build_v2_page.
 ROOT_FILES = ("site.js", "styles.css", "players-table-1.json", "ddf-engine.js",
               "values-chart.js", "values-buysell.js", "values-overrides.js",
               # Learn (JEG-1536): the posts, the markdown renderer and the numbers tabs.
               "learn/render.js", "learn/posts.json", "learn/posts",
-              "learn/numbers/learn-engine.js", "learn/numbers/numbers.js")
+              "learn/numbers/learn-engine.js", "learn/numbers/numbers.js",
+              # Entry pages (JEG-1538): paste reader, page scripts, sticky Next bar, how-to slides, league ID screenshots.
+              "rosterparse.js", "league-paste.js", "connect-entry.js", "setup-entry.js", "actionbar.js", "actionbar.css",
+              "assets/howto", "img/league-id")
 ENGINE_MARKER = "<!-- ddf-engine -->"
 ICON_BLANK = '<link rel="icon" href="data:,">'
 ICON_SITE = '<link rel="icon" href="icon.jpg">'

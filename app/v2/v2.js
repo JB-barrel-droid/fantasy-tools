@@ -7114,6 +7114,7 @@
     "#values-auditing/single-source": "learn.html#numbers/build-up",   // JEG-1536
     "#values-auditing/*": "learn.html#numbers/pie",   // JEG-1536
   };
+  const LINK_ENTRY_PAGE = "connect.html";   // JEG-1538
   function swappedTarget(base) {
     if (Object.prototype.hasOwnProperty.call(SWAPPED_ROUTES, base)) return SWAPPED_ROUTES[base];
     const prefix = Object.keys(SWAPPED_ROUTES).filter(key => key.endsWith("/*") && (base === key.slice(0, -2) || base.startsWith(key.slice(0, -1))))
@@ -7138,9 +7139,10 @@
     const legacy = base === "#find-trade" && /^workspace=/.test(query[0] || "") ? "#find-league" : canonicalBase(base);
     const unknown = base !== "" && viewFor(legacy) === null;
     const next = unknown ? DEFAULT_ROUTE : legacy;
-    // A redesign chat-link token (#s=...) has no v2 route: it goes to the Values page whole, where site.js reads it.
-    if (unknown && base.startsWith("#s=") && swappedTarget(DEFAULT_ROUTE) && !stayForAutomation()) {
-      try { location.replace(new URL(swappedTarget(DEFAULT_ROUTE).split("#")[0], document.baseURI).href + location.hash); return; } catch (error) { /* falls through */ }
+    // A redesign chat-link token (#s=...) has no v2 route: it goes whole to connect.html (JEG-1538), the link's entry page,
+    // where site.js reads it and opens the page the link names.
+    if (unknown && base.startsWith("#s=") && !stayForAutomation()) {
+      try { location.replace(new URL(LINK_ENTRY_PAGE, document.baseURI).href + location.hash); return; } catch (error) { /* falls through */ }
     }
     if (leaveForSwappedPage(next, unknown ? [] : query)) return;
     if (next === base) return;
