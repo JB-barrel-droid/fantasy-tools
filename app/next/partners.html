@@ -102,13 +102,25 @@ body .sitemap .footer{padding:20px}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}}
 </style><script src="site.js" defer></script><link rel="icon" href="data:,"><style id="gating-pass">.partners a.button.primary[aria-disabled="true"],.partners a.button.primary[aria-disabled="true"]:hover,.partners a.button.primary[aria-disabled="true"]:active{background:#e3e7e4;color:#59666f;border-color:#e3e7e4;box-shadow:none;transform:none;filter:none;cursor:not-allowed}.partners .gate-reason{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}</style></head>
 <body class="partners">
-<header><div class="header-inner"><div class="brand">DDF<small>DATA DRIVEN FOOTBALL</small></div><nav aria-label="Main navigation"><a href="index.html">Home</a><a href="build.html">Build a Trade</a><a href="find.html">Trade &amp; Waiver Recommendations</a><a href="values.html">Values</a><div class="morewrap"><button type="button" aria-expanded="false" aria-controls="partners-more">More ▾</button><div class="menu" id="partners-more"><a href="build.html">Build a Trade</a><a href="find.html">Trade &amp; Waiver Recommendations</a><a href="waivers.html">Waivers</a><a href="team.html">Team assessment</a><a href="explore.html">Pick players</a><a href="partners.html" aria-current="page">Pick trading partners</a><a href="values.html">Values</a><a href="values.html#buy-sell">Buy / Sell</a><a href="values.html#overrides">Overrides</a><a href="learn.html">Learn</a><a href="learn.html#numbers/pie">How we get our numbers</a><a href="ai.html">Use DDF with AI</a><a href="connect.html">Paste my league</a><a href="setup.html">Your team</a><a href="settings.html">League settings</a></div></div></nav></div></header><div class="ctx-strip"><span>My league · Manually entered · Half PPR · 12 teams</span><a href="settings.html">Edit league</a></div><nav class="ws-steps" aria-label="Workspace progress"><a href="team.html">✓ Team assessment</a><a href="explore.html">✓ Pick players</a><strong class="selected" aria-current="step">Pick trading partners</strong><span>Trade &amp; Waiver Recommendations</span><span>Build a Trade</span></nav>
-<main><h1>Your trading partners</h1><p class="lede muted">We will look for trades with all 11 teams in your league. Turn off any team you would rather not deal with.</p><span id="summary" role="status" class="sr-only">11 teams + waivers</span><section class="pt-list" aria-label="Partner selection"><div class="toolbar"><div class="wv-check" id="waivers-partner"><label><input type="checkbox" id="waivers-switch" checked> Also look for waiver pickups</label><a href="waivers.html">Review available players</a><small>Available players, not a trade partner</small></div><div class="bulk"><button type="button" class="linkbtn" id="include-all">Include all</button> &middot; <button type="button" class="linkbtn" id="skip-all">Skip all</button></div></div><div class="pt-head"><span>TEAM</span><span class="num" id="h-ddf">STARTER DDF</span><span class="num" id="h-mkt">STARTER ANALYST</span><span>TRADE STRATEGY</span><span></span></div><div id="team-list" role="list"></div></section><p class="note muted">Skipped teams stay out of your search.</p><section class="partners-ready"><div class="row"><a class="button" href="explore.html">Back</a><a class="button primary" id="continue" href="find.html" data-sticky-next data-back-href="explore.html" data-back-label="Back" data-next-label="See Trade &amp; Waiver Recommendations" data-disabled-reason="Include at least one team or waivers to continue.">See Trade &amp; Waiver Recommendations</a><span id="gate-reason" class="gate-reason" role="status"></span></div></section></main>
+<header><div class="header-inner"><div class="brand">DDF<small>DATA DRIVEN FOOTBALL</small></div><nav aria-label="Main navigation"><a href="index.html">Home</a><a href="build.html">Build a Trade</a><a href="find.html">Trade &amp; Waiver Recommendations</a><a href="values.html">Values</a><div class="morewrap"><button type="button" aria-expanded="false" aria-controls="partners-more">More ▾</button><div class="menu" id="partners-more"><a href="build.html">Build a Trade</a><a href="find.html">Trade &amp; Waiver Recommendations</a><a href="waivers.html">Waivers</a><a href="team.html">Team assessment</a><a href="explore.html">Pick players</a><a href="partners.html" aria-current="page">Pick trading partners</a><a href="values.html">Values</a><a href="values.html#buy-sell">Buy / Sell</a><a href="values.html#overrides">Overrides</a><a href="learn.html">Learn</a><a href="learn.html#numbers/pie">How we get our numbers</a><a href="ai.html">Use DDF with AI</a><a href="connect.html">Paste my league</a><a href="setup.html">Your team</a><a href="settings.html">League settings</a></div></div></nav></div></header><div class="ctx-strip"><span></span><a href="settings.html">Edit league</a></div><nav class="ws-steps" aria-label="Workspace progress"><a href="team.html">✓ Team assessment</a><a href="explore.html">✓ Pick players</a><strong class="selected" aria-current="step">Pick trading partners</strong><span>Trade &amp; Waiver Recommendations</span><span>Build a Trade</span></nav>
+<main><h1>Your trading partners</h1><p class="lede muted" id="lede"></p><p class="muted" id="no-league" role="status" hidden></p><span id="summary" role="status" class="sr-only"></span><section class="pt-list" aria-label="Partner selection"><div class="toolbar"><div class="wv-check" id="waivers-partner"><label><input type="checkbox" id="waivers-switch" checked> Also look for waiver pickups</label><a href="waivers.html">Review available players</a><small>Available players, not a trade partner</small></div><div class="bulk"><button type="button" class="linkbtn" id="include-all">Include all</button> &middot; <button type="button" class="linkbtn" id="skip-all">Skip all</button></div></div><div class="pt-head"><span>TEAM</span><span class="num" id="h-ddf">STARTER DDF</span><span class="num" id="h-mkt">STARTER ANALYST</span><span>TRADE STRATEGY</span><span></span></div><div id="team-list" role="list"></div></section><p class="note muted">Skipped teams stay out of your search.</p><section class="partners-ready"><div class="row"><a class="button" href="explore.html">Back</a><a class="button primary" id="continue" href="find.html" data-sticky-next data-back-href="explore.html" data-back-label="Back" data-next-label="See Trade &amp; Waiver Recommendations" data-disabled-reason="Include at least one team or waivers to continue.">See Trade &amp; Waiver Recommendations</a><span id="gate-reason" class="gate-reason" role="status"></span></div></section></main>
 <footer class="sitemap"><div class="in"><div><h2>TRADE</h2><a href="index.html">Home</a><a href="build.html">Build a Trade</a><a href="find.html">Trade &amp; Waiver Recommendations</a><a href="waivers.html">Waivers</a></div><div><h2>VALUES</h2><a href="values.html">Values</a><a href="values.html#buy-sell">Buy / Sell</a><a href="values.html#overrides">Overrides</a></div><div><h2>YOUR LEAGUE</h2><a href="connect.html">Paste my league</a><a href="setup.html">Your team</a><a href="settings.html">League settings</a><a href="team.html">Team assessment</a><a href="explore.html">Pick players</a><a href="partners.html">Pick trading partners</a></div><div><h2>LEARN</h2><a href="learn.html">Learn</a><a href="learn.html#numbers/pie">How we get our numbers</a><a href="ai.html">Use DDF with AI</a></div></div><div class="footer">Data Driven Football</div></footer>
-<script>
+<!-- ddf-engine -->
+<script src="v2/finder.js" defer></script>
+<script src="v2/team-summary.js" defer></script>
+<script src="ddf-engine.js" defer></script>
+<script src="ddf-league.js" defer></script>
+<script type="module">
+/* Trading partners on the live engine (JEG-1539). Each team's starter DDF / Analyst charts / Live market values are
+   TradeValueFinder lineups on engine rows (DDF.league.partnerTags). Tags: DDF edge when DDF Value rates the starters 15% or
+   more above the analyst charts (DECISIONS 2026-11-06); Analyst premium / Live market premium when that source rates them
+   above DDF Value. The strategy line comes from the position tiers (their strengths vs your needs). Skipped teams are
+   saved by name (DDF.league.setSkipped, sessionStorage ddf:skip); waivers share ddf:waivers and are never a partner. */
 (()=>{
-const teams=[['Team 02','265.02','215.42'],['Team 03','253.74','207.91'],['Team 04','239.56','200.24'],['Team 05','260.83','211.27'],['Team 06','200.19','175.51'],['Team 07','201.27','177.48'],['Team 08','128.20','133.83'],['Team 09','179.41','169.14'],['Team 10','192.83','174.48'],['Team 11','137.14','146.08'],['Team 12','147.70','145.43']].sort((a,b)=>b[1]-a[1]);
-const included=teams.map(()=>true);const $=id=>document.getElementById(id);
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fx=v=>(typeof v==='number'&&isFinite(v))?v.toFixed(1):'—';
+let teams=[],included=[];
 function ddfGate(btns,ok,reason,rid){
   var r=document.getElementById(rid);if(r)r.textContent=ok?'':reason;
   btns.forEach(function(b){
@@ -120,38 +132,64 @@ function ddfGate(btns,ok,reason,rid){
   if(window.DDF&&DDF.actionBar)DDF.actionBar.setDisabled(!ok,ok?null:reason);
 }
 document.addEventListener('click',function(e){var b=e.target.closest&&e.target.closest('a[aria-disabled="true"][data-href]');if(b){e.preventDefault();e.stopImmediatePropagation()}},true);
-const max=Math.max(...teams.map(t=>Math.max(+t[1],+t[2])));
-const pct=t=>Math.round((t[1]/t[2]-1)*100);
+const pct=(a,b)=>Math.round((a/b-1)*100);
 const INFO={
- edge:t=>'<b>DDF edge:</b> DDF Value rates this team\'s starters 15% or more above the analyst charts (the average of CBS Sports, USA Today and FantasyPros). Buying below DDF Value is where an edge comes from.<small class="eg">Example: '+t[0]+' starters are '+t[1]+' on DDF and '+t[2]+' on the analyst charts, '+pct(t)+'% higher.</small>',
- mp:t=>'<b>Analyst premium:</b> the analyst charts (the average of CBS Sports, USA Today and FantasyPros) rate this team\'s starters above DDF Value.<small class="eg">Example: '+t[0]+' starters are '+t[1]+' on DDF and '+t[2]+' on the analyst charts.</small>'
+ edge:t=>'<b>DDF edge:</b> DDF Value rates this team\'s starters 15% or more above the analyst charts (the average of CBS Sports, USA Today and FantasyPros). Buying below DDF Value is where an edge comes from.<small class="eg">Example: '+esc(t.name)+' starters are '+fx(t.ddf)+' on DDF and '+fx(t.analyst)+' on the analyst charts, '+pct(t.ddf,t.analyst)+'% higher.</small>',
+ analyst:t=>'<b>Analyst premium:</b> the analyst charts (the average of CBS Sports, USA Today and FantasyPros) rate this team\'s starters above DDF Value.<small class="eg">Example: '+esc(t.name)+' starters are '+fx(t.ddf)+' on DDF and '+fx(t.analyst)+' on the analyst charts.</small>',
+ live:t=>'<b>Live market premium:</b> the live market (FantasyCalc) rates this team\'s starters above DDF Value.<small class="eg">Example: '+esc(t.name)+' starters are '+fx(t.ddf)+' on DDF and '+fx(t.live)+' on the live market.</small>'
 };
-function info(kind,t,label){return '<details class="info"><summary aria-label="About '+label+'">\u24d8</summary><span>'+INFO[kind](t)+'</span></details>'}
-function tag(t){const r=t[1]/t[2];return r<1?'<span class="tag mp">Analyst premium</span>':r>=1.15?'<span class="tag de">DDF edge</span>':''}
-// SAMPLE copy: the shared dataset has team totals only (no per-team positions), so lines come from
-// (1) find.html's offers for that team, else (2) the DDF-vs-analyst-charts gap, plus my team's needs on team.html (RB weakest, bench WR depth, Diggs/White analyst premium).
-const FIND={'Team 03':'Stevenson for J. Love, or Diggs for D. Metcalf','Team 08':'Your Diggs for their Rashee Rice (WR upgrade)','Team 07':'Bench QB Bo Nix for Omarion Hampton (RB)'};
-function strategy(t){if(FIND[t[0]])return FIND[t[0]];const r=t[1]/t[2];if(r>=1.15)return 'Buy RB/WR upgrades priced under DDF Value';if(r<1)return 'Offer White or Diggs while analyst charts rate them high';if(+t[1]>=230)return 'Compare RB2 upgrades; protect your QB and TE';return 'Offer bench WR depth for an RB2 upgrade'}
-[['h-ddf','edge','DDF edge',t=>t[1]/t[2]>=1.15],['h-mkt','mp','Analyst premium',t=>t[1]/t[2]<1]].forEach(([id,k,label,pick])=>{const ex=teams.find(pick);if(ex)$(id).insertAdjacentHTML('beforeend',info(k,ex,label))});
-$('team-list').innerHTML=teams.map((t,i)=>'<div class="pt-row" role="listitem" data-i="'+i+'"><div class="who"><span class="tn">'+t[0]+'</span>'+tag(t)+'</div><div class="stat d"><span class="lbl">DDF</span><span class="val">'+t[1]+'</span><span class="bar" aria-hidden="true"><i style="width:'+(t[1]/max*100).toFixed(1)+'%"></i></span></div><div class="stat m"><span class="lbl">Analyst</span><span class="val">'+t[2]+'</span><span class="bar" aria-hidden="true"><i style="width:'+(t[2]/max*100).toFixed(1)+'%"></i></span></div><div class="strat" title="'+strategy(t)+'">'+strategy(t)+'</div><div class="act"><button type="button" class="sw" role="switch" aria-checked="true" data-team="'+i+'" aria-label="Include '+t[0]+' in the search"><span class="swt">Include</span><span class="trk" aria-hidden="true"></span></button></div></div>').join('');
-function paint(){
+const TAG={edge:['de','DDF edge'],analyst:['mp','Analyst premium'],live:['mp','Live market premium']};
+function info(kind,t,label){return '<details class="info"><summary aria-label="About '+label+'">ⓘ</summary><span>'+INFO[kind](t)+'</span></details>'}
+function tagHtml(t){return t.tags.map(k=>'<span class="tag '+TAG[k][0]+'">'+TAG[k][1]+'</span>').join('')}
+const posOf=(tiers,tier)=>tiers?Object.keys(tiers.positions).filter(p=>['QB','RB','WR','TE'].includes(p)&&tiers.positions[p].tier===tier):[];
+function strategy(t,mine){
+  const need=posOf(mine,'weak'),mineStrong=posOf(mine,'strong'),theirStrong=posOf(t.tiers,'strong'),theirWeak=posOf(t.tiers,'weak');
+  const get=need.filter(p=>theirStrong.includes(p))[0],give=mineStrong.filter(p=>theirWeak.includes(p))[0];
+  if(get&&give)return 'Your '+give+' for their '+get;
+  if(get)return 'Ask for a '+get+': their strength, your need';
+  if(give)return 'Offer a '+give+': their need, your strength';
+  if(t.tags.includes('edge'))return 'Buy starters priced under DDF Value';
+  if(t.tags.includes('analyst')||t.tags.includes('live'))return 'Sell to them while charts rate players high';
+  return 'Compare complete returns';
+}
+function paint(save){
  document.querySelectorAll('.pt-row').forEach(r=>{const on=included[+r.dataset.i];r.classList.toggle('skipped',!on);const b=r.querySelector('.sw');b.setAttribute('aria-checked',String(on));b.querySelector('.swt').textContent=on?'Include':'Skip'});
  const n=included.filter(Boolean).length,w=$('waivers-switch').checked;
+ if(save){DDF.league.setSkipped(teams.filter((t,i)=>!included[i]).map(t=>t.name));DDF.league.setWaiversOn(w);}
  $('summary').textContent=(n===0&&!w)?'Nothing included yet':n+(n===1?' team':' teams')+(w?' + waivers':'');
- ddfGate([$('continue')],!(n===0&&!w),'Include at least one team or waivers to continue','gate-reason');
+ ddfGate([$('continue')],!(n===0&&!w),teams.length?'Include at least one team or waivers to continue':'Add your league first','gate-reason');
  const parts=[];if(n)parts.push(n+(n===1?' team':' teams'));if(w)parts.push('waivers');
  if(window.DDF&&DDF.actionBar)DDF.actionBar.setSummary(parts.length?parts.join(' + ')+' included, next: Trade & Waiver Recommendations':'Nothing included yet');
 }
-$('team-list').addEventListener('click',e=>{const b=e.target.closest('.sw');if(!b)return;const i=+b.dataset.team;included[i]=!included[i];paint()});
-$('include-all').onclick=()=>{included.fill(true);paint()};$('skip-all').onclick=()=>{included.fill(false);paint()};
-$('waivers-switch').onchange=paint;
-paint();
+function render(c){
+ const tiers=c?DDF.league.positionTiers():null;
+ const me=c&&c.me!==null?tiers.teams.find(t=>t.index===c.me):null;
+ teams=DDF.league.opponents().map(team=>{const p=DDF.league.partnerTags(team);return {index:team.index,name:team.name,ddf:p.ddf,analyst:p.analyst,live:p.live,tags:p.tags,tiers:tiers.teams.find(x=>x.index===team.index)}})
+   .sort((a,b)=>b.ddf-a.ddf||a.index-b.index);
+ const skipped=new Set(DDF.league.skipped());
+ included=teams.map(t=>!skipped.has(t.name));
+ $('no-league').hidden=!!teams.length;
+ $('no-league').innerHTML=c?'No other team in this league has players yet. <a href="connect.html">Add your league</a> with every team\'s roster.':'Add your league to see your trading partners. <a href="connect.html">Add your league</a>';
+ $('lede').textContent=teams.length?'We will look for trades with all '+teams.length+' other teams in your league. Turn off any team you would rather not deal with.':'';
+ document.querySelector('.pt-head').hidden=!teams.length;
+ ['h-ddf','h-mkt'].forEach(id=>{const h=$(id);const d=h.querySelector('details');if(d)d.remove()});
+ [['h-ddf','edge','DDF edge'],['h-mkt','analyst','Analyst premium']].forEach(([id,k,label])=>{const ex=teams.find(t=>t.tags.includes(k));if(ex)$(id).insertAdjacentHTML('beforeend',info(k,ex,label))});
+ const ex=teams.find(t=>t.tags.includes('live'));
+ const max=Math.max(1,...teams.map(t=>Math.max(t.ddf,t.analyst)));
+ $('team-list').innerHTML=teams.map((t,i)=>{const s=me?strategy(t,me):'Compare complete returns';return '<div class="pt-row" role="listitem" data-i="'+i+'"><div class="who"><span class="tn">'+esc(t.name)+'</span>'+tagHtml(t)+(t.tags.includes('live')&&t===ex?info('live',t,'Live market premium'):'')+'</div><div class="stat d"><span class="lbl">DDF</span><span class="val">'+fx(t.ddf)+'</span><span class="bar" aria-hidden="true"><i style="width:'+(t.ddf/max*100).toFixed(1)+'%"></i></span></div><div class="stat m"><span class="lbl">Analyst</span><span class="val">'+fx(t.analyst)+'</span><span class="bar" aria-hidden="true"><i style="width:'+(t.analyst/max*100).toFixed(1)+'%"></i></span></div><div class="strat" title="'+esc(s)+'">'+esc(s)+'</div><div class="act"><button type="button" class="sw" role="switch" aria-checked="true" data-team="'+i+'" aria-label="Include '+esc(t.name)+' in the search"><span class="swt">Include</span><span class="trk" aria-hidden="true"></span></button></div></div>'}).join('');
+ paint(false);
+}
+$('waivers-switch').checked=DDF.league.waiversOn();
+$('team-list').addEventListener('click',e=>{const b=e.target.closest('.sw');if(!b)return;const i=+b.dataset.team;included[i]=!included[i];paint(true)});
+$('include-all').onclick=()=>{included.fill(true);paint(true)};$('skip-all').onclick=()=>{included.fill(false);paint(true)};
+$('waivers-switch').onchange=()=>paint(true);
 document.addEventListener('keydown',e=>{if(e.key==='Escape')document.querySelectorAll('details.info[open]').forEach(d=>{d.open=false;d.querySelector('summary').focus()})});
 document.addEventListener('click',e=>{document.querySelectorAll('details.info[open]').forEach(d=>{if(!d.contains(e.target))d.open=false})});
 document.addEventListener('toggle',e=>{if(e.target.matches&&e.target.matches('details.info[open]'))document.querySelectorAll('details.info[open]').forEach(d=>{if(d!==e.target)d.open=false})},true);
 const wrap=document.querySelector('.morewrap'),menuButton=wrap.querySelector('button');
 new MutationObserver(()=>menuButton.setAttribute('aria-expanded',String(wrap.classList.contains('open')))).observe(wrap,{attributes:true,attributeFilter:['class']});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&wrap.classList.contains('open')){wrap.classList.remove('open');menuButton.focus()}});
+DDF.league.ready.then(c=>{render(c);DDF.league.on(render)},e=>{console.error(e);render(null)});
 })();
 </script>
-<script>document.addEventListener("DOMContentLoaded",function(){var c=document.getElementById("waivers-switch");if(!c)return;try{if(sessionStorage.getItem("ddf:waivers")==="0"){c.checked=false;c.dispatchEvent(new Event("change"))}}catch(e){}c.addEventListener("change",function(){try{sessionStorage.setItem("ddf:waivers",c.checked?"1":"0")}catch(e){}})});</script></body></html>
+</body></html>

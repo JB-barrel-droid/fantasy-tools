@@ -160,278 +160,209 @@ body.league-pending .team-page{visibility:hidden}
 .team-page .pos-table .players.full{font-size:14px;line-height:1.5;white-space:normal}
 .team-page .pos-table tbody th[scope=row]{white-space:normal}
 @media(max-width:760px){.team-page .stat-value.np-value{font-size:19px}}
-</style><link rel="stylesheet" href="actionbar.css"><script src="actionbar.js"></script></head><body class="team-shell"><header><div class="header-inner"><div class="brand">DDF<small>DATA DRIVEN FOOTBALL</small></div><nav aria-label="Main navigation"><a href="index.html">Home</a><a href="build.html">Build a Trade</a><a href="find.html">Trade &amp; Waiver Recommendations</a><a href="values.html">Values</a><div class="morewrap"><button type="button" aria-expanded="false" aria-controls="team-more">More ▾</button><div class="menu" id="team-more"><a href="build.html">Build a Trade</a><a href="find.html">Trade &amp; Waiver Recommendations</a><a href="waivers.html">Waivers</a><a href="team.html">Team assessment</a><a href="explore.html">Pick players</a><a href="partners.html">Pick trading partners</a><a href="values.html">Values</a><a href="values.html#buy-sell">Buy / Sell</a><a href="values.html#overrides">Overrides</a><a href="learn.html">Learn</a><a href="learn.html#numbers/pie">How we get our numbers</a><a href="ai.html">Use DDF with AI</a><a href="connect.html">Paste my league</a><a href="setup.html">Your team</a><a href="settings.html">League settings</a></div></div></nav></div></header><div class="ctx-strip"><span>My league · Manually entered · Half PPR · 12 teams</span><a href="settings.html">Edit league</a></div><main class="team-page">
+</style><link rel="stylesheet" href="actionbar.css"><script src="actionbar.js"></script></head><body class="team-shell"><header><div class="header-inner"><div class="brand">DDF<small>DATA DRIVEN FOOTBALL</small></div><nav aria-label="Main navigation"><a href="index.html">Home</a><a href="build.html">Build a Trade</a><a href="find.html">Trade &amp; Waiver Recommendations</a><a href="values.html">Values</a><div class="morewrap"><button type="button" aria-expanded="false" aria-controls="team-more">More ▾</button><div class="menu" id="team-more"><a href="build.html">Build a Trade</a><a href="find.html">Trade &amp; Waiver Recommendations</a><a href="waivers.html">Waivers</a><a href="team.html">Team assessment</a><a href="explore.html">Pick players</a><a href="partners.html">Pick trading partners</a><a href="values.html">Values</a><a href="values.html#buy-sell">Buy / Sell</a><a href="values.html#overrides">Overrides</a><a href="learn.html">Learn</a><a href="learn.html#numbers/pie">How we get our numbers</a><a href="ai.html">Use DDF with AI</a><a href="connect.html">Paste my league</a><a href="setup.html">Your team</a><a href="settings.html">League settings</a></div></div></nav></div></header><div class="ctx-strip"><span></span><a href="settings.html">Edit league</a></div><main class="team-page">
+<section class="card empty-league" id="no-league" hidden aria-labelledby="no-league-title">
+<h1 id="no-league-title">Add your league to see your team</h1>
+<p>Paste your league's rosters and we will show your starters, your roster by position and how every team in the league compares, all at your league's settings.</p>
+<p><a class="button primary" href="connect.html">Add your league</a></p>
+</section>
 <section class="part" id="your-team" aria-labelledby="team-title">
 <h1 id="team-title">Your team at a glance</h1>
-<p class="muted">Your starting lineup and roster, position by position, with where you are strong and where you are thin. Best eligible lineup for each valuation.</p>
-<div class="next-step next-top"><span class="next-label">Next: pick players. Your team looks strong at QB and TE, thin at RB.</span><a class="button primary" href="explore.html">Next: pick players</a></div>
-<div class="team-stats"><div class="card ddf-lift"><div class="stat-top"><h2>Your starters</h2><span class="rank-pill">#1 of 12</span></div><p class="stat-value" data-countup="324">324</p><p class="stat-sub">DDF value · 8 offense starters</p></div><div class="card ddf-lift"><div class="stat-top"><h2>Your roster</h2><span class="rank-pill">#1 of 12</span></div><p class="stat-value" data-countup="328">328</p><p class="stat-sub">DDF value · 15 players</p></div></div>
-<p class="team-context">Your team ranks <strong>1st</strong> in roster value and <strong>1st</strong> in starter value on DDF, and 1st on the analyst charts too. The bars below show where that value sits by position.</p>
+<p class="muted" id="team-intro">Your starting lineup and roster, position by position, with where you are strong and where you are thin. Best eligible lineup on DDF Value at your league's settings.</p>
+<div class="next-step next-top"><span class="next-label" id="next-top-label">Next: pick players.</span><a class="button primary" href="explore.html">Next: pick players</a></div>
+<div class="team-stats"><div class="card ddf-lift"><div class="stat-top"><h2>Your starters</h2><span class="rank-pill" id="rank-starter"></span></div><p class="stat-value" id="val-starter">—</p><p class="stat-sub" id="sub-starter"></p></div><div class="card ddf-lift"><div class="stat-top"><h2>Your roster</h2><span class="rank-pill" id="rank-roster"></span></div><p class="stat-value" id="val-roster">—</p><p class="stat-sub" id="sub-roster"></p></div></div>
+<p class="team-context" id="team-context"></p>
 
 <section class="pos-table" id="positions" aria-labelledby="pos-title">
-<h2 id="pos-title">Your roster by position <details class="info"><summary aria-label="About position strength">ⓘ</summary><span>Strength compares each starter slot with the league median for that slot. A star counts for at most 125% of the median, so one great player cannot hide a thin slot. Strong is 110% or more of the league median, Average is 90% to 109%, Weak is under 90%. The dark line on each bar marks the league median.</span></details></h2>
+<h2 id="pos-title">Your roster by position <details class="info"><summary aria-label="About position strength">ⓘ</summary><span>Strength compares each starter slot with the league median for that slot, taken from every team's best lineup on DDF Value. A star counts for at most 125% of the median, so one great player cannot hide a thin slot. Strong is 110% or more of the league median, Average is 90% to 109%, Weak is under 90%. The dark line on each bar marks the league median.</span></details></h2>
 <ul class="tier-legend" aria-label="Strength key"><li><span class="sw strong" aria-hidden="true"></span>Strong</li><li><span class="sw average" aria-hidden="true"></span>Average</li><li><span class="sw weak" aria-hidden="true"></span>Weak</li><li>Dark line on a bar: league median</li></ul>
 <div class="table-wrap"><table id="pos-grid"><caption class="sr-only" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Your starters by position with DDF value and strength against the league median</caption><thead><tr><th scope="col">POSITION</th><th scope="col" class="num">STARTER DDF</th><th scope="col">STRENGTH VS LEAGUE</th></tr></thead><tbody></tbody></table></div>
+<p class="np-note" id="pos-note" hidden></p>
 </section>
 
 <section class="card takeaways" id="team-assets" aria-labelledby="take-title">
 <h2 id="take-title">Strengths, needs and what to do next</h2>
-<div class="asset-areas">
-<div><h3>Strengths</h3><p>Josh Allen and Trey McBride rate above the league median at QB and TE, and Jahmyr Gibbs and Jaxon Smith-Njigba anchor RB and WR. Protect these: seek a return that preserves your lineup.</p></div>
-<div><h3>Needs</h3><p>RB is your weakest area. Gibbs is elite, but Rhamondre Stevenson (RB2) and Rachaad White (RB3) sit below the league median for their slots. WR is average, with Stefon Diggs as the gap.</p></div>
-<div><h3>Analyst premium</h3><p>Rachaad White and Stefon Diggs rate higher on the analyst charts than on DDF value. Compare returns.</p></div>
-<div><h3>Bench depth</h3><p>Antonio Williams and Malachi Fields may offer useful depth to another team. Evaluate the full exchange.</p></div>
-<p>These are areas to explore, not instructions to trade. All players start included on the next screen.</p>
-</div>
+<div class="asset-areas" id="take-areas"></div>
 </section>
 </section>
 
 <section class="part" id="league" aria-labelledby="league-title">
 <h2 id="league-title" class="part-title">Your league</h2>
 <h3>League details</h3>
-<dl class="league-facts"><div><dt>Format</dt><dd>Half PPR · 12 teams</dd></div><div><dt>Lineup</dt><dd>1 QB · 2 RB · 2 WR · 1 TE · 1 FLEX · 7 bench</dd></div><div><dt>Source</dt><dd>Manually entered · <a href="settings.html">Change settings</a></dd></div></dl>
-<section class="team-table" aria-labelledby="cmp-title"><h3 id="cmp-title">How the league compares</h3><p>Select any team to see its overview. Bars show each team against the league: Strong is the top third, Average the middle third, Weak the bottom third.</p>
-<ul class="tier-legend" aria-label="Strength key"><li><span class="sw strong" aria-hidden="true"></span>Strong (ranks 1-4)</li><li><span class="sw average" aria-hidden="true"></span>Average (5-8)</li><li><span class="sw weak" aria-hidden="true"></span>Weak (9-12)</li></ul>
-<div class="table-wrap"><table><caption class="sr-only" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Every team in the league with starter and roster value on DDF and on the analyst charts; select a row to see that team</caption><thead><tr><th scope="col" aria-sort="none"><button data-sort="0" aria-label="Sort by TEAM">TEAM ↕</button> <details class="info"><summary aria-label="About TEAM">ⓘ</summary><span>Team name; My team is your selected team.</span></details></th><th scope="col" aria-sort="none"><button data-sort="1" aria-label="Sort by STARTER DDF">STARTER DDF ↕</button> <details class="info"><summary aria-label="About STARTER DDF">ⓘ</summary><span>Best eligible starting lineup on DDF value.</span></details></th><th scope="col" aria-sort="none"><button data-sort="2" aria-label="Sort by STARTER ANALYST">STARTER ANALYST ↕</button> <details class="info"><summary aria-label="About STARTER ANALYST">ⓘ</summary><span>Best eligible starting lineup on the analyst charts: the average of the CBS Sports, USA Today and FantasyPros values.</span></details></th><th scope="col" aria-sort="none"><button data-sort="3" aria-label="Sort by ROSTER DDF">ROSTER DDF ↕</button> <details class="info"><summary aria-label="About ROSTER DDF">ⓘ</summary><span>Full roster on DDF value.</span></details></th><th scope="col" aria-sort="none"><button data-sort="4" aria-label="Sort by ROSTER ANALYST">ROSTER ANALYST ↕</button> <details class="info"><summary aria-label="About ROSTER ANALYST">ⓘ</summary><span>Full roster on the analyst charts: the average of the CBS Sports, USA Today and FantasyPros values.</span></details></th></tr></thead><tbody>
-<tr class="selected" tabindex="0"><td>My team</td><td class="number">324</td><td class="number">244</td><td class="number">328</td><td class="number">265</td></tr>
-<tr tabindex="0"><td>Team 02</td><td class="number">265</td><td class="number">215</td><td class="number">266</td><td class="number">228</td></tr>
-<tr tabindex="0"><td>Team 03</td><td class="number">254</td><td class="number">208</td><td class="number">257</td><td class="number">227</td></tr>
-<tr tabindex="0"><td>Team 04</td><td class="number">240</td><td class="number">200</td><td class="number">243</td><td class="number">220</td></tr>
-<tr tabindex="0"><td>Team 05</td><td class="number">261</td><td class="number">211</td><td class="number">266</td><td class="number">237</td></tr>
-<tr tabindex="0"><td>Team 06</td><td class="number">200</td><td class="number">176</td><td class="number">201</td><td class="number">186</td></tr>
-<tr tabindex="0"><td>Team 07</td><td class="number">201</td><td class="number">177</td><td class="number">212</td><td class="number">211</td></tr>
-<tr tabindex="0"><td>Team 08</td><td class="number">128</td><td class="number">134</td><td class="number">130</td><td class="number">149</td></tr>
-<tr tabindex="0"><td>Team 09</td><td class="number">179</td><td class="number">169</td><td class="number">190</td><td class="number">199</td></tr>
-<tr tabindex="0"><td>Team 10</td><td class="number">193</td><td class="number">174</td><td class="number">203</td><td class="number">204</td></tr>
-<tr tabindex="0"><td>Team 11</td><td class="number">137</td><td class="number">146</td><td class="number">141</td><td class="number">168</td></tr>
-<tr tabindex="0"><td>Team 12</td><td class="number">148</td><td class="number">145</td><td class="number">159</td><td class="number">180</td></tr>
-</tbody></table></div><p class="notice" id="sort-status" role="status"></p>
+<dl class="league-facts"><div><dt>Format</dt><dd id="fact-format"></dd></div><div><dt>Lineup</dt><dd id="fact-lineup"></dd></div><div><dt>Source</dt><dd id="fact-source"></dd></div></dl>
+<section class="team-table" aria-labelledby="cmp-title"><h3 id="cmp-title">How the league compares</h3><p id="cmp-intro">Select any team to see its overview. Bars show each team against the league: Strong is the top third, Average the middle third, Weak the bottom third.</p>
+<ul class="tier-legend" aria-label="Strength key" id="cmp-legend"></ul>
+<div class="table-wrap"><table><caption class="sr-only" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Every team in the league with starter and roster value on DDF and on the analyst charts; select a row to see that team</caption><thead><tr><th scope="col" aria-sort="none"><button data-sort="name" aria-label="Sort by TEAM">TEAM ↕</button> <details class="info"><summary aria-label="About TEAM">ⓘ</summary><span>Team name; Your team is the team you picked as yours.</span></details></th><th scope="col" aria-sort="none"><button data-sort="starter" aria-label="Sort by STARTER DDF">STARTER DDF ↕</button> <details class="info"><summary aria-label="About STARTER DDF">ⓘ</summary><span>Best eligible starting lineup on DDF value.</span></details></th><th scope="col" aria-sort="none"><button data-sort="analystStarter" aria-label="Sort by STARTER ANALYST">STARTER ANALYST ↕</button> <details class="info"><summary aria-label="About STARTER ANALYST">ⓘ</summary><span>Best eligible starting lineup on the analyst charts: the average of the CBS Sports, USA Today and FantasyPros values. A player not on all three is left out of this column.</span></details></th><th scope="col" aria-sort="none"><button data-sort="roster" aria-label="Sort by ROSTER DDF">ROSTER DDF ↕</button> <details class="info"><summary aria-label="About ROSTER DDF">ⓘ</summary><span>Full roster on DDF value.</span></details></th><th scope="col" aria-sort="none"><button data-sort="analystRoster" aria-label="Sort by ROSTER ANALYST">ROSTER ANALYST ↕</button> <details class="info"><summary aria-label="About ROSTER ANALYST">ⓘ</summary><span>Full roster on the analyst charts: the average of the CBS Sports, USA Today and FantasyPros values.</span></details></th></tr></thead><tbody id="league-rows"></tbody></table></div><p class="notice" id="sort-status" role="status"></p>
 <div class="card asset-areas" id="team-overview" aria-live="polite" hidden></div></section>
 </section>
-<div class="next-step next-end"><a class="button" href="settings.html">Back</a><span class="next-label">Next: pick players. All of your players start included.</span><a class="button primary" id="team-next" href="explore.html" data-sticky-next data-back-href="settings.html" data-back-label="Back" data-next-label="Next: pick players" data-summary="Your team looks strong at QB and TE, thin at RB">Next: pick players</a></div>
-</main><footer class="sitemap"><div class="in"><div><h2>TRADE</h2><a href="index.html">Home</a><a href="build.html">Build a Trade</a><a href="find.html">Trade &amp; Waiver Recommendations</a><a href="waivers.html">Waivers</a></div><div><h2>VALUES</h2><a href="values.html">Values</a><a href="values.html#buy-sell">Buy / Sell</a><a href="values.html#overrides">Overrides</a></div><div><h2>YOUR LEAGUE</h2><a href="connect.html">Paste my league</a><a href="setup.html">Your team</a><a href="settings.html">League settings</a><a href="team.html">Team assessment</a><a href="explore.html">Pick players</a><a href="partners.html">Pick trading partners</a></div><div><h2>LEARN</h2><a href="learn.html">Learn</a><a href="learn.html#numbers/pie">How we get our numbers</a><a href="ai.html">Use DDF with AI</a></div></div><div class="footer">Data Driven Football</div></footer><script src="site.js"></script><script>
-const tableBody = document.querySelector('.team-table tbody');
-let teamRows = Array.from(tableBody.rows);
-const overview = document.getElementById('team-overview');
-let mineRow = teamRows.find(row => row.cells[0].textContent === 'My team');
-let imported = null;   // the imported league state while one is shown (see renderImported below)
-// A league that may be imported: hide the page until DDF.link.ready says which, so sample numbers never flash under its name.
-const linkInfo = () => (window.DDF && DDF.state) ? DDF.state.get('link', null) : null;
-const maybeImported = !!(window.DDF && DDF.link) && (DDF.link.hasState() || (!!linkInfo() && !!DDF.link.current()));
-if (maybeImported) {
+<div class="next-step next-end"><a class="button" href="settings.html">Back</a><span class="next-label" id="next-end-label">Next: pick players. All of your players start included.</span><a class="button primary" id="team-next" href="explore.html" data-sticky-next data-back-href="settings.html" data-back-label="Back" data-next-label="Next: pick players" data-summary="Next: pick players">Next: pick players</a></div>
+</main><footer class="sitemap"><div class="in"><div><h2>TRADE</h2><a href="index.html">Home</a><a href="build.html">Build a Trade</a><a href="find.html">Trade &amp; Waiver Recommendations</a><a href="waivers.html">Waivers</a></div><div><h2>VALUES</h2><a href="values.html">Values</a><a href="values.html#buy-sell">Buy / Sell</a><a href="values.html#overrides">Overrides</a></div><div><h2>YOUR LEAGUE</h2><a href="connect.html">Paste my league</a><a href="setup.html">Your team</a><a href="settings.html">League settings</a><a href="team.html">Team assessment</a><a href="explore.html">Pick players</a><a href="partners.html">Pick trading partners</a></div><div><h2>LEARN</h2><a href="learn.html">Learn</a><a href="learn.html#numbers/pie">How we get our numbers</a><a href="ai.html">Use DDF with AI</a></div></div><div class="footer">Data Driven Football</div></footer><script src="site.js"></script><script>document.querySelectorAll(".table-wrap").forEach(function(w){if(w.scrollWidth>w.clientWidth+1||matchMedia("(max-width:760px)").matches){w.tabIndex=0;w.setAttribute("role","region");w.setAttribute("aria-label","League comparison table, scrolls sideways")}});</script><!-- ddf-engine -->
+<script src="v2/finder.js" defer></script>
+<script src="v2/team-summary.js" defer></script>
+<script src="ddf-engine.js" defer></script>
+<script src="ddf-league.js" defer></script>
+<script type="module">
+/* Team assessment on the live engine (JEG-1539). Every number is a DDF.league read: TradeValueFinder lineups on engine rows,
+   the league's real per-slot medians (positionTiers) and the league table ranks. A value the engine does not price reads
+   "Not priced", never 0. Tier rules: DECISIONS "Team assessment rework" (2026-11-06). */
+(function () {
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const fx = v => (typeof v === 'number' && isFinite(v)) ? v.toFixed(1) : '—';
+  const TIER_LABEL = {strong: 'Strong', average: 'Average', weak: 'Weak'};
+  const SOURCE_LABEL = {link: 'From your chat', pasted: 'Pasted rosters', saved: 'Your saved league'};
+  const ordinal = n => n + (n % 100 >= 11 && n % 100 <= 13 ? 'th' : ({1:'st',2:'nd',3:'rd'}[n % 10] || 'th'));
+  const plural = (n, w) => n + ' ' + w + (n === 1 ? '' : 's');
+  const POS_LABEL = {QB: 'QB', RB: 'RB', WR: 'WR', TE: 'TE', FLEX: 'FLEX', SUPERFLEX: 'SUPERFLEX'};
+  const NP = '<span class="np">Not priced<details class="info"><summary aria-label="About not priced">ⓘ</summary><span>The value engine has no DDF Value for this player (kickers and defenses are not valued). He is listed, not counted as 0.</span></details></span>';
+  const last = name => String(name).split(' ').slice(-1)[0];
+  let sortKey = null, sortAsc = false, table = [], tiers = null, cur = null;
+
+  function lineupText(s) {
+    const [qb, rb, wr, te, flex, bench] = s.slots;
+    return [[qb, 'QB'], [rb, 'RB'], [wr, 'WR'], [te, 'TE'], [flex, 'FLEX']].concat(s.superflex ? [[1, 'SUPERFLEX']] : [])
+      .filter(x => x[0] > 0).map(x => x[0] + ' ' + x[1]).concat([bench + ' bench']).join(' · ');
+  }
+  function rankThirds(n) {
+    const a = Math.round(n / 3), b = Math.round(2 * n / 3);
+    return [['strong', 'Strong (ranks 1-' + a + ')'], ['average', 'Average (' + (a + 1) + '-' + b + ')'], ['weak', 'Weak (' + (b + 1) + '-' + n + ')']];
+  }
+
+  function renderEmpty() {
+    $('no-league').hidden = false;
+    $('your-team').hidden = true; $('league').hidden = true;
+    document.querySelector('.next-end').hidden = true;
+    if (window.DDF && DDF.actionBar && DDF.actionBar.setDisabled) DDF.actionBar.setDisabled(true, 'Add your league first');
+  }
+
+  function renderMine(c, mine) {
+    const L = DDF.league.lineup(mine);
+    const row = table.find(r => r.index === mine.index);
+    const n = table.length;
+    $('val-starter').textContent = fx(L.starterValue);
+    $('val-roster').textContent = fx(L.total);
+    $('rank-starter').textContent = row ? '#' + row.ranks.starter + ' of ' + n : '';
+    $('rank-roster').textContent = row ? '#' + row.ranks.roster + ' of ' + n : '';
+    $('sub-starter').textContent = 'DDF value · ' + plural(L.starters.length, 'offense starter');
+    $('sub-roster').textContent = 'DDF value · ' + plural(mine.players.length, 'player') + (L.unpriced.length ? ' (' + L.unpriced.length + ' not priced)' : '');
+    $('team-context').innerHTML = row
+      ? `<strong>${esc(mine.name)}</strong> ranks <strong>${ordinal(row.ranks.roster)}</strong> of ${n} in roster value and <strong>${ordinal(row.ranks.starter)}</strong> in starter value on DDF, and ${ordinal(row.ranks.analystStarter)} in starter value on the analyst charts. The bars below show where that value sits by position.`
+      : '';
+
+    // Positions: dedicated slots, then FLEX / SUPERFLEX, each against the league's real slot medians.
+    const mineTiers = tiers.teams.find(t => t.index === mine.index);
+    const rows = Object.keys(POS_LABEL).filter(p => mineTiers && mineTiers.positions[p]).map(p => {
+      const x = mineTiers.positions[p];
+      const names = x.players.map(r => esc(last(r.n)) + ' ' + fx(r.ddf)).join(' · ') + (x.empty ? (x.players.length ? ' · ' : '') + plural(x.empty, 'empty slot') : '');
+      if (x.ratio === null) return `<tr><th scope="row"><span class="posname">${p}</span><span class="players">${names || 'No starter'}</span></th><td class="num">${fx(x.value)}</td><td class="strength-cell"><div class="meter"><span class="track neutral" aria-hidden="true"></span><span><b class="tier none">No tier</b><span class="pct">No league median yet</span></span></div></td></tr>`;
+      const width = Math.min(x.ratio / 1.25, 1) * 100;
+      return `<tr data-pos="${p}" data-tier="${x.tier}"><th scope="row"><span class="posname">${p}</span><span class="players">${names}</span></th><td class="num">${fx(x.value)}</td><td class="strength-cell"><div class="meter"><span class="track" aria-hidden="true"><i class="fill ${x.tier}" data-grow="x" style="width:${width.toFixed(1)}%"></i><i class="median"></i></span><span><b class="tier ${x.tier}">${TIER_LABEL[x.tier]}</b><span class="pct">${Math.round(x.ratio * 100)}% of league median</span></span></div></td></tr>`;
+    });
+    const bench = L.bench.length ? `<tr><th scope="row"><span class="posname">Bench</span><span class="players full">${L.bench.map(r => esc(r.n) + ' ' + fx(r.ddf)).join(' · ')}</span></th><td class="num">${fx(L.benchValue)}</td><td class="strength-cell"><span class="pct">Not in the best lineup</span></td></tr>` : '';
+    const np = L.unpriced.length ? `<tr><th scope="row"><span class="posname">Not priced</span><span class="players full">${L.unpriced.map(p => esc(p.name) + (p.pos ? ' (' + esc(p.pos) + ')' : '')).join(' · ')}</span></th><td class="num">${NP}</td><td class="strength-cell"><span class="pct">Not counted</span></td></tr>` : '';
+    document.querySelector('#pos-grid tbody').innerHTML = rows.join('') + bench + np;
+    if (DDF.growBars) DDF.growBars();
+
+    // Strengths, needs and what to do next: from the tiers and engine rows only.
+    const pos = mineTiers ? Object.keys(mineTiers.positions).filter(p => mineTiers.positions[p].tier) : [];
+    const strong = pos.filter(p => mineTiers.positions[p].tier === 'strong');
+    const weak = pos.filter(p => mineTiers.positions[p].tier === 'weak');
+    const F = window.TradeValueFinder, TS = window.TradeValueTeamSummary;
+    const gaps = TS.marketGaps(F.withChartAverage(L.starters.concat(L.bench).map(r => r.row), DDF.league.RULES.ANALYST), TS.NOISE_FLOOR);
+    const names = list => { const n = list.map(g => esc(g.name)); return n.length > 1 ? n.slice(0, -1).join(', ') + ' and ' + n[n.length - 1] : n.join(''); };
+    const items = [
+      ['Strengths', strong.length ? `${strong.join(', ')} ${strong.length === 1 ? 'rates' : 'rate'} 110% or more of the league median. Protect these: seek a return that preserves your lineup.` : 'No position is 110% or more of the league median yet.'],
+      ['Needs', weak.length ? `${weak.join(', ')} ${weak.length === 1 ? 'is' : 'are'} under 90% of the league median: the place to look for upgrades.` : 'No position is under 90% of the league median.'],
+      ['Analyst premium', gaps.over.length ? `${names(gaps.over.slice(0, 3))} rate higher on the analyst charts than on DDF value. Compare returns.` : 'None of your players rate clearly higher on the analyst charts than on DDF value.'],
+      ['Bench depth', L.bench.length ? `${names(L.bench.slice(0, 2).map(r => ({name: r.n})))} may offer useful depth to another team. Evaluate the full exchange.` : 'You have no bench players outside your best lineup.']
+    ];
+    $('take-areas').innerHTML = items.map(([h, t]) => `<div><h3>${h}</h3><p>${t}</p></div>`).join('') + '<p>These are areas to explore, not instructions to trade. All players start included on the next screen.</p>';
+    const line = 'Next: pick players.' + (strong.length ? ' Strong at ' + strong.join(', ') + '.' : '') + (weak.length ? ' Thin at ' + weak.join(', ') + '.' : '');
+    $('next-top-label').textContent = line;
+    const summary = (strong.length || weak.length) ? line.replace('Next: pick players. ', '') : 'Your team: ' + mine.name;
+    $('team-next').setAttribute('data-summary', summary);
+    if (DDF.actionBar && DDF.actionBar.setSummary) DDF.actionBar.setSummary(summary);
+  }
+
+  function renderNoMe(c) {
+    ['val-starter', 'val-roster'].forEach(id => { $(id).textContent = '—'; });
+    ['rank-starter', 'rank-roster'].forEach(id => { $(id).textContent = ''; });
+    $('sub-starter').innerHTML = 'Your team is not picked yet · <a href="setup.html">Pick your team</a>';
+    $('sub-roster').textContent = '';
+    $('team-context').innerHTML = `This league has ${plural(c.teams.length, 'team')}. <a href="setup.html">Pick your team</a> to see your starters and strengths.`;
+    document.querySelector('#pos-grid tbody').innerHTML = '<tr><td colspan="3" class="empty-rosters">Your team is not picked yet. <a href="setup.html">Pick your team</a> to see your players.</td></tr>';
+    $('take-areas').innerHTML = '<p>Strengths and needs appear once you pick your team.</p>';
+  }
+
+  function cell(r, key, complete) {
+    const max = Math.max(...table.map(x => x[key]).filter(v => isFinite(v)), 1);
+    const t = r.tiers[key];
+    return `<td class="number"><i class="vbar ${t}" data-grow="x" style="--w:${(r[key] / max).toFixed(3)}"></i><span class="cell"><span${complete === false ? ' title="Some players are not on all three analyst charts and are left out"' : ''}>${fx(r[key])}${complete === false ? '*' : ''}</span><b class="tier ${t}">${TIER_LABEL[t]}</b></span></td>`;
+  }
+  function renderTable() {
+    const rows = table.slice();
+    if (sortKey) rows.sort((a, b) => (sortKey === 'name' ? a.name.localeCompare(b.name) : a[sortKey] - b[sortKey]) * (sortAsc ? 1 : -1));
+    else rows.sort((a, b) => b.starter - a.starter || a.index - b.index);
+    $('league-rows').innerHTML = rows.map(r => `<tr tabindex="0" data-team="${r.index}"${r.mine ? ' class="mine selected"' : ''}><td${r.mine ? ` data-rank="${ordinal(r.ranks.starter)}"` : ''}>${esc(r.name)}${r.mine ? '<span class="mine-badge">Your team</span>' : ''}</td>${cell(r, 'starter')}${cell(r, 'analystStarter', r.analystComplete)}${cell(r, 'roster')}${cell(r, 'analystRoster', r.analystComplete)}</tr>`).join('')
+      || '<tr><td colspan="5" class="empty-rosters">No team in this league has priced players yet.</td></tr>';
+    if (DDF.growBars) DDF.growBars();
+  }
+  function showOverview(index) {
+    const ov = $('team-overview');
+    document.querySelectorAll('#league-rows tr').forEach(tr => tr.classList.toggle('selected', Number(tr.dataset.team) === index));
+    const r = table.find(x => x.index === index);
+    if (!r || r.mine) { ov.hidden = true; ov.innerHTML = ''; return; }
+    const t = tiers.teams.find(x => x.index === index);
+    const by = tier => t ? Object.keys(t.positions).filter(p => t.positions[p].tier === tier) : [];
+    const team = cur.teams[index], L = DDF.league.lineup(team);
+    ov.innerHTML = `<h3>${esc(r.name)} overview</h3><p class="team-context">${esc(r.name)} ranks <strong>${ordinal(r.ranks.roster)}</strong> in roster value and <strong>${ordinal(r.ranks.starter)}</strong> in starter value on DDF (${ordinal(r.ranks.analystRoster)} and ${ordinal(r.ranks.analystStarter)} on the analyst charts).</p>
+<div><h3>Strong at</h3><p>${by('strong').join(', ') || 'No position at 110% or more of the league median'}</p></div>
+<div><h3>Thin at</h3><p>${by('weak').join(', ') || 'No position under 90% of the league median'}</p></div>
+<div><h3>Starters</h3><p>${L.starters.map(p => esc(p.n) + ' ' + fx(p.ddf)).join(' · ') || 'None priced'}</p></div>`;
+    ov.hidden = false;
+  }
+
+  function render(c) {
+    cur = c;
+    if (!c) { renderEmpty(); return; }
+    $('no-league').hidden = true; $('your-team').hidden = false; $('league').hidden = false;
+    document.querySelector('.next-end').hidden = false;
+    table = DDF.league.leagueTable();
+    tiers = DDF.league.positionTiers();
+    const mine = DDF.league.myTeam();
+    if (mine) renderMine(c, mine); else renderNoMe(c);
+    const s = c.settings;
+    $('fact-format').textContent = DDF.link && DDF.link.settingsLabel ? DDF.link.settingsLabel(s) : s.scoring + ' · ' + s.teams + ' teams';
+    $('fact-lineup').textContent = lineupText(s);
+    $('fact-source').innerHTML = `${esc(c.name)} · ${SOURCE_LABEL[c.source] || ''} · <a href="settings.html">Change settings</a>`;
+    const n = table.length;
+    $('cmp-intro').textContent = `${plural(n, 'team')} with priced players${c.settings.teams !== c.teams.length ? ' (league size ' + c.settings.teams + ')' : ''}. Select any team to see its overview. Strong is the top third of the league on that column, Average the middle third, Weak the bottom third.`;
+    $('cmp-legend').innerHTML = rankThirds(n).map(([k, l]) => `<li><span class="sw ${k}" aria-hidden="true"></span>${l}</li>`).join('');
+    renderTable();
+    $('team-overview').hidden = true;
+  }
+
+  $('league-rows').addEventListener('click', e => { const tr = e.target.closest('tr[data-team]'); if (tr) showOverview(Number(tr.dataset.team)); });
+  $('league-rows').addEventListener('keydown', e => { const tr = e.target.closest('tr[data-team]'); if (tr && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); showOverview(Number(tr.dataset.team)); } });
+  document.querySelectorAll('[data-sort]').forEach(b => b.addEventListener('click', () => {
+    const k = b.dataset.sort, th = b.closest('th');
+    sortAsc = th.getAttribute('aria-sort') !== 'ascending'; sortKey = k;
+    document.querySelectorAll('.team-table th').forEach(x => x.setAttribute('aria-sort', 'none'));
+    th.setAttribute('aria-sort', sortAsc ? 'ascending' : 'descending');
+    renderTable();
+    $('sort-status').textContent = 'Sorted by ' + b.textContent.replace(' ↕', '') + ', ' + (sortAsc ? 'ascending' : 'descending') + '.';
+  }));
+
   document.body.classList.add('league-pending');
-  document.querySelectorAll('.team-stats [data-countup]').forEach(el => el.removeAttribute('data-countup'));
-}
-mineRow.classList.add('mine');
-const TIER_LABEL = {strong: 'Strong', average: 'Average', weak: 'Weak'};
-const value = (row, column) => Number(row.cells[column].dataset.v);
-const rank = (row, column) => 1 + teamRows.filter(other => value(other, column) > value(row, column)).length;
-const rankBy = (row, fn) => 1 + teamRows.filter(other => fn(other) > fn(row)).length;
-const ordinal = number => number + (number % 100 >= 11 && number % 100 <= 13 ? 'th' : ({1:'st',2:'nd',3:'rd'}[number % 10] || 'th'));
-const tierForRank = r => r <= 4 ? 'strong' : r <= 8 ? 'average' : 'weak';
-// League table: values stay as data, each cell gets a tier by rank on its column (thirds of 12).
-[1, 2, 3, 4].forEach(col => {
-  const max = Math.max(...teamRows.map(r => Number(r.cells[col].textContent)));
-  teamRows.forEach(r => { const c = r.cells[col]; c.dataset.v = c.textContent; });
-  teamRows.forEach(r => {
-    const c = r.cells[col], v = Number(c.dataset.v), tier = tierForRank(rank(r, col));
-    c.innerHTML = `<i class="vbar ${tier}" data-grow="x" style="--w:${(v / max).toFixed(3)}"></i><span class="cell"><span>${v}</span><b class="tier ${tier}">${TIER_LABEL[tier]}</b></span>`;
-  });
-});
-mineRow.cells[0].setAttribute('data-rank', ordinal(rank(mineRow, 1)));
+  const done = () => document.body.classList.remove('league-pending');
+  DDF.league.ready.then(c => { render(c); done(); DDF.league.on(render); }, e => { console.error(e); renderEmpty(); done(); });
 
-// Your positions. SAMPLE BENCHMARKS: league median DDF value per starter slot (the dataset has team totals only).
-// Rule: score = sum(min(value, 1.25 x median)); ratio = score / sum(medians). Strong >= 1.10, Average >= 0.90, else Weak.
-const POSITIONS = [
-  {pos: 'QB', slots: [['Josh Allen', 41.53]], medians: [35]},
-  {pos: 'RB', slots: [['Jahmyr Gibbs', 96.66], ['Rhamondre Stevenson', 21.22], ['Rachaad White', 7.24]], medians: [45, 34, 22]},
-  {pos: 'WR', slots: [['Jaxon Smith-Njigba', 79.04], ['George Pickens', 28.81], ['Stefon Diggs', 12.75]], medians: [50, 30, 22]},
-  {pos: 'TE', slots: [['Trey McBride', 36.93]], medians: [22]}
-];
-const CAP = 1.25, METER_MAX = 1.25;
-const tierForRatio = r => r >= 1.10 ? 'strong' : r >= 0.90 ? 'average' : 'weak';
-document.querySelector('#pos-grid tbody').innerHTML = POSITIONS.map(p => {
-  const raw = p.slots.reduce((s, x) => s + x[1], 0);
-  const score = p.slots.reduce((s, x, i) => s + Math.min(x[1], CAP * p.medians[i]), 0);
-  const ratio = score / p.medians.reduce((s, m) => s + m, 0), tier = tierForRatio(ratio);
-  const width = Math.min(ratio / METER_MAX, 1) * 100;
-  return `<tr><th scope="row"><span class="posname">${p.pos}</span><span class="players">${p.slots.map(x => x[0].split(' ').slice(-1)[0] + ' ' + x[1].toFixed(1)).join(' · ')}</span></th><td class="num">${raw.toFixed(1)}</td><td class="strength-cell"><div class="meter"><span class="track" aria-hidden="true"><i class="fill ${tier}" data-grow="x" style="width:${width.toFixed(1)}%"></i><i class="median"></i></span><span><b class="tier ${tier}">${TIER_LABEL[tier]}</b><span class="pct">${Math.round(ratio * 100)}% of league median</span></span></div></td></tr>`;
-}).join('');
-if (window.DDF && DDF.growBars) DDF.growBars();
-
-function showOverview(row) {
-  teamRows.forEach(other => other.classList.toggle('selected', other === row));
-  if (imported) { showImportedOverview(row); return; }
-  const name = row.cells[0].textContent;
-  if (row === mineRow) { overview.hidden = true; overview.innerHTML = ''; return; }
-  const gap = r => Math.round(value(r, 3)) - Math.round(value(r, 4));
-  const bench = r => Math.round(value(r, 3)) - Math.round(value(r, 1));
-  const diff = Math.round(value(row, 1)) - Math.round(value(mineRow, 1));
-  const gapRank = rankBy(row, gap), benchRank = rankBy(row, bench), startRank = rank(row, 1);
-  overview.innerHTML = `<h3>${name} overview</h3><p class="team-context">${name} ranks <strong>${ordinal(rank(row, 3))}</strong> in roster value and <strong>${ordinal(startRank)}</strong> in starter value on DDF (${ordinal(rank(row, 4))} and ${ordinal(rank(row, 2))} on the analyst charts). Against your starters, it is ${Math.abs(diff)} ${diff > 0 ? 'higher' : 'lower'} on DDF.</p>
-<div><h3>Analyst premium</h3><p>${name}'s roster is ${Math.abs(gap(row))} ${gap(row) >= 0 ? 'higher' : 'lower'} on DDF than on the analyst charts, ${ordinal(gapRank)} of 12 for DDF value over the analyst charts. ${gapRank <= 4 ? 'Its assets are rated more highly by DDF than by the analyst charts; compare returns.' : 'Its assets sit closer to their analyst-charts value; compare returns.'}</p></div>
-<div><h3>Bench depth</h3><p>${name}'s bench adds ${bench(row)} of DDF value beyond its starters, ${ordinal(benchRank)} of 12. ${benchRank <= 4 ? 'Depth may be available for the right exchange.' : 'Depth is thinner, so expect fewer spare pieces.'} Evaluate the full exchange.</p></div>
-<div><h3>Lineup strength</h3><p>${name} ranks ${ordinal(startRank)} in starter value. ${startRank <= 4 ? 'It is a strong lineup, so expect a firm price.' : 'Its lineup has room to improve, so look for returns that fill its needs.'}</p></div>`;
-  overview.hidden = false;
-}
-mineRow.classList.add('selected');
-// Delegated so rows rebuilt for an imported league keep working.
-const rowOf = event => { const row = event.target.closest('tr'); return row && teamRows.includes(row) ? row : null; };
-tableBody.addEventListener('click', event => { const row = rowOf(event); if (row) showOverview(row); });
-tableBody.addEventListener('keydown', event => {
-  const row = rowOf(event);
-  if (row && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); showOverview(row); }
-});
-document.querySelectorAll('[data-sort]').forEach(button => button.addEventListener('click', () => {
-  const column = Number(button.dataset.sort);
-  if (imported && column) { document.getElementById('sort-status').textContent = 'Values are not priced yet for this league, so this column cannot be sorted.'; return; }
-  const heading = button.closest('th');
-  const ascending = heading.getAttribute('aria-sort') !== 'ascending';
-  document.querySelectorAll('.team-table th').forEach(th => th.setAttribute('aria-sort', 'none'));
-  heading.setAttribute('aria-sort', ascending ? 'ascending' : 'descending');
-  const sorted = [...teamRows].sort((a, b) => (column ? value(a, column) - value(b, column) : a.cells[0].textContent.localeCompare(b.cells[0].textContent)) * (ascending ? 1 : -1));
-  tableBody.append(...sorted);
-  document.getElementById('sort-status').textContent = 'Sorted by ' + button.textContent.replace(' ↕', '') + ', ' + (ascending ? 'ascending' : 'descending') + '.';
-}));
-/* ===== F01: imported league (a #s= link or ddf:league from a chat), Jeremy 2026-11-06: "Show the imported league, mark numbers not priced".
-   Names, settings, lineup, team count and players come from DDF.link. The wireframe has no values for an imported league, so every
-   total, rank, tier and takeaway reads "Not priced yet". The sample league above stays as is only when there is no league state.
-   Manual flow (Jeremy, 2026-11-06): settings confirmed by hand (site.js confirmSettings, link.source 'manual') take this same
-   path, so the page shows the entered settings and any entered rosters, not the example league. */
-const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const MAIN_POS = ['QB', 'RB', 'WR', 'TE'];
-function importedState() {
-  if (!(window.DDF && DDF.link)) return null;
-  const st = DDF.link.current(), link = linkInfo();
-  if (!st || !st.settings || !Array.isArray(st.settings.slots)) return null;
-  return st;
-}
-function lineupText(s) {
-  const [qb, rb, wr, te, flex, bench] = s.slots;
-  return [[qb, 'QB'], [rb, 'RB'], [wr, 'WR'], [te, 'TE'], [flex, 'FLEX']].concat(s.superflex ? [[1, 'SUPERFLEX']] : [])
-    .filter(x => x[0] > 0).map(x => x[0] + ' ' + x[1]).concat([s.slots[5] + ' bench']).join(' · ');
-}
-const starterCount = s => s.slots.slice(0, 5).reduce((a, b) => a + b, 0) + (s.superflex ? 1 : 0);
-function notPriced(label) {
-  return `<span class="np">Not priced yet<details class="info"><summary aria-label="About ${esc(label)}: not priced yet">ⓘ</summary><span>Values appear once players are priced for this league's settings (${esc(DDF.link.settingsLabel(imported.settings))}). Until then this page shows your league's teams and players without numbers.</span></details></span>`;
-}
-// Plain-name players carry no position; look the name up on the player table (DDF.link.table) when it is loaded.
-let posByName = null;
-function tablePos(name) {
-  if (!posByName) {
-    posByName = {};
-    (DDF.link.table((imported && imported.table) || 1) || []).forEach(row => { const f = String(row).split('|'); if (!(f[0].toLowerCase() in posByName)) posByName[f[0].toLowerCase()] = f[1] || ''; });
-  }
-  return posByName[String(name).toLowerCase()] || '';
-}
-const playersOf = team => (team && Array.isArray(team.players) ? team.players : []).map(p => {
-  const info = DDF.link.player(p), name = info.name || DDF.link.playerName(p);
-  return {name, pos: String(info.pos || (typeof p === 'string' ? tablePos(p) : '')).toUpperCase()};
-});
-const plural = (n, word) => n + ' ' + word + (n === 1 ? '' : 's');
-function rosterBreakdown(players) {
-  const counts = MAIN_POS.map(pos => [pos, players.filter(p => p.pos === pos).length]).filter(x => x[1]);
-  const other = players.length - counts.reduce((a, x) => a + x[1], 0);
-  return counts.map(x => x[1] + ' ' + x[0]).concat(other ? [other + ' other'] : []).join(', ');
-}
-function renderImported(st) {
-  imported = st;
-  const s = st.settings, label = DDF.link.settingsLabel(s);
-  const teams = Array.isArray(st.teams) ? st.teams : [];
-  const hasRosters = teams.some(t => t && Array.isArray(t.players) && t.players.length);
-  const me = Number.isInteger(st.me) && teams[st.me] ? st.me : -1;
-  const myTeam = me >= 0 ? teams[me] : null;
-  const myName = myTeam ? (myTeam.name || 'Team ' + (me + 1)) : 'Your team';
-  const mine = playersOf(myTeam);
-  const leagueName = st.name || (st.league && st.league.name) || 'My league';
-  const manual = !!(linkInfo() && linkInfo().source === 'manual');
-  const where = manual ? 'in this league' : 'in this link';
-  const addLink = manual ? '<a href="connect.html">Enter your rosters</a>' : '<a href="connect.html">Add your league</a>';
-  const noRosters = manual ? `No rosters entered yet. ${addLink} to see your players.` : `No rosters in this link yet. ${addLink} to see your players.`;
-
-  // Intro and next-step copy: nothing claims strengths the page cannot compute.
-  document.querySelector('#your-team > p.muted').textContent = 'Your roster, position by position. Strength and value appear once players are priced for this league\'s settings.';
-  document.querySelector('.next-top .next-label').textContent = 'Next: pick players. Strengths and needs appear once players are priced.';
-  const next = document.getElementById('team-next'), summary = myTeam ? 'Your team: ' + myName : 'Next: pick players';
-  next.setAttribute('data-summary', summary);
-  if (DDF.actionBar && DDF.actionBar.setSummary) DDF.actionBar.setSummary(summary);
-
-  // Stat cards.
-  document.querySelector('.team-stats').innerHTML = [
-    ['Your starters', 'starter value', 'DDF value · ' + plural(starterCount(s), 'offense starter')],
-    ['Your roster', 'roster value', hasRosters && myTeam ? 'DDF value · ' + plural(mine.length, 'player') : (hasRosters ? 'Your team is not picked yet · <a href="setup.html">Pick your team</a>' : noRosters)]
-  ].map(([title, what, sub]) => `<div class="card"><div class="stat-top"><h2>${title}</h2><span class="rank-pill np-pill">Not ranked yet</span></div><div class="stat-value np-value">${notPriced(what)}</div><p class="stat-sub">${sub}</p></div>`).join('');
-  document.querySelector('.team-context').innerHTML = myTeam
-    ? `<strong>${esc(myName)}</strong> is your team in ${esc(leagueName === 'My league' ? 'this' : leagueName)} league (${esc(label)}). Ranks and values appear once players are priced for these settings.`
-    : `${manual ? 'You entered this league\'s settings by hand' : 'This league came from your chat'} (${esc(label)}). ${hasRosters ? 'Your team is not picked yet. <a href="setup.html">Pick your team</a>.' : noRosters}`;
-
-  // Your roster by position: real players, no numbers, neutral strength.
-  const pos = document.getElementById('positions');
-  pos.querySelector('.tier-legend').hidden = true;
-  if (!pos.querySelector('.np-note')) pos.querySelector('.tier-legend').insertAdjacentHTML('afterend', '<p class="np-note"></p>');
-  pos.querySelector('.np-note').textContent = 'Strength tiers need priced players. They appear once values are calculated for these league settings; until then this lists every player on your roster by position.';
-  pos.querySelector('caption').textContent = 'Your roster by position; values and strength are not priced yet';
-  pos.querySelector('thead th.num').textContent = 'DDF VALUE';
-  const tbody = pos.querySelector('#pos-grid tbody');
-  if (!mine.length) {
-    tbody.innerHTML = `<tr><td colspan="3" class="empty-rosters">${hasRosters && !myTeam ? 'Your team is not picked yet. <a href="setup.html">Pick your team</a> to see your players.' : noRosters}</td></tr>`;
-  } else {
-    const groups = MAIN_POS.map(p => [p, mine.filter(x => x.pos === p)]);
-    const other = mine.filter(x => !MAIN_POS.includes(x.pos));
-    if (other.length) groups.push(['Other', other]);
-    tbody.innerHTML = groups.map(([p, list]) => `<tr><th scope="row"><span class="posname">${p}</span><span class="players full">${list.length ? list.map(x => esc(x.name) + (p === 'Other' && x.pos ? ' (' + esc(x.pos) + ')' : '')).join(' · ') : 'No players at this position'}</span></th><td class="num">${notPriced(p + ' value')}</td><td class="strength-cell"><div class="meter"><span class="track neutral" aria-hidden="true"></span><span><b class="tier none">No tier yet</b><span class="pct">Not priced yet</span></span></div></td></tr>`).join('');
-  }
-
-  // Strengths, needs and what to do next.
-  document.querySelector('#team-assets .asset-areas').innerHTML = ['Strengths', 'Needs', 'Analyst premium', 'Bench depth']
-    .map(h => `<div><h3>${h}</h3><div>${notPriced(h)}</div></div>`).join('') +
-    `<p>${mine.length ? esc(myName) + ' has ' + plural(mine.length, 'player') + ' ' + where + ': ' + esc(rosterBreakdown(mine)) + '. ' : ''}These areas fill in once players are priced. All players start included on the next screen.</p>`;
-
-  // League details.
-  const dds = document.querySelectorAll('.league-facts dd');
-  dds[0].textContent = label;
-  dds[1].textContent = lineupText(s);
-  dds[2].innerHTML = `${esc(leagueName)} · ${manual ? 'Entered by hand' : 'From your chat'} · <a href="settings.html">Change settings</a>`;
-
-  // How the league compares: the link's teams, no values.
-  const cmp = document.querySelector('.team-table');
-  cmp.querySelector('.tier-legend').hidden = true;
-  cmp.querySelector('p').innerHTML = teams.length
-    ? `${plural(teams.length, 'team')} ${where} (league size ${s.teams}). Select a team to see its players.`
-    : `${noRosters}`;
-  if (!cmp.querySelector('.np-line')) cmp.querySelector('p').insertAdjacentHTML('afterend', '<div class="np-line np-note"></div>');
-  cmp.querySelector('.np-line').innerHTML = `Starter and roster values: ${notPriced('league values')}`;
-  overview.hidden = true; overview.innerHTML = '';
-  document.querySelectorAll('.team-table th').forEach(th => th.setAttribute('aria-sort', 'none'));
-  document.getElementById('sort-status').textContent = '';
-  tableBody.innerHTML = teams.length
-    ? teams.map((t, i) => `<tr tabindex="0" data-team="${i}"${i === me ? ' class="mine selected"' : ''}><td>${esc(t.name || 'Team ' + (i + 1))}${i === me ? '<span class="mine-badge">Your team</span>' : ''}</td>${'<td class="number"><span class="np">Not priced yet</span></td>'.repeat(4)}</tr>`).join('')
-    : `<tr><td colspan="5" class="empty-rosters">${noRosters}</td></tr>`;
-  teamRows = Array.from(tableBody.querySelectorAll('tr[data-team]'));
-  mineRow = teamRows.find(r => Number(r.dataset.team) === me) || null;
-}
-function showImportedOverview(row) {
-  const t = (imported.teams || [])[Number(row.dataset.team)];
-  if (row === mineRow || !t) { overview.hidden = true; overview.innerHTML = ''; return; }
-  const list = playersOf(t), name = t.name || 'Team ' + (Number(row.dataset.team) + 1);
-  overview.innerHTML = `<h3>${esc(name)} overview</h3><p>${list.length ? plural(list.length, 'player') + ' (' + esc(rosterBreakdown(list)) + '): ' + list.map(x => esc(x.name)).join(' · ') : 'No roster for this team ' + ((linkInfo() && linkInfo().source === 'manual') ? 'in this league yet. <a href="connect.html">Enter your rosters</a>.' : 'in this link yet. <a href="connect.html">Add your league</a>.')}</p><div>Starter value, analyst premium and bench depth: ${notPriced('team values')}</div>`;
-  overview.hidden = false;
-}
-function applyLeague() {
-  const st = importedState();
-  if (st) renderImported(st);
-  document.body.classList.remove('league-pending');
-}
-if (window.DDF && DDF.link) {
-  document.addEventListener('ddf:link', () => setTimeout(applyLeague, 0));
-  DDF.link.ready.then(applyLeague, applyLeague);
-}
-setTimeout(() => document.body.classList.remove('league-pending'), 4000);   // never leave the page hidden
-const more=document.querySelector('.morewrap'),moreButton=more?.querySelector('button');
-if(moreButton)document.addEventListener('click',()=>moreButton.setAttribute('aria-expanded',String(more.classList.contains('open'))));
-if(moreButton)document.addEventListener('keydown',e=>{if(e.key==='Escape'&&more.classList.contains('open')){more.classList.remove('open');moreButton.setAttribute('aria-expanded','false');moreButton.focus();}});
-/* (i) popovers: Esc and outside click close, one open at a time (same pattern as partners.html; QA sweep 2026-11-06). */
-document.addEventListener('keydown',e=>{if(e.key==='Escape')document.querySelectorAll('details.info[open]').forEach(d=>{d.open=false;d.querySelector('summary').focus()})});
-document.addEventListener('click',e=>{document.querySelectorAll('details.info[open]').forEach(d=>{if(!d.contains(e.target))d.open=false})});
-document.addEventListener('toggle',e=>{if(e.target.matches&&e.target.matches('details.info[open]'))document.querySelectorAll('details.info[open]').forEach(d=>{if(d!==e.target)d.open=false})},true);
-</script></script><script>document.querySelectorAll(".table-wrap").forEach(function(w){if(w.scrollWidth>w.clientWidth+1||matchMedia("(max-width:760px)").matches){w.tabIndex=0;w.setAttribute("role","region");w.setAttribute("aria-label","League comparison table, scrolls sideways")}});</script></body></html>
+  const more = document.querySelector('.morewrap'), moreButton = more && more.querySelector('button');
+  if (moreButton) document.addEventListener('click', () => moreButton.setAttribute('aria-expanded', String(more.classList.contains('open'))));
+  if (moreButton) document.addEventListener('keydown', e => { if (e.key === 'Escape' && more.classList.contains('open')) { more.classList.remove('open'); moreButton.setAttribute('aria-expanded', 'false'); moreButton.focus(); } });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') document.querySelectorAll('details.info[open]').forEach(d => { d.open = false; d.querySelector('summary').focus(); }); });
+  document.addEventListener('click', e => { document.querySelectorAll('details.info[open]').forEach(d => { if (!d.contains(e.target)) d.open = false; }); });
+  document.addEventListener('toggle', e => { if (e.target.matches && e.target.matches('details.info[open]')) document.querySelectorAll('details.info[open]').forEach(d => { if (d !== e.target) d.open = false; }); }, true);
+})();
+</script>
+</body></html>

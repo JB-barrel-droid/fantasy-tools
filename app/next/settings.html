@@ -71,9 +71,6 @@ header :focus-visible,.entry-head :focus-visible{outline-color:#fff}
 <div class="row st-actions"><a class="button" href="setup.html">Back</a><a class="button primary" id="finish-setup" href="team.html" data-sticky-next data-back-href="setup.html" data-back-label="Back" data-next-label="Looks right, continue">Looks right, continue &rarr;</a><span id="gate-reason" class="gate-reason" role="status"></span></div>
 </form></section>
 </main><footer class="st-foot">Data Driven Football</footer><script src="site.js"></script><script>
-const rows=[['My team',324.17,244.48,327.98,264.63],['Team 02',265.02,215.42,266.46,228.18],['Team 03',253.74,207.91,257.30,227.34],['Team 04',239.56,200.24,242.83,219.66],['Team 05',260.83,211.27,266.12,237.10],['Team 06',200.19,175.51,200.72,186.23],['Team 07',201.27,177.48,212.20,211.28],['Team 08',128.20,133.83,129.98,148.75],['Team 09',179.41,169.14,189.89,199.00],['Team 10',192.83,174.48,202.67,204.43],['Team 11',137.14,146.08,141.26,168.16],['Team 12',147.70,145.43,158.52,180.34]];
-function render(){if(!document.querySelector('.team-page tbody'))return;document.querySelector('.team-page tbody').innerHTML=rows.map(r=>'<tr'+(r[0]==='My team'?' class="selected"':'')+'>'+r.map((v,i)=>'<td'+(i?' class="number"':'')+'>'+(i?v.toFixed(2):v)+'</td>').join('')+'</tr>').join('')}render();document.querySelectorAll('[data-sort]').forEach(b=>b.onclick=()=>{const i=+b.dataset.sort,t=b.closest('th'),asc=t.getAttribute('aria-sort')!=='ascending';document.querySelectorAll('.team-page th').forEach(h=>h.setAttribute('aria-sort','none'));t.setAttribute('aria-sort',asc?'ascending':'descending');rows.sort((a,b)=>(i?a[i]-b[i]:a[0].localeCompare(b[0]))*(asc?1:-1));render();document.getElementById('sort-status').textContent='Sorted by '+b.textContent.replace(' ↕','')+', '+(asc?'ascending':'descending')+'.'});
-if(document.getElementById('editor'))document.getElementById('editor').onsubmit=e=>{e.preventDefault();document.getElementById('settings-status').textContent='Settings saved.'};
 const more=document.querySelector('.morewrap'),moreButton=more?.querySelector('button');
 if(moreButton)document.addEventListener('click',()=>moreButton.setAttribute('aria-expanded',String(more.classList.contains('open'))));
 if(moreButton)document.addEventListener('keydown',e=>{if(e.key==='Escape'&&more.classList.contains('open')){more.classList.remove('open');moreButton.setAttribute('aria-expanded','false');moreButton.focus();}});
@@ -160,4 +157,46 @@ document.addEventListener('ddf:link',()=>{const st=DDF.link.settings(),el=docume
 
 document.addEventListener('keydown',function(e){if(e.key==='Escape')document.querySelectorAll('details.info[open]').forEach(function(d){d.open=false;d.querySelector('summary').focus();});});
 document.addEventListener('click',function(e){document.querySelectorAll('details.info[open]').forEach(function(d){if(!d.contains(e.target))d.open=false;});});
-</script></body></html>
+</script>
+<!-- ddf-engine -->
+<script src="v2/finder.js" defer></script>
+<script src="v2/team-summary.js" defer></script>
+<script src="ddf-engine.js" defer></script>
+<script src="ddf-league.js" defer></script>
+<script type="module">
+/* League settings on the live engine (JEG-1539): the form shows the league's settings (a link's own settings, else the
+   engine's saved settings, ddf.v2.league-settings) and confirming writes them through DDF.league.setSettings, which calls
+   DDF.engine.apply and, for a league from a chat link, DDF.link.update. */
+(function () {
+  const $ = id => document.getElementById(id);
+  const LABEL = {ppr: 'PPR', half_ppr: 'Half PPR', standard: 'Standard'};
+  const TOKEN = {'PPR': 'ppr', 'Half PPR': 'half_ppr', 'Standard': 'standard'};
+  const KEYS = ['qb', 'rb', 'wr', 'te', 'flex', 'bench'];
+  const fire = el => { el.dispatchEvent(new Event('input', {bubbles: true})); el.dispatchEvent(new Event('change', {bubbles: true})); };
+  function fill(s) {
+    const sc = $('scoring'); sc.value = LABEL[s.scoring] || sc.value; fire(sc);
+    const tm = $('teams');
+    if (![...tm.options].some(o => o.value === String(s.teams))) { const o = document.createElement('option'); o.textContent = String(s.teams); tm.appendChild(o); }
+    tm.value = String(s.teams); fire(tm);
+    const sf = $('superflex'); sf.value = String(!!s.superflex); fire(sf);
+    KEYS.forEach((k, i) => { const el = $('lineup-' + k); if (Number.isInteger(s.slots[i])) { el.value = s.slots[i]; fire(el); } });
+  }
+  function form() {
+    return {scoring: TOKEN[$('scoring').value] || $('scoring').value, teams: Number($('teams').value), superflex: $('superflex').value === 'true',
+      slots: KEYS.map(k => Number($('lineup-' + k).value))};
+  }
+  function save() {
+    const f = form();
+    if (!f.slots.every(n => Number.isInteger(n) && n >= 0 && n <= 20)) return false;
+    try { DDF.league.setSettings(f); return true; } catch (e) { console.error(e); return false; }
+  }
+  DDF.league.ready.then(c => {
+    const s = c ? c.settings : (function () { const e = DDF.engine.settings(), r = e.roster; return {scoring: e.scoring, teams: e.teams, superflex: r.SUPERFLEX > 0, slots: [r.QB, r.RB, r.WR, r.TE, r.FLEX, r.BENCH]}; })();
+    fill(s);
+    if (!c) $('settings-status').innerHTML = 'No league added yet: these are the settings every page uses. <a href="connect.html">Add your league</a>';
+  }, e => console.error(e));
+  $('finish-setup').addEventListener('click', e => { if (!e.currentTarget.hasAttribute('aria-disabled')) save(); }, true);
+  $('editor').addEventListener('submit', e => { e.preventDefault(); $('settings-status').textContent = save() ? 'Settings saved.' : 'Check the position counts.'; });
+})();
+</script>
+</body></html>

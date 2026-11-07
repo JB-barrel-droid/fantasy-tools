@@ -109,29 +109,24 @@ body.explore tr.prow.held :is(.vbar,.pdot){opacity:.4}
 .ws-steps>a:first-child{padding-left:0}
 </style><style id="gating-pass">.explore a.button.primary[aria-disabled="true"],.explore a.button.primary[aria-disabled="true"]:hover,.explore a.button.primary[aria-disabled="true"]:active{background:#e3e7e4;color:#59666f;border-color:#e3e7e4;box-shadow:none;transform:none;filter:none;cursor:not-allowed}.explore .gate-reason{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}</style></head>
 <body class="explore">
-<header><div class="header-inner"><div class="brand">DDF<small>DATA DRIVEN FOOTBALL</small></div><nav aria-label="Main navigation"><a href="index.html">Home</a><a href="build.html">Build a Trade</a><a href="find.html">Trade &amp; Waiver Recommendations</a><a href="values.html">Values</a><div class="morewrap"><button type="button" aria-expanded="false" aria-controls="explore-more">More ▾</button><div class="menu" id="explore-more"><a href="build.html">Build a Trade</a><a href="find.html">Trade &amp; Waiver Recommendations</a><a href="waivers.html">Waivers</a><a href="team.html">Team assessment</a><a href="explore.html" aria-current="page">Pick players</a><a href="partners.html">Pick trading partners</a><a href="values.html">Values</a><a href="values.html#buy-sell">Buy / Sell</a><a href="values.html#overrides">Overrides</a><a href="learn.html">Learn</a><a href="learn.html#numbers/pie">How we get our numbers</a><a href="ai.html">Use DDF with AI</a><a href="connect.html">Paste my league</a><a href="setup.html">Your team</a><a href="settings.html">League settings</a></div></div></nav></div></header><div class="ctx-strip"><span>My league · Manually entered · Half PPR · 12 teams</span><a href="settings.html">Edit league</a></div><nav class="ws-steps" aria-label="Workspace progress"><a href="team.html">✓ Team assessment</a><strong class="selected" aria-current="step">Pick players</strong><span>Pick trading partners</span><span>Trade &amp; Waiver Recommendations</span><span>Build a Trade</span></nav>
-<main><h1>Which of your players can we trade?</h1><p class="muted">We will look for trades that involve any player on your roster, so you see every upgrade. Keep everyone on Evaluate unless you would truly never trade them. A player set to Hold is left out of every recommendation.</p><p class="muted hold-nudge" id="hold-nudge" role="status" hidden>Holding players narrows what we can find. Include everyone for the best results.</p><div class="row roster-heading"><strong>My team &middot; <span data-countup="13">13</span> players we can trade</strong><small class="muted" style="display:block;font-weight:400">K and DEF are handled separately.</small><button type="button" id="select-all">Include everyone</button></div><div class="table-wrap roster-table"><table><thead><tr><th scope="col">PLAYER</th><th scope="col" class="pcol">POS</th><th scope="col" class="num">DDF</th><th scope="col" class="num" title="Analyst charts: average of CBS Sports, USA Today and FantasyPros">ANALYST</th><th scope="col" class="strat">INITIAL STRATEGY</th><th scope="col" class="tg"><span class="sr-only">Trade selection</span></th></tr></thead><tbody>
-<tr class="roster-section rs-start"><th colspan="6" scope="rowgroup">OFFENSE STARTERS <b>8</b></th></tr>
-<tr class="prow"><td class="pl"><span class="nm">Josh Allen</span><span class="pos-m">QB</span><span class="vbar" aria-hidden="true"><i data-grow class="p-QB" style="width:43.0%"></i></span><small class="strat-m">Protect DDF value</small></td><td class="pcol"><span class="pdot p-QB"></span>QB</td><td class="num ddf">41.53</td><td class="num mkt">25.87</td><td class="strat">Protect DDF value</td><td class="tg"><label class="sw"><input type="checkbox" checked aria-label="Evaluate trades for Josh Allen"><span class="trk" aria-hidden="true"></span><span class="swt">Evaluate</span></label></td></tr>
-<tr class="prow"><td class="pl"><span class="nm">Jahmyr Gibbs</span><span class="pos-m">RB</span><span class="vbar" aria-hidden="true"><i data-grow class="p-RB" style="width:100.0%"></i></span><small class="strat-m">May need a stronger return</small></td><td class="pcol"><span class="pdot p-RB"></span>RB</td><td class="num ddf">96.66</td><td class="num mkt">61.03</td><td class="strat">May need a stronger return</td><td class="tg"><label class="sw"><input type="checkbox" checked aria-label="Evaluate trades for Jahmyr Gibbs"><span class="trk" aria-hidden="true"></span><span class="swt">Evaluate</span></label></td></tr>
-<tr class="prow"><td class="pl"><span class="nm">Rachaad White</span><span class="pos-m">RB</span><span class="vbar" aria-hidden="true"><i data-grow class="p-RB" style="width:7.5%"></i></span><small class="strat-m">Explore exchanging analyst premium</small></td><td class="pcol"><span class="pdot p-RB"></span>RB</td><td class="num ddf">7.24</td><td class="num mkt">12.99 <span class="prem" title="Analyst charts rate him above DDF value" aria-label="analyst premium">&#9650;</span></td><td class="strat">Explore exchanging analyst premium</td><td class="tg"><label class="sw"><input type="checkbox" checked aria-label="Evaluate trades for Rachaad White"><span class="trk" aria-hidden="true"></span><span class="swt">Evaluate</span></label></td></tr>
-<tr class="prow"><td class="pl"><span class="nm">Rhamondre Stevenson</span><span class="pos-m">RB</span><span class="vbar" aria-hidden="true"><i data-grow class="p-RB" style="width:22.0%"></i></span><small class="strat-m">Explore an RB2 upgrade</small></td><td class="pcol"><span class="pdot p-RB"></span>RB</td><td class="num ddf">21.22</td><td class="num mkt">21.71</td><td class="strat">Explore an RB2 upgrade</td><td class="tg"><label class="sw"><input type="checkbox" checked aria-label="Evaluate trades for Rhamondre Stevenson"><span class="trk" aria-hidden="true"></span><span class="swt">Evaluate</span></label></td></tr>
-<tr class="prow"><td class="pl"><span class="nm">Jaxon Smith-Njigba</span><span class="pos-m">WR</span><span class="vbar" aria-hidden="true"><i data-grow class="p-WR" style="width:81.8%"></i></span><small class="strat-m">Protect DDF value</small></td><td class="pcol"><span class="pdot p-WR"></span>WR</td><td class="num ddf">79.04</td><td class="num mkt">54.29</td><td class="strat">Protect DDF value</td><td class="tg"><label class="sw"><input type="checkbox" checked aria-label="Evaluate trades for Jaxon Smith-Njigba"><span class="trk" aria-hidden="true"></span><span class="swt">Evaluate</span></label></td></tr>
-<tr class="prow"><td class="pl"><span class="nm">Stefon Diggs</span><span class="pos-m">WR</span><span class="vbar" aria-hidden="true"><i data-grow class="p-WR" style="width:13.2%"></i></span><small class="strat-m">Compare WR upgrades</small></td><td class="pcol"><span class="pdot p-WR"></span>WR</td><td class="num ddf">12.75</td><td class="num mkt">17.30 <span class="prem" title="Analyst charts rate him above DDF value" aria-label="analyst premium">&#9650;</span></td><td class="strat">Compare WR upgrades</td><td class="tg"><label class="sw"><input type="checkbox" checked aria-label="Evaluate trades for Stefon Diggs"><span class="trk" aria-hidden="true"></span><span class="swt">Evaluate</span></label></td></tr>
-<tr class="prow"><td class="pl"><span class="nm">George Pickens</span><span class="pos-m">WR</span><span class="vbar" aria-hidden="true"><i data-grow class="p-WR" style="width:29.8%"></i></span><small class="strat-m">Compare complete returns</small></td><td class="pcol"><span class="pdot p-WR"></span>WR</td><td class="num ddf">28.81</td><td class="num mkt">26.08</td><td class="strat">Compare complete returns</td><td class="tg"><label class="sw"><input type="checkbox" checked aria-label="Evaluate trades for George Pickens"><span class="trk" aria-hidden="true"></span><span class="swt">Evaluate</span></label></td></tr>
-<tr class="prow"><td class="pl"><span class="nm">Trey McBride</span><span class="pos-m">TE</span><span class="vbar" aria-hidden="true"><i data-grow class="p-TE" style="width:38.2%"></i></span><small class="strat-m">Protect DDF value</small></td><td class="pcol"><span class="pdot p-TE"></span>TE</td><td class="num ddf">36.93</td><td class="num mkt">25.22</td><td class="strat">Protect DDF value</td><td class="tg"><label class="sw"><input type="checkbox" checked aria-label="Evaluate trades for Trey McBride"><span class="trk" aria-hidden="true"></span><span class="swt">Evaluate</span></label></td></tr>
-<tr class="roster-section rs-bench"><th colspan="6" scope="rowgroup">BENCH <b>5</b></th></tr>
-<tr class="prow"><td class="pl"><span class="nm">Bo Nix</span><span class="pos-m">QB</span><span class="vbar" aria-hidden="true"><i data-grow class="p-QB" style="width:0.0%"></i></span><small class="strat-m">Compare complete returns</small></td><td class="pcol"><span class="pdot p-QB"></span>QB</td><td class="num ddf">0.00</td><td class="num mkt">0.65</td><td class="strat">Compare complete returns</td><td class="tg"><label class="sw"><input type="checkbox" checked aria-label="Evaluate trades for Bo Nix"><span class="trk" aria-hidden="true"></span><span class="swt">Evaluate</span></label></td></tr>
-<tr class="prow"><td class="pl"><span class="nm">Keaton Mitchell</span><span class="pos-m">RB</span><span class="vbar" aria-hidden="true"><i data-grow class="p-RB" style="width:0.6%"></i></span><small class="strat-m">Explore depth exchanges</small></td><td class="pcol"><span class="pdot p-RB"></span>RB</td><td class="num ddf">0.55</td><td class="num mkt">3.01</td><td class="strat">Explore depth exchanges</td><td class="tg"><label class="sw"><input type="checkbox" checked aria-label="Evaluate trades for Keaton Mitchell"><span class="trk" aria-hidden="true"></span><span class="swt">Evaluate</span></label></td></tr>
-<tr class="prow"><td class="pl"><span class="nm">Malachi Fields</span><span class="pos-m">WR</span><span class="vbar" aria-hidden="true"><i data-grow class="p-WR" style="width:0.7%"></i></span><small class="strat-m">Explore depth exchanges</small></td><td class="pcol"><span class="pdot p-WR"></span>WR</td><td class="num ddf">0.68</td><td class="num mkt">4.13 <span class="prem" title="Analyst charts rate him above DDF value" aria-label="analyst premium">&#9650;</span></td><td class="strat">Explore depth exchanges</td><td class="tg"><label class="sw"><input type="checkbox" checked aria-label="Evaluate trades for Malachi Fields"><span class="trk" aria-hidden="true"></span><span class="swt">Evaluate</span></label></td></tr>
-<tr class="prow"><td class="pl"><span class="nm">Antonio Williams</span><span class="pos-m">WR</span><span class="vbar" aria-hidden="true"><i data-grow class="p-WR" style="width:2.7%"></i></span><small class="strat-m">Explore analyst premium</small></td><td class="pcol"><span class="pdot p-WR"></span>WR</td><td class="num ddf">2.58</td><td class="num mkt">10.62 <span class="prem" title="Analyst charts rate him above DDF value" aria-label="analyst premium">&#9650;</span></td><td class="strat">Explore analyst premium</td><td class="tg"><label class="sw"><input type="checkbox" checked aria-label="Evaluate trades for Antonio Williams"><span class="trk" aria-hidden="true"></span><span class="swt">Evaluate</span></label></td></tr>
-<tr class="prow"><td class="pl"><span class="nm">Dalton Schultz</span><span class="pos-m">TE</span><span class="vbar" aria-hidden="true"><i data-grow class="p-TE" style="width:0.0%"></i></span><small class="strat-m">Compare complete returns</small></td><td class="pcol"><span class="pdot p-TE"></span>TE</td><td class="num ddf">0.00</td><td class="num mkt">1.75</td><td class="strat">Compare complete returns</td><td class="tg"><label class="sw"><input type="checkbox" checked aria-label="Evaluate trades for Dalton Schultz"><span class="trk" aria-hidden="true"></span><span class="swt">Evaluate</span></label></td></tr></tbody></table></div><p class="kd">Not evaluated: Brandon Aubrey (K), ARI D/ST. Kickers and defenses are not priced.</p><p id="empty-msg" class="empty-msg" role="status" hidden>Nothing selected. Pick at least one player to shop.</p><div class="xbar"><a class="button" href="team.html">Back</a><span id="selection-count" role="status"><b id="sel-n">13</b> of 13 evaluating</span><span id="gate-reason" class="gate-reason" role="status"></span><a class="button primary" id="continue" href="partners.html" data-sticky-next data-back-href="team.html" data-back-label="Back" data-next-label="Next: pick trading partners" data-disabled-reason="Set at least one player to Evaluate to continue">Next: pick trading partners</a></div></main>
+<header><div class="header-inner"><div class="brand">DDF<small>DATA DRIVEN FOOTBALL</small></div><nav aria-label="Main navigation"><a href="index.html">Home</a><a href="build.html">Build a Trade</a><a href="find.html">Trade &amp; Waiver Recommendations</a><a href="values.html">Values</a><div class="morewrap"><button type="button" aria-expanded="false" aria-controls="explore-more">More ▾</button><div class="menu" id="explore-more"><a href="build.html">Build a Trade</a><a href="find.html">Trade &amp; Waiver Recommendations</a><a href="waivers.html">Waivers</a><a href="team.html">Team assessment</a><a href="explore.html" aria-current="page">Pick players</a><a href="partners.html">Pick trading partners</a><a href="values.html">Values</a><a href="values.html#buy-sell">Buy / Sell</a><a href="values.html#overrides">Overrides</a><a href="learn.html">Learn</a><a href="learn.html#numbers/pie">How we get our numbers</a><a href="ai.html">Use DDF with AI</a><a href="connect.html">Paste my league</a><a href="setup.html">Your team</a><a href="settings.html">League settings</a></div></div></nav></div></header><div class="ctx-strip"><span></span><a href="settings.html">Edit league</a></div><nav class="ws-steps" aria-label="Workspace progress"><a href="team.html">✓ Team assessment</a><strong class="selected" aria-current="step">Pick players</strong><span>Pick trading partners</span><span>Trade &amp; Waiver Recommendations</span><span>Build a Trade</span></nav>
+<main><h1>Which of your players can we trade?</h1><p class="muted">We will look for trades that involve any player on your roster, so you see every upgrade. Keep everyone on Evaluate unless you would truly never trade them. A player set to Hold is left out of every recommendation.</p><p class="muted empty-league" id="no-league" role="status" hidden></p><p class="muted hold-nudge" id="hold-nudge" role="status" hidden>Holding players narrows what we can find. Include everyone for the best results.</p><div class="row roster-heading"><strong><span id="team-label">My team</span> &middot; <span id="trade-n">0</span> players we can trade</strong><small class="muted" style="display:block;font-weight:400">K and DEF are handled separately.</small><button type="button" id="select-all">Include everyone</button></div><div class="table-wrap roster-table"><table><thead><tr><th scope="col">PLAYER</th><th scope="col" class="pcol">POS</th><th scope="col" class="num">DDF</th><th scope="col" class="num" title="Analyst charts: average of CBS Sports, USA Today and FantasyPros">ANALYST</th><th scope="col" class="strat">INITIAL STRATEGY</th><th scope="col" class="tg"><span class="sr-only">Trade selection</span></th></tr></thead><tbody id="roster-rows"></tbody></table></div><p class="kd" id="kd"></p><p id="empty-msg" class="empty-msg" role="status" hidden>Nothing selected. Pick at least one player to shop.</p><div class="xbar"><a class="button" href="team.html">Back</a><span id="selection-count" role="status"><b id="sel-n">0</b> of <span id="sel-total">0</span> evaluating</span><span id="gate-reason" class="gate-reason" role="status"></span><a class="button primary" id="continue" href="partners.html" data-sticky-next data-back-href="team.html" data-back-label="Back" data-next-label="Next: pick trading partners" data-disabled-reason="Set at least one player to Evaluate to continue">Next: pick trading partners</a></div></main>
 <footer class="sitemap"><div class="in"><div><h2>TRADE</h2><a href="index.html">Home</a><a href="build.html">Build a Trade</a><a href="find.html">Trade &amp; Waiver Recommendations</a><a href="waivers.html">Waivers</a></div><div><h2>VALUES</h2><a href="values.html">Values</a><a href="values.html#buy-sell">Buy / Sell</a><a href="values.html#overrides">Overrides</a></div><div><h2>YOUR LEAGUE</h2><a href="connect.html">Paste my league</a><a href="setup.html">Your team</a><a href="settings.html">League settings</a><a href="team.html">Team assessment</a><a href="explore.html">Pick players</a><a href="partners.html">Pick trading partners</a></div><div><h2>LEARN</h2><a href="learn.html">Learn</a><a href="learn.html#numbers/pie">How we get our numbers</a><a href="ai.html">Use DDF with AI</a></div></div><div class="footer">Data Driven Football</div></footer>
-<script>
+<!-- ddf-engine -->
+<script src="v2/finder.js" defer></script>
+<script src="v2/team-summary.js" defer></script>
+<script src="ddf-engine.js" defer></script>
+<script src="ddf-league.js" defer></script>
+<script type="module">
+/* Pick players on the live engine (JEG-1539): the user's real roster, DDF Value and Analyst charts (mean of CBS Sports,
+   USA Today, FantasyPros via TradeValueFinder.withChartAverage) from engine rows. Hold choices live in DDF.league.held()
+   (sessionStorage ddf:hold, read by Trade & Waiver Recommendations). The heading count is the number of toggles. */
 (() => {
-const rowsEl=[...document.querySelectorAll('.explore tr.prow')];
-const checks=rowsEl.map(r=>r.querySelector('input[type=checkbox]'));
-const next=document.getElementById('continue');
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fx = v => (typeof v === 'number' && isFinite(v)) ? v.toFixed(1) : '—';
+const next = $('continue');
+let rows = [];
 function ddfGate(btns,ok,reason,rid){
   var r=document.getElementById(rid);if(r)r.textContent=ok?'':reason;
   btns.forEach(function(b){
@@ -143,21 +138,71 @@ function ddfGate(btns,ok,reason,rid){
   if(window.DDF&&DDF.actionBar)DDF.actionBar.setDisabled(!ok,ok?null:reason);
 }
 document.addEventListener('click',function(e){var b=e.target.closest&&e.target.closest('a[aria-disabled="true"][data-href]');if(b){e.preventDefault();e.stopImmediatePropagation()}},true);
-function update(){
- let n=0;
- checks.forEach((input,i)=>{const on=input.checked;if(on)n++;rowsEl[i].classList.toggle('held',!on);rowsEl[i].querySelector('.swt').textContent=on?'Evaluate':'Hold';});var hn=document.getElementById('hold-nudge');if(hn)hn.hidden=n===checks.length;
- document.getElementById('sel-n').textContent=n;
- if(window.DDF&&DDF.actionBar)DDF.actionBar.setSummary(n+' of '+checks.length+' players included, next: pick trading partners');
- document.getElementById('empty-msg').hidden=n>0;
- ddfGate([next],n>0,'Set at least one player to Evaluate to continue','gate-reason');
+function update(save){
+  const checks = rows.map(r => r.querySelector('input[type=checkbox]'));
+  let n = 0;
+  checks.forEach((input, i) => { const on = input.checked; if (on) n++; rows[i].classList.toggle('held', !on); rows[i].querySelector('.swt').textContent = on ? 'Evaluate' : 'Hold'; });
+  $('hold-nudge').hidden = n === checks.length;
+  $('sel-n').textContent = n; $('sel-total').textContent = checks.length;
+  if (save) DDF.league.setHeld(rows.filter((r, i) => !checks[i].checked).map(r => r.dataset.key));
+  if (window.DDF && DDF.actionBar) DDF.actionBar.setSummary(n + ' of ' + checks.length + ' players included, next: pick trading partners');
+  $('empty-msg').hidden = n > 0 || !checks.length;
+  ddfGate([next], n > 0, checks.length ? 'Set at least one player to Evaluate to continue' : 'Add your league first', 'gate-reason');
 }
-checks.forEach(input=>input.addEventListener('change',update));
-document.getElementById('select-all').onclick=()=>{checks.forEach(input=>input.checked=true);update()};
-const wrap=document.querySelector('.morewrap');
-const menuButton=wrap.querySelector('button');
-new MutationObserver(()=>menuButton.setAttribute('aria-expanded',String(wrap.classList.contains('open')))).observe(wrap,{attributes:true,attributeFilter:['class']});
-document.addEventListener('keydown',event=>{if(event.key==='Escape'&&wrap.classList.contains('open')){wrap.classList.remove('open');menuButton.focus()}});
-update();
+function strategyFor(p, ctx) {
+  if (ctx.premium.has(p.key)) return 'Explore analyst premium';
+  const slot = ctx.slotOf.get(p.key);
+  if (!slot) return p.ddf === null ? 'Not priced at these settings' : 'Explore depth exchanges';
+  const t = ctx.tiers && ctx.tiers.positions[slot];
+  if (t && t.tier === 'strong') return 'Protect DDF value';
+  if (t && t.tier === 'weak') return 'Explore a ' + slot + ' upgrade';
+  return 'Compare complete returns';
+}
+function render(c) {
+  const mine = DDF.league.myTeam();
+  const body = $('roster-rows');
+  $('no-league').hidden = !!mine;
+  document.querySelector('.roster-heading').hidden = !mine;
+  document.querySelector('.roster-table').hidden = !mine;
+  if (!mine) {
+    body.innerHTML = ''; rows = []; $('kd').textContent = '';
+    $('no-league').innerHTML = c ? 'Your team is not picked yet. <a href="setup.html">Pick your team</a> to choose which players we can trade.' : 'Add your league to choose which players we can trade. <a href="connect.html">Add your league</a>';
+    $('team-label').textContent = 'My team'; update(false); return;
+  }
+  const L = DDF.league.lineup(mine);
+  const tiers = DDF.league.positionTiers().teams.find(t => t.index === mine.index);
+  const slotOf = new Map();
+  Object.keys(L.slots).forEach(s => L.slots[s].forEach(p => slotOf.set(p.key, s)));
+  const F = window.TradeValueFinder, TS = window.TradeValueTeamSummary;
+  const priced = mine.players.filter(p => !p.unpriced);
+  const avg = new Map(F.withChartAverage(priced.map(p => p.row), DDF.league.RULES.ANALYST).map(r => [String(r.player_key), r.values[F.MARKET_KEY]]));
+  const gaps = TS.marketGaps(F.withChartAverage(priced.map(p => p.row), DDF.league.RULES.ANALYST), TS.NOISE_FLOOR);
+  const ctx = {tiers, slotOf, premium: new Set(gaps.over.map(g => g.key))};
+  const held = new Set(DDF.league.held());
+  const max = Math.max(1, ...priced.map(p => p.ddf || 0));
+  const row = p => {
+    const a = avg.get(p.key), prem = ctx.premium.has(p.key);
+    const st = strategyFor(p, ctx);
+    return `<tr class="prow" data-key="${esc(p.key)}"><td class="pl"><span class="nm">${esc(p.n)}</span><span class="pos-m">${p.pos}</span><span class="vbar" aria-hidden="true"><i data-grow class="p-${p.pos}" style="width:${((p.ddf || 0) / max * 100).toFixed(1)}%"></i></span><small class="strat-m">${st}</small></td><td class="pcol"><span class="pdot p-${p.pos}"></span>${p.pos}</td><td class="num ddf">${fx(p.ddf)}</td><td class="num mkt">${fx(a)}${prem ? ' <span class="prem" title="Analyst charts rate him above DDF value" aria-label="analyst premium">&#9650;</span>' : ''}</td><td class="strat">${st}</td><td class="tg"><label class="sw"><input type="checkbox"${held.has(p.key) ? '' : ' checked'} aria-label="Evaluate trades for ${esc(p.n)}"><span class="trk" aria-hidden="true"></span><span class="swt">Evaluate</span></label></td></tr>`;
+  };
+  const others = priced.filter(p => !L.starters.includes(p));
+  body.innerHTML = `<tr class="roster-section rs-start"><th colspan="6" scope="rowgroup">OFFENSE STARTERS <b>${L.starters.length}</b></th></tr>` + L.starters.map(row).join('')
+    + (others.length ? `<tr class="roster-section rs-bench"><th colspan="6" scope="rowgroup">BENCH <b>${others.length}</b></th></tr>` + others.map(row).join('') : '');
+  rows = [...body.querySelectorAll('tr.prow')];
+  rows.forEach(r => r.querySelector('input').addEventListener('change', () => update(true)));
+  $('team-label').textContent = mine.name;
+  $('trade-n').textContent = rows.length;
+  const np = mine.players.filter(p => p.unpriced);
+  $('kd').textContent = np.length ? 'Not evaluated: ' + np.map(p => p.name + (p.pos ? ' (' + p.pos + ')' : '')).join(', ') + '. Kickers, defenses and players the value engine does not price are left out.' : '';
+  if (DDF.growBars) DDF.growBars(body);
+  update(false);
+}
+$('select-all').onclick = () => { rows.forEach(r => { r.querySelector('input').checked = true; }); update(true); };
+const wrap = document.querySelector('.morewrap');
+const menuButton = wrap.querySelector('button');
+new MutationObserver(() => menuButton.setAttribute('aria-expanded', String(wrap.classList.contains('open')))).observe(wrap, {attributes: true, attributeFilter: ['class']});
+document.addEventListener('keydown', event => { if (event.key === 'Escape' && wrap.classList.contains('open')) { wrap.classList.remove('open'); menuButton.focus(); } });
+DDF.league.ready.then(c => { render(c); DDF.league.on(render); }, e => { console.error(e); render(null); });
 })();
 </script>
 </body>
