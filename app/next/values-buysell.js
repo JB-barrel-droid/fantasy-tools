@@ -1,8 +1,9 @@
 (()=>{
 /* Buy / Sell tab (JEG-1535). Every number is an engine record (DDF.engine, ddf-engine.js); nothing is inlined.
-   Charts = mean of the indexed values of the four charts (CBS Sports, USA Today, FantasyPros, FantasyCalc) that list the
-   player; the records give null for a chart that does not list him (or only estimates him), so a missing chart is left
-   out, never read as 0. Largest gap = DDF Value (your override applied) minus each listed chart, the largest in size.
+   Charts = mean of the indexed values of the four charts (CBS Sports, USA Today, FantasyPros, FantasyCalc) the engine
+   records give for the player. A chart that only estimates him (filled in from the other charts) gives null and is left
+   out; a chart whose list ends before him gives the engine's indexed 0, which counts (and is in the n/4 badge) (JEG-1393
+   R1-OP-11, checked against the live engine 2026-11-07). Largest gap = DDF Value (your override applied) minus each listed chart, the largest in size.
    League rosters come read-only from DDF.league (ddf-league.js; DDF.engine.league() before it is ready). Natural fit is the live site's one predicate,
    TradeValueFinder.tradeFit (v2/finder.js), with its context built as finder.js fitContext / opportunities.js pairingSteps. */
 const $=id=>document.getElementById(id);

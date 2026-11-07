@@ -423,12 +423,22 @@ const PROJ = ["espn", "cbsros", "razzball"].filter(k => VP.sources[k]);
 const SRC_KEYS = [...PROJ, ...CHARTS];
 // JEG-569 / JEG-610: a held source, or a source-week a divergence review
 // excluded, stays in the pipeline (allocation, weights, pie) but is hidden
-// from DDF Value, the Indexed basis and the bench-share readout. The engine's
-// composite inputs list it; its display series do not.
-const HIDDEN = new Set((D.composite?.inputs || []).filter(k => !(D.composite?.series || D.composite?.inputs || []).includes(k)));
-const COUNTED = (VP.included || []).filter(k => !HIDDEN.has(k));
-const hiddenTxt = k => { const r = (D.info || []).find(x => x.key === k)?.excludedReason; return esc(nameOf(k)) + (r ? ` (${esc(r)})` : ""); };
+// from DDF Value, the Indexed basis and the bench-share readout. JEG-1393:
+// read per version (each version's composite inputs minus its display
+// series) plus the engine's hidden list, so a held projection shows too.
 const DDF = [["blended", "ddf_value"], ["charts", "ddf_value_charts"], ["projections", "ddf_value_projections"]];
+const VS = D.versionSources || {};
+const heldIn = v => (VS[v]?.inputs || []).filter(k => !(VS[v]?.series || VS[v]?.inputs || []).includes(k));
+const HIDDEN = new Set([...(D.hidden || []).map(h => h.key), ...DDF.flatMap(([v]) => heldIn(v)),
+  ...(D.composite?.inputs || []).filter(k => !(D.composite?.series || D.composite?.inputs || []).includes(k))].filter(k => VP.sources[k]));
+const COUNTED = (VP.included || []).filter(k => !HIDDEN.has(k));
+const hiddenReason = k => (D.hidden || []).find(h => h.key === k)?.reason || (D.info || []).find(x => x.key === k)?.excludedReason || "";
+const hiddenTxt = k => { const r = hiddenReason(k); return esc(nameOf(k)) + (r ? ` (${esc(r)})` : ""); };
+// The sources each DDF Value version averages: the engine's display series,
+// else the included, non-hidden members of the version's family.
+const famOf = v => v === "projections" ? PROJ : CHARTS;
+const versionUses = v => VS[v]?.series ? VS[v].series.filter(k => VP.sources[k]) : famOf(v).filter(k => COUNTED.includes(k));
+const versionHeld = v => famOf(v).filter(k => HIDDEN.has(k) && (VP.included || []).includes(k));
 const DDF_KEYS = DDF.map(([, k]) => k);
 const DDF_VER = Object.fromEntries(DDF.map(([v, k]) => [k, v]));
 const NAME = {usatoday: "USA Today", fantasycalc: "FantasyCalc", fantasypros: "FantasyPros", cbs: "CBS",
@@ -512,7 +522,7 @@ const isEst = (k, pk) => !!SRC[k]?.[pk]?.[1];
   $("strip").innerHTML = [
     `<span><b>${S.teams} teams</b> · ${SCORING[S.scoring] || S.scoring} · ${rosterTxt}</span>`,
     `<span>Pie <b class="num">${fmt(PIE, 0)}</b> · bench share <b>${pct(BS, 0)}</b></span>`,
-    `<span><b>${COUNTED.length}</b> of ${SRC_KEYS.length} sources included${HIDDEN.size ? ` · ${HIDDEN.size} hidden` : ""}</span>`,
+    `<span><b>${(VP.included || []).length}</b> of ${SRC_KEYS.length} sources included · <b>${COUNTED.length}</b> counted in DDF Value's versions${HIDDEN.size ? ` · hidden: ${[...HIDDEN].map(hiddenTxt).join(", ")}` : ""}</span>`,
     `<span>Commit <b class="mono">${esc(m.commit)}</b> · build <span class="mono">${esc(m.build_tag || "—")}</span></span>`,
     `<span>Generated <b>${esc(new Date(m.generated_at).toLocaleString("en-US", {dateStyle: "medium", timeStyle: "short"}))}</b></span>`
   ].join("");
@@ -531,21 +541,45 @@ const isEst = (k, pk) => !!SRC[k]?.[pk]?.[1];
   }
 })();
 
+// JEG-1393: Adjusted pays each position at its own rates, and splits v into
+// two parts paid at different rates, so nothing in the code fixes a source's
+// order. Count what happens at this setting: swaps between players at the
+// same position (listed, or involving an estimate) and across positions.
+const ORDER = (() => {
+  const TOL = 0.002; // the payload rounds Adjusted to 3 decimals
+  const out = {within: 0, withinEst: 0, across: 0, example: null};
+  SRC_KEYS.forEach(k => {
+    const rows = Object.entries(SRC[k] || {}).filter(([pk, a]) => P[pk] && isFinite(a[0]) && isFinite(a[7]));
+    for (let i = 0; i < rows.length; i++) for (let j = 0; j < rows.length; j++) {
+      const [ka, a] = rows[i], [kb, b] = rows[j];
+      if (!(a[0] > b[0] && b[7] > a[7] + TOL)) continue;
+      if (P[ka].p === P[kb].p) { if (a[1] || b[1]) out.withinEst++; else out.within++; continue; }
+      out.across++;
+      // The example: the widest swap between two listed chart players.
+      if (!a[1] && !b[1] && isChart(k) && (!out.example || b[7] - a[7] > out.example.gap))
+        out.example = {k, a: ka, b: kb, na: a[0], nb: b[0], ja: a[7], jb: b[7], gap: b[7] - a[7]};
+    }
+  });
+  return out;
+})();
+
 /* ---------- 1 pipeline ---------- */
 (function pipeline() {
   const a = ALLOC;
   const allocTxt = POS.map(p => `${p} ${a[p]?.starters ?? "—"} starters + ${a[p]?.bench ?? "—"} bench = ${a[p]?.rostered ?? "—"}`).join(" · ");
   const flexTxt = POS.filter(p => a[p]?.flex || a[p]?.superflex).map(p => `${p} ${(a[p].flex || 0) + (a[p].superflex || 0)}`).join(", ") || "none";
   const ex = VP.excluded || [];
+  const o = ORDER, e = o.example;
+  const orderTxt = `Each position is paid at its own rates, so a source's player order is not fixed: within a position the two parts are paid at different rates, and across positions the rates differ. At this setting ${o.within ? `${o.within.toLocaleString()} pairs of listed players at the same position swap` : "no two listed players at the same position swap"}${o.withinEst ? ` (${o.withinEst.toLocaleString()} pairs involving an estimated player near the waiver line do, since estimates are averaged over the allocations)` : ""}, while players at different positions can${e ? `: ${esc(nameOf(e.k))} lists ${esc(P[e.a].n)} (${P[e.a].p}) at ${fmtN(e.na)} above ${esc(P[e.b].n)} (${P[e.b].p}) at ${fmtN(e.nb)}, yet their Adjusted values are ${fmt(e.ja, 2)} and ${fmt(e.jb, 2)}` : ""}. Indexed keeps the published order.`;
   const steps = [
-    ["Which sources count", `Every source that is current this week, has values at this setting and has a prior-week snapshot is <i>included</i> and counts in full: ${COUNTED.map(nameOf).join(", ")}.${ex.length ? ` Not included: ${ex.map(e => `${esc(nameOf(e.key))} (${esc(e.reason)})`).join(", ")}.` : ""} A source outside that set is still shown on the same scale but never feeds the allocation, the weights or DDF Value. Two cases are <i>hidden</i> instead of dropped: a <b>red-held</b> source (it failed source validation or carries a red hold) and a source-week that a divergence review resolved as <b>exclude</b> (<span class="mono">data/source-divergence-resolutions.json</span>). A hidden source stays in the pipeline, so it still counts toward the allocation, the DDF weights and the pie and no other source's values move, but it is left out of DDF Value, the Indexed basis and the bench-share readout. An <b>amber</b> hold (the source is merely lagging, a refresh is pending) only labels the source: it stays in DDF Value, the Indexed basis, the bench-share readout and projection ordering like any other included source. Hidden at this setting: ${HIDDEN.size ? [...HIDDEN].map(hiddenTxt).join(", ") : "none"}. ESPN has no special role; any source can drop out.`],
+    ["Which sources count", `Every source that is current this week, has values at this setting and has a prior-week snapshot is <i>included</i>: ${(VP.included || []).map(nameOf).join(", ")}.${ex.length ? ` Not included: ${ex.map(e => `${esc(nameOf(e.key))} (${esc(e.reason)})`).join(", ")}.` : ""} A source outside that set is still shown on the same scale but never feeds the allocation, the weights or DDF Value. Two cases are <i>hidden</i> instead of dropped: a <b>red-held</b> source (it failed source validation or carries a red hold) and a source-week that a divergence review resolved as <b>exclude</b> (<span class="mono">data/source-divergence-resolutions.json</span>). A hidden source stays in the pipeline, so it still counts toward the allocation, the DDF weights and the pie and no other source's values move, but it is left out of DDF Value, the Indexed basis and the bench-share readout. An <b>amber</b> hold (the source is merely lagging, a refresh is pending) only labels the source: it stays in DDF Value, the Indexed basis, the bench-share readout and projection ordering like any other included source. Hidden at this setting: ${HIDDEN.size ? [...HIDDEN].map(hiddenTxt).join(", ") : "none"}. So DDF Value averages ${versionUses("blended").map(nameOf).join(", ") || "no trade chart"}${versionHeld("blended").length ? ` (${versionHeld("blended").map(nameOf).join(", ")} held back)` : ""}, and DDF Value · projections averages ${versionUses("projections").map(nameOf).join(", ") || "no projection"}${versionHeld("projections").length ? ` (${versionHeld("projections").map(nameOf).join(", ")} held back)` : ""}. ESPN has no special role; any source can drop out.`],
     ["One league allocation for every source", `Slots are filled by <i>mean projected points per game</i> across the included projections (hidden ones too), and every source uses the same counts. Dedicated starters come first. Flex seats are <i>shared</i> by the players near the cutoff (JEG-1335, Jeremy 2026-10-30): each candidate holds a share of a seat that rises smoothly with his projected points (a normal curve, spread ${fmt(SEAT_SIGMA, 2)} PPG; 0 would be the old all-or-none rule), so a player just above or below the line holds part of a seat instead of all or none. With no league loaded, bench seats are shared the same way; a loaded league takes its bench from the real rosters. Superflex stays whole. The shared counts become a short list of whole allocations with weights; the pipeline below runs once per allocation and every number is the weighted average, except Indexed, which stays each chart's own value times one averaged factor so it keeps the chart's order.${MIX.length > 1 ? ` At this setting: ${MIX.length} allocations, the heaviest weighing ${pct(MIX[0].weight, 0)}; expected flex ${POS.filter(p => EXP[p]?.flex).map(p => `${p} ${fmt(EXP[p].flex, 1)}`).join(", ") || "none"}.` : ""} Bench seats otherwise follow ${S.teams} × ${R.BENCH} seats shared over positions by D'Hondt, each position weighted by its dedicated starting slots × its backups per starter (measured from real drafts, frozen in <span class="mono">config/market_bench.json</span>; the 2-QB set when the league has 2 QB slots or a superflex). Counts, tiers and labels come from the heaviest allocation (flex went to ${flexTxt}): ${allocTxt}. A source's own values never move a slot.`],
-    ["Native to value above waivers, per source", `Each source in its own units (points per game, or trade value). Waiver line = for a chart, the value of the first player past the rostered count; for a projection, the average of the 7 players around that seat; starter line = the midpoint of the last starter and the first non-starter (never below the waiver line).` + (ES
+    ["Fill in what a chart doesn't list", `A chart that lists some players at a position gets an <i>estimate</i> for each rosterable player it skips (the first rostered + 1 by projected points; ${POS.map(p => `${p} ${D.fillSets?.[p] ?? "—"}`).join(", ")}). The estimate scales the other charts' values on the 10 lowest players they share (median over those charts), or, when no other chart is usable, comes from the chart's own curve (its values fitted against projected points). It is capped at the chart's lowest listed player at that position, so the chart's order is kept. Estimated values are shown, marked, and counted. Projections are not filled in. The next step reads the waiver and starter lines from this filled-in list, so an estimate can set a chart's waiver line.`],
+    ["Native to value above waivers, per source", `Each source in its own units (points per game, or trade value). The lines are read from the source's work list (for a chart, the filled-in list: listed plus estimated players). Waiver line = for a chart, the value of the first player past the rostered count, which can be an estimate; for a projection, the average of the 7 players around that seat; starter line = the midpoint of the last starter and the first non-starter (never below the waiver line).` + (ES
       ? ` Each player's value above waivers is split by <i>expected starts</i>: a <b>start-worthy part</b> (the chance the player's level sits above the starter line) and a <b>fill-in part</b> (the chance it sits in a bench band, times the chance that band plays because enough of the team's starters are out on bye or hurt). Both are scaled by availability, the share of weeks a healthy player at the position plays. The player's level is a normal around their value: spread = the position's measured projection spread (for a chart, the charts' own disagreement), with a floor for projections. Whatever share of v the player is not expected to use in a lineup is left out.`
       : ` Each player's value above waivers splits into a <b>bench slice</b> (the part up to the starter line, which any rostered player provides) and a <b>starter slice</b> (the premium over the starter line).`),
       ES ? `v = max(0, native − waiver line)\navail = (1 − bye share) × (1 − missed-game rate)\nstart-worthy part = avail × v × P(level > starter line)\nfill-in part = avail × v × Σ depth k: P(≥ k of the team's starters out) × P(level in band k)`
          : `v = max(0, native − waiver line)\nbench slice = max(0, min(native, starter line) − waiver line)\nstarter slice = max(0, native − starter line)`],
-    ["Fill in what a chart doesn't list", `A chart that lists some players at a position gets an <i>estimate</i> for each rosterable player it skips (the first rostered + 1 by projected points; ${POS.map(p => `${p} ${D.fillSets?.[p] ?? "—"}`).join(", ")}). The estimate scales the other charts' values on the 10 lowest players they share (median over those charts), or else fits the chart's own values against projected points. It is capped at the chart's lowest listed player at that position, so the chart's order is kept. Estimated values are shown, marked, and counted. Projections are not filled in.`],
     ...(ES ? [
     ["Each source's own weights", `Sum the parts into eight groups (position × starter/bench; bench = the fill-in parts). Each group's share of the source's total is its own weight. The bench share is not set: it comes out of the parts.`, `source weight[group] = group total ÷ source total`],
     ["DDF weights = the average", `Average each group's weight over the included sources that price that position (hidden ones too), then renormalize to 1. <b>2-QB league, no superflex slot</b> (JEG-1366): the two QB groups instead take the included <i>projections'</i> mean QB weight (the league's own points above its 2-QB waiver line) and RB/WR/TE keep their relative shares of the rest. The bench share applied is the bench groups' total: <b>${pct(BS, 1)}</b> at this setting. One weight set per setting and week, shared by all three DDF Value versions.`, `W[group] = mean source weight[group] ÷ Σ\nbench share = Σ W[pos, bench]`],
@@ -553,17 +587,17 @@ const isEst = (k, pk) => !!SRC[k]?.[pk]?.[1];
     ["Each source's own weights", `Sum the slices into eight groups (position × starter/bench). The starter groups give the source's <i>starter mix</i>, the bench groups its <i>bench mix</i>. Bench is normalized to the bench share (${pct(BS, 0)}).`, `source weight[pos, starter] = (1 − ${BS}) × starter mix[pos]\nsource weight[pos, bench]   = ${BS} × bench mix[pos]`],
     ["DDF weights = the average", `Average the mixes over the included sources (hidden ones too), then put bench back at ${pct(BS, 0)}. <b>2-QB league, no superflex slot</b> (JEG-1366): the two QB groups instead take the included <i>projections'</i> mean QB weight (the league's own points above its 2-QB waiver line) and RB/WR/TE keep their relative shares of the rest, starters and bench rescaled separately. One weight set per setting and week, shared by all three DDF Value versions.`, `W[pos, starter] = (1 − ${BS}) × mean starter mix[pos] ÷ Σ\nW[pos, bench]   = ${BS} × mean bench mix[pos] ÷ Σ`],
     ]),
-    ["Fixed league pie, paid on the DDF weights", `Pie = 28 per starting slot = 28 × ${S.teams} teams × ${POS.reduce((s, p) => s + (R[p] || 0), 0) + (R.FLEX || 0) + (R.SUPERFLEX || 0)} starters = <b>${fmt(PIE, 0)}</b>. It depends on neither scoring nor bench size. Each group's budget is pie × W; each source pays its group's budget out in proportion to its ${ES ? "parts" : "slices"}. So every source spends exactly the pie, split exactly by the DDF weights, while keeping its own player order.`, `Adjusted = (budget[pos, bench] ÷ group total[pos, bench]) × ${ES ? "fill-in part" : "bench slice"}\n         + (budget[pos, starter] ÷ group total[pos, starter]) × ${ES ? "start-worthy part" : "starter slice"}`],
-    ["Value above waivers (display)", `One factor per source puts its total value above waivers on the pie, keeping the source's own weighting.`, `Value above waivers = v × ${fmt(PIE, 0)} ÷ source's total value above waivers`],
-    ["DDF Value", `The equal-weight mean of the Adjusted values of the included, non-hidden sources that price the player. Zeros count; a source that does not price the player is left out. Three versions: blended (the default, DDF Value: the trade charts' Adjusted values only, Jeremy 2026-10-25, JEG-1073), trade charts only (the same set), projections only (the alternate). With no trade chart available DDF Value is unavailable, never a projection fallback. Option value and the timing horizon also leave hidden sources out. One number in every view. Tiers rank DDF Value and cut at the allocation's counts. Option value (convex upside) and the timing horizon are separate series and do not change DDF Value. A reader's own override (Overrides tab, off by default) replaces DDF Value on that player's row only, in that reader's browser: either an absolute value or an adjustment (+/-) added to DDF Value, both put on the 0-100 value scale; it never feeds the pipeline, Indexed, tiers, the trade chart average or the prior week.`, `DDF Value = mean(Adjusted over included, non-hidden sources that price the player)`],
+    ["Fixed league pie, paid on the DDF weights", `Pie = 28 per starting slot = 28 × ${S.teams} teams × ${POS.reduce((s, p) => s + (R[p] || 0), 0) + (R.FLEX || 0) + (R.SUPERFLEX || 0)} starters = <b>${fmt(PIE, 0)}</b>. It depends on neither scoring nor bench size. Each group's budget is pie × W; each source pays its group's budget out in proportion to its ${ES ? "parts" : "slices"}. So every source spends exactly the pie, split exactly by the DDF weights. ${orderTxt}`, `Adjusted = (budget[pos, bench] ÷ group total[pos, bench]) × ${ES ? "fill-in part" : "bench slice"}\n         + (budget[pos, starter] ÷ group total[pos, starter]) × ${ES ? "start-worthy part" : "starter slice"}`],
+    ["Value above waivers (display)", `One factor per source puts its raw total value above waivers (v summed over its work list, before any expected-start weighting) on the pie, keeping the source's own weighting.${MIX.length > 1 ? ` The factor is set in each allocation and then weight-averaged, like every other number.` : ""}`, `Value above waivers = v × ${fmt(PIE, 0)} ÷ source's raw total value above waivers${MIX.length > 1 ? " (per allocation, then averaged)" : ""}`],
+    ["DDF Value", `The equal-weight mean of the Adjusted values of the included, non-hidden trade charts that price the player. Zeros count; a chart that does not price the player is left out. Three versions: blended (the default, DDF Value: the trade charts' Adjusted values only, Jeremy 2026-10-25, JEG-1073), trade charts only (the same set), projections only (the alternate: the included, non-hidden projections, averaged the same way). With no trade chart available DDF Value is unavailable, never a projection fallback. Option value and the timing horizon also leave hidden sources out. One number in every view. Tiers rank DDF Value and cut at the allocation's counts. Option value (convex upside) and the timing horizon are separate series and do not change DDF Value. A reader's own override (Overrides tab, off by default) replaces DDF Value on that player's row only, in that reader's browser: either an absolute value or an adjustment (+/-) added to DDF Value, both put on the 0-100 value scale; it never feeds the pipeline, Indexed, tiers, the trade chart average or the prior week.`, `DDF Value = mean(Adjusted over included, non-hidden trade charts that price the player)`],
     ["Indexed (display only)", `Each trade chart's own values (a published chart's published values, or FantasyCalc's observed-trade estimate) times one factor, set so the chart's total over the players it lists equals DDF Value's total over the same players. It shows each source's own shape on our scale and never feeds DDF Value.`, `Indexed = own value × (Σ DDF Value ÷ Σ own value, over listed players)`],
   ];
   $("pipeSteps").innerHTML = steps.map(([t, body, f]) => `<li><div><b>${t}</b><p class="muted small">${body}</p>${f ? `<div class="formula">${esc(f)}</div>` : ""}</div></li>`).join("");
 
   const rows = [
-    ["Trade charts", CHARTS, ["Own value (published, or observed-trade for FantasyCalc) × one factor against DDF Value", "v × pie ÷ the chart's total v", "Paid on the DDF weights from the chart's slices"]],
-    ["Projections", PROJ, ["Their Adjusted values, off by default", "v × pie ÷ the projection's total v", "Paid on the DDF weights from the projection's slices"]],
-    ["DDF Value (three versions)", DDF_KEYS, ["Mean of Adjusted values", "Same", "Same"]],
+    ["Trade charts", CHARTS, ["Own value (published, or observed-trade for FantasyCalc) × one factor against DDF Value", "v × pie ÷ the chart's raw total v", "Paid on the DDF weights from the chart's slices"]],
+    ["Projections", PROJ, ["Their Adjusted values, off by default", "v × pie ÷ the projection's raw total v", "Paid on the DDF weights from the projection's slices"]],
+    ["DDF Value (three versions)", DDF_KEYS, ["Mean of the trade charts' Adjusted values (projections version: the projections')", "Same", "Same"]],
   ];
   $("mapTable").innerHTML = `<thead><tr><th>Series</th>${VIEWS.map(([, l]) => `<th>${l}</th>`).join("")}</tr></thead><tbody>${rows.map(([fam, who, cells]) => `<tr><td><div class="fam">${fam}</div><div class="who">${who.map(k => `<span class="chip">${sw(k)}${esc(nameOf(k))}</span>`).join("")}</div></td>${cells.map(c => `<td>${c}</td>`).join("")}</tr>`).join("")}</tbody>`;
 })();
@@ -718,6 +752,18 @@ const isEst = (k, pk) => !!SRC[k]?.[pk]?.[1];
     render();
   });
   const methodPill = m => m === "roster_determined" ? `<span class="pill good">from its list</span>` : m === "estimated" ? `<span class="pill warn">an estimated player</span>` : `<span class="pill bad">${esc(m)}</span>`;
+  // JEG-1393: the factor is pie ÷ the raw surplus total in each allocation,
+  // then weight-averaged; with one allocation it is the single division.
+  const surplusTxt = x => Math.abs(x) >= 10000 ? fmt(x, 0) : sig(x, 6);
+  function vorpRecipe(k, s) {
+    const runs = (D.vorpRuns || {})[k];
+    if (runs && runs.length > 1) {
+      const lines = [...runs].sort((a, b) => b[0] - a[0]).map(([w, st, f]) => `${pct(w, 3).padStart(7)} × (${fmt(PIE, 0)} ÷ ${surplusTxt(st)} = ${sig(f, 5)})`);
+      return `<p class="muted small">Pie ÷ the raw total value above waivers, in each of the ${runs.length} allocations, then weight-averaged (the same as every other number). ${sig(PIE / s.surplusTotal, 5) === sig(s.vorpFactor, 5) ? `Here it matches ${fmt(PIE, 0)} ÷ ${surplusTxt(s.surplusTotal)} (the averaged raw total) to 5 significant figures.` : `An average of divisions is not a division of averages: ${fmt(PIE, 0)} ÷ ${surplusTxt(s.surplusTotal)} (the averaged raw total) = ${sig(PIE / s.surplusTotal, 5)}, not the factor.`}</p><div class="formula">v × ${sig(s.vorpFactor, 5)}, where ${sig(s.vorpFactor, 5)} =\n${lines.join(" +\n")}</div>`;
+    }
+    if (MIX.length > 1) return `<div class="formula">v × ${sig(s.vorpFactor, 5)}   (pie ÷ the raw total value above waivers in each of the ${MIX.length} allocations, weight-averaged)</div>`;
+    return `<div class="formula">v × ${sig(s.vorpFactor, 5)}   (${fmt(PIE, 0)} ÷ ${surplusTxt(s.surplusTotal)}, the raw total value above waivers)</div>`;
+  }
   function source(k) {
     const s = VP.sources[k];
     const chart = isChart(k);
@@ -739,13 +785,13 @@ const isEst = (k, pk) => !!SRC[k]?.[pk]?.[1];
       estBlock = ests.length ? `<details class="fold"${ests.length <= 12 ? " open" : ""}><summary>${ests.length} estimated players (${ests.filter(x => x.e.capped).length} capped at the chart's lowest listed player)</summary><div class="tablewrap" style="max-height:420px"><table><thead><tr><th>Player</th><th>How</th><th class="r">Raw</th><th class="r">Cap</th><th class="r">Shown</th><th class="r">Adjusted</th></tr></thead><tbody>${ests.map(({pk, p, e}) => `<tr><td>${esc(P[pk]?.n || pk)} <span class="muted small">${p}</span></td><td class="small">${e.path === "peers" ? "other charts: " : "curve: "}${how(e)}</td><td class="r num">${fmtN(e.raw)}</td><td class="r num">${fmtN(e.cap)}</td><td class="r num">${fmtN(e.value)}${e.capped ? ` <span class="pill warn">capped</span>` : ""}</td><td class="r num">${fmt(SRC[k]?.[pk]?.[7])}</td></tr>`).join("")}</tbody></table></div></details>` : `<p class="muted small">No estimated players: the chart lists every rosterable player at the positions it prices.</p>`;
     }
     return `<div class="panel cards">
-      <h3>${label(k)} <span class="muted small">${chart ? `Week ${weekOf[k] ?? "?"} · ` : ""}${Object.keys(SRC[k] || {}).length} players on its work list${s.included ? "" : " · not included"}</span></h3>
+      <h3>${label(k)} <span class="muted small">${chart ? `Week ${weekOf[k] ?? "?"} · ` : ""}${Object.keys(SRC[k] || {}).length} players on its work list${s.included ? "" : " · not included"}${HIDDEN.has(k) ? ` · ${chart ? "hidden from DDF Value" : "held back from DDF Value · projections"} (${esc(hiddenReason(k) || "held")})` : ""}</span></h3>
       <ol class="recipe">
-        <li><div><b>${chart ? (isObserved(k) ? "Take the observed-trade value" : "Take the published trade value") : "Take the per-game projection"}</b><p class="muted small">${chart ? (isObserved(k) ? `The source's own trade values, estimated from completed fantasy trades, from its saved 12-team ${SCORING[S.scoring]} list, in its own units.` : `The publisher's own trade values from its saved 12-team ${SCORING[S.scoring]} list, in its own units.`) : `Rest-of-season points per game for ${SCORING[S.scoring]}, at full precision.`}${chart ? " Rosterable players it doesn't list get an estimate (list below)." : ""}</p></div></li>
+        <li><div><b>${chart ? (isObserved(k) ? "Take the observed-trade value" : "Take the published trade value") : "Take the per-game projection"}</b><p class="muted small">${chart ? (isObserved(k) ? `The source's own trade values, estimated from completed fantasy trades, from its saved 12-team ${SCORING[S.scoring]} list, in its own units.` : `The publisher's own trade values from its saved 12-team ${SCORING[S.scoring]} list, in its own units.`) : `Rest-of-season points per game for ${SCORING[S.scoring]}, at full precision.`}${chart ? " Rosterable players it doesn't list get an estimate, scaled from the other charts or, when none is usable, from the chart's own curve against projected points (list below). The lines in the next step are read from this filled-in list." : ""}</p></div></li>
         <li><div><b>Read the waiver and starter lines at the league's counts</b><p class="muted small">Counts come from the one league allocation (by mean projected points), not from this source. Waiver line = ${chart ? "this source's own value at the first rank past the rostered count" : "the average of this source's 7 players around the first rank past the rostered count"}; starter line = the midpoint of its last starter and first non-starter, in ${unit}.</p></div></li>
-        <li><div><b>${ES ? "Split by expected starts and group" : "Slice and group"}</b><p class="muted small">Total value above waivers ${fmtN(s.totalVorp)} ${unit}, in eight groups below.</p></div></li>
+        <li><div><b>${ES ? "Split by expected starts and group" : "Slice and group"}</b><p class="muted small">${ES ? `Expected-start-weighted parts total ${fmtN(s.totalVorp)} ${unit}, in eight groups below (raw value above waivers before that weighting: ${fmtN(s.surplusTotal)}).` : `Total value above waivers ${fmtN(s.totalVorp)} ${unit}, in eight groups below.`}</p></div></li>
         <li><div><b>Pay the pie on the DDF weights</b><div class="formula">rate[group] = pie × W[group] ÷ group total\nAdjusted = rate[pos, bench] × ${ES ? "fill-in part" : "bench slice"} + rate[pos, starter] × ${ES ? "start-worthy part" : "starter slice"}</div></div></li>
-        <li><div><b>Value above waivers</b><div class="formula">v × ${sig(s.vorpFactor, 5)}   (${fmt(PIE, 0)} ÷ ${fmtN(s.totalVorp)})</div></div></li>
+        <li><div><b>Value above waivers</b>${vorpRecipe(k, s)}</div></li>
         ${chart ? `<li><div><b>Indexed</b><div class="formula">${ownValue(k)} × ${sig(s.indexedFactor, 5)}</div></div></li>` : ""}
       </ol>
       <div class="tablewrap"><table><thead><tr><th>Pos</th><th class="r">Listed${chart ? " + estimated" : ""}</th><th class="r">Starters / rostered</th><th class="r">Starter line</th><th class="r">Waiver line</th><th>Waiver player</th><th class="r">Starter group</th><th class="r">Bench group</th><th class="r">Starter rate</th><th class="r">Bench rate</th></tr></thead><tbody>${rows}</tbody></table></div>
@@ -761,10 +807,10 @@ const isEst = (k, pk) => !!SRC[k]?.[pk]?.[1];
     DDF.forEach(([v]) => { counts[v] = {n: 0, zero: 0, low: 0}; Object.values(P).forEach(p => { const d = p.ddf?.[v]; if (d && d[0] !== null) { counts[v].n++; if (d[0] === 0) counts[v].zero++; if (d[2]) counts[v].low++; } }); });
     return `<div class="panel cards">
       <h3>DDF Value</h3>
-      <div class="formula">DDF Value = mean(Adjusted value of each included, non-hidden source that prices the player)</div>
-      <p>Inputs in use: ${(c.inputs || []).map(label).join(" ")}.</p>
-      <p class="muted small">${c.isDefault ? "These are the defaults: every included source; hidden ones are then left out of the mean." : "The reader changed the inputs."} The reader's selection only narrows the averaging; it never changes the weights or any source's values. A source that does not price a player is left out of that player's mean; a chart that skips a player below rosterable depth counts as 0. One number in every view.</p>
-      <div class="tablewrap"><table><thead><tr><th>Version</th><th>Sources</th><th class="r">Players with a value</th><th class="r">At 0</th><th class="r">One source only</th></tr></thead><tbody>${DDF.map(([v, k]) => `<tr><td>${label(k)}</td><td class="small">${(v === "blended" ? COUNTED : v === "charts" ? CHARTS.filter(x => COUNTED.includes(x)) : PROJ.filter(x => COUNTED.includes(x))).map(nameOf).join(", ")}</td><td class="r num">${counts[v].n}</td><td class="r num">${counts[v].zero}</td><td class="r num">${counts[v].low}</td></tr>`).join("")}</tbody></table></div>
+      <div class="formula">DDF Value = mean(Adjusted value of each included, non-hidden trade chart that prices the player)\nDDF Value · projections = mean(Adjusted value of each included, non-hidden projection that prices the player)</div>
+      <p>Trade charts in use: ${versionUses("blended").map(label).join(" ") || "none"}.${versionHeld("blended").length ? ` Held back: ${versionHeld("blended").map(hiddenTxt).join(", ")}.` : ""} Projections in use: ${versionUses("projections").map(label).join(" ") || "none"}.${versionHeld("projections").length ? ` Held back: ${versionHeld("projections").map(hiddenTxt).join(", ")}.` : ""}</p>
+      <p class="muted small">${c.isDefault ? "These are the defaults: every included trade chart; hidden ones are then left out of the mean." : "The reader changed the inputs."} The reader's selection only narrows the averaging; it never changes the weights or any source's values. A source that does not price a player is left out of that player's mean; a chart that skips a player below rosterable depth counts as 0. One number in every view.</p>
+      <div class="tablewrap"><table><thead><tr><th>Version</th><th>Sources</th><th class="r">Players with a value</th><th class="r">At 0</th><th class="r">One source only</th></tr></thead><tbody>${DDF.map(([v, k]) => `<tr><td>${label(k)}</td><td class="small">${versionUses(v).map(nameOf).join(", ") || "none"}${versionHeld(v).length ? ` <span class="muted">(held back: ${versionHeld(v).map(hiddenTxt).join(", ")})</span>` : ""}</td><td class="r num">${counts[v].n}</td><td class="r num">${counts[v].zero}</td><td class="r num">${counts[v].low}</td></tr>`).join("")}</tbody></table></div>
       <p class="muted small">Tiers: within a position, rank by blended DDF Value; the first ${POS.map(p => `${ALLOC[p]?.starters} ${p}`).join(", ")} are starters, then bench to the rostered count; DDF Value 0 is waiver. Tiers follow seats, not the sign of the value: a player past the rostered count is waiver even with a small positive DDF Value.</p>
       <p class="codepath">value-model.js · compositeValue · curve-widget.js · getCompositeInputs, getCompositeValues</p>
     </div>`;
@@ -795,7 +841,7 @@ const isEst = (k, pk) => !!SRC[k]?.[pk]?.[1];
     const pos = p.p;
     const b = p.ddf?.blended || [];
     const blocks = [];
-    blocks.push(`<div class="panel"><h3>${esc(p.n)} <span class="muted small">${pos}${p.t ? " · " + esc(p.t) : ""} · mean projection ${fmt(p.m, 2)} ppg · tier ${esc(p.tier || "—")} · DDF Value <b class="num">${fmt(b[0])}</b> from ${b[1] ?? 0} sources${isFinite(b[3]) && b[3] !== null ? ` · last week ${fmt(b[3])}` : ""}</span></h3></div>`);
+    blocks.push(`<div class="panel"><h3>${esc(p.n)} <span class="muted small">${pos}${p.t ? " · " + esc(p.t) : ""} · mean projection ${fmt(p.m, 2)} ppg · tier ${esc(p.tier || "—")} · DDF Value <b class="num">${fmt(b[0])}</b> from ${b[1] ?? 0} trade chart${b[1] === 1 ? "" : "s"}${isFinite(b[3]) && b[3] !== null ? ` · last week ${fmt(b[3])}` : ""}</span></h3></div>`);
     const adjs = [];
     SRC_KEYS.forEach(src => {
       const s = VP.sources[src], x = s.positions?.[pos] || {};
@@ -815,12 +861,21 @@ const isEst = (k, pk) => !!SRC[k]?.[pk]?.[1];
         if (est) chain += `<span class="muted small">${esc(p.est?.[src] || "estimated")}</span>`;
       }
       const av = valueOf("adj", src, k);
-      if (COUNTED.includes(src) && av !== null && isFinite(av)) adjs.push([src, av]);
-      blocks.push(`<div class="panel"><div class="steps">${label(src)}</div><div class="steps">${chain}</div></div>`);
+      if (av !== null && isFinite(av)) adjs.push([src, av]);
+      blocks.push(`<div class="panel"><div class="steps">${label(src)}${HIDDEN.has(src) ? ` <span class="pill none">hidden: ${esc(hiddenReason(src) || "held")}</span>` : ""}</div><div class="steps">${chain}</div></div>`);
     });
-    const mean = adjs.length ? adjs.reduce((s, [, v]) => s + v, 0) / adjs.length : null;
-    blocks.push(`<div class="panel"><div class="steps">${label("ddf_value")}</div><div class="steps">${adjs.map(([s, v]) => step(nameOf(s), fmt(v))).join(op("+"))}${op("÷ " + adjs.length + " =")}${step("DDF Value", fmt(mean), true)}${mean !== null && Math.abs(mean - (b[0] ?? NaN)) > 0.05 ? ` <span class="pill bad">engine shows ${fmt(b[0])}</span>` : ""}</div>
-      <div class="steps">${DDF.slice(1).map(([v, kk]) => step(nameOf(kk), fmt(p.ddf?.[v]?.[0]), true)).join("")}</div></div>`);
+    // JEG-1393: each version averages only its own sources (DDF Value: the
+    // included, non-hidden trade charts; projections: the non-hidden projections).
+    const chain = (v, kk) => {
+      const uses = versionUses(v), held = versionHeld(v);
+      const xs = adjs.filter(([src]) => uses.includes(src));
+      const eng = p.ddf?.[v]?.[0];
+      const mean = xs.length ? xs.reduce((s, [, x]) => s + x, 0) / xs.length : null;
+      const off = mean !== null && isFinite(eng) && eng !== null && Math.abs(mean - eng) > 0.05;
+      return `<div class="steps">${label(kk)}</div><div class="steps">${xs.length ? xs.map(([s, x]) => step(nameOf(s), fmt(x))).join(op("+")) + op("÷ " + xs.length + " =") : ""}${step(nameOf(kk), fmt(xs.length ? mean : eng), true)}${off ? ` <span class="pill bad">engine shows ${fmt(eng)}</span>` : ""}${held.length ? `<span class="muted small">${held.map(nameOf).join(", ")} held back this week, not counted</span>` : ""}</div>`;
+    };
+    blocks.push(`<div class="panel">${chain("blended", "ddf_value")}<p class="muted small">Inputs are unrounded; the shown values are rounded.</p></div>`);
+    blocks.push(`<div class="panel">${chain("projections", "ddf_value_projections")}<div class="steps">${step(nameOf("ddf_value_charts"), fmt(p.ddf?.charts?.[0]), true)}<span class="muted small">the same trade charts as DDF Value at the default inputs</span></div></div>`);
     $("traceBody").innerHTML = blocks.join("");
   }
   show(store.get("player", null) && P[store.get("player")] ? store.get("player") : quick[0]);
@@ -890,7 +945,7 @@ const isEst = (k, pk) => !!SRC[k]?.[pk]?.[1];
   if ((VP.excluded || []).length) add("check", "Sources left out this week",
     VP.excluded.map(e => `${esc(nameOf(e.key))}: ${esc(e.reason)}`).join("; ") + ". They are shown on the same scale but feed neither the weights nor DDF Value.");
   if (HIDDEN.size) add("check", "Hidden sources this week",
-    [...HIDDEN].map(hiddenTxt).join(", ") + ". Each carries a red hold or was excluded by a divergence review (amber holds are never hidden). They stay in the allocation, the DDF weights and the pie, so no other source moves, but are left out of DDF Value, the Indexed basis and the bench-share readout.");
+    [...HIDDEN].map(hiddenTxt).join(", ") + ". Each carries a red hold or was excluded by a divergence review (amber holds are never hidden). They stay in the allocation, the DDF weights and the pie, so no other source moves, but are left out of the DDF Value version they would feed (a hidden chart from DDF Value and the Indexed basis, a hidden projection from DDF Value · projections) and from the bench-share readout.");
   if (D.priorAvailable === false) add("check", "No prior week", `The change since last week is not available: ${esc(D.priorReason || "no reason given")}.`);
   // methods that are not roster_determined / estimated
   SRC_KEYS.forEach(k => {

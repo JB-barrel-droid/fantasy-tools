@@ -392,12 +392,52 @@ class AuditPieExtractTest(unittest.TestCase):
                 msg=f"{row['src']}: position sum {pos_sum} != total {row['totalAdjusted']}")
 
     def test_starter_bench_sum_to_position(self):
-        """Starter + bench adjusted = position adjusted for each position."""
+        """Starter + bench + waiver-role adjusted = position adjusted for each position.
+
+        JEG-1393 (R1-CX-03): the position total counts every priced player, so the
+        waiver-role remainder is its own term (0 in this fixture, which has none)."""
         data = _extract_in_browser(FIXTURE_JSON)
         for row in data["rows"]:
             for pd in row["positions"]:
-                self.assertAlmostEqual(pd["starterAdj"] + pd["benchAdj"], pd["posAdj"],
-                    places=6, msg=f"{row['src']} {pd['pos']}: starter+bench != total")
+                self.assertAlmostEqual(pd["starterAdj"] + pd["benchAdj"] + pd["waiverAdj"], pd["posAdj"],
+                    places=6, msg=f"{row['src']} {pd['pos']}: starter+bench+waiver != total")
+                self.assertEqual(pd["waiverAdj"], 0.0)
+
+    def test_waiver_role_value_counts_in_the_total(self):
+        """JEG-1393 (R1-CX-03): under fractional allocations a player labelled waiver can keep a
+        positive averaged value (live ESPN: 1.5 of the 2,352 pie). The total must still be the
+        sum of every priced player, so the totals check passes; the old starter+bench sum came
+        out 1.5 short and flagged a false LOOK."""
+        fixture = json.loads(FIXTURE_JSON)
+        espn = fixture["players"]["espn"]
+        key = next(k for k, p in espn.items() if p["role"] == "starter")
+        moved = 3.0
+        espn[key]["adjusted"] -= moved
+        espn["999001"] = {"pos": espn[key]["pos"], "role": "waiver", "adjusted": moved, "native": 0.1,
+                          "estimated": False, "starterSlice": 0, "benchSlice": 0}
+        result = self._extract_and_check(json.dumps(fixture))
+        row = {r["src"]: r for r in result["rows"]}["espn"]
+        self.assertAlmostEqual(row["totalAdjusted"], PIE, places=6)
+        self.assertAlmostEqual(row["waiverTotal"], moved, places=6)
+        self.assertAlmostEqual(row["starterTotal"] + row["benchTotal"] + row["waiverTotal"], row["totalAdjusted"], places=6)
+        totals = [c for c in result["checks"] if c["id"] == "totals"][0]
+        self.assertEqual(totals["status"], "pass", totals["reason"])
+
+    def _extract_and_check(self, fixture_json):
+        from playwright.sync_api import sync_playwright
+        from tests import _render_env
+        with _served() as base, sync_playwright() as p:
+            browser = p.chromium.launch(executable_path=_render_env.chromium_executable(), args=_render_env.HERMETIC_ARGS)
+            page = browser.new_page()
+            page.goto(base, wait_until="networkidle")
+            result = page.evaluate(f"""() => {{
+                const data = window.AuditPie.extract({fixture_json});
+                window.AuditPie.computeFlags(data);
+                data.checks = window.AuditPie.computeChecks(data);
+                return JSON.parse(JSON.stringify(data));
+            }}""")
+            browser.close()
+        return result
 
     def test_per_listed_is_total_over_listed(self):
         data = _extract_in_browser(FIXTURE_JSON)

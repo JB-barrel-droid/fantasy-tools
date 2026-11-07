@@ -175,7 +175,7 @@
       var posData = [];
       var totalListed = 0, totalRostered = 0, totalEstimated = 0;
       var totalAdjusted = 0, totalRawSlice = 0;
-      var starterTotal = 0, benchTotal = 0;
+      var starterTotal = 0, benchTotal = 0, waiverTotal = 0;
       var starterRawTotal = 0, benchRawTotal = 0;
 
       POSITIONS.forEach(function (pos) {
@@ -190,8 +190,11 @@
         var starterRaw = groups[pos + "|starter"] || 0;
         var benchRaw = groups[pos + "|bench"] || 0;
 
-        // Adjusted: sum from per-player data (the rescaled values)
-        var starterAdj = 0, benchAdj = 0;
+        // Adjusted: sum from per-player data (the rescaled values), by the player's labelled role.
+        // JEG-1393 (R1-CX-03): the position total counts every priced player. Under fractional allocations a
+        // player whose heaviest allocation labels him waiver can still carry a positive averaged value, so the
+        // waiver-role remainder is kept and added: starter + bench + waiver = the position total.
+        var starterAdj = 0, benchAdj = 0, waiverAdj = 0;
         Object.keys(ps).forEach(function (key) {
           var p = ps[key];
           if (p.pos !== pos) return;
@@ -199,10 +202,12 @@
             starterAdj += p.adjusted || 0;
           } else if (p.role === "bench") {
             benchAdj += p.adjusted || 0;
+          } else {
+            waiverAdj += p.adjusted || 0;
           }
         });
 
-        var posAdj = starterAdj + benchAdj;
+        var posAdj = starterAdj + benchAdj + waiverAdj;
         var posRaw = starterRaw + benchRaw;
         var budget = (budgets[pos + "|starter"] || 0) + (budgets[pos + "|bench"] || 0);
 
@@ -213,6 +218,7 @@
         totalRawSlice += posRaw;
         starterTotal += starterAdj;
         benchTotal += benchAdj;
+        waiverTotal += waiverAdj;
         starterRawTotal += starterRaw;
         benchRawTotal += benchRaw;
 
@@ -226,6 +232,7 @@
           estShare: rostered > 0 ? nEstimated / rostered : null,
           starterAdj: starterAdj,
           benchAdj: benchAdj,
+          waiverAdj: waiverAdj,
           posAdj: posAdj,
           starterRaw: starterRaw,
           benchRaw: benchRaw,
@@ -254,6 +261,7 @@
         totalRawSlice: totalRawSlice,
         starterTotal: starterTotal,
         benchTotal: benchTotal,
+        waiverTotal: waiverTotal,
         starterRawTotal: starterRawTotal,
         benchRawTotal: benchRawTotal,
         perListed: totalListed > 0 ? totalAdjusted / totalListed : null,
