@@ -118,7 +118,7 @@
     }
     const clearLoss = Boolean(pb && pb.band === 'clearly_worse');
     if (s.analyst.side === 'you' || clearLoss) {
-      add('ask', 'Counter-ready ask', 'The charts favor you: leave room', `Hi! I'm interested in ${rAll}. I could start with ${gAll}, and I'm open to adjusting it. What would make it work for you?`);
+      add('ask', 'Counter-ready ask', s.analyst.side === 'you' ? 'The charts favor you: leave room' : 'A clear loss for their roster: ask what works', `Hi! I'm interested in ${rAll}. I could start with ${gAll}, and I'm open to adjusting it. What would make it work for you?`);
     }
     const preselect = s.analyst.side === 'you' || clearLoss ? 'ask' : input.claim ? 'value' : s.fills.length ? 'need' : 'opener';
     return {shape: s, summary: describe(s), options: out, preselect};

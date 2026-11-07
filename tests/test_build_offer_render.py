@@ -167,5 +167,55 @@ class BuildOfferRenderTest(unittest.TestCase):
                     self.assertEqual((got["card"], got["mode"]), (True, "any"), label)
 
 
+    def test_chart_picker_and_reader_choices(self):
+        """The value option's chart is the one the picker shows; an explicit None removes the value option and stays
+        None; the reader's own option pick and edited text survive a re-render (an engine rebuild)."""
+        p = self.players
+        ctx = self.browser.new_context(viewport={"width": 1440, "height": 900})
+        self.addCleanup(ctx.close)
+        page = ctx.new_page()
+        page.add_init_script(f"({SEED_JS})(null)")
+        # Find a trade the best chart supports: you send the higher Analyst charts value.
+        by_an = sorted(p, key=lambda x: -x["an"])
+        page.goto(f"{self.base}/build.html?give={by_an[0]['key']}&get={by_an[8]['key']}", wait_until="load", timeout=60000)
+        page.wait_for_function(LIVE, timeout=60000)
+        page.wait_for_selector("#styles [data-style]")
+        st = page.evaluate("() => ({pre: DDFBuild.offer().preselect, chart: document.getElementById('ref-chart').value, msg: document.getElementById('message').value})")
+        self.assertEqual(st["pre"], "value", st)
+        self.assertTrue(st["chart"], "the picker shows the chart the message cites")
+        name = page.evaluate("() => document.querySelector('#ref-chart option:checked').textContent.split(':')[0].replace('Best for your pitch · ', '')")
+        self.assertIn(name.split(' (')[0], st["msg"])
+        page.select_option("#ref-chart", "")
+        page.wait_for_timeout(200)
+        after = page.evaluate("() => ({ids: [...document.querySelectorAll('#styles [data-style]')].map(b => b.dataset.style), chart: document.getElementById('ref-chart').value, msg: document.getElementById('message').value})")
+        self.assertEqual(after["chart"], "", after)
+        self.assertNotIn("value", after["ids"], after)
+        self.assertNotRegex(after["msg"], r"trade chart|live market values", after)
+        # Reader's pick and edits survive a re-render.
+        page.click('#styles [data-style="opener"]')
+        page.fill("#message", "My own words")
+        page.evaluate("() => DDF.engine.applyVisit({})")   # an engine rebuild re-renders the page
+        page.wait_for_timeout(200)
+        kept = page.evaluate("() => ({style: DDFBuild.state().style, msg: document.getElementById('message').value})")
+        self.assertEqual(kept, {"style": "opener", "msg": "My own words"})
+
+    def test_pasted_league_any_players_mode_has_no_card(self):
+        p = self.players[:24]
+        mine, theirs = p[0::2], p[1::2]
+        import json
+        pasted = {"v": 1, "me": 0, "teams": [{"name": "Paste One", "players": [{"name": x["n"], "key": x["key"], "pos": x["pos"]} for x in mine]},
+                                             {"name": "Paste Two", "players": [{"name": x["n"], "key": x["key"], "pos": x["pos"]} for x in theirs]}]}
+        seed = "(function(){ try { localStorage.clear(); sessionStorage.clear(); sessionStorage.setItem('ddf:pasted', %s); } catch (e) {} })()" % json.dumps(json.dumps(pasted))
+        for width in (1440, 390):
+            ctx = self.browser.new_context(viewport={"width": width, "height": 900})
+            self.addCleanup(ctx.close)
+            page = ctx.new_page()
+            page.add_init_script(seed)
+            page.goto(f"{self.base}/build.html?mode=any&give={mine[2]['key']}&get={theirs[1]['key']}", wait_until="load", timeout=60000)
+            page.wait_for_function(LIVE, timeout=60000)
+            shown = page.evaluate("() => { const c = document.querySelector('.lock-card[data-kind=trade][data-only=any-noleague]'); return [DDFBuild.state().mode, !!c && !c.hidden]; }")
+            self.assertEqual(shown, ["any", False], width)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -108,7 +108,7 @@
       const teams = shared.teams.map(t => ({id: String(t.index), name: t.name,
         keys: (t.players || []).map(p => p && p.key != null ? String(p.key) : null).filter(k => k && ROWS.has(k))}));
       const me = Number.isInteger(shared.me) ? teams.findIndex(t => t.id === String(shared.me)) : -1;
-      return summarize(shared.source === 'saved' ? 'live' : shared.source, shared.name || 'Your league', teams, me, (shared.settings && +shared.settings.teams) || teams.length);
+      return summarize(shared.source === 'saved' ? 'live' : shared.source === 'link' ? 'pasted' : shared.source, shared.name || 'Your league', teams, me, (shared.settings && +shared.settings.teams) || teams.length);
     }
     const lg = E().league();
     if (lg) {
@@ -298,7 +298,7 @@
     const st = L.st;
     const wv = S.wv || {min: 2, pos: 'All'};
     S = {mode: 'any', kind: P.waivers || (st && st.view === 'waivers') ? 'waivers' : 'trade', any: {give: [], get: []}, lg: {give: new Set(), get: new Set()},
-      partner: L.partners.length ? L.partners[0] : -1, extras: {give: [], get: {}}, style: S.style || '', userStyle: Boolean(S.userStyle), chart: S.chart || '', dirty: false,
+      partner: L.partners.length ? L.partners[0] : -1, extras: {give: [], get: {}}, style: S.style || '', userStyle: Boolean(S.userStyle), chart: S.chart || '', chartUser: S.chartUser || '', dirty: false,
       wv: {drop: P.drop ? resolve(P.drop) : null, add: P.add ? resolve(P.add) : null, min: wv.min, pos: wv.pos, countKey: ''}, claimDirty: false};
     let note = '';
     const trade = st && st.trade && (present(st.trade.give) || present(st.trade.get)) ? st.trade : null;
@@ -700,18 +700,19 @@
     try { return new Set(X.Fd.lineupValue(rowsOf(keys), X.shape, 'ddf_value').starters.map(r => String(r.player_key))); } catch (e) { return null; }
   }
   function offerInput() {
+    const userChart = S.chartUser && S.chartUser !== 'none' ? S.chartUser : '';
     const league = S.mode === 'league' && L.available;
     const mine = league ? lineupStarters(myRosterKeys()) : null, theirs = league && S.partner >= 0 ? lineupStarters(L.teams[S.partner].keys) : null;
     const player = (k, starters) => { const p = rec(k); return {n: p.n, pos: p.pos, ddf: p.ddf, an: p.an, starter: starters ? starters.has(k) : null}; };
     const give = picked('give'), get = picked('get');
     const fit = league && S.fit ? {usStarter: S.fit.us.starterDelta, themStarter: S.fit.them.starterDelta, themNeed: S.fit.them.towardAt || []} : null;
     const shopText = (() => {
-      if (!S.chart || get.length) return '';
-      const vs = give.map(k => cval(S.chart, k));
+      if (!userChart || get.length) return '';
+      const vs = give.map(k => cval(userChart, k));
       if (!vs.length || vs.some(v => v === null)) return '';
-      return ` By ${chartSrc(S.chart)} ${give.length > 1 ? "they're" : "he's"} about ${cfmt(S.chart, csum(vs))}${give.length > 1 ? ' together' : ''}, so I'm looking for something close.`;
+      return ` By ${chartSrc(userChart)} ${give.length > 1 ? "they're" : "he's"} about ${cfmt(userChart, csum(vs))}${give.length > 1 ? ' together' : ''}, so I'm looking for something close.`;
     })();
-    const pickedClaim = claimFor(S.chart);
+    const pickedClaim = claimFor(userChart);
     // JEG-1558: each roster's % change (DDFOpportunity.rosterImprovementPct, ddf-opportunity.js) when that module is on
     // the page; not computed here. Without it the message says nothing about roster %.
     const pct = side => {
@@ -723,7 +724,9 @@
       } catch (e) { return null; }
     };
     return {give: give.map(k => player(k, mine)), get: get.map(k => player(k, theirs)), league, fit,
-      claim: S.chart ? pickedClaim : claimFor(chartRank().best), pickedClaim, shopText,
+      // The value option cites the reader's chart; with none picked, the best chart for the pitch; after an explicit
+      // None, no chart (and so no value option). Other pitches cite only a chart the reader picked.
+      claim: S.chartUser === 'none' ? null : userChart ? pickedClaim : claimFor(chartRank().best), pickedClaim, shopText,
       // JEG-1561 / JEG-1558 SLOT: the natural-fit rationale (shared explanation module, Workspace agent) and the roster %
       // improvement ("your roster gets x% better", JEG-1558 denominator) go here as {text} once their signatures are
       // published. Never computed on this page; null keeps the line out of the message.
@@ -734,8 +737,12 @@
     OFFER = window.DDFOffer.options(offerInput());
     if (!OFFER.options.some(o => o.id === S.style) || !S.userStyle) S.style = OFFER.preselect;
     // "Offer with the numbers" cites a chart: with none picked it uses the best one for the pitch, and the picker says so.
-    const cited = OFFER.options.find(o => o.id === 'value') && S.style === 'value' && !S.chart ? offerInput().claim : null;
-    if (cited) { S.chart = cited.k; $('ref-chart').value = S.chart; chartLive(); OFFER = window.DDFOffer.options(offerInput()); }
+    // The picker shows the chart the message cites: the reader's pick, else (value option on) the best chart, re-picked
+    // on every render so a trade change never leaves a stale chart; nothing after an explicit None.
+    const userChart = S.chartUser && S.chartUser !== 'none' ? S.chartUser : '';
+    const auto = !userChart && S.chartUser !== 'none' && S.style === 'value' ? (offerInput().claim || {}).k || '' : '';
+    const want = userChart || auto;
+    if (want !== S.chart) { S.chart = want; $('ref-chart').value = S.chart; chartLive(); }
     $('offer-shape').textContent = OFFER.summary;
     $('styles').innerHTML = OFFER.options.map(o => `<button type="button" data-style="${o.id}" aria-pressed="${o.id === S.style}"><span class="style-label">${esc(o.label)}</span><small>${esc(o.hint)}</small></button>`).join('');
   }
@@ -775,8 +782,8 @@
     $('your-valuation').onchange = () => changed();
     $('their-valuation').onchange = () => changed();
     $('styles').onclick = e => { const b = e.target.closest('[data-style]'); if (!b) return; S.style = b.dataset.style; S.userStyle = true; writeMessage(); const again = $('styles').querySelector(`[data-style="${b.dataset.style}"]`); if (again) again.focus(); };
-    $('ref-chart').onchange = () => { S.chart = $('ref-chart').value; chartLive(); writeMessage(); };
-    $('chart-live').onclick = e => { const b = e.target.closest('#chart-best'); if (!b) return; S.chart = b.dataset.chart; $('ref-chart').value = S.chart; chartLive(); writeMessage(); $('ref-chart').focus(); };
+    $('ref-chart').onchange = () => { S.chart = $('ref-chart').value; S.chartUser = S.chart || 'none'; chartLive(); writeMessage(); };
+    $('chart-live').onclick = e => { const b = e.target.closest('#chart-best'); if (!b) return; S.chart = b.dataset.chart; S.chartUser = S.chart; $('ref-chart').value = S.chart; chartLive(); writeMessage(); $('ref-chart').focus(); };
     document.addEventListener('keydown', e => { if (e.key === 'Escape') document.querySelectorAll('details.info[open]').forEach(d => { d.open = false; d.querySelector('summary').focus(); }); });
     document.addEventListener('click', e => { document.querySelectorAll('details.info[open]').forEach(d => { if (!d.contains(e.target)) d.open = false; }); });
     $('message').oninput = () => { S.dirty = true; }; $('regenerate').onclick = writeMessage;
@@ -846,13 +853,15 @@
      the section appears only once the trade renders, so the browser's own jump misses it. Scroll there after the
      render, below the sticky header (and the sub-nav when it is shown). A visit without the anchor is unchanged. */
   const CHARTS_ANCHOR = /^#trade-charts(\?|$)/;
+  let scrolledToCharts = false;
   function scrollToChartsIfLinked() {
     const el = $('trade-charts');
-    if (!CHARTS_ANCHOR.test(location.hash) || !el || el.hidden || $('result').hidden) return;
+    if (scrolledToCharts || !CHARTS_ANCHOR.test(location.hash) || !el || el.hidden || $('result').hidden) return;
     const stuck = [...document.querySelectorAll('header, .subnav')].filter(n => n.offsetParent !== null && /sticky|fixed/.test(getComputedStyle(n).position));
     const offset = stuck.reduce((t, n) => t + n.getBoundingClientRect().height, 0) + 12;
     const top = el.getBoundingClientRect().top + window.scrollY - offset;
     window.scrollTo({top: Math.max(0, top), behavior: 'auto'});
+    scrolledToCharts = true;
   }
 
   /* ---------- start ---------- */

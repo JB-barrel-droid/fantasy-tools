@@ -68,7 +68,8 @@ const ROWS = [
     text: {consolidate: `Hi! Would you trade Jahmyr Gibbs for James Cook and Breece Hall? I'd rather have fewer, better players in my lineup, and you'd get useful depth. It costs your roster only about 1.8%, so it's close. ${claim.text}`}},
   {name: 'band clearly worse: no marginal claim, counter-ready ask', input: {give: [allen], get: [burrow], partner: {pct: -5.3, shown: -5.3, band: 'clearly_worse'}},
     ids: ['opener', 'ask'], pre: 'ask',
-    text: {opener: 'Hi! Would you trade Joe Burrow for Josh Allen?'}, absent: ['5.3%', 'close', 'only about']},
+    text: {opener: 'Hi! Would you trade Joe Burrow for Josh Allen?'}, absent: ['5.3%', 'close', 'only about'],
+    hint: {ask: 'A clear loss for their roster: ask what works'}},
   {name: 'band unsized: nothing said', input: {give: [gibbs], get: [nacua], claim, partner: {pct: null, shown: null, band: 'unsized'}},
     ids: ['opener', 'value'], pre: 'value',
     text: {value: `Hi! Would you trade Puka Nacua for Jahmyr Gibbs? ${claim.text} Let me know what you think.`}},
@@ -84,6 +85,7 @@ for (const row of ROWS) {
     assert.strictEqual(out.preselect, row.pre, 'preselect');
     assert.ok(out.options.some(o => o.id === out.preselect), 'preselect is shown');
     for (const [id, want] of Object.entries(row.text || {})) assert.strictEqual(out.options.find(o => o.id === id).text, want, `text of ${id}`);
+    for (const [id, want] of Object.entries(row.hint || {})) assert.strictEqual(out.options.find(o => o.id === id).hint, want, `hint of ${id}`);
     for (const bad of row.absent || []) assert.ok(out.options.every(o => !o.text.includes(bad)), `no option says "${bad}"`);
     for (const part of row.summary || []) assert.ok(out.summary.includes(part), `summary has "${part}": ${out.summary}`);
     for (const o of out.options) {

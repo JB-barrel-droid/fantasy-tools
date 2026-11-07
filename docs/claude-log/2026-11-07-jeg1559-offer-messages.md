@@ -40,6 +40,16 @@ Other changes
 - `#trade-charts` (was `#charts-section`): a link with it scrolls to the charts after the trade renders, below the
   sticky header and sub-nav; no anchor, no scroll.
 
+Independent review (separate Opus subagent, head 79cf42eb6): CHANGES NEEDED, fixed in the next commit:
+- An explicit None in the chart picker was overridden (the value option re-picked the best chart), and the auto-picked
+  chart stuck after a trade change and leaked into other pitches. Now the reader's pick (`S.chartUser`: a chart key or
+  'none') is kept apart from the auto chart, which is re-picked on every render only while the value option is on;
+  None removes the value option; other pitches cite only the reader's pick.
+- The counter-ready ask's hint says "A clear loss for their roster" when it shows for the roster band, not the charts.
+- A shared link league without settings maps to 'pasted'; the #trade-charts scroll runs once.
+- Tests: picker None and auto chart, the reader's option and edits surviving an engine rebuild, pasted league in Any
+  players mode.
+
 ### Verified (check named)
 - `node tests/node/build_offer_check.cjs`: 18 shape rows (sizes, add-in, positions, balance both ways, need, bench,
   league-only gating, shop, unknown analyst value, the five JEG-1558 bands): ids, preselect, exact texts, and for every
