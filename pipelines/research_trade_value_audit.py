@@ -352,9 +352,9 @@ def player_rows(inp) -> tuple[list, dict]:
     rows = []
     for i in ranked:
         rows.append({"key": i, "name": inp.players[i]["name"], "pos": pos_of[i], "ddf": r(ddf[i], 1),
-                     "pct_of_top": {k: (r(100 * nat[k][i] / top[k], 2) if i in nat[k] else None) for k in CHARTS},
+                     "pct_of_top": {k: (r(100 * nat[k][i] / top[k], 4) if i in nat[k] else None) for k in CHARTS},
                      "pos_rank": {k: pos_rank[k].get(i) for k in CHARTS}})
-    return rows, {k: {p: r(100 * waiver[k][p] / top[k], 2) for p in POS} for k in CHARTS}
+    return rows, {k: {p: r(100 * waiver[k][p] / top[k], 4) for p in POS} for k in CHARTS}
 
 
 def outliers(rows: list) -> list:
@@ -705,11 +705,11 @@ def dynastyprocess(inp, data: dict) -> dict:
     out["scoring_note"] = "one value set for every scoring format"
     # Trade box rows.
     for row in data["players"]:
-        row["pct_of_top"][DP] = r(100 * nat[row["key"]] / top, 2) if row["key"] in nat else None
+        row["pct_of_top"][DP] = r(100 * nat[row["key"]] / top, 4) if row["key"] in nat else None
     dp_rank = avg_pos_ranks(nat, pos_of)
     for row in data["players"]:
         row["pos_rank"][DP] = dp_rank.get(row["key"])
-    data["waiver_line"][DP] = {p: r(100 * waiver[p] / top, 2) for p in POS}
+    data["waiver_line"][DP] = {p: r(100 * waiver[p] / top, 4) for p in POS}
     # Scorecard (balance not graded: dynasty values price future seasons, our yardstick is this season).
     depth = min(out["listed"][p] / out["rostered"][p] for p in POS)
     fresh_weeks = sum(1 for m in moves if m >= 0.25)
@@ -817,8 +817,10 @@ def ddf_scorecard(inp, data: dict) -> dict:
     dv = data["depth_vs_waiver"]["ddf"][12]
     depth = min(dv[p]["valued"] / dv[p]["rostered"] for p in POS)
     card = {
-        "balance": {"level": grade(gap, 5, 10), "value": gap},
+        # Balance is shown, not graded: DDF's position budget is built partly from the yardstick.
+        "balance": {"level": None, "value": gap},
         "scoring": {"level": 3 if moved >= 20 else 2, "value": r(moved, 0)},
+        # Superflex: DDF prices superflex from the charts' own superflex lists, so the count test does not apply.
         "superflex": {"level": None},
         "league_size": {"level": 3},
         "depth": {"level": grade(100 * depth, 100, 70, True), "value": r(100 * depth, 0)},
@@ -925,6 +927,7 @@ def build() -> dict:
         {k: p["pos"] for k, p in inp.players.items()})[p]["reordered"] for p in FLEX) / 3, 0)  # one value set
     cbs_top = max(setting(inp).natives("cbs").values())
     data["cbs_four_points_pct"] = r(100 * 4 / cbs_top, 1)
+    data["cbs_waiver_rb_pct"] = r(data["waiver_line"]["cbs"]["RB"], 1)
     return data
 
 
