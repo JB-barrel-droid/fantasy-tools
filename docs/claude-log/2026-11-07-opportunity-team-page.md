@@ -12,8 +12,9 @@ Decisions (Jeremy, 2026-11-07): thresholds 3 / 6 / 10% plus the noise rule; trad
 hole is "where to look", outside the tier; ship on this snapshot. The thresholds come from one week of three Yahoo
 half-PPR 12-team leagues. The page's (i) says so, and the re-check is JEG-1562.
 
-JEG-1557's caveats note component was not on main (checked 2026-11-07), so the block has an empty
-`<div class="opp-caveats" data-caveats hidden>` slot for it and does not copy it.
+JEG-1557's caveats note (caveats.js, #1350) landed while this PR was open. The best-move caveat is now one line in
+that note's `.ddf-caveats__slot` ("Best move size: a guide set from one week of three 12-team half-PPR leagues. The
+other team decides what it accepts."), set once a read exists. The placeholder slot was removed, so nothing is copied.
 
 Found while testing: computeTeam kept the move with the biggest raw gain, even when that move was under its own noise
 floor and a smaller move beat its floor. The render parity test caught it (ppr/10/SF: the waivers line showed while a
@@ -50,3 +51,5 @@ pickup of 1.63 beat its floor). Fixed in both PRs: the best counted move wins.
 - The render oracle still uses the same finder/find functions. Those functions are the engine under test elsewhere; the
   part under test here is the page's counting and copy.
 - Delta review on 6d9094195: no waivers line on an unsized read; the note names the page "Pick trading partners". Render test and team parity rerun: pass.
+- Merged main with JEG-1557. The render test also checks the best-move line in the caveats note. Render test, team parity,
+  `tests.test_jeg1557_mobile_connect` and `tests.test_ddf_opportunity` pass on the merged tree.

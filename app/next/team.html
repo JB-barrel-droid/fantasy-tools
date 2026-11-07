@@ -195,7 +195,6 @@ body.league-pending .team-page{visibility:hidden}
 <p class="opp-line" id="opp-line"></p>
 <p class="opp-look" id="opp-look" hidden></p>
 <p class="opp-waivers" id="opp-waivers" hidden></p></div>
-<div class="opp-caveats" data-caveats hidden></div>
 </section>
 
 <section class="pos-table" id="positions" aria-labelledby="pos-title">
@@ -322,6 +321,11 @@ body.league-pending .team-page{visibility:hidden}
     const n = {1: 'first', 2: 'second', 3: 'third', 4: 'fourth'}[m[2]] || m[2] + 'th';
     return `${slot}, your ${n} ${SLOT_WORD[m[1]] || m[1]} slot`;
   }
+  // The JEG-1557 caveats note carries the best-move caveat in its slot (one line, set once a read exists).
+  function oppCaveat(on) {
+    const slot = document.querySelector('[data-ddf-caveats="assessment"] .ddf-caveats__slot');
+    if (slot) slot.textContent = on ? 'Best move size: a guide set from one week of three 12-team half-PPR leagues. The other team decides what it accepts.' : '';
+  }
   function renderOpportunity(c, mine) {
     const run = ++oppRun, box = $('opportunity');
     const tier = $('opp-tier'), line = $('opp-line'), look = $('opp-look'), wv = $('opp-waivers');
@@ -332,6 +336,7 @@ body.league-pending .team-page{visibility:hidden}
       if (run !== oppRun) return;
       if (!o) { tier.textContent = 'Your best move could not be sized yet.'; line.textContent = 'The values are still loading. Reload the page if this stays.'; return; }
       tier.dataset.tier = o.tier;
+      oppCaveat(true);
       tier.textContent = o.headline;
       const where = o.source === 'trade' ? ' <a href="find.html">See trade ideas</a>' : o.source === 'waiver' ? ' <a href="waivers.html">See waiver pickups</a>' : '';
       line.innerHTML = esc(o.line) + where;
@@ -394,7 +399,7 @@ body.league-pending .team-page{visibility:hidden}
     table = DDF.league.leagueTable();
     tiers = DDF.league.positionTiers();
     const mine = DDF.league.myTeam();
-    if (mine) { renderMine(c, mine); renderOpportunity(c, mine); } else { renderNoMe(c); oppRun++; $('opportunity').hidden = true; }
+    if (mine) { renderMine(c, mine); renderOpportunity(c, mine); } else { renderNoMe(c); oppRun++; $('opportunity').hidden = true; oppCaveat(false); }
     const s = c.settings;
     $('fact-format').textContent = DDF.link && DDF.link.settingsLabel ? DDF.link.settingsLabel(s) : s.scoring + ' · ' + s.teams + ' teams';
     $('fact-lineup').textContent = lineupText(s);

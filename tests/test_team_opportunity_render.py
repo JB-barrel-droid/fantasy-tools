@@ -60,7 +60,7 @@ READ = r"""async () => {
     line: document.getElementById('opp-line').textContent, look: document.getElementById('opp-look').hidden ? null : document.getElementById('opp-look').textContent,
     waivers: document.getElementById('opp-waivers').hidden ? null : document.getElementById('opp-waivers').textContent,
     visible: !box.hidden && r.width > 0 && r.height > 0, overflow: document.documentElement.scrollWidth > window.innerWidth + 1,
-    text: box.innerText};
+    text: box.innerText, caveat: (document.querySelector('[data-ddf-caveats="assessment"] .ddf-caveats__slot') || {}).textContent || ''};
 }"""
 
 RESET = "() => { const t = document.getElementById('opp-tier'); t.removeAttribute('data-tier'); }"
@@ -127,6 +127,8 @@ def run(overrides=None, settings=None, widths=(1440,), me=0, exclude=False) -> l
                         errors.append(f"{label}: a counted gain under 3% must say so: {got['line']!r}")
                     if exclude and "left out" not in got["line"]:
                         errors.append(f"{label}: skipped teams / held players not disclosed")
+                    if "one week of three" not in got["caveat"]:
+                        errors.append(f"{label}: best-move caveat missing from the caveats note: {got['caveat']!r}")
                     if not got["visible"] or got["overflow"]:
                         errors.append(f"{label}: visible={got['visible']} overflow={got['overflow']}")
                     for rx in BANNED:
