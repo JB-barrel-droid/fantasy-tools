@@ -92,12 +92,12 @@
     return out.join("") || '<tr><td colspan="3">No players read for this team yet.</td></tr>';
   }
   function summaryText(res) {
-    var parts = [plural(res.teams.length, "team") + " found.", plural(res.matched, "player") + " matched"];
+    var head = "Found " + plural(res.teams.length, "team") + " and " + plural(res.matched, "player") + ".";
     var issues = [];
     if (res.look) issues.push(res.look + " need" + (res.look === 1 ? "s" : "") + " a look");
     if (res.missing) issues.push(res.missing + " not found");
     if (res.notEvaluated) issues.push(res.notEvaluated + " kicker or defense line" + (res.notEvaluated === 1 ? "" : "s") + " not evaluated");
-    return parts[0] + " " + parts[1] + (issues.length ? ", " + issues.join(", ") : "") + ".";
+    return head + (issues.length ? " " + issues.join(", ").replace(/^./, function (c) { return c.toUpperCase(); }) + "." : "");
   }
   function showResult(res) {
     var card = $("recognized");
@@ -115,6 +115,8 @@
         + '<thead><tr><th scope="col">Pasted line</th><th scope="col">Status</th><th scope="col">What we matched</th></tr></thead><tbody>'
         + teamRows(t) + "</tbody></table></div></details>";
     }).join("");
+    var partial = $("recognition-partial");
+    if (partial) partial.hidden = !(res.look || res.missing);
     card.hidden = false;
     $("recognize-button").setAttribute("aria-expanded", "true");
   }
@@ -129,13 +131,14 @@
     var box = $("edit-names");
     $("edit-names-why").textContent = why;
     $("edit-names-input").value = (names || []).join("\n");
+    $("edit-names-input").placeholder = "One team name per line";
     box.hidden = false;
   }
   function hideEditNames() { var box = $("edit-names"); if (box) box.hidden = true; }
 
   /* ---------- reading ---------- */
   var busy = false;
-  function check(focus) {
+  function check(focus, scroll) {
     var text = $("rosters").value;
     var oneTeam = $("one-team-error");
     oneTeam.hidden = true;
@@ -152,8 +155,9 @@
         showResult(res);
         save(DDF.leaguePaste.record(res, "paste"));
         askBookmark(res);
-        status(plural(res.teams.length, "team") + " found. Check the list below, then confirm your team.", "ok");
-        if (focus) $("recognition-title").focus();
+        status("Check the list below, then confirm your team.", "ok");
+        if (scroll) $("recognized").scrollIntoView({block: "start"});
+        if (focus) $("recognition-title").focus({preventScroll: true});
         return res;
       }
       hideResult();
@@ -165,10 +169,10 @@
         oneTeam.scrollIntoView({block: "center"});
         return res;
       }
-      status("We could not read the teams in this paste. Check the team names below, or enter your rosters manually.", "warn");
+      status("We could not find any teams in that paste. Make sure you copied the page that lists every team's roster, then try again, or add your rosters manually.", "warn");
       showEditNames(res.names, res.names.length
         ? "We found " + plural(res.names.length, "possible team name") + ", but could not split the players by team. Fix the names so each one matches a team name in your paste, one per line."
-        : "We could not find the team names in your paste. Type each team name exactly as it appears in your paste, one per line.");
+        : "We could not find team names in your paste. If you copied the right page, type each team name as it appears there, one per line.");
       return res;
     }).catch(function () {
       busy = false;
@@ -187,8 +191,9 @@
       showResult(res);
       save(DDF.leaguePaste.record(res, "paste"));
       askBookmark(res);
-      status(plural(res.teams.length, "team") + " found. Check the list below, then confirm your team.", "ok");
-      $("recognition-title").focus();
+      status("Check the list below, then confirm your team.", "ok");
+      $("recognized").scrollIntoView({block: "start"});
+      $("recognition-title").focus({preventScroll: true});
     }).catch(function () { $("edit-names-status").textContent = "Player values are still loading. Try again in a moment."; });
   }
   function editNamesFromCard() {
@@ -256,9 +261,9 @@
   function init() {
     var form = $("roster-form");
     if (!form || !DDF.leaguePaste) return;
-    form.addEventListener("submit", function (e) { e.preventDefault(); check(true); });
+    form.addEventListener("submit", function (e) { e.preventDefault(); check(true, true); });
     var ta = $("rosters");
-    ta.addEventListener("paste", function () { setTimeout(function () { check(false); }, 0); });
+    ta.addEventListener("paste", function () { setTimeout(function () { check(false, true); }, 0); });
     ta.addEventListener("input", function () {
       var p = kept();
       if (p && p.source === "paste") drop();
