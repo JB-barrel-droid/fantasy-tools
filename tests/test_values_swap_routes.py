@@ -134,8 +134,19 @@ class ValuesSwapRoutesTest(unittest.TestCase):
             browser = self._browser(pw, PlaywrightError)
             try:
                 page = browser.new_page(viewport={'width': 1440, 'height': 900})
+                # Guard: clear storage only on the first load (v2/index.html).  The redirect
+                # target (values.html) must NOT have its sessionStorage wiped, or the LINK_KEY
+                # that v2.js wrote before location.replace() disappears before ddf-engine reads it.
                 page.add_init_script(
-                    '(function(){ try { localStorage.clear(); sessionStorage.clear(); } catch(_){} })()'
+                    '(function(){'
+                    'try{'
+                    'if(!sessionStorage.getItem("__sw_init__")){'
+                    'sessionStorage.setItem("__sw_init__","1");'
+                    'localStorage.clear();sessionStorage.clear();'
+                    'sessionStorage.setItem("__sw_init__","1");'
+                    '}'
+                    '}catch(_){}'
+                    '})()'
                 )
                 page.route(
                     lambda u: not (u.startswith('http://127.0.0.1') or u.startswith('http://localhost')),
@@ -165,19 +176,266 @@ class ValuesSwapRoutesTest(unittest.TestCase):
                 self.assertEqual(ov_val, 58,
                                  f'Override for 2227 not applied; got {ov_val!r}')
 
-                # Must NOT be persisted to localStorage
-                stored = page.evaluate(
+                # Must NOT be persisted to localStorage (session-only visit)
+                import json
+                stored_raw = page.evaluate(
                     "() => { try { return localStorage.getItem('ddf-v2-value-overrides'); } catch(_){return null;} }"
                 )
-                if stored:
-                    import json
+                if stored_raw is not None:
                     try:
-                        data = json.loads(stored)
+                        data = json.loads(stored_raw)
                         saved_vals = data.get('values', {})
                         self.assertNotIn('2227', saved_vals,
                                          'Override for 2227 was written to localStorage (should be session-only)')
                     except (ValueError, KeyError):
-                        pass  # unparseable means nothing was stored for this player
+                        pass  # unparseable: nothing stored for this player
+            finally:
+                browser.close()
+
+    def test_link_then_edit_saves_both(self):
+        """Open values.html with link context, add a second override via the engine API.
+        After save(): localStorage has both overrides, sessionStorage LINK_KEY is gone,
+        and the hash no longer carries valuecontext/ov.  A fresh page load shows both."""
+        sync_playwright, PlaywrightError = _pw()
+        import json
+        with serve() as base_url, sync_playwright() as pw:
+            browser = self._browser(pw, PlaywrightError)
+            try:
+                page = browser.new_page(viewport={'width': 1440, 'height': 900})
+                page.add_init_script(
+                    '(function(){ try { localStorage.clear(); sessionStorage.clear(); } catch(_){} })()'
+                )
+                page.route(
+                    lambda u: not (u.startswith('http://127.0.0.1') or u.startswith('http://localhost')),
+                    lambda route: route.abort(),
+                )
+                # Load with a live-format link context (ov=2227:40 seeds one override)
+                page.goto(
+                    f'{base_url}/values.html#overrides?valuecontext=1&ov=2227:40',
+                    wait_until='networkidle', timeout=60000,
+                )
+                try:
+                    page.wait_for_function(OVERRIDES_READY, timeout=20000)
+                except PlaywrightError as exc:
+                    self.fail(f'values.html never became live: {exc}')
+
+                # Confirm we are in session mode (link context applied)
+                in_session = page.evaluate(
+                    "() => { const e=window.DDF&&window.DDF.engine; "
+                    "return e ? e.overrides.session() : null; }"
+                )
+                self.assertTrue(in_session, 'Engine not in session mode after link-context load')
+
+                # Add a second override for a different player - this calls save() which
+                # transitions out of session mode, writes both overrides to localStorage,
+                # removes LINK_KEY, and strips valuecontext/ov from the hash.
+                ok = page.evaluate(
+                    "() => { const e=window.DDF&&window.DDF.engine; "
+                    "return e ? e.overrides.set('1001', 70) : false; }"
+                )
+                self.assertTrue(ok, 'overrides.set returned false')
+                page.wait_for_timeout(300)
+
+                # 1. Both keys in localStorage
+                stored_raw = page.evaluate(
+                    "() => { try { return localStorage.getItem('ddf-v2-value-overrides'); } catch(_){return null;} }"
+                )
+                self.assertIsNotNone(stored_raw, 'Nothing written to ddf-v2-value-overrides after edit')
+                stored = json.loads(stored_raw)
+                saved_vals = stored.get('values', {})
+                self.assertIn('2227', saved_vals,
+                              f'Link-context override 2227 missing from localStorage: {saved_vals!r}')
+                self.assertIn('1001', saved_vals,
+                              f'Newly-set override 1001 missing from localStorage: {saved_vals!r}')
+
+                # 2. LINK_KEY must be gone from sessionStorage
+                link_key = page.evaluate(
+                    "() => { try { return sessionStorage.getItem('ddf-v2-link-state'); } catch(_){return 'err';} }"
+                )
+                self.assertIsNone(link_key,
+                                  f'sessionStorage LINK_KEY not cleared after save(); got {link_key!r}')
+
+                # 3. Hash must not contain valuecontext or ov=
+                current_hash = page.evaluate("() => location.hash")
+                self.assertNotIn('valuecontext', current_hash,
+                                 f'valuecontext still in hash after save(): {current_hash!r}')
+                self.assertNotIn('ov=', current_hash,
+                                 f'ov= still in hash after save(): {current_hash!r}')
+
+                # 4. Navigate the same page to a clean URL (no link params) and verify
+                #    both overrides load from localStorage only (no session context).
+                #    Note: browser.new_page() creates a NEW isolated context (separate
+                #    localStorage), so we reuse the existing page which shares storage.
+                page.goto(f'{base_url}/values.html#overrides',
+                          wait_until='networkidle', timeout=60000)
+                try:
+                    page.wait_for_function(OVERRIDES_READY, timeout=20000)
+                except PlaywrightError as exc:
+                    self.fail(f'Clean reload never became live: {exc}')
+
+                # Must NOT be in session mode on a clean reload
+                in_session_after = page.evaluate(
+                    "() => { const e=window.DDF&&window.DDF.engine; "
+                    "return e ? e.overrides.session() : null; }"
+                )
+                self.assertFalse(in_session_after,
+                                 'Engine still in session mode after clean reload (should be localStorage)')
+
+                ov_2227 = page.evaluate(
+                    "() => { const e=window.DDF&&window.DDF.engine; "
+                    "return e ? e.overrides.get('2227') : null; }"
+                )
+                ov_1001 = page.evaluate(
+                    "() => { const e=window.DDF&&window.DDF.engine; "
+                    "return e ? e.overrides.get('1001') : null; }"
+                )
+                self.assertIsNotNone(ov_2227,
+                                     'Override 2227 missing from clean reload after link-then-edit')
+                self.assertIsNotNone(ov_1001,
+                                     'Override 1001 missing from clean reload after link-then-edit')
+            finally:
+                browser.close()
+
+    def test_removed_on_live_side_stays_removed(self):
+        """An override saved to localStorage, then removed by clearing OV_KEY,
+        does not return after a page reload even if sessionStorage has content."""
+        sync_playwright, PlaywrightError = _pw()
+        import json
+        with serve() as base_url, sync_playwright() as pw:
+            browser = self._browser(pw, PlaywrightError)
+            try:
+                page = browser.new_page(viewport={'width': 1440, 'height': 900})
+                # Seed an override in localStorage on the FIRST load only.
+                # add_init_script runs before every load (including reload), so guard with
+                # a sessionStorage flag to avoid re-seeding after the user clears OV_KEY.
+                override_data = json.dumps({
+                    'v': 2,
+                    'basis': None,
+                    'values': {'2227': 65.0},
+                    'names': {'2227': 'Test Player'},
+                })
+                _seed = json.dumps(override_data)
+                page.add_init_script(
+                    f'(function(){{'
+                    f'try{{'
+                    f'if(!sessionStorage.getItem("__sw_init__")){{'
+                    f'localStorage.clear();sessionStorage.clear();'
+                    f'sessionStorage.setItem("__sw_init__","1");'
+                    f'localStorage.setItem("ddf-v2-value-overrides",{_seed});'
+                    f'}}'
+                    f'}}catch(_){{}}}})()'
+                )
+                page.route(
+                    lambda u: not (u.startswith('http://127.0.0.1') or u.startswith('http://localhost')),
+                    lambda route: route.abort(),
+                )
+                page.goto(f'{base_url}/values.html#overrides',
+                          wait_until='networkidle', timeout=60000)
+                try:
+                    page.wait_for_function(OVERRIDES_READY, timeout=20000)
+                except PlaywrightError as exc:
+                    self.fail(f'values.html never became live: {exc}')
+
+                # Confirm the override is there before we remove it
+                ov_before = page.evaluate(
+                    "() => { const e=window.DDF&&window.DDF.engine; "
+                    "return e ? e.overrides.get('2227') : null; }"
+                )
+                self.assertEqual(ov_before, 65.0,
+                                 f'Seeded override not present before removal: {ov_before!r}')
+
+                # Simulate the live side clearing the override: remove OV_KEY from localStorage,
+                # but deliberately leave sessionStorage untouched
+                page.evaluate(
+                    "() => { try { localStorage.removeItem('ddf-v2-value-overrides'); } catch(_){} }"
+                )
+
+                # Reload the page (no init_script on reload - sessionStorage survives)
+                page.reload(wait_until='networkidle', timeout=60000)
+                try:
+                    page.wait_for_function(OVERRIDES_READY, timeout=20000)
+                except PlaywrightError as exc:
+                    self.fail(f'values.html never became live after reload: {exc}')
+
+                # Override must NOT return after the localStorage clear
+                ov_after = page.evaluate(
+                    "() => { const e=window.DDF&&window.DDF.engine; "
+                    "return e ? e.overrides.get('2227') : null; }"
+                )
+                self.assertIsNone(ov_after,
+                                  f'Override for 2227 returned after localStorage clear: {ov_after!r}')
+            finally:
+                browser.close()
+
+    def test_session_only_link_no_localStorage(self):
+        """Navigating to values.html with a link context but without editing:
+        engine is in session mode, nothing is written to localStorage OV_KEY."""
+        sync_playwright, PlaywrightError = _pw()
+        with serve() as base_url, sync_playwright() as pw:
+            browser = self._browser(pw, PlaywrightError)
+            try:
+                page = browser.new_page(viewport={'width': 1440, 'height': 900})
+                page.add_init_script(
+                    '(function(){ try { localStorage.clear(); sessionStorage.clear(); } catch(_){} })()'
+                )
+                page.route(
+                    lambda u: not (u.startswith('http://127.0.0.1') or u.startswith('http://localhost')),
+                    lambda route: route.abort(),
+                )
+                page.goto(
+                    f'{base_url}/values.html#overrides?valuecontext=1&ov=2227:58.0',
+                    wait_until='networkidle', timeout=60000,
+                )
+                try:
+                    page.wait_for_function(OVERRIDES_READY, timeout=20000)
+                except PlaywrightError as exc:
+                    self.fail(f'values.html never became live: {exc}')
+
+                # Must be in session mode
+                in_session = page.evaluate(
+                    "() => { const e=window.DDF&&window.DDF.engine; "
+                    "return e ? e.overrides.session() : null; }"
+                )
+                self.assertTrue(in_session,
+                                'Engine not in session mode after link-context-only navigation')
+
+                # OV_KEY must NOT be in localStorage (no edit was made)
+                stored_raw = page.evaluate(
+                    "() => { try { return localStorage.getItem('ddf-v2-value-overrides'); } catch(_){return null;} }"
+                )
+                self.assertIsNone(stored_raw,
+                                  f'OV_KEY was written to localStorage without any edit: {stored_raw!r}')
+            finally:
+                browser.close()
+
+    def test_redesign_token_on_v2_route(self):
+        """dist/index.html?swapped=1#s=abc redirects to values.html keeping #s=abc.
+        The #s= token is not a v2 route; v2.js routes it to swappedTarget(DEFAULT_ROUTE)
+        and preserves the hash so site.js on values.html can read the redesign link."""
+        sync_playwright, PlaywrightError = _pw()
+        with serve() as base_url, sync_playwright() as pw:
+            browser = self._browser(pw, PlaywrightError)
+            try:
+                page = browser.new_page(viewport={'width': 1440, 'height': 900})
+                page.add_init_script(
+                    '(function(){ try { localStorage.clear(); sessionStorage.clear(); } catch(_){} })()'
+                )
+                page.route(
+                    lambda u: not (u.startswith('http://127.0.0.1') or u.startswith('http://localhost')),
+                    lambda route: route.abort(),
+                )
+                page.goto(f'{base_url}/index.html?swapped=1#s=abc',
+                          wait_until='networkidle', timeout=60000)
+                try:
+                    page.wait_for_function(OVERRIDES_READY, timeout=20000)
+                except PlaywrightError as exc:
+                    self.fail(f'values.html never became live after #s= redirect: {exc}')
+
+                final_url = page.url
+                self.assertIn('values.html', final_url,
+                              f'Did not land on values.html; got {final_url!r}')
+                self.assertIn('#s=abc', final_url,
+                              f'Hash #s=abc not preserved; got {final_url!r}')
             finally:
                 browser.close()
 

@@ -7115,7 +7115,8 @@
     return prefix ? SWAPPED_ROUTES[prefix] : null;
   }
   // Automated browsers (navigator.webdriver) stay on the classic views unless the page URL has ?swapped=1, so the v2
-  // render suites keep covering those views until step 5 retires them (JEG-1539); the redirect tests pass ?swapped=1.
+  // render suites keep covering those views until step 5 retires them (JEG-1539 removes this escape); the redirect
+  // tests pass ?swapped=1.
   const stayForAutomation = () => navigator.webdriver === true && !/[?&]swapped=1(&|$)/.test(location.search);
   function leaveForSwappedPage(base, query) {
     const target = swappedTarget(base);
@@ -7131,6 +7132,10 @@
     const legacy = base === "#find-trade" && /^workspace=/.test(query[0] || "") ? "#find-league" : canonicalBase(base);
     const unknown = base !== "" && viewFor(legacy) === null;
     const next = unknown ? DEFAULT_ROUTE : legacy;
+    // A redesign chat-link token (#s=...) has no v2 route: it goes to the Values page whole, where site.js reads it.
+    if (unknown && base.startsWith("#s=") && swappedTarget(DEFAULT_ROUTE) && !stayForAutomation()) {
+      try { location.replace(new URL(swappedTarget(DEFAULT_ROUTE).split("#")[0], document.baseURI).href + location.hash); return; } catch (error) { /* falls through */ }
+    }
     if (leaveForSwappedPage(next, unknown ? [] : query)) return;
     if (next === base) return;
     try { history.replaceState(history.state, "", location.pathname + location.search + next + (query.length && !unknown ? "?" + query.join("?") : "")); }
