@@ -35,3 +35,17 @@ pickup of 1.63 beat its floor). Fixed in both PRs: the best counted move wins.
 - The live page after deploy: to be checked after merge.
 - The full trade search adds about 0.1 to 0.5 s after the page shows. It runs after first paint and shows "Sizing your
   best move…" meanwhile. Not timed on a phone.
+
+### Review fixes (independent review on 438cee3a9)
+- Exclusions: skipped teams and held players are left out, as on find.html, and the line says so. Verified by the render
+  test's exclude run (my team 11, two teams skipped, two best players held): the read changed (5.6% to 4.9%) and
+  matched the oracle.
+- Waivers line, three cases:
+  - "nothing available beats your bench" only when no pickup adds more than 0.05;
+  - "within the normal noise of the values" when a pickup gains but does not beat its floor;
+  - hidden when the waivers script is missing.
+- "Where to look" names the slot in words, gives the gap in value units and says the analyst charts are used. The (i)
+  says the gap uses the analyst charts and the tier uses DDF Value.
+- One search per league state (cached), with a pause between partners so the page stays responsive.
+- The render oracle still uses the same finder/find functions. Those functions are the engine under test elsewhere; the
+  part under test here is the page's counting and copy.

@@ -28,12 +28,14 @@ ORACLE = r"""() => {
   const ctx = DDF.find.context(), rows = DDF.find.rowsOf(mine);
   const worth = W.netOf(F.lineupValue(rows, ctx.shape, 'ddf_value'), 'ddf_value', ctx.weights);
   let trade = 0, tradeRaw = null, partnersChecked = 0;
+  const skip = new Set(DDF.league.skipped()), held = new Set(DDF.league.held().map(String));
   cur.teams.forEach(t => {
-    if (t.index === mine.index) return;
+    if (t.index === mine.index || skip.has(t.name)) return;
     const theirs = DDF.find.rowsOf(t);
     if (!theirs.length) return;
     partnersChecked++;
-    DDF.find.searchPartner(ctx, rows, theirs, {your: 'DDF', their: 'Market', sizes: [1, 2]}).trades.forEach(tr => {
+    DDF.find.searchPartner(ctx, rows, theirs, {your: 'DDF', their: 'Market', sizes: [1, 2], held}).trades.forEach(tr => {
+      if (tr.give.some(r => held.has(String(r.player_key)))) throw new Error('held player offered');
       if (tr.cls !== 'natural') return;
       if (tradeRaw === null || tr.fit.us.net > tradeRaw) tradeRaw = tr.fit.us.net;
       if (tr.fit.us.net > tr.fit.us.tau && tr.fit.us.net > trade) trade = tr.fit.us.net;
@@ -41,9 +43,13 @@ ORACLE = r"""() => {
   });
   const cand = cur.waivers.map(r => ({key: r.key, name: r.n, pos: r.pos, team: r.team}));
   const pk = DDF.find.pickups(ctx, DDF.find.entriesOf(mine), cand, 'DDF');
-  let waiver = 0;
-  pk.results.forEach(r => { if (r.totalDelta !== null && r.totalDelta > r.tau && r.totalDelta > waiver) waiver = r.totalDelta; });
-  return {worth, trade, tradeRaw, waiver, partnersChecked, candidates: cand.length};
+  let waiver = 0, waiverRaw = null;
+  pk.results.forEach(r => {
+    if (r.totalDelta === null) return;
+    if (waiverRaw === null || r.totalDelta > waiverRaw) waiverRaw = r.totalDelta;
+    if (r.totalDelta > r.tau && r.totalDelta > waiver) waiver = r.totalDelta;
+  });
+  return {worth, trade, tradeRaw, waiver, waiverRaw, partnersChecked, candidates: cand.length, held: held.size};
 }"""
 
 READ = r"""async () => {
@@ -70,7 +76,7 @@ def shown(pct: float) -> str:
     return f"{math.floor(pct * 10 + 1e-9) / 10:.1f}%"
 
 
-def run(overrides=None, settings=None, widths=(1440,), me=0) -> list[str]:
+def run(overrides=None, settings=None, widths=(1440,), me=0, exclude=False) -> list[str]:
     try:
         from playwright.sync_api import sync_playwright
     except Exception as exc:  # noqa: BLE001
@@ -93,6 +99,10 @@ def run(overrides=None, settings=None, widths=(1440,), me=0) -> list[str]:
                 page.add_init_script(seed_script(league))
                 page.goto(f"{base}/team.html", wait_until="networkidle", timeout=60000)
                 page.wait_for_function(READY, timeout=30000)
+                if exclude:  # skip two teams and hold my two best players, as Trading Partners / Pick players would
+                    page.evaluate("""() => { const c = DDF.league.current(), me = DDF.league.myTeam();
+                      DDF.league.setSkipped(c.teams.filter(t => t.index !== me.index).slice(0, 2).map(t => t.name));
+                      DDF.league.setHeld(DDF.find.rowsOf(me).slice().sort((a, b) => b.values.ddf_value - a.values.ddf_value).slice(0, 2).map(r => String(r.player_key))); }""")
                 for scoring, teams, sf in settings or SETTINGS:
                     label = f"{width} {scoring}/{teams}/{'sf' if sf else 'no-sf'}"
                     page.evaluate(RESET)
@@ -108,8 +118,15 @@ def run(overrides=None, settings=None, widths=(1440,), me=0) -> list[str]:
                         errors.append(f"{label}: tier page={got['tier']} engine={tier} (gain {gain:.2f} of {want['worth']:.2f})")
                     if tier != "none" and shown(pct) not in got["line"]:
                         errors.append(f"{label}: line {got['line']!r} lacks {shown(pct)}")
-                    if (got["waivers"] is not None) != (want["waiver"] <= 0):
-                        errors.append(f"{label}: waivers line {got['waivers']!r} with best counted pickup {want['waiver']:.2f}")
+                    nothing = "nothing available beats your bench" in (got["waivers"] or "")
+                    if nothing != (want["waiverRaw"] is None or want["waiverRaw"] <= 0.05):
+                        errors.append(f"{label}: waivers line {got['waivers']!r} with best pickup {want['waiverRaw']}")
+                    if want["waiver"] <= 0 and got["waivers"] is None:
+                        errors.append(f"{label}: no waivers line although no pickup beats its floor")
+                    if tier == "none" and gain > 0 and "too small" not in got["line"]:
+                        errors.append(f"{label}: a counted gain under 3% must say so: {got['line']!r}")
+                    if exclude and "left out" not in got["line"]:
+                        errors.append(f"{label}: skipped teams / held players not disclosed")
                     if not got["visible"] or got["overflow"]:
                         errors.append(f"{label}: visible={got['visible']} overflow={got['overflow']}")
                     for rx in BANNED:
@@ -125,7 +142,7 @@ def run(overrides=None, settings=None, widths=(1440,), me=0) -> list[str]:
 
 class TeamOpportunityRenderTest(unittest.TestCase):
     def test_matches_engine_at_desktop_and_phone(self):
-        errors = run(widths=(1440, 390)) + run(me=6) + run(me=11)
+        errors = run(widths=(1440, 390)) + run(me=6) + run(me=11) + run(me=11, exclude=True, widths=(390,))
         self.assertEqual(errors, [], "\n".join(errors[:20]))
 
     def test_guard_fails_on_shifted_threshold(self):

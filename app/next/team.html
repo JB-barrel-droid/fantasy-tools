@@ -173,6 +173,7 @@ body.league-pending .team-page{visibility:hidden}
 .team-page .opp-look{margin:12px 0 0;padding:10px 14px;background:#f4f6f2;border-radius:10px;max-width:68ch;line-height:1.5}
 .team-page .opp-look b{font-weight:700}
 .team-page .opp-waivers{margin:10px 0 0;color:#4a5560;font-size:15px}
+.team-page .opp-note{display:block;margin-top:6px;color:#4a5560;font-size:14px}
 @media(max-width:760px){.team-page .opp-tier{font-size:19px}}
 </style><link rel="stylesheet" href="actionbar.css"><script src="actionbar.js"></script></head><body class="team-shell"><header><div class="header-inner"><div class="brand">DDF<small>DATA DRIVEN FOOTBALL</small></div><nav aria-label="Main navigation"><a href="index.html">Home</a><a href="build.html">Build a Trade</a><a href="find.html">Trade &amp; Waiver Recommendations</a><a href="values.html">Values</a><div class="morewrap"><button type="button" aria-expanded="false" aria-controls="team-more">More ▾</button><div class="menu" id="team-more"><a href="build.html">Build a Trade</a><a href="find.html">Trade &amp; Waiver Recommendations</a><a href="waivers.html">Waivers</a><a href="team.html">Team assessment</a><a href="explore.html">Pick players</a><a href="partners.html">Pick trading partners</a><a href="values.html">Values</a><a href="values.html#buy-sell">Buy / Sell</a><a href="values.html#overrides">Overrides</a><a href="learn.html">Learn</a><a href="learn.html#numbers/pie">How we get our numbers</a><a href="ai.html">Use DDF with AI</a><a href="connect.html">Paste my league</a><a href="setup.html">Your team</a><a href="settings.html">League settings</a></div></div></nav></div></header><div class="ctx-strip"><span></span><a href="settings.html">Edit league</a></div><main class="team-page">
 <section class="card empty-league" id="no-league" hidden aria-labelledby="no-league-title">
@@ -188,7 +189,7 @@ body.league-pending .team-page{visibility:hidden}
 <p class="team-context" id="team-context"></p>
 
 <section class="card opp" id="opportunity" aria-labelledby="opp-title">
-<h2 id="opp-title">Your best move right now <details class="info"><summary aria-label="How this is sized">ⓘ</summary><span>We look for the biggest gain from one waiver pickup or one trade of one or two players a side that fits both rosters. The gain is in DDF Value, with your starters in full and your bench at its weight, and it is shown as a share of your team's value. A gain inside the normal noise of the values counts as no move. Under 3% is no meaningful move, 3 to 6% a small edge, 6 to 10% a real opportunity, 10% or more a big one. One place in a league's value ranking is often about 4 to 6%. These lines were set from one week of three 12-team half-PPR leagues, so treat them as a guide, especially in superflex or full-PPR leagues. The other team always decides what it accepts.</span></details></h2>
+<h2 id="opp-title">Your best move right now <details class="info"><summary aria-label="How this is sized">ⓘ</summary><span>We look for the biggest gain from one waiver pickup or one trade of one or two players a side that fits both rosters. The gain is in DDF Value, with your starters in full and your bench at its weight, and it is shown as a share of your team's value. A gain inside the normal noise of the values counts as no move. Under 3% is no meaningful move, 3 to 6% a small edge, 6 to 10% a real opportunity, 10% or more a big one. One place in a league's value ranking is often about 4 to 6%. Teams you skip on Trading Partners and players you hold are left out, as on Trade &amp; Waiver Recommendations. Where to look compares each of your starting slots with the typical player in that slot across your league on the analyst charts (CBS Sports, USA Today and FantasyPros), so it can point somewhere the DDF read does not. These lines were set from one week of three 12-team half-PPR leagues, so treat them as a guide, especially in superflex or full-PPR leagues. The other team always decides what it accepts.</span></details></h2>
 <div class="opp-body" aria-live="polite"><p class="opp-tier" id="opp-tier">Sizing your best move…</p>
 <p class="opp-line" id="opp-line"></p>
 <p class="opp-look" id="opp-look" hidden></p>
@@ -334,10 +335,15 @@ body.league-pending .team-page{visibility:hidden}
       const where = o.source === 'trade' ? ' <a href="find.html">See trade ideas</a>' : o.source === 'waiver' ? ' <a href="waivers.html">See waiver pickups</a>' : '';
       line.innerHTML = esc(o.line) + where;
       if (o.hole) {
-        look.innerHTML = `<b>Where to look:</b> ${esc(slotText(o.hole.slot))}. On the analyst charts it is about ${o.hole.gap.toFixed(1)} below the league's typical ${esc(o.hole.slot)}. A gap is a place to look, not a move we found.`;
+        look.innerHTML = `<b>Where to look:</b> ${esc(slotText(o.hole.slot))}. On the analyst charts your player there is about ${o.hole.gap.toFixed(1)} value below the typical player in that slot across your league. A gap is a place to look, not a move we found.`;
         look.hidden = false;
       }
-      if (o.waiversEmpty) { wv.textContent = o.candidates ? 'Waivers: nothing available beats your bench right now.' : 'Waivers: no available players to check yet. Add them on the Waivers page.'; wv.hidden = false; }
+      const wvText = !window.TradeValueWaivers ? '' : !o.candidates ? 'Waivers: no available players to check yet. Add them on the Waivers page.'
+        : !o.waiver || o.waiver.gain <= 0.05 ? 'Waivers: nothing available beats your bench right now.'
+        : o.waiversEmpty ? `Waivers: the best pickup adds about ${o.waiver.gain.toFixed(1)} value, within the normal noise of the values.`
+        : o.source === 'waiver' ? '' : `Waivers: the best pickup adds about ${o.waiver.gain.toFixed(1)} value, less than the trade.`;
+      wv.textContent = wvText; wv.hidden = !wvText;
+      if (o.skipped > 0 || o.held > 0) line.insertAdjacentHTML('beforeend', ` <span class="opp-note">Teams you skipped on Trading Partners and players you hold are left out, as on Trade &amp; Waiver Recommendations.</span>`);
     }, e => { console.error(e); if (run === oppRun) tier.textContent = 'Your best move could not be sized here.'; });
   }
 
