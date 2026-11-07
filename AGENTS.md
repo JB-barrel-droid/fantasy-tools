@@ -483,6 +483,12 @@ review and merge protocol above):
 - **`make sync` is the single publish path** and stamps the build tag. `dist/`
   is generated: edit sources or fixtures, then run sync. Do not re-add
   `dist/static`, `dist/server`, `space.json` or `deploy.sh`.
+- **The site is noindex while source-data permissions settle** (JEG-1567, 2026-11-07).
+  `make sync`'s last step (`pipelines/site_noindex.py`) adds
+  `<meta name="robots" content="noindex, nofollow">` to every HTML file in `dist/`.
+  A robots.txt cannot do it: Pages serves this repo under `/fantasy-tools/`, and
+  crawlers read only `datadrivenfootball.github.io/robots.txt`. To reverse, set
+  `SITE_NOINDEX = False` in that file and run `make sync`; nothing else changes.
 - **Never pause or kill bridge processes** (Jeremy, 2026-11-02, JEG-1476). On
   2026-11-01 a Codex chat asked to stop a flashing Chrome icon sent SIGSTOP to
   the bridge's Codex app-server and two Claude workers, and Codex froze for 23

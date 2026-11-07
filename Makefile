@@ -661,6 +661,8 @@ value-check-compare:
 	python3 pipelines/value_check.py compare --rerun-engine --strict --report output/value-check.json
 
 test-core:
+	# JEG-1567: every published HTML file is noindex while site_noindex.SITE_NOINDEX is True (needs the built dist/).
+	python3 -m unittest tests.test_site_noindex
 	python3 -m unittest tests.test_spec_reference_value_pipeline
 	# JEG-1057: the engine side of the worked example. It ran in no target, so
 	# #867 regenerated the fixture for the new defaults and this went red unseen.
@@ -980,6 +982,8 @@ test-core-shard-4:
 # JEG-1335: split from shard 1, which passed its 30-minute job limit once the seat mix
 # made the engine-heavy suites (seeded hold build, desktop menu, view invariants) slower.
 test-core-shard-5:
+	# JEG-1567: every published HTML file is noindex while site_noindex.SITE_NOINDEX is True (needs the built dist/).
+	python3 -m unittest tests.test_site_noindex
 	python3 -m unittest tests.test_v2_desktop_menu_render
 	python3 -m unittest tests.test_view_invariants
 	python3 -m unittest tests.test_launch_front_door

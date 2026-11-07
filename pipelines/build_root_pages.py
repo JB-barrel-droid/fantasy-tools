@@ -3,7 +3,7 @@
 The redesign lives in app/next/ (served as the private /next/ preview by build_next_preview.py). A page moves to the
 live root in its swap step by being listed in ROOT_PAGES. Per listed page the build:
 
-- writes dist/<page> from app/next/<page> (no noindex: it is a public page);
+- writes dist/<page> from app/next/<page> (no noindex of its own; sync's last step adds the site-wide one, JEG-1567);
 - for a page whose source carries <!-- ddf-engine --> (values.html and learn.html must), injects the live value engine exactly as the v2 front door carries it: the build-only engine page's
   body (hidden, inert) and its scripts and data islands (build_v2_page.ENGINE_SCRIPT_MARKER to </body>), at the page's
   <!-- ddf-engine --> marker, before the page's own deferred scripts. No second copy of the value math: the page reads
