@@ -1,0 +1,365 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="robots" content="noindex, nofollow"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="icon" href="data:,">
+<title>Who checks the trade charts?</title>
+<meta name="description" content="Data Driven Football tests the trade value charts most people use, and itself, on the same week 9 numbers.">
+<style>
+:root{--bg:#f7f8f5;--surface:#fff;--ink:#12202c;--muted:#56636e;--line:#dbe0dc;--soft:#eef1ec;--brand:#142b25;--accent:#176c4d;--accent-soft:#d7ecd9;--warn:#a83e12;--warn-soft:#fff0e8;
+--c-cbs:#1f5fa8;--c-usatoday:#c2410c;--c-fantasypros:#7c3aed;--c-fantasycalc:#0f766e;--c-espn:#6b7280;--c-cbsros:#8a94a0;--c-razzball:#a3a3a3;--c-ddf:#142b25;--c-ddf_value:#142b25;--c-dynastyprocess:#be185d;--c-proj:#6b7280;--c-analyst:#9a6b00;
+--p-QB:#b45309;--p-RB:#176c4d;--p-WR:#2f6fb3;--p-TE:#8b3fb8;--serif:Georgia,"Iowan Old Style","Times New Roman",serif;--sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;--mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#0f1613;--surface:#16201c;--ink:#e6ece8;--muted:#a3b0aa;--line:#2b3832;--soft:#1d2924;--brand:#0b120f;--accent:#5fc192;--accent-soft:#1f3a2e;--warn:#ff9a6b;--warn-soft:#3a2219;
+--c-cbs:#6aa5ec;--c-usatoday:#ff8a4c;--c-fantasypros:#b39bff;--c-fantasycalc:#3fc7b6;--c-espn:#a0a8b2;--c-cbsros:#b8c0c8;--c-razzball:#cfcfcf;--c-ddf:#e6ece8;--c-ddf_value:#e6ece8;--c-dynastyprocess:#f472b6;--c-proj:#a0a8b2;--c-analyst:#e0b44a;
+--p-QB:#f0a64a;--p-RB:#5fc192;--p-WR:#74a9e6;--p-TE:#c98ae8}}
+:root[data-theme=dark]{--bg:#0f1613;--surface:#16201c;--ink:#e6ece8;--muted:#a3b0aa;--line:#2b3832;--soft:#1d2924;--brand:#0b120f;--accent:#5fc192;--accent-soft:#1f3a2e;--warn:#ff9a6b;--warn-soft:#3a2219;
+--c-cbs:#6aa5ec;--c-usatoday:#ff8a4c;--c-fantasypros:#b39bff;--c-fantasycalc:#3fc7b6;--c-espn:#a0a8b2;--c-cbsros:#b8c0c8;--c-razzball:#cfcfcf;--c-ddf:#e6ece8;--c-ddf_value:#e6ece8;--c-dynastyprocess:#f472b6;--c-proj:#a0a8b2;--c-analyst:#e0b44a;
+--p-QB:#f0a64a;--p-RB:#5fc192;--p-WR:#74a9e6;--p-TE:#c98ae8}
+*{box-sizing:border-box}html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.6 var(--sans);overflow-x:hidden}
+a{color:var(--accent);text-underline-offset:3px}
+:focus-visible{outline:3px solid #e96528;outline-offset:3px}
+.sr{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.top{background:var(--brand);color:#fff}
+.top .in{max-width:1080px;margin:auto;padding:14px 20px;display:flex;justify-content:space-between;align-items:center;gap:12px}
+.brand{font:800 15px var(--sans);letter-spacing:.08em;color:#fff;text-decoration:none}
+.pill{display:inline-block;padding:3px 9px;border:1px solid #e3c873;border-radius:999px;background:#fff6dc;color:#6d4c00;font:600 11px var(--mono);letter-spacing:.1em;text-transform:uppercase}
+main{max-width:1080px;margin:auto;padding:0 20px 64px}
+.hero{padding:56px 0 18px;max-width:760px}
+.kicker{font:600 12px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin:0 0 12px}
+h1{font:700 clamp(36px,6vw,60px)/1.04 var(--serif);letter-spacing:-.02em;margin:0 0 18px}
+.lede{font:400 clamp(19px,2.2vw,22px)/1.55 var(--serif);color:var(--ink);margin:0 0 14px}
+.meta{font:13px var(--mono);color:var(--muted)}
+h2{font:700 clamp(26px,3.4vw,34px)/1.15 var(--serif);margin:0 0 10px;letter-spacing:-.01em}
+h3{font:700 19px/1.3 var(--sans);margin:0 0 6px}
+section{margin:64px 0 0}
+.prose{max-width:720px}
+.prose p{margin:0 0 14px}
+.callout{border-left:4px solid var(--accent);background:var(--surface);padding:14px 18px;border-radius:0 10px 10px 0;margin:18px 0;max-width:720px}
+.callout.ours{border-color:var(--warn);background:var(--warn-soft)}
+.n{font-variant-numeric:tabular-nums;font-weight:700}
+/* surprises */
+.surprises{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:14px;margin-top:22px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px 22px}
+.big{font:700 clamp(40px,6vw,54px)/1 var(--serif);letter-spacing:-.02em;display:block;margin-bottom:10px;color:var(--accent)}
+.big small{font-size:.45em;color:var(--muted);font-family:var(--sans);font-weight:600;letter-spacing:0}
+.card p{margin:0;font-size:16px}
+/* figures */
+figure{margin:22px 0 0;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px 18px 12px}
+figcaption{font-size:15px;color:var(--muted);margin:0 0 12px}
+figcaption b{color:var(--ink)}
+.controls{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 14px}
+.controls button,.btn{min-height:44px;min-width:44px;padding:8px 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font:600 14px var(--sans);cursor:pointer}
+.controls button[aria-pressed=true]{background:var(--accent-soft);border-color:var(--accent);color:var(--ink)}
+.chart{width:100%;position:relative}
+.chart svg{display:block;width:100%;height:auto;overflow:visible}
+.chart text{fill:var(--muted);font:12px var(--sans)}
+.chart .lbl{fill:var(--ink);font-weight:600}
+.axis line,.axis path{stroke:var(--line)}
+details.data{margin-top:10px;font-size:14px}
+details.data summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font-weight:600;color:var(--accent)}
+.tbl{overflow-x:auto;max-width:100%}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{font-size:12px;color:var(--muted);font-weight:600;background:var(--soft)}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+/* stacked bars */
+.stack{display:grid;grid-template-columns:minmax(92px,170px) 1fr;gap:8px 12px;align-items:center}
+.stack .name{font-size:14px;font-weight:600}
+.stack .bar{display:flex;height:34px;border-radius:8px;overflow:hidden;background:var(--soft)}
+.stack .seg{height:100%;display:flex;align-items:center;justify-content:center;color:#fff;font:700 12px var(--sans);white-space:nowrap;overflow:hidden;transition:flex-basis .9s cubic-bezier(.2,.8,.2,1);flex:0 0 0%}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:13px;color:var(--muted);margin:10px 0 0}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+/* race */
+.race{display:grid;grid-template-columns:minmax(110px,190px) 1fr 52px;gap:8px 12px;align-items:center}
+.race .track{height:22px;background:var(--soft);border-radius:6px;overflow:hidden}
+.race .fill{height:100%;width:0;border-radius:6px;transition:width 1.1s cubic-bezier(.2,.8,.2,1)}
+.race .val{font:700 14px var(--sans);text-align:right;font-variant-numeric:tabular-nums}
+/* dumbbell */
+.dumb .dot{transition:cx 1.1s cubic-bezier(.2,.8,.2,1)}
+.dumb .stem{transition:x2 1.1s cubic-bezier(.2,.8,.2,1)}
+/* scorecard */
+.score th,.score td{text-align:center}
+.score th:first-child,.score td:first-child{text-align:left}
+.badge{display:inline-flex;align-items:center;gap:6px;font:600 12px var(--sans);padding:4px 8px;border-radius:999px;border:1px solid var(--line);white-space:nowrap}
+.badge .d{letter-spacing:1px;font-family:var(--mono)}
+.b3{background:var(--accent-soft);border-color:var(--accent)}
+.b1{background:var(--warn-soft);border-color:var(--warn)}
+.b0{color:var(--muted)}
+.js .pop .badge{opacity:0;transform:scale(.6);transition:opacity .35s,transform .35s}
+.pop.in .badge{opacity:1;transform:none}
+/* trade box */
+.trade{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.trade label{display:block;font-weight:600;font-size:14px;margin:0 0 4px}
+.trade select{width:100%;min-height:44px;padding:8px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font:15px var(--sans)}
+.side{background:var(--soft);border-radius:12px;padding:14px}
+.verdicts{margin-top:16px;display:grid;gap:8px}
+.verdict{display:grid;grid-template-columns:minmax(110px,180px) 1fr minmax(120px,auto);gap:10px;align-items:center;font-size:14px}
+.meter{position:relative;height:18px;background:var(--soft);border-radius:9px;overflow:hidden}
+.meter .mid{position:absolute;left:50%;top:0;bottom:0;width:2px;background:var(--muted);opacity:.5}
+.meter .fill{position:absolute;top:0;bottom:0;transition:left .6s,width .6s}
+.vtext{font-weight:700;text-align:right}
+.toggle{display:flex;align-items:center;gap:10px;min-height:44px;font-size:15px}
+.toggle input{width:26px;height:26px;accent-color:var(--accent)}
+/* scatter tooltip */
+.tip{position:absolute;pointer-events:none;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px 10px;font-size:13px;box-shadow:0 8px 24px #0002;max-width:240px;z-index:3;opacity:0;transition:opacity .15s}
+.tip.on{opacity:1}
+.scatter circle{transition:cx .8s cubic-bezier(.2,.8,.2,1),cy .8s cubic-bezier(.2,.8,.2,1),r .3s}
+/* source cards */
+.sources{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,460px),1fr));gap:16px;margin-top:20px}
+.src h3{display:flex;justify-content:space-between;gap:10px;align-items:baseline;flex-wrap:wrap}
+.src .kind{font:600 11px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.src ul{margin:8px 0 0;padding-left:20px}
+.src li{margin:0 0 6px;font-size:15.5px}
+.src .well{color:var(--accent);font-weight:700}
+.src .fault{color:var(--warn);font-weight:700}
+.src .rate{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 4px}
+.cite{font-size:13px;color:var(--muted)}
+.should{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(min(100%,460px),1fr));margin-top:16px}.should p{font-size:15.5px;margin:0 0 8px}.see{font-size:14px;color:var(--muted);margin:10px 0 0!important}
+.takeaways{counter-reset:t;list-style:none;padding:0;max-width:760px}
+.takeaways li{counter-increment:t;position:relative;padding:0 0 14px 52px;margin:0 0 6px}
+.takeaways li:before{content:counter(t);position:absolute;left:0;top:0;width:36px;height:36px;border-radius:50%;background:var(--accent-soft);color:var(--ink);font:700 16px var(--serif);display:flex;align-items:center;justify-content:center}
+.caveats{background:var(--surface);border:1px dashed var(--muted);border-radius:14px;padding:18px 22px;max-width:760px}
+.caveats ul{margin:6px 0 0;padding-left:20px}
+.refs{font-size:14px;max-width:820px}
+.rank-table td,.rank-table th{padding:6px 8px;font-size:14px}
+.depth-list{list-style:none;padding:0;margin:10px 0 0;display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr))}.depth-list li{background:var(--soft);border-radius:10px;padding:10px 12px;font-size:14px}.dl-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px}.sw{display:inline-block;width:10px;height:10px;border-radius:2px}.dl-tag{font:600 12px var(--sans);padding:2px 8px;border-radius:999px;border:1px solid var(--line)}.dl-short{background:var(--warn-soft);border-color:var(--warn)}.dl-past{background:var(--warn-soft);border-color:var(--warn)}.dl-near{background:var(--accent-soft);border-color:var(--accent)}.rank-table{margin-top:6px}
+.refs li{margin:0 0 8px;overflow-wrap:anywhere;line-height:1.9}.reflist{list-style:none;padding:0}.refn{font-family:var(--mono);color:var(--muted);margin-right:4px}.refs a,.see a{display:inline-block;min-height:44px;line-height:44px;padding:0 2px}@media (min-width:641px){.refs a,.see a{min-height:0;line-height:inherit}}
+.js .reveal{opacity:0;transform:translateY(18px);transition:opacity .7s,transform .7s}
+.reveal.in{opacity:1;transform:none}
+.no-motion .reveal{opacity:1;transform:none}
+@media (prefers-reduced-motion:reduce){.reveal{opacity:1;transform:none;transition:none}.stack .seg,.race .fill,.dumb .dot,.dumb .stem,.meter .fill,.scatter circle,.pop .badge{transition:none!important}.pop .badge{opacity:1;transform:none}}
+@media (max-width:640px){body{font-size:16px}.trade{grid-template-columns:1fr}.verdict{grid-template-columns:1fr 1fr}.verdict .meter{grid-column:1/-1;order:3}.stack{grid-template-columns:1fr}.stack .name{margin-top:6px}.race{grid-template-columns:96px 1fr 44px}figure{padding:14px 12px 10px}.score th,.score td{padding:6px 5px}}
+</style></head>
+<body>
+<header class="top"><div class="in"><a class="brand" href="../index.html">DATA DRIVEN FOOTBALL</a><span class="pill">Draft</span></div></header>
+<main id="main">
+<article>
+<div class="hero">
+<p class="kicker">Research · Week 9, 2026</p>
+<h1>Who checks the trade charts?</h1>
+<p class="lede">Every fantasy trade argument ends the same way: somebody posts a chart. But a trade chart is a model with opinions baked in. How much is a running back worth next to a receiver? What changes in superflex? Do two quarters make a dollar? We put four widely available redraft trade charts and one open dynasty chart through the same tests on the same week, measured against one league-aware reference: DDF Value.</p>
+<p class="meta">Snapshot: analyst charts published 2026-11-03 (saved by 2026-11-04), FantasyCalc pulled 2026-11-07, DynastyProcess values of 2026-11-06 · tests run on a 12-team, Half PPR league unless noted · source pages read 2026-11-07</p>
+</div>
+<section aria-labelledby="h-surprise">
+<h2 id="h-surprise">Five things that surprised us</h2>
+<div class="surprises">
+<div class="card reveal"><span class="big"><b class="n count" data-n="headline.fantasypros_numbers_changed_pct">0</b><small>%</small></span><p>of FantasyPros' numbers change between Standard and Full PPR. Its chart has one Value column for every format, so a pass-catching back costs the same in both.</p><p class="see">See it yourself: open the <a href="https://www.fantasypros.com/2026/09/fantasy-football-trade-value-chart-week-9-2026/" target="_blank" rel="noopener noreferrer">FantasyPros week 9 chart</a>. Each table has one Value column and no scoring switch.</p></div>
+<div class="card reveal"><span class="big"><b class="n count" data-n="headline.fantasycalc_top_flex_reordered">0</b><small> of <b class="n" data-n="headline.fantasycalc_top_flex_compared">99</b></small></span><p>top FantasyCalc running backs, receivers and tight ends change places within their position between Standard and Full PPR. Its Full PPR running backs are its Standard ones times <b class="n" data-n="fantasycalc_scoring_factors.RB.median_ratio">0.994</b>, receivers times <b class="n" data-n="fantasycalc_scoring_factors.WR.median_ratio">1.018</b>.</p><p class="see">See it yourself: open FantasyCalc's <a href="https://api.fantasycalc.com/values/current?isDynasty=false&amp;numQbs=1&amp;numTeams=12&amp;ppr=0" target="_blank" rel="noopener noreferrer">Standard values</a> and <a href="https://api.fantasycalc.com/values/current?isDynasty=false&amp;numQbs=1&amp;numTeams=12&amp;ppr=1" target="_blank" rel="noopener noreferrer">Full PPR values</a> in two tabs and search for any running back: his Full PPR value is his Standard value times about 0.994.</p></div>
+<div class="card reveal"><span class="big"><b class="n count" data-n="headline.pairs_raw.fantasypros">68</b><small>%</small></span><p>of comparisons between a pair of mid-tier players (ranks 25 to 60) and a top-12 star favor the pair on FantasyPros' raw numbers. USA Today: <b class="n" data-n="headline.pairs_raw.usatoday">61</b>%. CBS Sports: <b class="n" data-n="headline.pairs_raw.cbs">4</b>%. FantasyCalc: <b class="n" data-n="headline.pairs_raw.fantasycalc">8</b>%.</p><p class="see">See it yourself: on the <a href="https://www.fantasypros.com/2026/09/fantasy-football-trade-value-chart-week-9-2026/" target="_blank" rel="noopener noreferrer">FantasyPros chart</a>, add the Values of two players ranked around 30th overall and compare with any top-12 player.</p></div>
+<div class="card reveal"><span class="big"><b class="n count" data-n="headline.superflex_cbs_gap">12.8</b><small> points</small></span><p>is how far CBS Sports' quarterbacks sit below DDF Value in a superflex league: <b class="n" data-n="superflex.cbs.qb_share_sf">22.1</b>% of all value against <b class="n" data-n="headline.superflex_ddf_qb">34.9</b>%. The four charts run from <b class="n" data-n="headline.superflex_chart_qb_min">22.1</b>% to <b class="n" data-n="headline.superflex_chart_qb_max">34.6</b>%.</p><p class="see">See it yourself: the <a href="https://www.cbssports.com/fantasy/football/news/dave-richards-week-9-fantasy-football-trade-chart-rest-of-season-rankings/" target="_blank" rel="noopener noreferrer">CBS Sports chart</a> prints its 1QB and 2QB columns side by side.</p></div>
+<div class="card reveal"><span class="big"><b class="n count" data-n="headline.top_te_pct.usatoday">80</b><small>%</small></span><p>is what USA Today pays for the top tight end, measured against its own #1 player. DDF Value says <b class="n" data-n="headline.top_te_pct.ddf">42</b>%, CBS Sports <b class="n" data-n="headline.top_te_pct.cbs">42</b>%, FantasyPros <b class="n" data-n="headline.top_te_pct.fantasypros">37</b>%. Same week, same tight end.</p><p class="see">See it yourself: on the <a href="https://www.usatoday.com/story/sports/fantasy/football/2026/11/03/fantasy-trade-value-charts-week-9-ros-rankings/92593100007/" target="_blank" rel="noopener noreferrer">USA Today charts</a>, divide the top tight end's value by the top player's; on the <a href="https://www.cbssports.com/fantasy/football/news/dave-richards-week-9-fantasy-football-trade-chart-rest-of-season-rankings/" target="_blank" rel="noopener noreferrer">CBS Sports chart</a>, do the same.</p></div>
+</div>
+</section>
+<section aria-labelledby="h-how">
+<h2 id="h-how">How we graded</h2>
+<div class="prose">
+<p>We used the numbers each chart published for week 9, as our pipeline saved them, and asked seven questions of each. Most tests use only the chart's own numbers: does a number change when the scoring changes, how many players does the chart list, how often do two lesser players add up to a star. Where a test needs a reference, it uses DDF Value: the four redraft charts' values, each adjusted for league settings and replacement level, then averaged. DDF Value is the reference line, not a contestant, so it has no grades. Because it is built from the same charts, these tests measure how each chart differs from that league-aware consensus, not from an independent truth; where a finding rests on first principles instead, we say so.</p>
+<p>The scale is simple: <b>Strong</b>, <b>OK</b>, <b>Weak</b>, or <b>Not measured</b> when we lack the data or the test does not apply. The exact rule for each grade sits under the table. A grade describes one snapshot, not a chart's whole season.</p>
+</div>
+<figure class="pop" id="scorecard"><figcaption><b>The scorecard.</b> The four redraft charts are graded on all seven tests. DynastyProcess prices future seasons, so its position balance is not graded against a redraft reference.</figcaption>
+<div class="tbl"><table class="score"><thead><tr><th scope="col">Source</th><th scope="col">Position balance</th><th scope="col">Scoring formats</th><th scope="col">Superflex</th><th scope="col">League size</th><th scope="col">Depth</th><th scope="col">Weekly change</th><th scope="col">2-for-1 sense</th></tr></thead><tbody></tbody></table></div>
+<details class="data"><summary>How each grade is decided</summary><ul id="rules"></ul></details>
+</figure>
+</section>
+<section aria-labelledby="h-pos">
+<h2 id="h-pos">1. Position balance: the gap opens in Standard</h2>
+<div class="prose"><p>Of all the value in a league, how much goes to each position? We measured each chart's share of value above waivers by position and compared it with DDF Value's position budget. In a Half PPR, one-QB league every chart is within about 6 points of it (FantasyPros <b class="n" data-n="position_weighting.half_ppr/12/1qb.gap_vs_ddf.fantasypros">4</b>, FantasyCalc <b class="n" data-n="position_weighting.half_ppr/12/1qb.gap_vs_ddf.fantasycalc">5</b>, CBS Sports <b class="n" data-n="position_weighting.half_ppr/12/1qb.gap_vs_ddf.cbs">5.2</b>, USA Today <b class="n" data-n="position_weighting.half_ppr/12/1qb.gap_vs_ddf.usatoday">5.9</b>). CBS Sports, FantasyCalc and USA Today lean toward receivers (<b class="n" data-n="headline.wr_tilt_vs_ddf.cbs">5.2</b>, <b class="n" data-n="headline.wr_tilt_vs_ddf.fantasycalc">3.9</b> and <b class="n" data-n="headline.wr_tilt_vs_ddf.usatoday">3.6</b> points); FantasyPros leans toward running backs (<b class="n" data-n="headline.rb_tilt_vs_ddf.fantasypros">4</b>).</p><p>Press the scoring buttons for the bigger pattern. In Standard, DDF Value gives running backs <b class="n" data-n="position_weighting.standard/12/1qb.ddf_value.RB">55.7</b>% of the value and the Analyst charts (the average of CBS Sports, USA Today and FantasyPros) <b class="n" data-n="position_weighting.standard/12/1qb.analyst_charts_mean.RB">51.1</b>%; in Full PPR the two are <b class="n" data-n="position_weighting.ppr/12/1qb.ddf_value.RB">41.3</b>% and <b class="n" data-n="position_weighting.ppr/12/1qb.analyst_charts_mean.RB">41.1</b>%. The charts' mix changes less with scoring than the reference does. FantasyPros, with one column for every format, is the closest of the four in Standard (<b class="n" data-n="position_weighting.standard/12/1qb.gap_vs_ddf.fantasypros">2.7</b> points). DynastyProcess gives receivers <b class="n" data-n="dynastyprocess.shares.half_ppr/12/1qb.WR">46.7</b>% in Half PPR, as a chart that prices future seasons can.</p><p>This test measures each chart's numbers inside one league structure: how many backs and receivers start in each format is the reference's allocation, so a chart's share moves with scoring even when its numbers do not (FantasyPros' running backs go from <b class="n" data-n="position_weighting.standard/12/1qb.sources.fantasypros.RB">58.4</b>% in Standard to <b class="n" data-n="position_weighting.ppr/12/1qb.sources.fantasypros.RB">45.9</b>% in Full PPR on identical numbers). It compares charts with each other and with DDF Value in that same structure.</p></div>
+<figure class="reveal" id="fig-pos"><figcaption><b>Share of value above waivers by position.</b> 12 teams; our default lineup (QB, 2 RB, 2 WR, TE, FLEX, 7 bench). "DDF Value" is the reference.</figcaption>
+<div class="controls" role="group" aria-label="League setting"><button type="button" data-case="half_ppr/12/1qb" aria-pressed="true">Half PPR</button><button type="button" data-case="standard/12/1qb" aria-pressed="false">Standard</button><button type="button" data-case="ppr/12/1qb" aria-pressed="false">Full PPR</button><button type="button" data-case="half_ppr/12/sf" aria-pressed="false">Superflex (Half PPR)</button></div>
+<div class="stack"></div>
+<div class="legend" aria-hidden="true"><span><i style="background:var(--p-QB)"></i>QB</span><span><i style="background:var(--p-RB)"></i>RB</span><span><i style="background:var(--p-WR)"></i>WR</span><span><i style="background:var(--p-TE)"></i>TE</span></div>
+<details class="data"><summary>Show the numbers</summary><div class="tbl" data-table="pos"></div></details>
+</figure>
+<div class="callout"><b>On running backs.</b> Backs miss more games, and DDF Value's league adjustment already counts on it: it expects running backs to miss <b class="n" data-n="model_missed_game_rate_pct.RB">15.3</b>% of games and receivers <b class="n" data-n="model_missed_game_rate_pct.WR">10.5</b>%. A chart that wants a bigger safety margin than that is making a judgment, not an error.</div>
+</section>
+<section aria-labelledby="h-curve">
+<h2 id="h-curve">2. The shape of the curve: how fast does value fall?</h2>
+<div class="prose"><p>Line up every player from best to worst and divide by the #1 player. A steep curve says stars are rare and expensive. A flat one says depth is nearly as good. By the 24th player, CBS Sports has fallen to <b class="n" data-n="curve_stats.cbs.rank24_pct">38</b>% of its #1, DDF Value to <b class="n" data-n="curve_stats.ddf.rank24_pct">40</b>%, FantasyCalc to <b class="n" data-n="curve_stats.fantasycalc.rank24_pct">46</b>%, FantasyPros to <b class="n" data-n="curve_stats.fantasypros.rank24_pct">51</b>%, DynastyProcess to <b class="n" data-n="dynastyprocess.curve_stats.rank24_pct">55</b>% and USA Today only to <b class="n" data-n="curve_stats.usatoday.rank24_pct">65</b>%. Toggle the scoring and watch which lines bend. Two of them never do.</p></div>
+<figure class="reveal" id="fig-curve"><figcaption><b>Each chart's value by overall rank, #1 = 100.</b> Dashed line: DDF Value (reference). Dotted: DynastyProcess (dynasty). Move the slider (arrow keys work), or drag or tap across the chart, to see each line's value and which player holds that overall rank on that source.</figcaption>
+<div class="controls" role="group" aria-label="Scoring"><button type="button" data-sc="standard" aria-pressed="false">Standard</button><button type="button" data-sc="half_ppr" aria-pressed="true">Half PPR</button><button type="button" data-sc="ppr" aria-pressed="false">Full PPR</button></div>
+<div class="chart" id="curve" role="img" aria-label="Line chart of value by overall rank for each chart"></div>
+<label class="toggle" for="rank">Rank <input id="rank" type="range" min="1" max="120" value="24" style="flex:1;width:auto;height:44px"> <output id="rank-out" class="n">24</output></label>
+<div class="tbl" id="rank-names"></div>
+<p id="rank-read" aria-live="polite" class="sr"></p>
+<details class="data"><summary>Show the numbers</summary><div class="tbl" data-table="curve"></div></details>
+</figure>
+</section>
+<section aria-labelledby="h-scoring">
+<h2 id="h-scoring">3. Does the chart know your scoring?</h2>
+<div class="prose"><p>Switch from Standard to Full PPR and the order of players should change: a running back who catches 60 passes should pass one who does not. That follows from the scoring rules alone. We took the top 36 running backs, receivers and tight ends on each list and counted how many change places. USA Today moves <b class="n" data-n="headline.reorder_avg_pct.usatoday">59</b>% and CBS Sports <b class="n" data-n="headline.reorder_avg_pct.cbs">32</b>%, both from separate published columns per format; DDF Value, the reference, moves <b class="n" data-n="ddf_reference.reorder_avg_pct">37</b>%. FantasyCalc changes every number but none of its top 99 change places within their position: running backs and receivers each get one multiplier, and tight ends and quarterbacks vary a little more without reordering. FantasyPros changes nothing, and neither does DynastyProcess, which publishes one value set and says it assumes 12-team PPR.</p>
+<p class="callout"><b>How we checked that this is them, not us.</b> FantasyCalc: our pipeline makes one request per format to its public values endpoint (<code>ppr=0</code> for Standard, <code>ppr=1</code> for Full PPR, 12 teams, one QB) and stores the published number untouched; the multiplier is in those raw responses, not in any adjustment of ours. We repeated the two requests live on 2026-11-07 and got the same pattern. In <b class="n" data-n="scoring_provenance.fantasycalc_captures_total">8</b> captures from 2026-09-29 to 2026-11-07, only <b class="n" data-n="scoring_provenance.fantasycalc_captures_with_reorder">1</b>, the oldest (2026-09-29), reordered players (<b class="n" data-n="scoring_provenance.fantasycalc_captures.0.RB.reordered">10</b> of the top 36 running backs), so this looks like a change on FantasyCalc's side around the start of October. An independent check, run separately from ours on 2026-11-07 with the same public parameters (ppr=0, 0.5 and 1; numQbs=1; numTeams=12) and a fresh read of the FantasyPros article, reproduced both findings. FantasyPros: the week 9 article's four tables carry one Value column (plus 2QB and tight end premium columns) and no scoring selector (read 2026-11-07), and its numbers were identical across formats in every weekly snapshot from week 5 to week 9.</p>
+<p>A fair note for CBS Sports and USA Today: their quarterback numbers are the same in every format because neither publishes a quarterback column per scoring format. We use CBS Sports' one-QB 4-point column and USA Today's one-QB column; neither chart's 6-point passing touchdown column is used here.</p>
+</div>
+<figure class="reveal" id="fig-race"><figcaption><b>Top-36 running backs, receivers and tight ends that change places between Standard and Full PPR</b> (average of the three positions).</figcaption>
+<div class="race"></div>
+<details class="data"><summary>Show the numbers</summary><div class="tbl" data-table="race"></div></details>
+</figure>
+</section>
+<section aria-labelledby="h-sf">
+<h2 id="h-sf">4. Superflex: the quarterback discount</h2>
+<div class="prose"><p>All four redraft charts publish superflex or 2QB numbers for <b class="n" data-n="headline.superflex_qbs_min">32</b> to <b class="n" data-n="headline.superflex_qbs_max">38</b> quarterbacks, enough for a 12-team league. Credit where due. Move to superflex and those four lift quarterbacks from about 8% of all value to between <b class="n" data-n="headline.superflex_chart_qb_min">22.1</b>% and <b class="n" data-n="headline.superflex_chart_qb_max">34.6</b>%. DDF Value, which builds its superflex prices from these same charts' superflex lists and then adjusts for the extra lineup slot and replacement level, gives them <b class="n" data-n="headline.superflex_ddf_qb">34.9</b>%. FantasyPros sits next to it; CBS Sports is <b class="n" data-n="headline.superflex_cbs_gap">12.8</b> points below. A superflex league puts about 24 quarterbacks in lineups each week out of 32 NFL starters, so the direction of the move follows from the lineup rules; its size is where the charts differ. This test measures quarterback share against the league-aware reference; it does not measure what managers pay in real superflex trades.</p></div>
+<figure class="reveal" id="fig-sf"><figcaption><b>Quarterbacks' share of value: one-QB league (hollow) to superflex (filled).</b> The last row is the reference. Half PPR, 12 teams.</figcaption>
+<div class="chart dumb" id="sf"></div>
+<details class="data"><summary>Show the numbers</summary><div class="tbl" data-table="sf"></div></details>
+</figure>
+</section>
+<section aria-labelledby="h-depth">
+<h2 id="h-depth">5. Depth: does the chart reach the end of your bench?</h2>
+<div class="prose">
+<p>Every position has a <b>waiver line</b>: the value of the best player you could pick up for free once every team has filled its starters and bench. League size and roster slots set it. With our default lineup, a 12-team league rosters about <b class="n" data-n="depth_vs_waiver.rostered.12.QB">20</b> quarterbacks, <b class="n" data-n="depth_vs_waiver.rostered.12.RB">65</b> running backs, <b class="n" data-n="depth_vs_waiver.rostered.12.WR">62</b> receivers and <b class="n" data-n="depth_vs_waiver.rostered.12.TE">21</b> tight ends, so the line sits at the next player at each position (10 teams: <b class="n" data-n="depth_vs_waiver.rostered.10.QB">18</b>, <b class="n" data-n="depth_vs_waiver.rostered.10.RB">59</b>, <b class="n" data-n="depth_vs_waiver.rostered.10.WR">48</b>, <b class="n" data-n="depth_vs_waiver.rostered.10.TE">15</b>; 14 teams: <b class="n" data-n="depth_vs_waiver.rostered.14.QB">24</b>, <b class="n" data-n="depth_vs_waiver.rostered.14.RB">74</b>, <b class="n" data-n="depth_vs_waiver.rostered.14.WR">73</b>, <b class="n" data-n="depth_vs_waiver.rostered.14.TE">25</b>). Value above that line is value above waivers, the basis of DDF Value.</p>
+<p>A chart's list should end near that line. If it stops short, real roster value is left unpriced. If it reaches past, it puts a price on players who, in this league, the waiver wire could replace. The depth grade counts only stopping short; reaching past is reported here, because a deeper league or a longer horizon can justify it. Here is where each list ends in a 12-team league.</p>
+<ul>
+<li><b>CBS Sports stops short</b> at every position: <b class="n" data-n="depth_vs_waiver.sources.cbs.12.QB.listed">13</b> QBs, <b class="n" data-n="depth_vs_waiver.sources.cbs.12.RB.listed">43</b> RBs, <b class="n" data-n="depth_vs_waiver.sources.cbs.12.WR.listed">43</b> WRs and <b class="n" data-n="depth_vs_waiver.sources.cbs.12.TE.listed">11</b> TEs. Its last running back, <b class="n" data-n="depth_vs_waiver.sources.cbs.12.RB.last_name">Devin Singletary</b>, is still worth <b class="n" data-n="depth_vs_waiver.sources.cbs.12.RB.last_pct_of_top">8.8</b>% of its top back, and <b class="n" data-n="depth_vs_waiver.sources.cbs.12.RB.unpriced">22</b> rostered backs get no number at all. CBS Sports covers them with a rule (any unlisted player is worth no more than four points), so in a bench-for-bench trade it cannot tell your 50th back from your 60th.</li>
+<li><b>USA Today reaches past</b> the line at every position. <b class="n" data-n="depth_vs_waiver.sources.usatoday.12.value_past_line_pct">5.3</b>% of all its value goes to players beyond it, the most of any chart, and its waiver-level tight end is still worth <b class="n" data-n="depth_vs_waiver.sources.usatoday.12.TE.waiver_pct_of_top">11.1</b>% of its top tight end. In our 12-team league, that is value placed on players the waiver wire could replace; in a deeper league some of it would be in play.</li>
+<li><b>FantasyPros is mixed</b>: past the line at QB and WR, short at RB (<b class="n" data-n="depth_vs_waiver.sources.fantasypros.12.RB.listed">52</b> of <b class="n" data-n="depth_vs_waiver.rostered.12.RB">65</b>), near it at TE. Its receiver at the line is still worth <b class="n" data-n="depth_vs_waiver.sources.fantasypros.12.WR.waiver_pct_of_top">14.5</b>% of its top receiver, so in our 12-team league it places real value on receivers at the waiver line.</li>
+<li><b>FantasyCalc puts the least value past the line</b> of the charts that reach past it: near the line at RB, and past it at QB, WR and TE only with players worth almost nothing on its scale; just <b class="n" data-n="depth_vs_waiver.sources.fantasycalc.12.value_past_line_pct">0.6</b>% of its value sits past the line.</li>
+<li><b>DynastyProcess lists nearly everyone</b>, as a dynasty list for a deeper league would: its method page assumes two FLEX spots and about 300 rostered players, against the 168 in our redraft league. <b class="n" data-n="depth_vs_waiver.sources.dynastyprocess.12.value_past_line_pct">3.1</b>% of its value sits past our line, which describes coverage against our league, not a pricing error.</li>
+
+</ul>
+</div>
+<figure class="reveal" id="fig-depth"><figcaption><b>Where each list ends against the waiver line.</b> Value by rank at one position, as a share of that chart's top player there. The dashed line is the waiver line for the league size you pick; a dot marks each chart's last listed player.</figcaption>
+<div class="controls" role="group" aria-label="League size"><button type="button" data-teams="10" aria-pressed="false">10 teams</button><button type="button" data-teams="12" aria-pressed="true">12 teams</button><button type="button" data-teams="14" aria-pressed="false">14 teams</button></div>
+<div class="controls" role="group" aria-label="Position"><button type="button" data-dpos="QB" aria-pressed="false">QB</button><button type="button" data-dpos="RB" aria-pressed="true">RB</button><button type="button" data-dpos="WR" aria-pressed="false">WR</button><button type="button" data-dpos="TE" aria-pressed="false">TE</button></div>
+<div class="chart" id="depth" role="img" aria-label="Value by rank at one position for each chart, with the waiver line; the cards below give each chart's numbers"></div>
+<div class="tbl" data-table="depth"></div>
+</figure>
+</section>
+<section aria-labelledby="h-21">
+<h2 id="h-21">6. The 2-for-1 test</h2>
+<div class="prose"><p>Here is where curve shape stops being academic. Add up two chart numbers and compare them with one, and you have priced a 2-for-1. But the team that takes two players needs a roster spot, and a freely available player at each position has some value on most charts. Subtract each player's replacement value (the waiver-level value at his position) and the math changes; this does not model the specific player your team would cut. Across every comparison of a pair ranked 25 to 60 with a top-12 player (630 pairs times 12 stars, all weighted equally), on FantasyPros <b class="n" data-n="headline.pairs_raw.fantasypros">68</b>% favor the pair on raw numbers and <b class="n" data-n="headline.pairs_after_waiver.fantasypros">45</b>% after the subtraction. On USA Today, <b class="n" data-n="headline.pairs_raw.usatoday">61</b>% and <b class="n" data-n="headline.pairs_after_waiver.usatoday">42</b>%. CBS Sports and FantasyCalc are steep enough that the subtraction barely matters. CBS Sports also states a rule for lopsided deals: take 10% off when one side gets at least two more players <span class="cite">[1]</span>. DynastyProcess sits in between: <b class="n" data-n="dynastyprocess.consolidation.raw_beats_star_pct">27</b>% raw, <b class="n" data-n="dynastyprocess.consolidation.after_waiver_beats_star_pct">17</b>% after.</p>
+<p>Try one yourself. The default is a sample week 9 comparison on raw chart numbers; tick the box to subtract each player's replacement value. The box works on each chart's numbers as a share of its own #1 player, which keeps every chart's ratios.</p>
+</div>
+<figure class="reveal" id="fig-trade"><figcaption><b>Trade it yourself.</b> Each chart's summed value for the side that gets two players against the one. "About even" means within 5%.</figcaption>
+<div class="trade">
+<div class="side"><label for="give">You give</label><select id="give"></select></div>
+<div class="side"><label for="get1">You get</label><select id="get1"></select><label for="get2" style="margin-top:8px">and</label><select id="get2"></select></div>
+</div>
+<label class="toggle"><input type="checkbox" id="sub"> Subtract each player's replacement value at his position</label>
+<div class="verdicts" id="verdicts" role="group" aria-label="Verdicts by chart" aria-live="polite"></div>
+</figure>
+<figure class="reveal" id="fig-pairs"><figcaption><b>Share of pair-versus-star comparisons (a pair ranked 25 to 60 against a top-12 player.</b> Light bar: raw chart numbers. Dark bar: after subtracting waiver-level value.</figcaption>
+<div class="race" id="pairs"></div>
+<details class="data"><summary>Show the numbers</summary><div class="tbl" data-table="pairs"></div></details>
+</figure>
+</section>
+<section aria-labelledby="h-agree">
+<h2 id="h-agree">7. Where the charts disagree</h2>
+<div class="prose">
+<p>The good news: the charts mostly agree on order. Across the <b class="n" data-n="agreement.n_common">109</b> players all four list, rank correlations run from <b class="n" data-n="headline.agreement_min">0.831</b> to <b class="n" data-n="headline.agreement_max">0.925</b>. The fights are about price, and about a handful of players. Pick a chart to see where it parts from the other three. Points above the dashed line are players this chart ranks higher than the other three do; points below, lower.</p>
+</div>
+<figure class="reveal" id="fig-scatter"><figcaption><b>Rank at his position: this chart (up) against the median of the other three charts (across).</b> Top 36 at each position. Hover, tap, or focus the chart and use the arrow keys.</figcaption>
+<div class="controls" role="group" aria-label="Chart"><button type="button" data-src="cbs" aria-pressed="true">CBS Sports</button><button type="button" data-src="usatoday" aria-pressed="false">USA Today</button><button type="button" data-src="fantasypros" aria-pressed="false">FantasyPros</button><button type="button" data-src="fantasycalc" aria-pressed="false">FantasyCalc</button></div>
+<div class="chart scatter" id="scatter"></div>
+<div class="legend" aria-hidden="true"><span><i style="background:var(--p-QB)"></i>QB</span><span><i style="background:var(--p-RB)"></i>RB</span><span><i style="background:var(--p-WR)"></i>WR</span><span><i style="background:var(--p-TE)"></i>TE</span></div>
+<p id="scatter-read" class="meta" aria-live="polite"></p>
+<details class="data"><summary>The biggest disagreements</summary><div class="tbl" data-table="outliers"></div></details>
+</figure>
+</section>
+<section aria-labelledby="h-fresh">
+<h2 id="h-fresh">8. Weekly change</h2>
+<div class="prose"><p>Our saved weekly snapshots differ for every source from week 5 to week 9, and every one of them moved its top players. The analyst charts keep about a quarter to a half of their numbers exactly the same from one week to the next. FantasyCalc changed every one of those numbers every week. This test measures week-to-week change in what we saved; it does not measure how fast a source reacts to news.</p></div>
+<figure class="reveal"><figcaption><b>Week-to-week change, weeks 5 to 9.</b> Rank move: the average change in position rank among last week's top 24 at each position. Same number: the share of those players whose number did not change at all.</figcaption>
+<div class="tbl" data-table="fresh"></div>
+</figure>
+</section>
+<section aria-labelledby="h-age">
+<h2 id="h-age">9. Age: what a dynasty value pays for</h2>
+<div class="prose"><p>Our snapshot has ages for one source only: DynastyProcess publishes them in its open data file. So we can ask a fair question of it. Among the <b class="n" data-n="dynastyprocess.age_pool">149</b> of our top 150 players that DynastyProcess lists with an age, the <b class="n" data-n="dynastyprocess.age_bands.0.n">44</b> under 25 rank <b class="n" data-n="dynastyprocess.age_bands.0.mean_rank_gain">3.8</b> places higher at their position on DynastyProcess than on DDF Value, on average. Players 30 and over come out at <b class="n" data-n="dynastyprocess.age_bands.3.mean_rank_gain">-3.6</b> places. That is the pattern you would expect from values that price future seasons, and it makes DynastyProcess a poor fit for a redraft trade: on the <b class="n" data-n="dynastyprocess.rank_corr_common.n">109</b> players all four redraft charts list, its rank correlation with them runs from <b class="n" data-n="dynastyprocess.rank_corr_common_min">0.524</b> (FantasyPros) to <b class="n" data-n="dynastyprocess.rank_corr_common_max">0.727</b> (FantasyCalc), against <b class="n" data-n="headline.agreement_min">0.831</b> to <b class="n" data-n="headline.agreement_max">0.925</b> among the redraft charts themselves.</p></div>
+<figure class="reveal"><figcaption><b>Places gained at his position on DynastyProcess compared with DDF Value (reference)</b>, by age, among our top 150 players.</figcaption>
+<div class="race" id="age"></div>
+<details class="data"><summary>Show the numbers</summary><div class="tbl" data-table="age"></div></details>
+</figure>
+</section>
+<section aria-labelledby="h-should">
+<h2 id="h-should">What each headline should be</h2>
+<div class="prose"><p>For each finding: what we would expect, the gap, why, and how to check it. Two expectations follow from first principles alone; the others use DDF Value as the reference, which measures distance from the league-aware consensus of the same charts.</p></div>
+<div class="should">
+<div class="card"><h3>1. FantasyPros and scoring formats</h3><p><b>Should be:</b> players change places between Standard and Full PPR; the two charts with a column per format move <b class="n" data-n="should_be.scoring_columns_reorder_min">32</b>% to <b class="n" data-n="should_be.scoring_columns_reorder_max">59</b>% of their top 36, DDF Value <b class="n" data-n="should_be.scoring_ddf_reorder">37</b>%. <b>Shows:</b> 0%. <b>Gap:</b> no movement at all.</p><p><b>Why:</b> a catch is worth a point in Full PPR and nothing in Standard, and players catch very different numbers of passes, so the order has to move. This is a first principle, independent of DDF Value. Check it on the <a href="https://www.cbssports.com/fantasy/football/news/dave-richards-week-9-fantasy-football-trade-chart-rest-of-season-rankings/" target="_blank" rel="noopener noreferrer">CBS Sports chart</a>, whose NON and PPR columns order players differently. <b>For your trade:</b> in Standard or Full PPR, use a chart with a column for your format.</p></div>
+<div class="card"><h3>2. FantasyCalc and scoring formats</h3><p><b>Should be:</b> the same movement within each position. <b>Shows:</b> 0 of 99 reorder; every top back gets about <b class="n" data-n="fantasycalc_scoring_factors.RB.median_ratio">0.994</b> (spread <b class="n" data-n="fantasycalc_scoring_factors.RB.spread">0.001</b>). <b>Gap:</b> the order within a position never moves.</p><p><b>Why:</b> one factor per position can shift backs against receivers, but it cannot lift a pass-catching back over a runner; only player-level scoring can. That is arithmetic, independent of DDF Value. Check it with the two FantasyCalc links in the headline. <b>For your trade:</b> FantasyCalc's format switch changes how positions trade against each other, not how two backs compare.</p></div>
+<div class="card"><h3>3. The 2-for-1 test</h3><p><b>Should be:</b> few pairs of mid-tier players worth more than a top-12 star once each player's replacement value is subtracted; DDF Value, the reference, has <b class="n" data-n="should_be.pairs_ddf">9</b>%. <b>Shows:</b> after the subtraction, FantasyPros <b class="n" data-n="headline.pairs_after_waiver.fantasypros">45</b>%, USA Today <b class="n" data-n="headline.pairs_after_waiver.usatoday">42</b>%, FantasyCalc <b class="n" data-n="headline.pairs_after_waiver.fantasycalc">8</b>%, CBS Sports <b class="n" data-n="headline.pairs_after_waiver.cbs">2</b>%. <b>Gap:</b> <b class="n" data-n="should_be.pairs_gap_fantasypros">36</b> and <b class="n" data-n="should_be.pairs_gap_usatoday">33</b> points above the reference for FantasyPros and USA Today.</p><p><b>Why:</b> a lineup starts only so many players, so two players are worth what each adds above a free pickup, and on a flat chart that surplus is spread thin. The first-principles part, subtracting replacement value, does not depend on DDF Value; the size of the gap does. Check it on the <a href="https://www.fantasypros.com/2026/09/fantasy-football-trade-value-chart-week-9-2026/" target="_blank" rel="noopener noreferrer">FantasyPros chart</a> with any two players ranked around 30th. <b>For your trade:</b> on a flat chart, a 2-for-1 that looks fair usually favors the side getting the star.</p></div>
+<div class="card"><h3>4. Quarterbacks in superflex</h3><p><b>Should be:</b> about <b class="n" data-n="should_be.superflex_ddf_qb">34.9</b>% of all value, DDF Value's share. <b>Shows:</b> CBS Sports <b class="n" data-n="superflex.cbs.qb_share_sf">22.1</b>%, USA Today <b class="n" data-n="superflex.usatoday.qb_share_sf">26</b>%, FantasyCalc <b class="n" data-n="superflex.fantasycalc.qb_share_sf">26.5</b>%, FantasyPros <b class="n" data-n="superflex.fantasypros.qb_share_sf">34.6</b>%. <b>Gap:</b> <b class="n" data-n="should_be.superflex_gap.cbs">12.8</b>, <b class="n" data-n="should_be.superflex_gap.usatoday">8.9</b>, <b class="n" data-n="should_be.superflex_gap.fantasycalc">8.4</b> and <b class="n" data-n="should_be.superflex_gap.fantasypros">0.3</b> points below.</p><p><b>Why:</b> with about 24 quarterbacks starting each week, the replacement quarterback is a backup, so starters gain a lot; that direction is a first principle. The size comes from DDF Value's league adjustment of the charts' own superflex lists, a modeling judgment that real superflex trade prices would test. <b>For your trade:</b> on CBS Sports, a superflex quarterback is priced well below the league-aware consensus, which helps a buyer.</p></div>
+<div class="card"><h3>5. The top tight end</h3><p><b>Should be:</b> about <b class="n" data-n="should_be.te_ddf_pct">42</b>% of the #1 player, DDF Value's figure. <b>Shows:</b> USA Today <b class="n" data-n="headline.top_te_pct.usatoday">80</b>%, FantasyCalc <b class="n" data-n="headline.top_te_pct.fantasycalc">63</b>%, CBS Sports <b class="n" data-n="headline.top_te_pct.cbs">42</b>%, FantasyPros <b class="n" data-n="headline.top_te_pct.fantasypros">37</b>%. <b>Gap:</b> USA Today <b class="n" data-n="should_be.te_gap.usatoday">38</b> and FantasyCalc <b class="n" data-n="should_be.te_gap.fantasycalc">21</b> points above; CBS Sports level; FantasyPros <b class="n" data-n="should_be.te_gap.fantasypros">-5</b>.</p><p><b>Why:</b> a league starts one tight end per team and the position falls off quickly after the top few, so the best tight end is worth a lot but well short of a top running back; that shape is a first principle. The exact figure is DDF Value's, the consensus of these charts after league adjustment. Check it on the <a href="https://www.usatoday.com/story/sports/fantasy/football/2026/11/03/fantasy-trade-value-charts-week-9-ros-rankings/92593100007/" target="_blank" rel="noopener noreferrer">USA Today charts</a> and the <a href="https://www.cbssports.com/fantasy/football/news/dave-richards-week-9-fantasy-football-trade-chart-rest-of-season-rankings/" target="_blank" rel="noopener noreferrer">CBS Sports chart</a>. <b>For your trade:</b> on USA Today an elite tight end prices close to a top player; the other charts and the reference put him well below.</p></div>
+</div>
+</section>
+<section aria-labelledby="h-src">
+<h2 id="h-src">Chart by chart</h2>
+<div class="prose"><p>What each chart does well, where it falls short, and what it says about its own method. Method facts come only from pages the source published, read on 2026-11-07. Where we could not find or load a method page, we say so and make no claim.</p></div>
+<div class="sources">
+<div class="card src" data-src="cbs"><h3>CBS Sports <span class="kind">Analyst chart</span></h3><div class="rate"></div><ul>
+<li><span class="well">Does well:</span> separate Standard, Half and Full PPR columns that really reorder players; a 2QB column; the steepest curve through the top 24, so 2-for-1 sums hold up; written rules for lopsided deals and unlisted players.</li>
+<li><span class="fault">Falls short:</span> lists <b class="n" data-n="curve_stats.cbs.listed_total">110</b> players, which stops well short of a 12-team bench; leans furthest toward receivers against DDF Value (<b class="n" data-n="headline.wr_tilt_vs_ddf.cbs">5.2</b> points in Half PPR); the lowest quarterback share in superflex (<b class="n" data-n="superflex.cbs.qb_share_sf">22.1</b>%).</li>
+<li>Method, in its own words: Dave Richard's chart is based on expected future performance, upcoming schedule and public sentiment, and doubles as rest-of-season rankings. League size: not documented. <span class="cite">[1]</span></li></ul></div>
+<div class="card src" data-src="usatoday"><h3>USA Today <span class="kind">Analyst chart</span></h3><div class="rate"></div><ul>
+<li><span class="well">Does well:</span> the deepest of the analyst charts (<b class="n" data-n="curve_stats.usatoday.listed_total">271</b> players), so it prices bench players itself; separate scoring columns that reorder <b class="n" data-n="headline.reorder_avg_pct.usatoday">59</b>% of the top 36; a superflex column for <b class="n" data-n="superflex.usatoday.superflex_qbs_listed">38</b> quarterbacks.</li>
+<li><span class="fault">Falls short:</span> the flattest curve (the 24th player is worth <b class="n" data-n="curve_stats.usatoday.rank24_pct">65</b>% of the #1), so sums of two players flatter the side getting more; its top tight end at <b class="n" data-n="headline.top_te_pct.usatoday">80</b>% of its #1 is far above every other chart.</li>
+<li>Method: not documented in any page we could load. Its site did not allow our reader on 2026-11-07, so we describe only its published table as our pipeline saved it. <span class="cite">[2]</span></li></ul></div>
+<div class="card src" data-src="fantasypros"><h3>FantasyPros <span class="kind">Analyst chart</span></h3><div class="rate"></div><ul>
+<li><span class="well">Does well:</span> a position mix within <b class="n" data-n="position_weighting.half_ppr/12/1qb.gap_vs_ddf.fantasypros">4</b> points of DDF Value in Half PPR and the closest of the four in Standard (<b class="n" data-n="position_weighting.standard/12/1qb.gap_vs_ddf.fantasypros">2.7</b>); 2QB values for quarterbacks and a tight end premium column; prints each player's bye week.</li>
+<li><span class="fault">Falls short:</span> one Value column for every scoring format, so it cannot tell Standard from Full PPR; a flat curve: in <b class="n" data-n="headline.pairs_raw.fantasypros">68</b>% of pair-versus-star comparisons the mid-tier pair comes out ahead on raw numbers.</li>
+<li>Method: the article says its analysts combined their rankings to make the values, and that "Values will be different league-to-league." Scoring format and league size: not stated. <span class="cite">[3]</span></li></ul></div>
+<div class="card src" data-src="fantasycalc"><h3>FantasyCalc <span class="kind">Live market</span></h3><div class="rate"></div><ul>
+<li><span class="well">Does well:</span> takes league size as a setting; a 2QB setting with values for every player; a steep curve, so 2-for-1 sums barely need the roster-spot correction; new numbers for its top players every week.</li>
+<li><span class="fault">Falls short:</span> in our captures since early October its scoring switch rescales each position instead of reordering within it (section 3 shows how we checked): <b class="n" data-n="headline.fantasycalc_top_flex_reordered">0</b> of the top <b class="n" data-n="headline.fantasycalc_top_flex_compared">99</b> move; leans toward receivers (<b class="n" data-n="headline.wr_tilt_vs_ddf.fantasycalc">3.9</b> points above DDF Value in Half PPR); lists <b class="n" data-n="sources.fantasycalc.listed.RB">60</b> running backs where a 12-team league rosters about <b class="n" data-n="sources.fantasycalc.rostered.RB">65</b>.</li>
+<li>Method: its method page did not load for us on 2026-11-07, so we make no claim about how its values are built. Its public values request takes dynasty or redraft, number of quarterbacks, number of teams and PPR. <span class="cite">[4]</span></li></ul></div>
+<div class="card src" data-src="dynastyprocess"><h3>DynastyProcess <span class="kind">Dynasty, open data</span></h3><div class="rate"></div><ul>
+<li><span class="well">Does well:</span> the only source here that publishes both its formula and its data under an open license (GPL-3.0), so every number can be checked; 2QB values for <b class="n" data-n="dynastyprocess.superflex.superflex_qbs_listed">90</b> quarterbacks; the longest list of the graded sources (<b class="n" data-n="dynastyprocess.curve_stats.listed_total">604</b> players we could match, against <b class="n" data-n="curve_stats.cbs.listed_total">110</b> to <b class="n" data-n="curve_stats.usatoday.listed_total">271</b> for the charts); new values every week.</li>
+<li><span class="fault">Falls short:</span> one value set for every scoring format; it prices future seasons, so it is a poor fit for a redraft trade (it gives receivers <b class="n" data-n="dynastyprocess.shares.half_ppr/12/1qb.WR">46.7</b>% of the value in Half PPR, and its rank correlation with the redraft charts runs from <b class="n" data-n="dynastyprocess.rank_corr_common_min">0.524</b> to <b class="n" data-n="dynastyprocess.rank_corr_common_max">0.727</b> on the players all four list).</li>
+<li>Method, in its own words: Value = 10,500 × e<sup>−0.0235 × rank</sup>, where rank is the FantasyPros dynasty expert consensus; 12-team PPR; it states no age adjustment of its own; method page last updated 2020-06-25. Its formula puts the 24th player at <b class="n" data-n="dynastyprocess_formula.rank24_pct">58</b>% of the #1. <span class="cite">[8]</span></li></ul></div>
+</div>
+<h3 style="margin-top:30px">The big names we could not test</h3>
+<div class="prose"><p>For the charts we grade, this article shows each chart's numbers only as shares of its own #1 player, as ranks and as summary measures, not as published. We did not collect data from these four. KeepTradeCut's terms prohibit automated data collection and redistributing its content <span class="cite">[11]</span>; Footballguys' terms restrict copying and reuse without express written permission <span class="cite">[12]</span>; Draft Sharks publishes no data license or reuse terms we could find, and its league-specific values come from its Draft War Room <span class="cite">[10]</span>. So these stay method-only, with no grades. We also looked at Dynasty Nerds but found no published method or data terms we could read, so it is left out <span class="cite">[13]</span>.</p></div>
+<div class="sources">
+<div class="card src"><h3>KeepTradeCut <span class="kind">Crowd votes</span></h3><ul>
+<li>Users answer a daily keep, trade or cut question; the answers are combined with an ELO algorithm. A second mode builds values from real dynasty trades with a proprietary algorithm, and a third blends the two. <span class="cite">[7]</span></li>
+<li>Crowd values update every 10 minutes. Its own stated limits: trade data lags breaking news, and crowd values can overreact.</li>
+<li>League settings the values assume: not documented on the page we loaded.</li></ul></div>
+<div class="card src"><h3>Footballguys <span class="kind">Analyst chart</span></h3><ul>
+<li>Dan Hindery's dynasty chart starts from points per game above replacement, discounted over a career, and is checked against about 90,000 Sleeper dynasty trades. <span class="cite">[9]</span></li>
+<li>Its base setting is superflex, Full PPR; the author says it is maintained by hand and that he adjusts it at times.</li></ul></div>
+<div class="card src"><h3>Draft Sharks <span class="kind">Model</span></h3><ul>
+<li>Its dynasty values come from models trained on player data since 1999, with aging curves by position, expressed as value above replacement. <span class="cite">[10]</span></li>
+<li>Baseline: 12 teams, with 1QB, superflex and tight end premium versions.</li></ul></div>
+</div>
+</section>
+<section aria-labelledby="h-take">
+<h2 id="h-take">What this means for your trade</h2>
+<ol class="takeaways">
+<li><b>In a 2-for-1, subtract each player's replacement value.</b> On FantasyPros and USA Today, adding two numbers makes depth look rich. CBS Sports and FantasyCalc are steep enough that it matters less.</li>
+<li><b>Check the scoring before you quote a chart.</b> FantasyPros has one number for every format, and none of FantasyCalc's top 99 running backs, receivers and tight ends change places within their position between Standard and Full PPR. CBS Sports and USA Today publish a column per format; use the right one.</li>
+<li><b>In superflex, check the quarterback price.</b> The charts give quarterbacks 22 to 35% of all value; CBS Sports sits furthest below the league-aware reference. If you are buying a quarterback, a low chart price helps your pitch.</li>
+<li><b>Expect agreement on order, not on price.</b> The charts rank players much the same; they disagree about exchange rates, especially for tight ends and for the second half of your roster.</li>
+</ol>
+</section>
+<section aria-labelledby="h-cav">
+<div class="caveats"><h2 id="h-cav" style="font-size:24px">How we tested</h2><ul>
+<li>One snapshot: week 9 of 2026. Analyst charts published 2026-11-03 (saved by 2026-11-04); FantasyCalc pulled 2026-11-07 (the weekly-change table uses its 2026-11-03 snapshot); DynastyProcess values of 2026-11-06. Another week can grade differently.</li>
+<li>League: 12 teams, our default lineup (QB, 2 RB, 2 WR, TE, FLEX, 7 bench), Half PPR unless noted. Depth is also shown at 10 and 14 teams.</li>
+<li>Reference: DDF Value, the four redraft charts adjusted for league settings and replacement level and averaged. It measures each chart against the league-aware consensus of the same charts, not against an independent truth. Its position budget averages the position mixes of every source in our pipeline, including the projection sets our model uses as inputs; those projections are not trade charts and are not graded here.</li>
+<li>Short charts: where a chart lists fewer players than a league rosters, DDF Value fills in the missing players from the other charts (<b class="n" data-n="headline.filled_in_total.cbs">67</b> for CBS Sports this week). CBS Sports says an unlisted player is worth up to four points (<b class="n" data-n="cbs_four_points_pct">7.1</b>% of its #1); the fill-in puts its waiver-level running back at <b class="n" data-n="cbs_waiver_rb_pct">0.6</b>% of its #1.</li>
+<li>League sizes: every chart is saved at 12 teams; 8, 10 and 14 teams are derived, including for FantasyCalc, which offers other team counts.</li>
+<li>Data checks: USA Today's week 9 capture carried an <b class="n" data-n="headline.usatoday_hold">amber</b> data-check flag; it is still part of DDF Value.</li>
+<li>Not tested: rookies and injuries (our injury list is newer than the charts). Ages exist only in DynastyProcess's data, so the age test covers one chart. DynastyProcess is matched by name with our standard rule: <b class="n" data-n="dynastyprocess.matched">604</b> matched, <b class="n" data-n="dynastyprocess.unmatched">9</b> not, none worth even 0.1% of its #1.</li>
+<li>Grades: the thresholds are ours and written under the scorecard. Methods: statements come from each source's own pages, read 2026-11-07; where a source does not document something, we say so.</li>
+</ul></div>
+</section>
+<section aria-labelledby="h-ref">
+<h2 id="h-ref" style="font-size:24px">Sources and how to check</h2>
+<p class="refs">Every link below is a public page or the documented endpoint our pipeline uses. Our link check (<code>pipelines/check_trade_value_audit_links.py</code>) opens each one and records its status.</p>
+<ul class="refs reflist">
+<li><span class="refn">[1]</span> <a href="https://www.cbssports.com/fantasy/football/news/dave-richards-week-9-fantasy-football-trade-chart-rest-of-season-rankings/" target="_blank" rel="noopener noreferrer">CBS Sports week 9 trade chart (Dave Richard)</a>, read 2026-11-07; published 2026-11-03; look at the NON, 0.5 and PPR columns and the 1QB and 2QB columns.</li>
+<li><span class="refn">[2]</span> <a href="https://www.usatoday.com/story/sports/fantasy/football/2026/11/03/fantasy-trade-value-charts-week-9-ros-rankings/92593100007/" target="_blank" rel="noopener noreferrer">USA Today week 9 trade value charts</a>, read 2026-11-07; published 2026-11-03; its site asks automated readers to stay out, so we did not machine-check this link; it opens normally in a browser.</li>
+<li><span class="refn">[3]</span> <a href="https://www.fantasypros.com/2026/09/fantasy-football-trade-value-chart-week-9-2026/" target="_blank" rel="noopener noreferrer">FantasyPros trade value chart, week 9</a>; <a href="https://www.fantasypros.com/about/legal/" target="_blank" rel="noopener noreferrer">FantasyPros legal terms</a>, read 2026-11-07; published 2026-11-03; each table has one Value column (plus 2QB and tight end premium columns).</li>
+<li><span class="refn">[4]</span> <a href="https://fantasycalc.com/redraft-rankings" target="_blank" rel="noopener noreferrer">FantasyCalc redraft rankings page</a>; <a href="https://api.fantasycalc.com/values/current?isDynasty=false&amp;numQbs=1&amp;numTeams=12&amp;ppr=0" target="_blank" rel="noopener noreferrer">FantasyCalc values, Standard (raw data)</a>; <a href="https://api.fantasycalc.com/values/current?isDynasty=false&amp;numQbs=1&amp;numTeams=12&amp;ppr=1" target="_blank" rel="noopener noreferrer">FantasyCalc values, Full PPR (raw data)</a>, read 2026-11-07; the two raw-data links are the requests our pipeline makes; they show current values, not the week 9 capture. Its method page did not load for us.</li>
+<li><span class="refn">[7]</span> <a href="https://keeptradecut.com/about/player-values" target="_blank" rel="noopener noreferrer">KeepTradeCut: how player values work</a>, read 2026-11-07.</li>
+<li><span class="refn">[8]</span> <a href="https://dynastyprocess.com/values" target="_blank" rel="noopener noreferrer">DynastyProcess values and formula</a>; <a href="https://github.com/dynastyprocess/data" target="_blank" rel="noopener noreferrer">DynastyProcess open data (GPL-3.0)</a>, read 2026-11-07; we use files/values-players.csv at five weekly commits, 2026-10-09 to 2026-11-06.</li>
+<li><span class="refn">[9]</span> <a href="https://www.footballguys.com/article/2026-dynasty-trade-value-chart-june" target="_blank" rel="noopener noreferrer">Footballguys dynasty trade value chart (June 2026)</a>, read 2026-11-07.</li>
+<li><span class="refn">[10]</span> <a href="https://www.draftsharks.com/article/dynasty-trade-value-charts" target="_blank" rel="noopener noreferrer">Draft Sharks dynasty trade value charts</a>, read 2026-11-07.</li>
+<li><span class="refn">[11]</span> <a href="https://keeptradecut.com/terms-and-conditions" target="_blank" rel="noopener noreferrer">KeepTradeCut terms and conditions</a>, read 2026-11-07.</li>
+<li><span class="refn">[12]</span> <a href="https://www.footballguys.com/terms" target="_blank" rel="noopener noreferrer">Footballguys terms of service</a>, read 2026-11-07.</li>
+<li><span class="refn">[13]</span> <a href="https://dynastynerds.com/" target="_blank" rel="noopener noreferrer">Dynasty Nerds home page</a>, read 2026-11-07; no published method or data terms found.</li>
+</ul>
+<p class="refs">Every number on this page comes from one script, <code>pipelines/research_trade_value_audit.py</code>, run on the repository's week 9 data; a test checks that the numbers in the text equal its output. <a href="trade-value-audit-data.json">The data file</a>.</p>
+</section>
+</article>
+</main>
+<noscript><p style="max-width:1080px;margin:0 auto 40px;padding:0 20px">The charts on this page need JavaScript. Every number in the text is readable without it.</p></noscript>
+<script src="trade-value-audit.js"></script>
+</body></html>
