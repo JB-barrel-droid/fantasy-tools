@@ -1,18 +1,22 @@
-"""JEG-1535: v2 swap routes and storage bridge for values.html.
+"""JEG-1535 / JEG-1539: legacy-routes.js swap routes and storage bridge for values.html.
+
+JEG-1539 step 5: dist/index.html is the redesigned front door; the v2 shell is build-only at
+build/v2/index.html and served at /v2-app.html. legacy-routes.js (loaded first in <head> of index.html
+and of the /v2/ redirect stub) forwards old hash routes to their new page; ?swapped=1 and the
+navigator.webdriver escape are gone (they were in v2.js which no longer has SWAPPED_ROUTES).
 
 Checks:
-1. dist/index.html#player-values?swapped=1 -> values.html (Chart tab selected)
-2. dist/index.html#value-overrides?swapped=1 -> values.html#overrides (Overrides tab)
-3. dist/v2/index.html#value-overrides?valuecontext=1&ov=2227:58.0?swapped=1 ->
+1. dist/index.html#player-values -> values.html (Chart tab selected, via legacy-routes.js)
+2. dist/index.html#value-overrides -> values.html#overrides (Overrides tab)
+3. dist/v2/index.html#value-overrides?valuecontext=1&ov=2227:58.0 ->
    values.html#overrides, override for player 2227 applied (DDF.engine.overrides.get('2227')===58),
    not written to localStorage ddf-v2-value-overrides
-4. Without ?swapped=1 under navigator.webdriver the v2 view stays (Playwright automation escape)
-5. dist/index.html (empty hash) stays on the v2 landing page
-6. dist/next/values.html redirects to ../values.html keeping the hash
+4. dist/index.html (empty hash) stays on the redesigned front door
+5. dist/next/values.html redirects to ../values.html keeping the hash
 Storage bridge:
-7. A record written in the live override format to localStorage before load shows as an override
-8. An override set via DDF.engine.overrides.set is in localStorage in the live format
-9. ddf.v2.league-settings {v:1, scoring:'half_ppr', teams:10, roster:{...}} saved before load
+6. A record written in the live override format to localStorage before load shows as an override
+7. An override set via DDF.engine.overrides.set is in localStorage in the live format
+8. ddf.v2.league-settings {v:1, scoring:'half_ppr', teams:10, roster:{...}} saved before load
    is what the page applies
 """
 from __future__ import annotations
@@ -60,7 +64,7 @@ class ValuesSwapRoutesTest(unittest.TestCase):
             raise _render_env.unavailable(f'Chromium not available: {exc}') from exc
 
     def test_player_values_swapped_lands_on_chart_tab(self):
-        """#player-values?swapped=1 navigates to values.html with Chart tab active."""
+        """index.html#player-values navigates to values.html with Chart tab active (via legacy-routes.js)."""
         sync_playwright, PlaywrightError = _pw()
         with serve() as base_url, sync_playwright() as pw:
             browser = self._browser(pw, PlaywrightError)
@@ -73,7 +77,7 @@ class ValuesSwapRoutesTest(unittest.TestCase):
                     lambda u: not (u.startswith('http://127.0.0.1') or u.startswith('http://localhost')),
                     lambda route: route.abort(),
                 )
-                page.goto(f'{base_url}/index.html?swapped=1#player-values',
+                page.goto(f'{base_url}/index.html#player-values',
                           wait_until='networkidle', timeout=60000)
                 try:
                     page.wait_for_function(READY_EXPR, timeout=20000)
@@ -93,7 +97,7 @@ class ValuesSwapRoutesTest(unittest.TestCase):
                 browser.close()
 
     def test_value_overrides_swapped_lands_on_overrides_tab(self):
-        """#value-overrides?swapped=1 navigates to values.html#overrides with Overrides tab."""
+        """index.html#value-overrides navigates to values.html#overrides with Overrides tab (via legacy-routes.js)."""
         sync_playwright, PlaywrightError = _pw()
         with serve() as base_url, sync_playwright() as pw:
             browser = self._browser(pw, PlaywrightError)
@@ -106,7 +110,7 @@ class ValuesSwapRoutesTest(unittest.TestCase):
                     lambda u: not (u.startswith('http://127.0.0.1') or u.startswith('http://localhost')),
                     lambda route: route.abort(),
                 )
-                page.goto(f'{base_url}/index.html?swapped=1#value-overrides',
+                page.goto(f'{base_url}/index.html#value-overrides',
                           wait_until='networkidle', timeout=60000)
                 try:
                     page.wait_for_function(OVERRIDES_READY, timeout=20000)
@@ -126,36 +130,26 @@ class ValuesSwapRoutesTest(unittest.TestCase):
                 browser.close()
 
     def test_v2_value_overrides_link_applies_override_for_visit(self):
-        """v2#value-overrides?valuecontext=1&ov=2227:58.0?swapped=1 -> values.html#overrides,
+        """v2/index.html#value-overrides?valuecontext=1&ov=2227:58.0 -> values.html#overrides,
         override applied for the visit (DDF.engine.overrides.get('2227') === 58),
-        not persisted to localStorage ddf-v2-value-overrides."""
+        not persisted to localStorage ddf-v2-value-overrides.
+        JEG-1539: legacy-routes.js on the /v2/ stub forwards the hash+query; no ?swapped=1 needed."""
         sync_playwright, PlaywrightError = _pw()
         with serve() as base_url, sync_playwright() as pw:
             browser = self._browser(pw, PlaywrightError)
             try:
                 page = browser.new_page(viewport={'width': 1440, 'height': 900})
-                # Guard: clear storage only on the first load (v2/index.html).  The redirect
-                # target (values.html) must NOT have its sessionStorage wiped, or the LINK_KEY
-                # that v2.js wrote before location.replace() disappears before ddf-engine reads it.
+                # Simple clear: legacy-routes.js does a synchronous location.replace, no sessionStorage bridge.
                 page.add_init_script(
-                    '(function(){'
-                    'try{'
-                    'if(!sessionStorage.getItem("__sw_init__")){'
-                    'sessionStorage.setItem("__sw_init__","1");'
-                    'localStorage.clear();sessionStorage.clear();'
-                    'sessionStorage.setItem("__sw_init__","1");'
-                    '}'
-                    '}catch(_){}'
-                    '})()'
+                    '(function(){ try { localStorage.clear(); sessionStorage.clear(); } catch(_){} })()'
                 )
                 page.route(
                     lambda u: not (u.startswith('http://127.0.0.1') or u.startswith('http://localhost')),
                     lambda route: route.abort(),
                 )
-                # The v2 page is at dist/v2/index.html, served at /v2/index.html
-                # The hash passes the override context
+                # The /v2/ redirect stub at dist/v2/index.html forwards the hash+query via legacy-routes.js.
                 url = (f'{base_url}/v2/index.html'
-                       f'?swapped=1#value-overrides?valuecontext=1&ov=2227:58.0')
+                       f'#value-overrides?valuecontext=1&ov=2227:58.0')
                 page.goto(url, wait_until='networkidle', timeout=60000)
                 try:
                     page.wait_for_function(OVERRIDES_READY, timeout=25000)
@@ -409,9 +403,8 @@ class ValuesSwapRoutesTest(unittest.TestCase):
                 browser.close()
 
     def test_redesign_token_on_v2_route(self):
-        """dist/index.html?swapped=1#s=abc redirects to values.html keeping #s=abc.
-        The #s= token is not a v2 route; v2.js routes it to swappedTarget(DEFAULT_ROUTE)
-        and preserves the hash so site.js on values.html can read the redesign link."""
+        """dist/index.html#s=abc redirects to connect.html keeping #s=abc.
+        JEG-1539: legacy-routes.js routes #s=<token> to connect.html#s=<token> (JEG-1538 entry page)."""
         sync_playwright, PlaywrightError = _pw()
         with serve() as base_url, sync_playwright() as pw:
             browser = self._browser(pw, PlaywrightError)
@@ -424,55 +417,24 @@ class ValuesSwapRoutesTest(unittest.TestCase):
                     lambda u: not (u.startswith('http://127.0.0.1') or u.startswith('http://localhost')),
                     lambda route: route.abort(),
                 )
-                page.goto(f'{base_url}/index.html?swapped=1#s=abc',
+                page.goto(f'{base_url}/index.html#s=abc',
                           wait_until='networkidle', timeout=60000)
                 try:
-                    page.wait_for_function(OVERRIDES_READY, timeout=20000)
-                except PlaywrightError as exc:
-                    self.fail(f'values.html never became live after #s= redirect: {exc}')
+                    page.wait_for_timeout(2000)
+                except PlaywrightError:
+                    pass
 
                 final_url = page.url
-                self.assertIn('values.html', final_url,
-                              f'Did not land on values.html; got {final_url!r}')
+                # connect.html is owned by JEG-1538; it may not be fully built yet - check URL only.
+                self.assertIn('connect.html', final_url,
+                              f'Did not redirect to connect.html; got {final_url!r}')
                 self.assertIn('#s=abc', final_url,
                               f'Hash #s=abc not preserved; got {final_url!r}')
             finally:
                 browser.close()
 
-    def test_automation_escape_without_swapped_flag(self):
-        """Without ?swapped=1, navigator.webdriver=true means v2 stays on its view.
-
-        Playwright sets navigator.webdriver=true; without ?swapped=1 the v2 route
-        redirect is skipped, so the page stays on v2/index.html (not values.html).
-        """
-        sync_playwright, PlaywrightError = _pw()
-        with serve() as base_url, sync_playwright() as pw:
-            browser = self._browser(pw, PlaywrightError)
-            try:
-                page = browser.new_page(viewport={'width': 1440, 'height': 900})
-                page.add_init_script(
-                    '(function(){ try { localStorage.clear(); sessionStorage.clear(); } catch(_){} })()'
-                )
-                page.route(
-                    lambda u: not (u.startswith('http://127.0.0.1') or u.startswith('http://localhost')),
-                    lambda route: route.abort(),
-                )
-                page.goto(f'{base_url}/index.html#player-values',
-                          wait_until='networkidle', timeout=60000)
-                # Wait briefly; if no redirect, page stays on index.html
-                try:
-                    page.wait_for_timeout(3000)
-                except PlaywrightError:
-                    pass
-
-                final_url = page.url
-                self.assertNotIn('values.html', final_url,
-                                 f'Should NOT redirect without ?swapped=1; got {final_url!r}')
-            finally:
-                browser.close()
-
     def test_empty_hash_stays_on_v2_landing(self):
-        """dist/index.html with empty hash stays on the v2 landing page."""
+        """dist/index.html with empty hash stays on the redesigned front door."""
         sync_playwright, PlaywrightError = _pw()
         with serve() as base_url, sync_playwright() as pw:
             browser = self._browser(pw, PlaywrightError)
@@ -494,7 +456,7 @@ class ValuesSwapRoutesTest(unittest.TestCase):
                 final_url = page.url
                 self.assertNotIn('values.html', final_url,
                                  f'Empty hash should not redirect; got {final_url!r}')
-                # Should still be index.html (v2 page)
+                # Should still be index.html (redesigned front door)
                 self.assertIn('index.html', final_url,
                               f'Should remain on index.html; got {final_url!r}')
             finally:
