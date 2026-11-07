@@ -10,7 +10,6 @@ body .sitemap .in{max-width:1040px;padding:32px 28px 28px;grid-template-columns:
 body .sitemap .footer{max-width:1040px;margin:0 auto;padding:20px 28px 28px}
 .sitemap h2{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11.5px;letter-spacing:.12em;color:#5c6a76;margin:0 0 10px;font-weight:600}
 .morewrap .menu{max-height:70vh;overflow-y:auto}
-.mkt,.num.mkt,.kd{color:#5c6a76}.prem{color:#a83e12}
 
 .partners main{padding-top:28px}
 .partners .lede{max-width:72ch;margin:0 0 22px}
@@ -25,26 +24,33 @@ body .sitemap .footer{max-width:1040px;margin:0 auto;padding:20px 28px 28px}
 .partners .linkbtn,.partners .wv-check a{display:inline-flex;align-items:center;min-height:44px;border:0;background:none;padding:0;color:#176c4d;font:inherit;font-size:14px;font-weight:600;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
 .partners .linkbtn:hover{background:none;color:#0f5a3f}
 .partners .bulk{display:flex;align-items:center;gap:8px;min-height:44px;color:#5c6a76}
+.partners .bulk[hidden]{display:none}
 
-/* table: one grid shared by header and rows */
-.partners .pt-head,.partners .pt-row{display:grid;grid-template-columns:minmax(220px,1.1fr) 120px 120px minmax(0,1.6fr) 96px;gap:0 20px;align-items:center}
-.partners .pt-head{padding:6px 20px 8px 21px;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.05em;color:#39413b}
-.partners .pt-head .num{text-align:right;white-space:nowrap}
-.partners .pt-row{background:#fff;border:1px solid #e4e8e4;border-radius:12px;padding:0 20px;min-height:68px;margin-bottom:8px}
+/* ranked partner cards (JEG-1560): top 3 are "Best match" cards, the rest a lighter list */
+.partners .pt-group h2{font-family:'IBM Plex Mono',monospace;font-size:11.5px;letter-spacing:.1em;color:#39413b;font-weight:600;margin:18px 0 8px}
+.partners .pt-ol{list-style:none;margin:0;padding:0}
+.partners .pt-row{display:grid;grid-template-columns:40px minmax(0,1fr) auto;gap:0 16px;align-items:start;background:#fff;border:1px solid #e4e8e4;border-radius:12px;padding:12px 20px;margin-bottom:8px}
 .partners .pt-row:hover{border-color:#b9c6bd}
-.partners .who{display:flex;align-items:center;gap:10px;min-width:0}
-.partners .tn{font-family:var(--serif);font-weight:600;font-size:20px;line-height:1.1;white-space:nowrap}
-.partners .tag{display:inline-block;font-size:11px;font-weight:600;border-radius:99px;padding:1px 9px;background:#eef1ec;color:#39413b;white-space:nowrap}
-.partners .tag.mp{background:#fff0e8;color:#a83e12}
-.partners .tag.de{background:var(--green-soft);color:var(--green)}
-.partners .stat{text-align:right}
-.partners .lbl{display:none}
-.partners .val{display:block;font-family:'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums;font-size:15px;font-weight:600}
-.partners .stat.m .val{color:#5c6a76;font-weight:500}
-.partners .bar{display:block;height:5px;border-radius:3px;background:#eef1ec;margin-top:6px;overflow:hidden}
-.partners .bar i{display:block;height:100%;border-radius:3px;background:var(--green)}
-.partners .stat.m .bar i{background:#8a96a3}
-.partners .strat{font-size:13.5px;line-height:1.35;color:#142b25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.partners .pt-row.top{border:2px solid var(--green);padding:16px 20px;box-shadow:0 2px 8px rgba(23,108,77,.10)}
+.partners .rk{font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:18px;color:#5c6a76;line-height:44px;text-align:center}
+.partners .pt-row.top .rk{font-size:24px;color:var(--green)}
+.partners .body{min-width:0}
+.partners .who{display:flex;align-items:center;flex-wrap:wrap;gap:4px 10px;min-height:44px}
+.partners .tn{font-family:var(--serif);font-weight:600;font-size:20px;line-height:1.1;overflow-wrap:anywhere}
+.partners .badge{display:inline-block;font-size:12px;font-weight:700;border-radius:99px;padding:2px 10px;background:var(--green);color:#fff;white-space:nowrap}
+.partners .why{margin:2px 0 0;font-size:14.5px;line-height:1.45;color:#142b25;max-width:78ch}
+.partners .why a{color:#176c4d;font-weight:600}
+.partners .more{margin-top:4px}
+.partners .more>summary,.partners .explain>summary{display:inline-flex;align-items:center;min-height:44px;cursor:pointer;color:#176c4d;font-size:14px;font-weight:600;list-style:none}
+.partners .more>summary::-webkit-details-marker,.partners .explain>summary::-webkit-details-marker{display:none}
+.partners .more>summary::after{content:"\25BE";margin-left:6px;font-size:12px}
+.partners .more[open]>summary::after{content:"\25B4"}
+.partners .cmp{margin:0;padding:8px 0;border-top:1px solid #eef1ec}
+.partners .cmp dt{display:inline;font-size:13.5px;color:#39413b}
+.partners .cmp dd{display:inline;margin:0 0 0 8px;font-family:'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums;font-size:14px;font-weight:600}
+.partners .cmp .verdict{margin:2px 0 0;font-size:13px;color:#39413b}
+.partners .cmp .verdict.good{color:#176c4d}
+.partners .explain p{margin:0 0 6px;font-size:13px;line-height:1.45;color:#39413b;max-width:78ch}
 .partners .act{text-align:right}
 .partners .sw{display:inline-flex;align-items:center;gap:9px;min-height:44px;padding:0 4px;border:0;background:none;font:700 14px 'Archivo',sans-serif;color:var(--green);cursor:pointer;border-radius:99px}
 .partners .sw:hover{background:none}
@@ -54,41 +60,27 @@ body .sitemap .footer{max-width:1040px;margin:0 auto;padding:20px 28px 28px}
 .partners .sw[aria-checked=false]{color:#5c6a76}
 .partners .sw[aria-checked=false] .trk{background:#bec8c1}
 .partners .sw[aria-checked=false] .trk::after{left:3px}
-.partners .pt-row.skipped :is(.tn,.val,.stat.m .val,.strat){color:#5c6a76}
-.partners .pt-row.skipped .tag{background:#eef1ec;color:#5c6a76}
-.partners .pt-row.skipped .bar{opacity:.35}
+.partners .pt-row.skipped{background:#fafbfa}
+.partners .pt-row.skipped :is(.tn,.why,.rk){color:#5c6a76}
+.partners .pt-row.skipped .badge{background:#bec8c1}
 .partners .note{margin:14px 0 0;font-size:13px}
-
-/* info popovers */
-.partners .info{vertical-align:middle;margin-left:4px;font-family:'Archivo',sans-serif;letter-spacing:0;text-align:left}
-.partners .info summary{position:relative;display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;min-height:0;font-size:12px;line-height:1;background:#fff;color:#142b25}
-.partners .info summary::before{content:"";position:absolute;inset:-11px}
-.partners .info[open]>span{position:fixed;top:auto;bottom:calc(var(--ddf-actionbar-h,0px) + 16px);left:50%;transform:translateX(-50%);width:min(340px,88vw);white-space:normal;background:#fff;color:#12202c;font-weight:400;font-size:13px;line-height:1.45;z-index:60}
-.partners .info .eg{display:block;margin-top:6px;color:#39413b}
+.partners .wv-check label{min-height:44px}
+.partners #no-league a,.partners .why a{display:inline-flex;align-items:center;min-height:44px}
+.partners .partners-ready .button{display:inline-flex;align-items:center;min-height:44px}
 
 .partners .primary.disabled{pointer-events:none;background:#eef1ec;color:#5c6a76;border-color:#dbe0dc}
 .partners .partners-ready{border-top:1px solid #dbe0dc;padding-top:24px;margin-top:20px}
 
 @media(max-width:1000px){
-.partners .pt-head,.partners .pt-row{grid-template-columns:minmax(190px,1fr) 100px 100px minmax(0,1.2fr) 84px;gap:0 14px}
 .partners .swt{display:none}.partners .sw{gap:0}
 }
 @media(max-width:760px){
 .partners main{padding:20px 16px 36px}
 .partners .toolbar{flex-direction:column;align-items:stretch}
-.partners .pt-head{display:flex;gap:20px;padding:0 4px 8px;font-size:10px}
-.partners .pt-head .num{text-align:left}
-.partners .pt-head>:not(.num){display:none}
-.partners .pt-row{grid-template-columns:1fr 1fr auto;grid-template-areas:"who who act" "ddf mkt mkt" "strat strat strat";gap:10px 16px;padding:10px 14px 12px;min-height:0}
-.partners .who{grid-area:who;flex-wrap:wrap;gap:4px 8px}
+.partners .pt-row,.partners .pt-row.top{grid-template-columns:28px minmax(0,1fr) auto;gap:0 10px;padding:10px 12px}
+.partners .rk,.partners .pt-row.top .rk{font-size:18px;text-align:left}
 .partners .tn{font-size:18px}
-.partners .tag{font-size:10px;padding:1px 7px}
-.partners .act{grid-area:act}
-.partners .stat{text-align:left}
-.partners .stat.d{grid-area:ddf}.partners .stat.m{grid-area:mkt}
-.partners .lbl{display:inline;font-size:11px;color:#5c6a76;margin-right:8px;font-weight:500}
-.partners .stat .val{display:inline;font-size:13px}
-.partners .strat{grid-area:strat;white-space:normal;font-size:13px}
+.partners .why{font-size:14px}
 .partners .partners-ready .primary{width:100%}
 .partners .linkbtn,.partners .wv-check a{min-height:44px}
 body .sitemap .in{grid-template-columns:repeat(2,minmax(0,1fr));padding:28px 20px}
@@ -103,7 +95,7 @@ body .sitemap .footer{padding:20px}
 </style><script src="site.js" defer></script><link rel="icon" href="data:,"><style id="gating-pass">.partners a.button.primary[aria-disabled="true"],.partners a.button.primary[aria-disabled="true"]:hover,.partners a.button.primary[aria-disabled="true"]:active{background:#e3e7e4;color:#59666f;border-color:#e3e7e4;box-shadow:none;transform:none;filter:none;cursor:not-allowed}.partners .gate-reason{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}</style></head>
 <body class="partners">
 <header><div class="header-inner"><div class="brand">DDF<small>DATA DRIVEN FOOTBALL</small></div><nav aria-label="Main navigation"><a href="index.html">Home</a><a href="build.html">Build a Trade</a><a href="find.html">Trade &amp; Waiver Recommendations</a><a href="values.html">Values</a><div class="morewrap"><button type="button" aria-expanded="false" aria-controls="partners-more">More ▾</button><div class="menu" id="partners-more"><a href="build.html">Build a Trade</a><a href="find.html">Trade &amp; Waiver Recommendations</a><a href="waivers.html">Waivers</a><a href="team.html">Team assessment</a><a href="explore.html">Pick players</a><a href="partners.html" aria-current="page">Pick trading partners</a><a href="values.html">Values</a><a href="values.html#buy-sell">Buy / Sell</a><a href="values.html#overrides">Overrides</a><a href="learn.html">Learn</a><a href="learn.html#numbers/pie">How we get our numbers</a><a href="ai.html">Use DDF with AI</a><a href="connect.html">Paste my league</a><a href="setup.html">Your team</a><a href="settings.html">League settings</a></div></div></nav></div></header><div class="ctx-strip"><span></span><a href="settings.html">Edit league</a></div><nav class="ws-steps" aria-label="Workspace progress"><a href="team.html">✓ Team assessment</a><a href="explore.html">✓ Pick players</a><strong class="selected" aria-current="step">Pick trading partners</strong><span>Trade &amp; Waiver Recommendations</span><span>Build a Trade</span></nav>
-<main><h1>Your trading partners</h1><p class="lede muted" id="lede"></p><p class="muted" id="no-league" role="status" hidden></p><span id="summary" role="status" class="sr-only"></span><section class="pt-list" aria-label="Partner selection"><div class="toolbar"><div class="wv-check" id="waivers-partner"><label><input type="checkbox" id="waivers-switch" checked> Also look for waiver pickups</label><a href="waivers.html">Review available players</a><small>Available players, not a trade partner</small></div><div class="bulk"><button type="button" class="linkbtn" id="include-all">Include all</button> &middot; <button type="button" class="linkbtn" id="skip-all">Skip all</button></div></div><div class="pt-head"><span>TEAM</span><span class="num" id="h-ddf">STARTER DDF</span><span class="num" id="h-mkt">STARTER ANALYST</span><span>TRADE STRATEGY</span><span></span></div><div id="team-list" role="list"></div></section><p class="note muted">Skipped teams stay out of your search.</p><section class="partners-ready"><div class="row"><a class="button" href="explore.html">Back</a><a class="button primary" id="continue" href="find.html" data-sticky-next data-back-href="explore.html" data-back-label="Back" data-next-label="See Trade &amp; Waiver Recommendations" data-disabled-reason="Include at least one team or waivers to continue.">See Trade &amp; Waiver Recommendations</a><span id="gate-reason" class="gate-reason" role="status"></span></div></section></main>
+<main><h1>Who are the best trading partners to explore?</h1><p class="lede muted" id="lede"></p><p class="muted" id="no-league" role="status" hidden></p><span id="summary" role="status" class="sr-only"></span><section class="pt-list" aria-label="Trading partners, best match first"><div class="toolbar"><div class="wv-check" id="waivers-partner"><label><input type="checkbox" id="waivers-switch" checked> Also look for waiver pickups</label><a href="waivers.html">Review available players</a><small>Available players, not a trade partner</small></div><div class="bulk" id="bulk"><button type="button" class="linkbtn" id="include-all">Include all</button> &middot; <button type="button" class="linkbtn" id="skip-all">Skip all</button></div></div><div id="team-list"></div></section><p class="note muted" id="skip-note">Skipped teams stay out of your search.</p><section class="partners-ready"><div class="row"><a class="button" href="explore.html">Back</a><a class="button primary" id="continue" href="find.html" data-sticky-next data-back-href="explore.html" data-back-label="Back" data-next-label="See Trade &amp; Waiver Recommendations" data-disabled-reason="Include at least one team or waivers to continue.">See Trade &amp; Waiver Recommendations</a><span id="gate-reason" class="gate-reason" role="status"></span></div></section></main>
 <footer class="sitemap"><div class="in"><div><h2>TRADE</h2><a href="index.html">Home</a><a href="build.html">Build a Trade</a><a href="find.html">Trade &amp; Waiver Recommendations</a><a href="waivers.html">Waivers</a></div><div><h2>VALUES</h2><a href="values.html">Values</a><a href="values.html#buy-sell">Buy / Sell</a><a href="values.html#overrides">Overrides</a></div><div><h2>YOUR LEAGUE</h2><a href="connect.html">Paste my league</a><a href="setup.html">Your team</a><a href="settings.html">League settings</a><a href="team.html">Team assessment</a><a href="explore.html">Pick players</a><a href="partners.html">Pick trading partners</a></div><div><h2>LEARN</h2><a href="learn.html">Learn</a><a href="learn.html#numbers/pie">How we get our numbers</a><a href="ai.html">Use DDF with AI</a></div></div><div class="footer">Data Driven Football</div></footer>
 <!-- ddf-engine -->
 <script src="v2/finder.js" defer></script>
@@ -111,15 +103,18 @@ body .sitemap .footer{padding:20px}
 <script src="ddf-engine.js" defer></script>
 <script src="ddf-league.js" defer></script>
 <script type="module">
-/* Trading partners on the live engine (JEG-1539). Each team's starter DDF / Analyst charts / Live market values are
-   TradeValueFinder lineups on engine rows (DDF.league.partnerTags). Tags: DDF edge when DDF Value rates the starters 15% or
-   more above the analyst charts (DECISIONS 2026-11-06); Analyst premium / Live market premium when that source rates them
-   above DDF Value. The strategy line comes from the position tiers (their strengths vs your needs). Skipped teams are
-   saved by name (DDF.league.setSkipped, sessionStorage ddf:skip); waivers share ddf:waivers and are never a partner. */
+/* Trading partners on the live engine (JEG-1539, ranking JEG-1560). The page answers one question: who are the best
+   trading partners to explore? Order, "Best match" (top 3) and each reason come from DDF.league.partnerRank()
+   (docs/claude-log/2026-11-07-jeg1560-partners-ranking.md): position fit on the positionTiers ratios, ties by the
+   DDF Value vs Analyst charts ratio. The Details toggle shows each team's starters on DDF Value, the Analyst charts
+   (average of CBS Sports, USA Today, FantasyPros) and the Live market (FantasyCalc) from DDF.league.partnerTags; a
+   source that does not list every starter is not judged (missing is never 0). Skipped teams are saved by name
+   (DDF.league.setSkipped, sessionStorage ddf:skip); waivers share ddf:waivers and are never a partner or ranked. */
 (()=>{
 const $=id=>document.getElementById(id);
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fx=v=>(typeof v==='number'&&isFinite(v))?v.toFixed(1):'—';
+const TOP=3;
 let teams=[],included=[];
 function ddfGate(btns,ok,reason,rid){
   var r=document.getElementById(rid);if(r)r.textContent=ok?'':reason;
@@ -132,25 +127,41 @@ function ddfGate(btns,ok,reason,rid){
   if(window.DDF&&DDF.actionBar)DDF.actionBar.setDisabled(!ok,ok?null:reason);
 }
 document.addEventListener('click',function(e){var b=e.target.closest&&e.target.closest('a[aria-disabled="true"][data-href]');if(b){e.preventDefault();e.stopImmediatePropagation()}},true);
-const pct=(a,b)=>Math.round((a/b-1)*100);
-const INFO={
- edge:t=>'<b>DDF edge:</b> DDF Value rates this team\'s starters 15% or more above the analyst charts (the average of CBS Sports, USA Today and FantasyPros). Buying below DDF Value is where an edge comes from.<small class="eg">Example: '+esc(t.name)+' starters are '+fx(t.ddf)+' on DDF and '+fx(t.analyst)+' on the analyst charts, '+pct(t.ddf,t.analyst)+'% higher.</small>',
- analyst:t=>'<b>Analyst premium:</b> the analyst charts (the average of CBS Sports, USA Today and FantasyPros) rate this team\'s starters above DDF Value.<small class="eg">Example: '+esc(t.name)+' starters are '+fx(t.ddf)+' on DDF and '+fx(t.analyst)+' on the analyst charts.</small>',
- live:t=>'<b>Live market premium:</b> the live market (FantasyCalc) rates this team\'s starters above DDF Value.<small class="eg">Example: '+esc(t.name)+' starters are '+fx(t.ddf)+' on DDF and '+fx(t.live)+' on the live market.</small>'
-};
-const TAG={edge:['de','DDF edge'],analyst:['mp','Analyst premium'],live:['mp','Live market premium']};
-function info(kind,t,label){return '<details class="info"><summary aria-label="About '+label+'">ⓘ</summary><span>'+INFO[kind](t)+'</span></details>'}
-function tagHtml(t){return t.tags.map(k=>'<span class="tag '+TAG[k][0]+'">'+TAG[k][1]+'</span>').join('')}
-const posOf=(tiers,tier)=>tiers?Object.keys(tiers.positions).filter(p=>['QB','RB','WR','TE'].includes(p)&&tiers.positions[p].tier===tier):[];
-function strategy(t,mine){
-  const need=posOf(mine,'weak'),mineStrong=posOf(mine,'strong'),theirStrong=posOf(t.tiers,'strong'),theirWeak=posOf(t.tiers,'weak');
-  const get=need.filter(p=>theirStrong.includes(p))[0],give=mineStrong.filter(p=>theirWeak.includes(p))[0];
-  if(get&&give)return 'Your '+give+' for their '+get;
-  if(get)return 'Ask for a '+get+': their strength, your need';
-  if(give)return 'Offer a '+give+': their need, your strength';
-  if(t.tags.includes('edge'))return 'Buy starters priced under DDF Value';
-  if(t.tags.includes('analyst')||t.tags.includes('live'))return 'Sell to them while charts rate players high';
-  return 'Compare complete returns';
+const list=a=>a.length<2?a.join(''):a.slice(0,-1).join(', ')+' and '+a[a.length-1];
+// One plain line: what you could get (they are Strong where you are Weak, team assessment tiers) and give (the reverse).
+function reason(t,haveMe){
+  if(!haveMe)return 'Confirm which team is yours to see how you line up. <a href="setup.html">Confirm your team</a>';
+  const get=t.get.map(x=>x.pos),give=t.give.map(x=>x.pos);
+  if(get.length&&give.length)return 'You could get '+list(get)+' and give '+list(give)+': they are strong where you are weak, and the reverse. Both sides could fill a gap.';
+  if(get.length)return 'You could get '+list(get)+': they are strong there and you are weak. You are not strong where they are weak.';
+  if(give.length)return 'You could give '+list(give)+': you are strong there and they are weak. They are not strong where you are weak.';
+  return 'No position lines up: neither team is strong where the other is weak.';
+}
+const pctOver=(a,b)=>Math.round((a/b-1)*100);
+const EDGE=DDF.league.RULES.EDGE;   // the 15% rule (DECISIONS "DDF edge threshold 15%"), for both sources
+// Analyst charts / Live market vs DDF Value on this team's starters; "good" = DDF Value is higher, so their players
+// cost you less there than we rate them. ratio null = that source does not list every starter: not judged.
+function verdict(src,ratio,tags){
+  if(ratio===null)return ['','Not judged: the '+src+' do not list every one of their starters.'];
+  if(ratio>=1){const n=pctOver(ratio,1),head='DDF Value is '+n+'% higher than the '+src;
+    return ratio>=EDGE?['good',head+': their starters cost less there than we rate them, which is good for you when you trade for them.']:['',head+', under the 15% gap we count as a real discount.'];}
+  return ['','The '+src+' rate their starters '+pctOver(1,ratio)+'% above DDF Value: their players cost more there than we rate them.'];
+}
+function details(t){
+  const p=t.partner,a=p.analystComplete?p.analyst:null,l=p.liveComplete?p.live:null;
+  const [ac,at]=verdict('Analyst charts',p.ratioAnalyst,p.tags),[lc,lt]=verdict('Live market',p.ratioLive,p.tags);
+  return '<details class="more"><summary>Details</summary><dl>'+
+   '<div class="cmp"><dt>Their starters on DDF Value</dt><dd data-v="ddf">'+fx(p.ddf)+'</dd></div>'+
+   '<div class="cmp"><dt>Same starters on the Analyst charts</dt><dd data-v="analyst">'+fx(a)+'</dd><p class="verdict '+ac+'">'+esc(at)+'</p></div>'+
+   '<div class="cmp"><dt>Same starters on the Live market</dt><dd data-v="live">'+fx(l)+'</dd><p class="verdict '+lc+'">'+esc(lt)+'</p></div></dl>'+
+   '<details class="explain"><summary>What these compare</summary><p>We add up this team\'s starters three ways: DDF Value, the Analyst charts (the average of CBS Sports, USA Today and FantasyPros) and the Live market (FantasyCalc). When DDF Value is higher, that source prices their starters lower than we do, which is good for you when you trade for them. When it is lower, their players cost more there. A starter a source does not list leaves that line not judged; it is never counted as 0.</p></details></details>';
+}
+function row(t,i,haveMe){
+  const top=haveMe&&t.rank<=TOP&&t.score>0;
+  return '<li class="pt-row'+(top?' top':'')+'" data-i="'+i+'" data-rank="'+t.rank+'" data-get="'+t.get.map(x=>x.pos).join(' ')+'" data-give="'+t.give.map(x=>x.pos).join(' ')+'" data-tags="'+t.partner.tags.join(' ')+'">'+
+   '<span class="rk"><span class="sr-only">Rank </span>'+t.rank+'</span><div class="body"><div class="who"><span class="tn">'+esc(t.name)+'</span>'+(top?'<span class="badge">Best match</span>':'')+'</div>'+
+   '<p class="why">'+(haveMe?esc(reason(t,true)):reason(t,false))+'</p>'+details(t)+'</div>'+
+   '<div class="act"><button type="button" class="sw" role="switch" aria-checked="true" data-team="'+i+'" aria-label="Include '+esc(t.name)+' in the search"><span class="swt">Include</span><span class="trk" aria-hidden="true"></span></button></div></li>';
 }
 function paint(save){
  document.querySelectorAll('.pt-row').forEach(r=>{const on=included[+r.dataset.i];r.classList.toggle('skipped',!on);const b=r.querySelector('.sw');b.setAttribute('aria-checked',String(on));b.querySelector('.swt').textContent=on?'Include':'Skip'});
@@ -162,30 +173,23 @@ function paint(save){
  if(window.DDF&&DDF.actionBar)DDF.actionBar.setSummary(parts.length?parts.join(' + ')+' included, next: Trade & Waiver Recommendations':'Nothing included yet');
 }
 function render(c){
- const tiers=c?DDF.league.positionTiers():null;
- const me=c&&c.me!==null?tiers.teams.find(t=>t.index===c.me):null;
- teams=DDF.league.opponents().map(team=>{const p=DDF.league.partnerTags(team);return {index:team.index,name:team.name,ddf:p.ddf,analyst:p.analystComplete?p.analyst:null,live:p.liveComplete?p.live:null,tags:p.tags,tiers:tiers.teams.find(x=>x.index===team.index)}})
-   .sort((a,b)=>b.ddf-a.ddf||a.index-b.index);
+ const haveMe=!!(c&&c.me!==null);
+ teams=c?DDF.league.partnerRank():[];
  const skipped=new Set(DDF.league.skipped());
  included=teams.map(t=>!skipped.has(t.name));
  $('no-league').hidden=!!teams.length;
- $('no-league').innerHTML=c?'No other team in this league has players yet. <a href="connect.html">Add your league</a> with every team\'s roster.':'Add your league to see your trading partners. <a href="connect.html">Add your league</a>';
- $('lede').textContent=teams.length?'We will look for trades with all '+teams.length+' other teams in your league. Turn off any team you would rather not deal with.':'';
- document.querySelector('.pt-head').hidden=!teams.length;
- ['h-ddf','h-mkt'].forEach(id=>{const h=$(id);const d=h.querySelector('details');if(d)d.remove()});
- [['h-ddf','edge','DDF edge'],['h-mkt','analyst','Analyst premium']].forEach(([id,k,label])=>{const ex=teams.find(t=>t.tags.includes(k));if(ex)$(id).insertAdjacentHTML('beforeend',info(k,ex,label))});
- const ex=teams.find(t=>t.tags.includes('live'));
- const max=Math.max(1,...teams.map(t=>Math.max(t.ddf,t.analyst)));
- $('team-list').innerHTML=teams.map((t,i)=>{const s=me?strategy(t,me):'Compare complete returns';return '<div class="pt-row" role="listitem" data-i="'+i+'"><div class="who"><span class="tn">'+esc(t.name)+'</span>'+tagHtml(t)+(t.tags.includes('live')&&t===ex?info('live',t,'Live market premium'):'')+'</div><div class="stat d"><span class="lbl">DDF</span><span class="val">'+fx(t.ddf)+'</span><span class="bar" aria-hidden="true"><i style="width:'+(t.ddf/max*100).toFixed(1)+'%"></i></span></div><div class="stat m"><span class="lbl">Analyst</span><span class="val">'+fx(t.analyst)+'</span><span class="bar" aria-hidden="true"><i style="width:'+((t.analyst||0)/max*100).toFixed(1)+'%"></i></span></div><div class="strat" title="'+esc(s)+'">'+esc(s)+'</div><div class="act"><button type="button" class="sw" role="switch" aria-checked="true" data-team="'+i+'" aria-label="Include '+esc(t.name)+' in the search"><span class="swt">Include</span><span class="trk" aria-hidden="true"></span></button></div></div>'}).join('');
+ $('no-league').innerHTML=c?'No other team in this league has players yet. <a href="connect.html">Add your league</a> with every team\'s roster.':'Add your league to see who your best trading partners are. <a href="connect.html">Add your league</a>';
+ $('lede').textContent=!teams.length?'':haveMe?'The '+teams.length+' other teams, best match first. A team ranks higher when it is strong at positions where you are weak, and you are strong where it is weak (the Strong and Weak tiers from your team assessment). Check the top matches, and skip any team you would rather not trade with.':'The '+teams.length+' other teams in your league. Confirm which team is yours to rank them by how well your rosters line up.';
+ $('bulk').hidden=!teams.length;$('skip-note').hidden=!teams.length;
+ const nTop=haveMe?teams.filter(t=>t.rank<=TOP&&t.score>0).length:0;
+ const group=(title,from,to)=>from<to?'<section class="pt-group"><h2>'+title+'</h2><ol class="pt-ol" start="'+(from+1)+'">'+teams.slice(from,to).map((t,k)=>row(t,from+k,haveMe)).join('')+'</ol></section>':'';
+ $('team-list').innerHTML=nTop?group('BEST MATCHES',0,nTop)+group('OTHER TEAMS',nTop,teams.length):group(haveMe?'NO CLEAR MATCH YET':'OTHER TEAMS',0,teams.length);
  paint(false);
 }
 $('waivers-switch').checked=DDF.league.waiversOn();
 $('team-list').addEventListener('click',e=>{const b=e.target.closest('.sw');if(!b)return;const i=+b.dataset.team;included[i]=!included[i];paint(true)});
 $('include-all').onclick=()=>{included.fill(true);paint(true)};$('skip-all').onclick=()=>{included.fill(false);paint(true)};
 $('waivers-switch').onchange=()=>paint(true);
-document.addEventListener('keydown',e=>{if(e.key==='Escape')document.querySelectorAll('details.info[open]').forEach(d=>{d.open=false;d.querySelector('summary').focus()})});
-document.addEventListener('click',e=>{document.querySelectorAll('details.info[open]').forEach(d=>{if(!d.contains(e.target))d.open=false})});
-document.addEventListener('toggle',e=>{if(e.target.matches&&e.target.matches('details.info[open]'))document.querySelectorAll('details.info[open]').forEach(d=>{if(d!==e.target)d.open=false})},true);
 const wrap=document.querySelector('.morewrap'),menuButton=wrap.querySelector('button');
 new MutationObserver(()=>menuButton.setAttribute('aria-expanded',String(wrap.classList.contains('open')))).observe(wrap,{attributes:true,attributeFilter:['class']});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&wrap.classList.contains('open')){wrap.classList.remove('open');menuButton.focus()}});

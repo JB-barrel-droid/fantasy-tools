@@ -3,7 +3,7 @@
    Charts = mean of the indexed values of the four charts (CBS Sports, USA Today, FantasyPros, FantasyCalc) that list the
    player; the records give null for a chart that does not list him (or only estimates him), so a missing chart is left
    out, never read as 0. Largest gap = DDF Value (your override applied) minus each listed chart, the largest in size.
-   League rosters come read-only from DDF.engine.league(). Natural fit is the live site's one predicate,
+   League rosters come read-only from DDF.league (ddf-league.js; DDF.engine.league() before it is ready). Natural fit is the live site's one predicate,
    TradeValueFinder.tradeFit (v2/finder.js), with its context built as finder.js fitContext / opportunities.js pairingSteps. */
 const $=id=>document.getElementById(id);
 const V=()=>window.DDFValues;
@@ -24,9 +24,17 @@ function chartsOf(p){
  return{v:used.length?used.reduce((s,u)=>s+u[1],0)/used.length:null,used};
 }
 /* League bridge: only with a marked team. owner: player key -> team. */
+/* JEG-1560 C: the reader's league comes through DDF.league (link, pasted ddf:pasted, saved workspace), the same read as
+   team/partners/find; DDF.engine.league() (saved workspace only) is the fallback before DDF.league is ready or loaded. */
+function sharedLeague(){
+ const L=window.DDF&&DDF.league,cur=L&&L.current?L.current():null;
+ if(!cur)return null;
+ const teams=cur.teams.map(t=>({id:String(t.index),name:t.name,keys:new Set(t.players.filter(x=>!x.unpriced).map(x=>String(x.key)))}));
+ return{name:cur.name,teams,mine:cur.me===null?null:String(cur.me)};
+}
 function leagueCtx(){
  const e=E();if(!e||!e.controls())return null;
- let lg=null;try{lg=e.league()}catch(_){lg=null}
+ let lg=sharedLeague();if(!lg){try{lg=e.league()}catch(_){lg=null}}
  if(!lg)return{lg:null};
  const me=lg.mine?lg.teams.find(t=>t.id===lg.mine):null;
  if(!me)return{lg};
@@ -210,6 +218,7 @@ document.addEventListener('click',e=>{
 });
 V().ready.then(()=>{live=true;init();
  document.addEventListener('ddf:values-change',refresh);
+ if(window.DDF&&DDF.league&&DDF.league.ready)DDF.league.ready.then(()=>{refresh();DDF.league.on(refresh)},()=>{});
  addEventListener('storage',e=>{if(e.key==='ddf.v2.workspaces')refresh()});
 },()=>{});
 /* tabs: state lives in the URL hash next to any #s= chat-link token */

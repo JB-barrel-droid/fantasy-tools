@@ -434,6 +434,38 @@ header nav{flex-wrap:nowrap;min-width:0}
   header .morewrap>button{padding:8px 8px}
   header .ddf-bm-wrap{margin-right:0}
 }
+/* ===== Mobile pass (JEG-1557, 2026-11-07): defects found by the 390/360 sweep of the live site ===== */
+/* Info icon: a 44px-tall summary rule stretched the 18px circle into an oval; keep the circle, widen only the tap area */
+.info summary{min-height:0!important;min-width:0!important;padding:0!important;position:relative;line-height:16px}
+.info summary::after{content:"";position:absolute;inset:-13px}
+/* Small text: eyebrows and labels were 11px */
+.eyebrow2,.range-title,.wl-eyebrow,.provider-label,.urlbar .lbl,.values-page th.pl,.sitemap h2,.sitemap h4,.explore .sitemap h2{font-size:12px!important}
+.xbar .button{flex:none;white-space:nowrap}
+@media(max-width:760px){
+  /* Entry header: do not pin 130px of steps over the page, and keep the three steps in one tidy row */
+  header.entry-head{position:static}
+  .entry-head .entry-steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px 10px;align-items:start}
+  .entry-head .entry-steps>li{display:block;line-height:1.35}
+  .entry-head .entry-steps>li+li::before{content:none}
+  /* Tap targets: footer links, header menu */
+  .sitemap a{display:flex;align-items:center;min-height:44px;padding:0}
+  header .morewrap>button,header .menu>summary,header nav>a{min-height:44px}
+  .values-page label:has(input[type=checkbox]){display:inline-flex;align-items:center;min-height:44px}
+}
+.values-page .pos,.values-page .arrow{font-size:12px!important}
+/* ===== Touch pass (JEG-1557, Jeremy 2026-11-07): fast taps must not double-tap-zoom; deliberate pinch-zoom stays ===== */
+/* Never use user-scalable=no or maximum-scale (WCAG 1.4.4). touch-action: manipulation keeps pan and pinch, drops double-tap zoom. */
+html{-webkit-tap-highlight-color:rgba(23,108,77,.18);-webkit-text-size-adjust:100%;text-size-adjust:100%}
+a[href],button,input,select,textarea,summary,label,[role=button],[role=tab],[role=link],[role=switch],[role=checkbox],[role=radio],[tabindex]:not([tabindex="-1"]),[onclick],.chip,.button,.btn,.fchip,.fbtn{touch-action:manipulation!important}  /* important: some controls use all:unset, which resets touch-action */
+/* Chart and value curve: we handle horizontal drag ourselves (pointer events); vertical scroll and pinch-zoom still work */
+#vchart{touch-action:pan-y pinch-zoom!important}
+/* Menus, panels and scrollers: scroll stays inside them instead of chaining to the page behind */
+.menu-panel,.ddf-chipmenu,.morewrap .menu,.valmenu,.player-scroll{overscroll-behavior:contain}
+.table-wrap,.ws-steps,.car-viewport{overscroll-behavior-x:contain}
+/* iOS zooms the page when a field under 16px takes focus */
+@media(max-width:760px){
+  input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=hidden]):not([type=file]):not([type=button]):not([type=submit]),textarea,select{font-size:16px!important}
+}
 /* JEG-1564: roster freshness banner (DDF.leagueMeta), bookmark prompt action, one-bookmark option, chip age line */
 .ddf-fresh{display:flex;align-items:center;gap:10px 14px;flex-wrap:wrap;margin:0 0 16px;font-size:14px;line-height:1.45}
 .ddf-fresh-t{margin:0;flex:1 1 260px}
