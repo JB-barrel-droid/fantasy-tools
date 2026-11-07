@@ -214,7 +214,7 @@
   // the page stays responsive between partners. Rejects on any error so the page never shows "Sizing" forever.
   var cache = {sig: null, value: null};
   var pause = function () { return new Promise(function (r) { setTimeout(r, 0); }); };
-  async function computeTeam(cur, mine) {
+  async function computeTeam(cur, mine, isStale) {
     var DDF = root.DDF;
     await pause();
     var ctx = DDF.find.context();
@@ -224,23 +224,26 @@
     var mineRows = DDF.find.rowsOf(mine), cand = candidates(cur);
     var teams = cur.teams.map(function (t) { return {index: t.index, name: t.name, rows: DDF.find.rowsOf(t)}; }).filter(function (t) { return t.rows.length; });
     var partners = teams.filter(function (t) { return t.index !== mine.index && !skip.has(t.name); });
-    var sig = JSON.stringify([DDF.engine.settings(), DDF.engine.basis ? DDF.engine.basis() : null, DDF.engine.overrides ? DDF.engine.overrides.count() : 0,
-      ctx.gate, mine.index, Array.from(held).sort(), partners.map(function (t) { return t.index; }),
+    var sig = JSON.stringify([DDF.engine.settings(), DDF.engine.basis ? DDF.engine.basis() : null, DDF.engine.overrides && DDF.engine.overrides.all ? DDF.engine.overrides.all() : null,
+      ctx.gate, ctx.analyst, Boolean(ctx.expected), mine.index, Array.from(held).sort(), partners.map(function (t) { return t.index; }),
       teams.map(function (t) { return [t.index, t.rows.map(keyOf)]; }), cand.map(function (c) { return c.key; })]);
     if (cache.sig === sig) return cache.value;
-    var w = worth(mineRows, ctx, OUR_KEY), waiver = null, trade = null;
+    var w = worth(mineRows, ctx, OUR_KEY), waiver = null, trade = null, judged = 0;
     if (cand.length && root.TradeValueWaivers) {
       var pk = DDF.find.pickups(ctx, DDF.find.entriesOf(mine), cand, "DDF");
       pk.results.forEach(function (r) { waiver = better(waiver, r.totalDelta, r.tau); });
     }
     for (var i = 0; i < partners.length; i++) {
       await pause();
-      DDF.find.searchPartner(ctx, mineRows, partners[i].rows, {your: "DDF", their: "Market", sizes: [1, 2], held: held}).trades.forEach(function (tr) {
+      if (isStale && isStale()) return null;   // a newer render started: stop this search
+      var found = DDF.find.searchPartner(ctx, mineRows, partners[i].rows, {your: "DDF", their: "Market", sizes: [1, 2], held: held});
+      if (found.judged) judged++;   // unjudged = no fit label possible (charts or expected depth missing): not "checked"
+      found.trades.forEach(function (tr) {
         if (tr.cls !== "natural") return;
         trade = better(trade, tr.fit.us.net, tr.fit.us.tau, {partner: partners[i].index});
       });
     }
-    var checked = partners.length > 0 || (cand.length > 0 && Boolean(root.TradeValueWaivers));
+    var checked = judged > 0 || (cand.length > 0 && Boolean(root.TradeValueWaivers));
     var res = assess({worth: w, waiver: waiver, trade: trade, checked: checked,
       hole: whereToLook(teams, mine.index, ctx.shape, ctx.analyst || ANALYST, ctx.weights)});
     res.worth = w; res.trade = trade; res.waiver = waiver; res.candidates = root.TradeValueWaivers ? cand.length : 0;
@@ -253,4 +256,4 @@
     worth: worth, rosterImprovementPct: rosterImprovementPct, assess: assess, whereToLook: whereToLook, computeTeam: computeTeam};
   if (isNode) { module.exports = api; return; }
   root.DDFOpportunity = api;
-})(typeof window !== "undefined" ? window : this);
+})(typeof window !== "undefined" ? window : globalThis);

@@ -36,6 +36,17 @@ for (const [fn, ...args] of input.fns) out.push(await (async () => {
     const timeout = new Promise(r => setTimeout(() => r('hang'), 2000));
     return Promise.race([O.computeTeam({teams: []}, {index: 0}).then(() => 'resolved', () => 'rejected'), timeout]);
   }
+  if (fn === '__computeTeamJudged') {
+    const [judged] = args, P = (k, pos, v) => ({player_key: k, name: k, pos, values: {ddf_value: v, cbs: v, usatoday: v, fantasypros: v}});
+    const mine = {index: 0, name: 'Mine', rows: [P('a', 'QB', 30), P('b', 'RB', 40), P('c', 'RB', 30), P('d', 'WR', 40), P('e', 'WR', 30), P('f', 'TE', 20)]};
+    const other = {index: 1, name: 'Other', rows: [P('g', 'QB', 30), P('h', 'RB', 40)]};
+    globalThis.DDF = {engine: {settings: () => ({}), players: () => []}, league: {skipped: () => [], held: () => []},
+      find: {context: () => ({shape: {QB: 1, RB: 2, WR: 2, TE: 1, FLEX: 1, SUPERFLEX: 0, BENCH: 5}, weights: {}, gate: [], analyst: judged ? ['cbs', 'usatoday', 'fantasypros'] : null, expected: judged ? {} : null}),
+        rowsOf: t => t.rows, searchPartner: () => ({judged, trades: []})}};
+    const res = await O.computeTeam({teams: [mine, other], waivers: []}, mine);
+    delete globalThis.DDF;
+    return res.reason;
+  }
   if (fn === '__netOf') { const [rows, shape, key, weights] = args; return extra.netOf(F.lineupValue(rows, shape, key), key, weights); }
   if (fn === '__teamFit') { const [team, ctx, key] = args; return F.teamFit(team, ctx, key).net; }
   return O[fn](...args);
@@ -117,6 +128,10 @@ class Tiers(unittest.TestCase):
                 if reason != "sharp":
                     self.assertNotIn("already sharp", g["line"])
         self.assertIsNone(got[3]["source"])
+
+    def test_unjudged_search_is_not_called_sharp(self):
+        # No fit label was possible (charts or expected depth missing): nothing was checked, so never "already sharp".
+        self.assertEqual(run(("__computeTeamJudged", False), ("__computeTeamJudged", True)), ["unchecked", "sharp"])
 
     def test_compute_team_never_hangs_on_error(self):
         self.assertEqual(run(("__computeTeamSettles",)), ["rejected"])
