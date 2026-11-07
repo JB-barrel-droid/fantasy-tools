@@ -91,9 +91,12 @@ SEED_VALUES = """() => {
   // Build a per-player patch map for the top 12.
   // The 13th player's ESPN sets the floor: seeded values start above it so PICK still
   // selects from the patched pool. Values spread 2 points apart. Other sources are close
-  // to ESPN so the verdict text is short (few dissenters). ddf_value is slightly higher
-  // than ESPN so the net is a small DDF Value win. One source (usatoday) is offset so
-  // SIMULATE_DISSENT finds a natural dissenter.
+  // to ESPN so the verdict text is short (few dissenters). ddf_value is boosted on the two
+  // given players so the net is a small DDF Value loss. JEG-1550: USA Today is raised on the
+  // two received players (PICK's ranks 2 and 3), so it nets +7 against DDF Value's -6 and is a
+  // seeded dissenter. Before, its offsets cancelled (net 0) and the lose scenario leaned on
+  // SIMULATE_DISSENT alone, which stopped producing a table-row dissenter after the
+  // 2026-11-06 21:33 UTC data rebuild (4b11126).
   const floor = byEspn.length > 12 ? byEspn[12].values.espn : 10;
   const patches = {};
   for (let i = 0; i < Math.min(12, byEspn.length); i++) {
@@ -108,7 +111,7 @@ SEED_VALUES = """() => {
       const ddfBoost = (i === 0 || i === 5) ? 3 : 0;
       if (k === 'espn') v[k] = base;
       else if (k === 'ddf_value') v[k] = base + 1.5 + ddfBoost;
-      else if (k === 'usatoday') v[k] = base + (i < 3 ? 4 : -2);
+      else if (k === 'usatoday') v[k] = base + (i === 2 || i === 3 ? 4 : 0.5);
       else if (k === 'ddf_value_charts') v[k] = base + 1.5 + ddfBoost;
       else if (k === 'ddf_value_projections') v[k] = base + 1.0 + ddfBoost;
       else v[k] = base + 0.5;

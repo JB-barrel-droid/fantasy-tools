@@ -768,6 +768,9 @@ test-core:
 	# JEG-1539 step 5: redesigned front door legacy-routes.js coverage.
 	python3 -m unittest tests.test_legacy_routes
 	python3 -m unittest tests.test_build_root_pages
+	# JEG-1537: build.html engine parity and the Compare a trade redirects.
+	python3 -m unittest tests.test_build_page_engine_parity
+	python3 -m unittest tests.test_build_swap_routes
 	python3 -m unittest tests.test_math_inspector
 	python3 -m unittest tests.test_view_invariants
 	python3 -m unittest tests.test_launch_front_door
@@ -911,6 +914,9 @@ test-core-shard-3:
 	# JEG-1539 step 5: redesigned front door legacy-routes.js coverage.
 	python3 -m unittest tests.test_legacy_routes
 	python3 -m unittest tests.test_build_root_pages
+	# JEG-1537: build.html engine parity and the Compare a trade redirects.
+	python3 -m unittest tests.test_build_page_engine_parity
+	python3 -m unittest tests.test_build_swap_routes
 	python3 -m unittest tests.test_espn_listed_rows
 	python3 -m unittest tests.test_page_load_no_404
 	python3 -m unittest tests.test_bench_share_low_pie
