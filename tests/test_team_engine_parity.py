@@ -6,7 +6,7 @@ tier rules recomputed here, not through DDF.league):
 - team.html: starter and roster totals, per-position tier labels (league per-slot medians, 125% cap, 110% / 90%),
   every league-table cell and its rank tier (thirds of the team count);
 - explore.html: every player's DDF and Analyst charts value, and the heading count equals the number of toggles;
-- partners.html: every partner's starter DDF / Analyst values and its DDF edge / Analyst premium / Live market premium
+- partners.html: every partner's starter DDF / Analyst values (Details toggle) and its DDF edge / Analyst premium / Live market premium
   tags (15% edge rule); my team and waivers are never a partner.
 Discrimination: the same check fails when ddf-league.js is served with a 0.1 drift on one team's starter value.
 Nav: with only ddf:pasted, the workspace pages show the post-league nav; with nothing set they show Get started.
@@ -131,9 +131,11 @@ READ_EXPLORE = r"""() => {
 
 READ_PARTNERS = r"""() => {
   const partners = {};
+  // JEG-1560: the values sit in each partner's Details toggle; the old tag keys ride on data-tags (labels renamed).
+  const NAMES = {edge: 'DDF edge', analyst: 'Analyst premium', live: 'Live market premium'};
   document.querySelectorAll('#team-list .pt-row').forEach(r => {
-    partners[r.querySelector('.tn').textContent.trim()] = {ddf: r.querySelector('.stat.d .val').textContent.trim(),
-      analyst: r.querySelector('.stat.m .val').textContent.trim(), tags: [...r.querySelectorAll('.tag')].map(t => t.textContent.trim())};
+    partners[r.querySelector('.tn').textContent.trim()] = {ddf: r.querySelector('[data-v=ddf]').textContent.trim(),
+      analyst: r.querySelector('[data-v=analyst]').textContent.trim(), tags: (r.dataset.tags || '').split(' ').filter(Boolean).map(k => NAMES[k])};
   });
   return {partners, waiversRow: !!document.querySelector('#team-list [data-waivers]')};
 }"""

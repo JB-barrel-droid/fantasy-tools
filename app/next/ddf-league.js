@@ -37,7 +37,11 @@
  *   leagueTable()    [{index, name, mine, starter, roster, analystStarter, analystRoster, ranks:{..}, tiers:{..}}]
  *                     tiers by column rank in thirds of the team count (12 teams: 1-4 / 5-8 / 9-12)
  *   partnerTags(team) {ddf, analyst, live, ratioAnalyst, ratioLive, tags:['edge'|'analyst'|'live']} starters, 15% edge rule
- *   held() / setHeld(keys)        explore.html Evaluate/Hold: held player keys (sessionStorage ddf:hold)
+ *   partnerRank()    [{index, name, rank, score, get:[{pos, amount, mine, theirs}], give:[..], twoWay, ratioAnalyst, partner}]
+ *                     every opponent (never waivers), best trading partner first: score = sum over QB/RB/WR/TE where
+ *                     one side is Strong (>= 1.10) and the other Weak (< 0.90) of min(surplus, need) on positionTiers
+ *                     ratios (1.0 = middle team), both ways; ties by partnerTags ratioAnalyst; score null without my team
+ *   held() / setHeld(keys)       explore.html Evaluate/Hold: held player keys (sessionStorage ddf:hold)
  *   skipped() / setSkipped(names) partners.html skipped teams by name (sessionStorage ddf:skip)
  *   moves() / setMoves(list)      waivers.html roster moves [{add:key, drop:key|null, at}] (sessionStorage ddf:moves), applied to my team
  *   waiversOn() / setWaiversOn(b) the shared "also look for waiver pickups" switch (sessionStorage ddf:waivers "1"/"0")
@@ -313,6 +317,48 @@
     return {ddf: ddf, analyst: analyst, live: live, ratioAnalyst: ra, ratioLive: rl, tags: tags, lineup: L,
       analystComplete: Boolean(L.analyst.complete), liveComplete: Boolean(L.live.complete)};
   }
+  // Partner ranking (JEG-1560, docs/claude-log/2026-11-07-jeg1560-partners-ranking.md). Only positionTiers() ratios
+  // (1.0 = the league's middle team at that position), their tiers and partnerTags().ratioAnalyst; no new value math.
+  // A position counts only where the published tiers line up (Strong >= 1.10 on one side, Weak < 0.90 on the other):
+  //   get(p)  = theirs Strong and mine Weak ? min(theirs - 1, 1 - mine) : 0
+  //   give(p) = mine Strong and theirs Weak ? min(mine - 1, 1 - theirs) : 0
+  //   score   = sum over QB, RB, WR, TE of get + give; ties by ratioAnalyst (higher first, not judged last), then index.
+  // Without my team the score is null and the order is the tie-break alone.
+  var FIT_POS = ["QB", "RB", "WR", "TE"];
+  function partnerRank() {
+    var cur = build();
+    if (!cur) return [];
+    var tiers = positionTiers();
+    var byIndex = new Map(tiers.teams.map(function (t) { return [t.index, t]; }));
+    var mine = cur.me !== null ? byIndex.get(cur.me) || null : null;
+    var ratio = function (t, p) { var x = t && t.positions[p]; return x && finite(x.ratio) ? x.ratio : null; };
+    var rows = cur.teams.filter(function (t) { return t.index !== cur.me && t.players.length; }).map(function (team) {
+      var theirs = byIndex.get(team.index) || null, tags = partnerTags(team), get = [], give = [], score = null;
+      if (mine) {
+        score = 0;
+        FIT_POS.forEach(function (p) {
+          var m = ratio(mine, p), t = ratio(theirs, p);
+          if (m === null || t === null) return;
+          var g = t >= STRONG && m < AVERAGE ? Math.min(t - 1, 1 - m) : 0, v = m >= STRONG && t < AVERAGE ? Math.min(m - 1, 1 - t) : 0;
+          if (g > 0) get.push({pos: p, amount: g, mine: m, theirs: t});
+          if (v > 0) give.push({pos: p, amount: v, mine: m, theirs: t});
+          score += g + v;
+        });
+        var big = function (a, b) { return b.amount - a.amount || FIT_POS.indexOf(a.pos) - FIT_POS.indexOf(b.pos); };
+        get.sort(big); give.sort(big);
+      }
+      return {index: team.index, name: team.name, score: score, get: get, give: give, twoWay: get.length > 0 && give.length > 0,
+        ratioAnalyst: tags.ratioAnalyst, partner: tags};
+    });
+    rows.sort(function (a, b) {
+      if (a.score !== null && b.score !== null && a.score !== b.score) return b.score - a.score;
+      var ra = a.ratioAnalyst, rb = b.ratioAnalyst;
+      if (ra !== rb) { if (ra === null) return 1; if (rb === null) return -1; return rb - ra; }
+      return a.index - b.index;
+    });
+    rows.forEach(function (r, i) { r.rank = i + 1; });
+    return rows;
+  }
 
   /* ---- workspace choices (session store, shared with find.html / waivers.html) ---- */
   function getList(key) { var v = DDF.state ? DDF.state.get(key, []) : []; return Array.isArray(v) ? v.map(String) : []; }
@@ -342,6 +388,7 @@
     positionTiers: positionTiers,
     leagueTable: leagueTable,
     partnerTags: partnerTags,
+    partnerRank: partnerRank,
     tierOf: tierOf,
     moves: function () { return readMoves(); },
     setMoves: function (list) { if (DDF.state) DDF.state.set("moves", Array.isArray(list) ? list : []); changed(); },

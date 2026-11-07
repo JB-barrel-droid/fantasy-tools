@@ -140,9 +140,9 @@
       if (res.partial) notes.partial.push(list[i].name);
       if (!res.judged) notes.unjudged = true;
       if (res.searched.mine.searched < res.searched.mine.of || res.searched.theirs.searched < res.searched.theirs.of) notes.searchedTop = true;
-      var team = list[i];
+      var team = list[i], theirRows = DDF.find.rowsOf(list[i]);
       DDF.find.group(res.trades, opts).forEach(function (g) {
-        groups.push(Object.assign(g, {partner: team.name, partnerIndex: team.index, id: team.index + "|" + g.cls + "|" + g.key}));
+        groups.push(Object.assign(g, {partner: team.name, partnerIndex: team.index, id: team.index + "|" + g.cls + "|" + g.key, mineRows: mine, theirRows: theirRows}));
       });
     }
     if (token !== S.token) return;
@@ -199,6 +199,13 @@
   }
   function recOf(row) { return {key: keyOf(row), n: row.name}; }
   function hrefFor(t) { return DDF.engine.buildHref({give: t.give.map(recOf), get: t.receive.map(recOf)}); }
+  // JEG-1560 (Jeremy 2026-11-07): the chart count is a link to Build a Trade for this trade, scrolled to its charts
+  // (build.html?give=..&get=..#trade-charts, the anchor JEG-1559 adds). Same count: charts even or better for them.
+  function chartsHref(t) { return hrefFor(t) + "#trade-charts"; }
+  function chartsLink(t) {
+    return '<a class="charts-link" data-charts href="' + esc(chartsHref(t)) + '" aria-label="See the ' + t.rivalOkCount + " of " + t.chartCount
+      + ' public trade charts for this trade">' + t.rivalOkCount + "/" + t.chartCount + " public trade charts</a>";
+  }
   function card(g, k, mx) {
     var B = basis(), t = selected(g);
     var pct = function (v) { return v === null ? "0" : Math.max(0, Math.min(100, v / mx * 100)).toFixed(1); };
@@ -218,16 +225,27 @@
       + '<div class="pk-main"><div class="pk-ex"><div class="pk-side"><small>You give</small>' + giveCell + '</div><span class="pk-arrow" aria-hidden="true">&rarr;</span>'
       + '<div class="pk-side"><small>You get</small><b>' + gets + "</b></div></div>"
       + '<div class="pk-meta"><span class="ptag">' + esc(g.partner) + '</span><span class="fit">' + FIT_WORD[g.cls] + "</span>"
-      + '<span class="fit" title="Trade charts that have this even or better for them">' + t.rivalOkCount + "/" + t.chartCount + " charts even or better for them</span></div>"
+      + '<span class="fit">' + chartsLink(t) + " even or better for them</span></div>"
       + (added.length ? '<p class="muted pk-note">Players even out: ' + esc(added.join(", ")) + ".</p>" : "")
       + (throwIns.length ? '<p class="muted pk-note">Also seen with ' + esc(names(throwIns)) + " (worth 0.0) added.</p>" : "")
       + (t.unbalanced ? '<p class="muted pk-note">Uneven player counts: the team getting more players has no bench player left to add.</p>' : "")
+      + (window.DDFWhy && t.fit ? '<details class="why" data-why data-group="' + esc(g.id) + '"><summary aria-label="Why this offer: ' + esc(names(t.give)) + " for " + esc(names(t.receive)) + '">Why</summary><div class="why-slot"></div></details>' : "")
       + "</div>"
       + '<div class="pk-gain"><small>Your starters (' + esc(B.you) + ')</small><b class="gain" data-shown="' + (you === null ? "" : shown(you)) + '">' + (you === null ? "—" : shown(you)) + "</b>"
       + '<div class="meter" role="img" aria-label="Your starters ' + (you === null ? "no value" : shown(you)) + " on " + esc(B.you) + "; their starters " + (them === null ? "no value" : shown(them)) + " on " + esc(B.them) + '"><span class="ml"><i data-grow style="width:' + pct(you) + '%"></i></span><span class="mr"><i data-grow style="width:' + pct(them) + '%"></i></span></div>'
       + '<div class="mlab"><span>You ' + (you === null ? "—" : shown(you)) + " " + esc(B.you) + "</span><span>Them " + (them === null ? "—" : shown(them)) + " " + esc(B.them) + "</span></div>"
       + '<small class="pk-total">Trade value ' + shown(t.edge) + " " + esc(B.you) + "</small></div>"
       + '<div class="pk-act"><a class="button" data-build href="' + esc(hrefFor(t)) + '">Build a Trade <span class="arr" aria-hidden="true">&rarr;</span></a></div></article>';
+  }
+  // JEG-1561: the Why panel, filled on first open from DDFWhy (ddf-why.js) on the same rows and valuations as the card.
+  function whyFill(det) {
+    var g = S.groups.filter(function (x) { return x.id === det.dataset.group; })[0];
+    var slot = det.querySelector(".why-slot");
+    if (!g || !slot || slot.dataset.filled === "1") return;
+    var t = selected(g), B = basis(), ctx = Object.assign({}, DDF.find.context(), {ourKey: DDF.find.valuation(B.yv).key, marketKey: DDF.find.valuation(B.tv).key});
+    slot.innerHTML = window.DDFWhy.body({mine: g.mineRows, theirs: g.theirRows, give: t.give, receive: t.receive}, ctx,
+      {extra: '<p class="why-charts">' + chartsLink(t) + " even or better for them</p>"}) || '<p class="muted">No explanation for this offer yet.</p>';
+    slot.dataset.filled = "1";
   }
   function section(id, list, tableId, empty) {
     var mx = Math.max(1, Math.max.apply(null, list.map(function (g) { var t = selected(g); return Math.max(t.you || 0, t.them || 0); }).concat([0])));
@@ -362,6 +380,7 @@
       if (again) again.focus();
     });
     document.querySelector(".find-page").addEventListener("click", function (e) { var a = e.target.closest("a[data-build]"); if (a) remember(a); });
+    document.querySelector(".find-page").addEventListener("toggle", function (e) { if (e.target.matches && e.target.matches("details[data-why]") && e.target.open) whyFill(e.target); }, true);
     var t = $("filters-toggle"), f = $("find-filters");
     var tog = function () { f.hidden = !f.hidden; t.setAttribute("aria-expanded", String(!f.hidden)); };
     t.addEventListener("click", tog);

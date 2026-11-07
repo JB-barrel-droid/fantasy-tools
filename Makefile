@@ -765,7 +765,15 @@ test-core:
 	python3 -m unittest tests.test_values_page_engine_parity
 	# JEG-1539: team.html and find.html engine parity (same pattern as values page).
 	python3 -m unittest tests.test_team_engine_parity
+	# JEG-1560: partners.html ranking, reasons and copy rules on the engine.
+	python3 -m unittest tests.test_partners_rank_parity
+	python3 -m unittest tests.test_find_chart_links
+	# JEG-1561: the Why panel (ddf-why.js) against finder.js, and its button on find.html.
+	python3 -m unittest tests.test_ddf_why
+	python3 -m unittest tests.test_league_card_pasted
 	python3 -m unittest tests.test_find_engine_parity
+	# JEG-1558: opportunity tiers and roster-improvement percent (node unit tests).
+	python3 -m unittest tests.test_ddf_opportunity
 	python3 -m unittest tests.test_values_swap_routes
 	# JEG-1539 step 5: redesigned front door legacy-routes.js coverage.
 	python3 -m unittest tests.test_legacy_routes
@@ -922,7 +930,15 @@ test-core-shard-3:
 	python3 -m unittest tests.test_values_page_engine_parity
 	# JEG-1539: team.html and find.html engine parity (same pattern as values page).
 	python3 -m unittest tests.test_team_engine_parity
+	# JEG-1560: partners.html ranking, reasons and copy rules on the engine.
+	python3 -m unittest tests.test_partners_rank_parity
+	python3 -m unittest tests.test_find_chart_links
+	# JEG-1561: the Why panel (ddf-why.js) against finder.js, and its button on find.html.
+	python3 -m unittest tests.test_ddf_why
+	python3 -m unittest tests.test_league_card_pasted
 	python3 -m unittest tests.test_find_engine_parity
+	# JEG-1558: opportunity tiers and roster-improvement percent (node unit tests).
+	python3 -m unittest tests.test_ddf_opportunity
 	python3 -m unittest tests.test_values_swap_routes
 	# JEG-1539 step 5: redesigned front door legacy-routes.js coverage.
 	python3 -m unittest tests.test_legacy_routes
