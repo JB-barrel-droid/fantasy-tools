@@ -35,6 +35,11 @@ STATE = """() => {
 }"""
 
 
+# Navigation waits for DOMContentLoaded, then for the page's own readiness (engine built, modules loaded): the
+# engine pages are 1.3 MB and keep fetching, so 'networkidle' can outlast the timeout on a loaded CI runner
+# (deploy run 42403384425 timed out there at Page.goto).
+
+
 def setUpModule():
     _render_env.ensure_built()
 
@@ -48,7 +53,7 @@ class ZeroOverrideTest(unittest.TestCase):
             raise _render_env.unavailable(f"Chromium not available: {exc}") from exc
 
     def _open(self, page, base):
-        page.goto(f"{base}/values.html#overrides?player=Jahmyr+Gibbs", wait_until="networkidle", timeout=90000)
+        page.goto(f"{base}/values.html#overrides?player=Jahmyr+Gibbs", wait_until="domcontentloaded", timeout=90000)
         page.wait_for_function(LIVE, timeout=60000)
         page.wait_for_timeout(500)
 
@@ -143,7 +148,7 @@ class ZeroOverrideTest(unittest.TestCase):
                 page.goto(f"{base}/values.html", wait_until="domcontentloaded", timeout=90000)
                 page.evaluate(f"() => localStorage.setItem('ddf-v2-value-overrides', {json.dumps(record)})")
                 # JEG-1539: the v2 shell is build-only; the harness serves it at /v2-app.html with every view.
-                page.goto(f"{base}/v2-app.html#value-overrides", wait_until="networkidle", timeout=90000)
+                page.goto(f"{base}/v2-app.html#value-overrides", wait_until="domcontentloaded", timeout=90000)
                 page.wait_for_function("() => window.DDFOverrides && window.TradeValueCurveControls && TradeValueCurveControls.isReady()", timeout=90000)
                 page.wait_for_timeout(1500)
                 got = page.evaluate("() => ({all: DDFOverrides.all(), ddf: TradeValueCurveControls.getAllRows().find(r => r.player_key === 2227).values.ddf_value})")
