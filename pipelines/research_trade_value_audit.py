@@ -228,7 +228,7 @@ def ddf_values(s) -> dict:
 def curves(inp) -> dict:
     """Each chart's overall value curve, #1 = 100, ranks 1..CURVE_N, per scoring;
     plus curve statistics at half PPR."""
-    out = {"curves": {}, "stats": {}}
+    out = {"curves": {}, "stats": {}, "curve_players": {}}
     for sc in vr.SCORINGS:
         s = setting(inp, sc)
         out["curves"][sc] = {}
@@ -237,9 +237,11 @@ def curves(inp) -> dict:
             order = overall_order(nat, s.pos_of)
             top = nat[order[0]]
             out["curves"][sc][k] = [r(100 * nat[i] / top, 1) for i in order[:CURVE_N]]
+            out["curve_players"].setdefault(sc, {})[k] = [[inp.players[i]["name"], s.pos_of[i]] for i in order[:CURVE_N]]
         ddf = ddf_values(s)
         order = overall_order(ddf, s.pos_of)
         out["curves"][sc]["ddf"] = [r(100 * ddf[i] / ddf[order[0]], 1) for i in order[:CURVE_N]]
+        out["curve_players"][sc]["ddf"] = [[inp.players[i]["name"], s.pos_of[i]] for i in order[:CURVE_N]]
     s = setting(inp)
     diag = s.diagnostics()
     for k in CHARTS:
@@ -418,7 +420,7 @@ def weekly(inp) -> dict:
 
 RULES = {
     "balance": "Position balance: share of value that would have to move between positions to match the projections (ESPN, CBS rest-of-season, Razzball run through our model), Half PPR, 12 teams. Strong up to 5 points, OK up to 10, Weak above 10.",
-    "scoring": "Scoring formats: compare Standard with Full PPR for the top 36 at RB, WR and TE. Strong when at least 20% of those players change places on average; OK when the numbers change but fewer change places; Weak when the numbers do not change.",
+    "scoring": "Scoring formats: compare Standard with Full PPR for the top 36 at RB, WR and TE. Strong when at least 20% of those players change places on average; OK when the numbers change but fewer change places; Weak when the numbers do not change. For ESPN and CBS rest-of-season the formats are our scoring of their projected stats; Razzball publishes its own columns.",
     "superflex": "Superflex: Strong with superflex values for 24 or more QBs (two per team); OK with fewer; Weak with none.",
     "league_size": "League size: Strong when the source offers its own numbers by team count; Weak with one table for every league size.",
     "depth": "Depth: the thinnest position's listed players as a share of the players a 12-team league rosters there. Strong at 100% or more, OK at 70% or more, Weak below.",
@@ -497,6 +499,63 @@ DP_CURRENT = DP_DATES[-1]
 AGE_BANDS = ((0, 25, "under 25"), (25, 28, "25 to 27"), (28, 30, "28 to 29"), (30, 99, "30 and over"))
 
 
+FC_DIR = REPO / "data" / "research" / "jeg1565" / "fantasycalc"
+FC_RAW_WEEK4 = REPO / "data" / "raw" / "sources" / "fantasycalc" / "week-4" / "snapshot.json"
+
+
+def _reorder(a: dict, b: dict, pos_of: dict) -> dict:
+    """Top SCORING_TOP by Full PPR value at RB, WR and TE: how many change places
+    between Standard (a) and Full PPR (b), and the spread of the Full/Standard ratio."""
+    out = {}
+    for p in FLEX:
+        top = sorted((k for k in a if k in b and pos_of.get(k) == p and a[k] > 0), key=lambda k: (-b[k], k))[:SCORING_TOP]
+        ratios = [b[k] / a[k] for k in top]
+        oa, ob = sorted(top, key=lambda k: (-a[k], k)), sorted(top, key=lambda k: (-b[k], k))
+        out[p] = {"n": len(top), "reordered": sum(1 for x, y in zip(oa, ob) if x != y),
+                  "ratio_spread": r(max(ratios) - min(ratios), 3) if ratios else None}
+    return out
+
+
+def scoring_provenance(inp) -> dict:
+    """Is a chart's Standard-vs-Full difference in the publisher's own output?
+    FantasyCalc: one request per format (ppr=0 / ppr=1); every capture we hold.
+    Charts: share of players whose Standard and Full PPR numbers are identical,
+    per weekly snapshot (the as-published natives)."""
+    pos_of = {k: p["pos"] for k, p in inp.players.items()}
+    fc = []
+    caps = json.loads((FC_DIR / "captures.json").read_text(encoding="utf-8"))
+    for label in ("week 4 cache", "live pull"):
+        side = {c["scoring"]: c for c in caps if c["label"] == label}
+        a = {x["name"]: x["value"] for x in side["standard"]["rows"]}
+        b = {x["name"]: x["value"] for x in side["full"]["rows"]}
+        names = {x["name"]: x["pos"] for x in side["standard"]["rows"]}
+        fc.append({"capture": label, "fetched_at": side["full"]["fetched_at"],
+                   "urls": [side["standard"]["source_url"], side["full"]["source_url"]], **_reorder(a, b, names)})
+    raw = json.loads(FC_RAW_WEEK4.read_text(encoding="utf-8"))
+    a = {x["player_name"]: x["native_value"] for x in raw["rows"] if x["scoring"] == "standard"}
+    b = {x["player_name"]: x["native_value"] for x in raw["rows"] if x["scoring"] == "ppr"}
+    names = {x["player_name"]: x["pos"] for x in raw["rows"]}
+    fc.append({"capture": "week 4 raw snapshot", "fetched_at": raw["fetched_at"], **_reorder(a, b, names)})
+    identical = {}
+    for w in WEEKS:
+        doc = json.loads((HISTORY_DIR / f"week-{w}.json").read_text(encoding="utf-8"))
+        for k in CHARTS:
+            n = doc["sources"][k]["natives"]
+            a = {int(x): v for x, v in n["standard"].items()}
+            b = {int(x): v for x, v in n["ppr"].items()}
+            common = [x for x in a if x in b]
+            identical.setdefault(k, []).append(r(100 * sum(1 for x in common if a[x] == b[x]) / len(common), 0))
+            if k == "fantasycalc":
+                fc.append({"capture": f"week {w} snapshot", "fetched_at": str(doc["sources"][k]["_sort"][0]),
+                           **_reorder(a, b, pos_of)})
+    order = {"week 4 cache": 0, "week 4 raw snapshot": 1, "live pull": 99}
+    fc.sort(key=lambda x: (order.get(x["capture"], 50), x["capture"]))
+    reordered = [sum(x[p]["reordered"] for p in FLEX) for x in fc]
+    return {"fantasycalc_captures": fc, "identical_std_vs_ppr_pct_by_week": identical,
+            "fantasycalc_captures_with_reorder": sum(1 for v in reordered if v > 0),
+            "fantasycalc_captures_total": len(fc)}
+
+
 def dp_snapshot(inp, day: str) -> dict:
     """{player_key: {"v1", "v2", "age"}} from the stored file, matched by
     normalized name and position; names that match no player, or more than
@@ -521,12 +580,12 @@ def dp_snapshot(inp, day: str) -> dict:
     return {"players": out, "unmatched": unmatched, "unmatched_max_pct": round(100 * unmatched_max / top, 1)}
 
 
-def dp_run(inp, snap: dict, scoring="half_ppr", superflex=0):
+def dp_run(inp, snap: dict, scoring="half_ppr", superflex=0, teams=12):
     """Our model run with DynastyProcess added as one more chart, read for its
     own diagnostics only (the other sources' numbers come from runs without it).
     DynastyProcess publishes one value set for every scoring format; in
     superflex its 2QB column prices every player it lists."""
-    s = setting(inp, scoring, 12, superflex)
+    s = setting(inp, scoring, teams, superflex)
     st = s.state()
     field = "v2" if superflex else "v1"
     nat = {k: v[field] for k, v in snap["players"].items()}
@@ -563,6 +622,7 @@ def dynastyprocess(inp, data: dict) -> dict:
     out["waiver_line"] = {p: r(waiver[p], 2) for p in POS}
     out["top50_mix"] = {p: sum(1 for i in order[:TOP_N] if pos_of[i] == p) for p in POS}
     out["curve"] = [r(100 * nat[i] / top, 1) for i in order[:CURVE_N]]
+    out["curve_players"] = [[inp.players[i]["name"], pos_of[i]] for i in order[:CURVE_N]]
     out["curve_stats"] = {
         "listed_total": len(order),
         **{f"rank{n}_pct": r(100 * nat[order[n - 1]] / top, 0) for n in (12, 24, 50, 100)},
@@ -656,6 +716,75 @@ def dynastyprocess(inp, data: dict) -> dict:
     return out
 
 
+DEPTH_TEAMS = (10, 12, 14)
+DEPTH_CURVE_MAX = 130   # position ranks drawn in the depth chart
+
+
+def depth_class(listed: int, rostered: int) -> str:
+    """Where a list ends against the waiver line (the first player past the
+    league's rostered count): within max(2, 10% of rostered) is near."""
+    tol = max(2, round(0.1 * rostered))
+    if listed < rostered - tol:
+        return "short"
+    if listed > rostered + tol:
+        return "past"
+    return "near"
+
+
+def depth_vs_waiver(inp, data: dict) -> dict:
+    """Each source's list against the waiver line, per position, at 10/12/14
+    teams (Half PPR, our default lineup). The waiver line at a position is the
+    value of the first player past the number the league rosters there (VP-2)."""
+    snap = dp_snapshot(inp, DP_CURRENT)
+    out = {"teams": list(DEPTH_TEAMS), "rostered": {}, "sources": {}, "ddf": {}}
+    keys = (*CHARTS, DP)
+    for t in DEPTH_TEAMS:
+        s = setting(inp, "half_ppr", t)
+        diag = s.diagnostics()
+        pos_of = s.pos_of
+        out["rostered"][t] = {p: diag["sources"]["cbs"]["positions"][p]["rostered"] for p in POS}
+        _, dp_nat, dp_det = dp_run(inp, snap, "half_ppr", 0, t)
+        for k in keys:
+            nat = dp_nat if k == DP else s.natives(k)
+            positions = dp_det["positions"] if k == DP else None
+            row = out["sources"].setdefault(k, {}).setdefault(t, {})
+            total = sum(nat.values())
+            past_value = 0.0
+            for p in POS:
+                order = sorted((i for i in nat if pos_of.get(i) == p), key=lambda i: (-nat[i], i))
+                ros = out["rostered"][t][p]
+                waiver = positions[p]["waiver_value"] if k == DP else diag["sources"][k]["positions"][p]["waiver"]
+                top = nat[order[0]]
+                last = order[-1]
+                beyond = order[ros:]
+                past_value += sum(nat[i] for i in beyond)
+                row[p] = {"listed": len(order), "rostered": ros, "gap": len(order) - ros,
+                          "unpriced": max(0, ros - len(order)), "beyond": max(0, len(order) - ros),
+                          "class": depth_class(len(order), ros),
+                          "last_name": inp.players[last]["name"], "last_value": nat[last],
+                          "last_pct_of_top": r(100 * nat[last] / top, 1),
+                          "waiver_pct_of_top": r(100 * waiver / top, 1)}
+                if t == 12:
+                    row[p]["curve"] = [r(100 * nat[i] / top, 1) for i in order[:DEPTH_CURVE_MAX]]
+            row["value_past_line_pct"] = r(100 * past_value / total, 1)
+        # Our model against the same line: players past it that still get a DDF Value above zero.
+        ddf = ddf_values(s)
+        drow = out["ddf"].setdefault(t, {})
+        for p in POS:
+            order = sorted((i for i in ddf if pos_of.get(i) == p), key=lambda i: (-ddf[i], i))
+            ros = out["rostered"][t][p]
+            drow[p] = {"valued": sum(1 for i in order if ddf[i] > 0.05), "rostered": ros,
+                       "past_line_valued": sum(1 for i in order[ros:] if ddf[i] > 0.05)}
+        tot = sum(v for v in ddf.values() if v > 0)
+        past = 0.0
+        for p in POS:
+            order = sorted((i for i in ddf if pos_of.get(i) == p), key=lambda i: (-ddf[i], i))
+            past += sum(max(0.0, ddf[i]) for i in order[out["rostered"][t][p]:])
+        drow["value_past_line_pct"] = r(100 * past / tot, 1)
+    out["filled_in_12"] = {k: sum(data["sources"][k]["filled_in"].values()) for k in CHARTS}
+    return out
+
+
 def headline(d: dict) -> dict:
     """The numbers the article quotes in its text, gathered in one place."""
     sc, pw, sfx, cons, cs = d["scoring"], d["position_weighting"], d["superflex"], d["consolidation"], d["curve_stats"]
@@ -718,6 +847,7 @@ def build() -> dict:
         "scoring": sc,
         "superflex": sfx,
         "curves": cv["curves"],
+        "curve_players": cv["curve_players"],
         "curve_stats": cv["stats"],
         "consolidation": cons,
         "agreement": agreement(inp),
@@ -736,6 +866,8 @@ def build() -> dict:
     data["dynastyprocess_formula"] = {"scale": 10500, "rate": 0.0235,
                                       **{f"rank{n}_pct": r(100 * dp(n) / dp(1), 0) for n in (12, 24, 50, 100)}}
     data["dynastyprocess"] = dynastyprocess(inp, data)
+    data["scoring_provenance"] = scoring_provenance(inp)
+    data["depth_vs_waiver"] = depth_vs_waiver(inp, data)
     data["headline"] = headline(data)
     return data
 

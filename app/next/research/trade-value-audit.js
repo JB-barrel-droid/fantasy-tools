@@ -62,12 +62,11 @@
       var v = get(n.getAttribute('data-n'));
       if (v === undefined) return;
       n.textContent = fmt(v);
-      if (!n.classList.contains('count') || REDUCE || typeof v !== 'number') return;
-      var sr = el('span', { class: 'sr' }, fmt(v));
-      n.parentNode.insertBefore(sr, n);
-      n.setAttribute('aria-hidden', 'true');
-      n.textContent = '0';
+      /* Count up only from below the final value, and never duplicate the number in the DOM:
+         the element keeps its final text at rest, so copy, reader views and screen readers get one number. */
+      if (!n.classList.contains('count') || REDUCE || typeof v !== 'number' || Math.abs(v) < 2) return;
       onVisible(n, function () {
+        n.textContent = '0';
         var t0 = null, dec = !Number.isInteger(v);
         function step(t) {
           if (!t0) t0 = t;
@@ -170,6 +169,18 @@
   function curves() {
     var host = $('#curve'), keys = GRADED.concat(['ddf']), sc = 'half_ppr', cur = {}, raf = null;
     var N = 120, range = $('#rank'), out = $('#rank-out'), read = $('#rank-read'), drawn = REDUCE;
+    var readTable = el('table', { class: 'rank-table' });
+    var rh = el('thead'), rhr = el('tr');
+    ['Source', 'Value', 'Player at this rank'].forEach(function (h, i) { rhr.appendChild(el('th', { scope: 'col', class: i === 1 ? 'num' : '' }, h)); });
+    rh.appendChild(rhr); readTable.appendChild(rh); readTable.appendChild(el('tbody'));
+    $('#rank-names').appendChild(readTable);
+    function shortName(full, narrow) {
+      if (!narrow) return full;
+      var parts = full.split(' ');
+      if (parts.length < 2) return full;
+      var tail = parts.slice(1).join(' ');
+      return parts[0].charAt(0) + '. ' + tail;
+    }
     keys.forEach(function (k) { cur[k] = D.curves[sc][k].slice(); });
     var box = {};
     function geom() {
@@ -225,11 +236,14 @@
           p.style.strokeDasharray = L + ' ' + L; p.style.strokeDashoffset = L;
         });
       }
-      s.addEventListener('pointermove', function (e) {
+      s.style.touchAction = 'pan-y';
+      s.addEventListener('pointerdown', function (e) { pick(e); });
+      function pick(e) {
         var rect = s.getBoundingClientRect(), x = (e.clientX - rect.left) * (g.w / rect.width);
         var rk = Math.round(1 + (x - g.l) / (g.w - g.l - g.r) * (N - 1));
         if (rk >= 1 && rk <= N) { range.value = rk; cross(); }
-      });
+      }
+      s.addEventListener('pointermove', pick);
       cross();
     }
     function cross() {
@@ -237,10 +251,21 @@
       out.textContent = rk;
       var x = g.l + ((rk - 1) / (N - 1)) * (g.w - g.l - g.r);
       box.cross.setAttribute('x1', x); box.cross.setAttribute('x2', x);
-      read.textContent = 'At #' + rk + ': ' + keys.map(function (k) {
-        var v = D.curves[sc][k][rk - 1];
-        return (k === 'ddf' ? 'our model' : NAME[k]) + ' ' + (v == null ? 'not listed' : fmt(v));
-      }).join(', ') + '.';
+      var narrow = width(host) < 500, said = [], tb = el('tbody');
+      keys.forEach(function (k) {
+        var v = D.curves[sc][k][rk - 1], who = (D.curve_players[sc][k] || [])[rk - 1];
+        var label = k === 'ddf' ? 'Our model' : k === 'dynastyprocess' ? 'DynastyProcess' : NAME[k];
+        var name = who ? shortName(who[0], narrow) + ' (' + who[1] + ')' : 'not listed';
+        var tr = el('tr');
+        var th = el('th', { scope: 'row' }); var sw = el('span', { 'aria-hidden': 'true', style: 'display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;background:' + color(k) });
+        th.appendChild(sw); th.appendChild(document.createTextNode(label)); tr.appendChild(th);
+        tr.appendChild(el('td', { class: 'num' }, v == null ? '–' : fmt(v)));
+        tr.appendChild(el('td', null, name));
+        tb.appendChild(tr);
+        said.push(label + ' ' + (v == null ? 'not listed' : fmt(v) + ', ' + who[0] + ', ' + who[1]));
+      });
+      readTable.replaceChild(tb, readTable.tBodies[0]);
+      read.textContent = 'Rank ' + rk + ': ' + said.join('; ') + '.';
     }
     function morph(to) {
       var from = {}, t0 = null;
@@ -362,38 +387,79 @@
       ks.map(function (k) { var v = D.superflex[k]; return [NAME[k], fmt(v.qb_share_1qb), fmt(v.qb_share_sf), v.superflex_qbs_listed == null ? 'n/a' : fmt(v.superflex_qbs_listed)]; }));
   }
 
-  /* 5. Depth */
+  /* 5. Depth against the waiver line */
   function depth() {
-    var host = $('#depth'), started = REDUCE;
+    var host = $('#depth'), fig = $('#fig-depth'), dv = D.depth_vs_waiver, teams = '12', pos = 'RB', started = REDUCE;
+    var VERDICT = { short: 'Stops short', near: 'Ends near the line', past: 'Reaches past' };
     function render() {
-      var w = width(host), narrow = w < 500, l = narrow ? 30 : 130, r = 50, rowH = 18, gap = 18, h = GRADED.length * (POS.length * rowH + gap + (narrow ? 20 : 0)) + 30;
-      var max = 170, x = function (v) { return l + Math.min(v, max) / max * (w - l - r); };
+      var w = width(host), narrow = w < 500, h = Math.round(Math.min(340, Math.max(230, w * 0.45)));
+      var g = { l: 36, r: narrow ? 14 : 24, t: 14, b: 30 };
+      var ros = dv.rostered[teams][pos], maxX = Math.min(130, Math.max(ros + 25, Math.round(ros * 1.6)));
+      var x = function (rk) { return g.l + (Math.min(rk, maxX) - 1) / (maxX - 1) * (w - g.l - g.r); };
+      var y = function (v) { return g.t + (1 - v / 100) * (h - g.t - g.b); };
       host.innerHTML = '';
-      var s = svg('svg', { viewBox: '0 0 ' + w + ' ' + h, width: w, height: h, role: 'img', 'aria-label': 'Players listed as a share of players rostered, by chart and position' });
-      var y = 0;
-      GRADED.forEach(function (k) {
-        var t = svg('text', { x: 0, y: y + 14, class: 'lbl', style: 'fill:' + color(k) }); t.textContent = NAME[k]; s.appendChild(t);
-        if (narrow) y += 20;
-        POS.forEach(function (p) {
-          var src = D.sources[k], v = 100 * src.listed[p] / src.rostered[p];
-          var pt = svg('text', { x: l - 8, y: y + 13, 'text-anchor': 'end' }); pt.textContent = p; s.appendChild(pt);
-          var bar = svg('rect', { x: l, y: y + 2, height: rowH - 5, rx: 3, width: started ? x(v) - l : 0, style: 'fill:var(--p-' + p + ');transition:width 1s cubic-bezier(.2,.8,.2,1)' });
-          bar.dataset.w = x(v) - l; s.appendChild(bar);
-          var vt = svg('text', { x: x(v) + 6, y: y + 13 }); vt.textContent = src.listed[p] + '/' + src.rostered[p]; s.appendChild(vt);
-          y += rowH;
-        });
-        y += gap;
+      var s = svg('svg', { viewBox: '0 0 ' + w + ' ' + h, width: w, height: h, 'aria-hidden': 'true' });
+      [0, 25, 50, 75, 100].forEach(function (v) {
+        s.appendChild(svg('line', { x1: g.l, x2: w - g.r, y1: y(v), y2: y(v), style: 'stroke:var(--line)' }));
+        var t = svg('text', { x: g.l - 6, y: y(v) + 4, 'text-anchor': 'end' }); t.textContent = v; s.appendChild(t);
       });
-      s.appendChild(svg('line', { x1: x(100), x2: x(100), y1: 0, y2: y, 'stroke-width': 2, style: 'stroke:var(--ink)', 'stroke-dasharray': '4 3' }));
-      var t100 = svg('text', { x: x(100), y: y + 16, 'text-anchor': 'middle' }); t100.textContent = '100%'; s.appendChild(t100);
+      [1, ros + 1, maxX].forEach(function (rk) { var t = svg('text', { x: x(rk), y: h - 8, 'text-anchor': 'middle' }); t.textContent = pos + rk; s.appendChild(t); });
+      var lx = x(ros + 1);
+      s.appendChild(svg('rect', { x: lx, y: g.t, width: Math.max(0, w - g.r - lx), height: h - g.t - g.b, style: 'fill:var(--soft)', opacity: .6 }));
+      s.appendChild(svg('line', { x1: lx, x2: lx, y1: g.t, y2: h - g.b, 'stroke-width': 2, 'stroke-dasharray': '5 4', style: 'stroke:var(--ink)' }));
+      var wl = svg('text', { x: lx + 6, y: g.t + 12, class: 'lbl' }); wl.textContent = 'Waiver line'; s.appendChild(wl);
+      GRADED.forEach(function (k, idx) {
+        var c = dv.sources[k]['12'][pos].curve, n = dv.sources[k][teams][pos].listed;
+        var d = c.map(function (v, i) { return (i ? 'L' : 'M') + x(i + 1).toFixed(1) + ' ' + y(v).toFixed(1); }).join('');
+        var p = svg('path', { d: d, fill: 'none', 'stroke-width': 2, style: 'stroke:' + color(k) });
+        s.appendChild(p);
+        var endRank = Math.min(n, maxX), endV = c[Math.min(n, c.length) - 1];
+        var dot = svg('circle', { cx: x(endRank), cy: y(endV), r: started ? 6 : 0, style: 'fill:' + color(k) + ';transition:r .5s ' + (idx * 120) + 'ms', stroke: 'var(--surface)', 'stroke-width': 2 });
+        s.appendChild(dot);
+        if (n > maxX) { var t = svg('text', { x: w - g.r, y: y(endV) - 8, 'text-anchor': 'end', style: 'fill:' + color(k) }); t.textContent = '→ ' + n; s.appendChild(t); }
+        if (!started) {
+          var L = p.getTotalLength(); p.style.strokeDasharray = L + ' ' + L; p.style.strokeDashoffset = L;
+        }
+      });
       host.appendChild(s);
+      return s;
     }
-    render();
-    onVisible(host, function () { started = true; $all('rect', host).forEach(function (b, i) { b.style.transitionDelay = (i * 40) + 'ms'; b.setAttribute('width', b.dataset.w); }); });
-    var rw; window.addEventListener('resize', function () { clearTimeout(rw); rw = setTimeout(function () { started = true; render(); }, 150); });
-    var rows = [];
-    GRADED.forEach(function (k) { POS.forEach(function (p) { var s = D.sources[k]; rows.push([NAME[k] + ' ' + p, fmt(s.listed[p]), fmt(s.rostered[p]), fmt(s.filled_in[p])]); }); });
-    table($('[data-table=depth]'), ['Chart and position', 'Listed', 'Rostered (12 teams)', 'Estimated by us'], rows);
+    function animateIn(svgEl) {
+      $all('path', svgEl).forEach(function (p, i) { p.style.transition = 'stroke-dashoffset 1.2s ease ' + (i * 120) + 'ms'; p.style.strokeDashoffset = '0'; });
+      $all('circle', svgEl).forEach(function (c) { c.setAttribute('r', 6); });
+    }
+    function readout() {
+      var narrow = width(host) < 500, host2 = $('[data-table=depth]');
+      host2.innerHTML = '';
+      host2.appendChild(el('p', { class: 'meta' }, pos + ', ' + teams + ' teams: the waiver line falls after ' + pos + dv.rostered[teams][pos] + '.'));
+      var ul = el('ul', { class: 'depth-list' });
+      GRADED.forEach(function (k) {
+        var r = dv.sources[k][teams][pos], parts = r.last_name.split(' ');
+        var name = narrow && parts.length > 1 ? parts[0].charAt(0) + '. ' + parts.slice(1).join(' ') : r.last_name;
+        var where = r.class === 'short' ? r.unpriced + ' rostered players unpriced' : r.class === 'past' ? r.beyond + ' players the waiver wire could replace' : 'within ' + Math.abs(r.gap) + ' of the line';
+        var li = el('li');
+        var hd = el('div', { class: 'dl-head' });
+        hd.appendChild(el('span', { 'aria-hidden': 'true', class: 'sw', style: 'background:' + color(k) }));
+        hd.appendChild(el('b', null, NAME[k]));
+        hd.appendChild(el('span', { class: 'dl-tag dl-' + r.class }, VERDICT[r.class]));
+        li.appendChild(hd);
+        li.appendChild(el('div', null, fmt(r.listed) + ' listed; last player listed: ' + name + ', ' + fmt(r.last_pct_of_top) + '% of its top ' + pos + '. ' + where.charAt(0).toUpperCase() + where.slice(1) + '.'));
+        ul.appendChild(li);
+      });
+      var m = dv.ddf[teams][pos], li = el('li'), hd = el('div', { class: 'dl-head' });
+      hd.appendChild(el('span', { 'aria-hidden': 'true', class: 'sw', style: 'background:' + color('ddf') }));
+      hd.appendChild(el('b', null, NAME.ddf));
+      li.appendChild(hd);
+      li.appendChild(el('div', null, fmt(m.valued) + ' players valued above zero; ' + (m.valued < m.rostered ? (m.rostered - m.valued) + ' rostered players at about zero.' : 'every rostered player valued.') + (m.past_line_valued ? ' ' + m.past_line_valued + ' past the line valued above zero.' : '')));
+      ul.appendChild(li);
+      host2.appendChild(ul);
+    }
+    function draw(anim) { var el2 = render(); readout(); if (!anim && started) animateIn(el2); }
+    $all('[data-teams]', fig).forEach(function (b) { b.addEventListener('click', function () { teams = b.getAttribute('data-teams'); $all('[data-teams]', fig).forEach(function (x2) { x2.setAttribute('aria-pressed', String(x2 === b)); }); started = true; draw(true); }); });
+    $all('[data-dpos]', fig).forEach(function (b) { b.addEventListener('click', function () { pos = b.getAttribute('data-dpos'); $all('[data-dpos]', fig).forEach(function (x2) { x2.setAttribute('aria-pressed', String(x2 === b)); }); started = true; draw(true); }); });
+    var first = render(); readout();
+    onVisible(host, function () { started = true; requestAnimationFrame(function () { animateIn(first); }); });
+    var rw; window.addEventListener('resize', function () { clearTimeout(rw); rw = setTimeout(function () { started = true; draw(true); }, 150); });
   }
 
   /* 6. Trade it yourself */
@@ -540,6 +606,7 @@
     var dp = D.dynastyprocess, k = 'dynastyprocess';
     Object.keys(dp.shares).forEach(function (c) { D.position_weighting[c].sources[k] = dp.shares[c]; });
     Object.keys(D.curves).forEach(function (sc) { D.curves[sc][k] = dp.curve; });
+    Object.keys(D.curve_players).forEach(function (sc) { D.curve_players[sc][k] = dp.curve_players; });
     D.superflex[k] = dp.superflex;
     D.sources[k] = { listed: dp.listed, rostered: dp.rostered, filled_in: dp.filled_in };
     D.consolidation[k] = dp.consolidation;

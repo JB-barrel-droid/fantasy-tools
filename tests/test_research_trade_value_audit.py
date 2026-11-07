@@ -111,6 +111,33 @@ class AuditData(unittest.TestCase):
         self.assertEqual("fantasypros", min(c, key=c.get))
         self.assertEqual("fantasycalc", max(c, key=c.get))
 
+    def test_scoring_claims_come_from_the_publishers_raw_output(self):
+        prov = self.fresh["scoring_provenance"]
+        self.assertEqual([100] * 5, prov["identical_std_vs_ppr_pct_by_week"]["fantasypros"])
+        caps = prov["fantasycalc_captures"]
+        self.assertEqual("week 4 cache", caps[0]["capture"])
+        self.assertGreater(caps[0]["RB"]["reordered"], 0)
+        for cap in caps[1:]:  # every capture from 2026-10-04 on, live pull included
+            for p in ("RB", "WR", "TE"):
+                self.assertEqual(0, cap[p]["reordered"], cap["capture"])
+        self.assertTrue(all("ppr=0" in c["urls"][0] and "ppr=1" in c["urls"][1] for c in caps if "urls" in c))
+
+    def test_depth_against_the_waiver_line(self):
+        dv = self.fresh["depth_vs_waiver"]
+        for p in ("QB", "RB", "WR", "TE"):
+            cbs = dv["sources"]["cbs"]["12"][p]
+            self.assertEqual("short", cbs["class"])
+            self.assertEqual(cbs["rostered"] - cbs["listed"], cbs["unpriced"])
+            self.assertEqual("past", dv["sources"]["usatoday"]["12"][p]["class"])
+        past = {k: v["12"]["value_past_line_pct"] for k, v in dv["sources"].items()}
+        self.assertEqual("usatoday", max(past, key=past.get))
+
+    def test_curve_readout_names_line_up_with_values(self):
+        for sc, lines in self.fresh["curves"].items():
+            for k, vals in lines.items():
+                self.assertEqual(len(vals), len(self.fresh["curve_players"][sc][k]), (sc, k))
+        self.assertEqual(len(self.fresh["dynastyprocess"]["curve"]), len(self.fresh["dynastyprocess"]["curve_players"]))
+
     def test_dynastyprocess_snapshot_is_licensed_and_dated(self):
         folder = audit.DP_DIR
         self.assertIn("GNU GENERAL PUBLIC LICENSE", (folder / "LICENSE").read_text(encoding="utf-8"))
