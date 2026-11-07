@@ -765,6 +765,12 @@ test-core:
 	python3 -m unittest tests.test_values_page_engine_parity
 	# JEG-1539: team.html and find.html engine parity (same pattern as values page).
 	python3 -m unittest tests.test_team_engine_parity
+	# JEG-1560: partners.html ranking, reasons and copy rules on the engine.
+	python3 -m unittest tests.test_partners_rank_parity
+	python3 -m unittest tests.test_find_chart_links
+	# JEG-1561: the Why panel (ddf-why.js) against finder.js, and its button on find.html.
+	python3 -m unittest tests.test_ddf_why
+	python3 -m unittest tests.test_league_card_pasted
 	python3 -m unittest tests.test_find_engine_parity
 	# JEG-1558: opportunity tiers and roster-improvement percent (node unit tests).
 	python3 -m unittest tests.test_ddf_opportunity
@@ -787,6 +793,8 @@ test-core:
 	python3 -m unittest tests.test_learn_engine_parity
 	# JEG-1538: entry pages at the root (paste -> recognition, setup -> live league store, link codec vectors, routes).
 	python3 -m unittest tests.test_entry_pages
+	# JEG-1564: bookmark prompts, titles, league names, roster date freshness bands, header chip fit.
+	python3 -m unittest tests.test_bookmark_freshness
 	python3 -m unittest tests.test_week_history
 	python3 -m unittest tests.test_asset_load_retry
 	python3 -m unittest tests.test_espn_listed_rows
@@ -919,6 +927,12 @@ test-core-shard-3:
 	python3 -m unittest tests.test_values_page_engine_parity
 	# JEG-1539: team.html and find.html engine parity (same pattern as values page).
 	python3 -m unittest tests.test_team_engine_parity
+	# JEG-1560: partners.html ranking, reasons and copy rules on the engine.
+	python3 -m unittest tests.test_partners_rank_parity
+	python3 -m unittest tests.test_find_chart_links
+	# JEG-1561: the Why panel (ddf-why.js) against finder.js, and its button on find.html.
+	python3 -m unittest tests.test_ddf_why
+	python3 -m unittest tests.test_league_card_pasted
 	python3 -m unittest tests.test_find_engine_parity
 	# JEG-1558: opportunity tiers and roster-improvement percent (node unit tests).
 	python3 -m unittest tests.test_ddf_opportunity
@@ -992,6 +1006,8 @@ test-core-shard-5:
 	python3 -m unittest tests.test_learn_engine_parity
 	# JEG-1538: entry pages at the root (paste -> recognition, setup -> live league store, link codec vectors, routes).
 	python3 -m unittest tests.test_entry_pages
+	# JEG-1564: bookmark prompts, titles, league names, roster date freshness bands, header chip fit.
+	python3 -m unittest tests.test_bookmark_freshness
 	python3 -m unittest tests.test_missing_section_render
 	python3 -m unittest tests.test_lineup_content_week_advance
 	python3 -m unittest tests.test_search_players_universe

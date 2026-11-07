@@ -434,3 +434,18 @@ header nav{flex-wrap:nowrap;min-width:0}
   header .morewrap>button{padding:8px 8px}
   header .ddf-bm-wrap{margin-right:0}
 }
+/* JEG-1564: roster freshness banner (DDF.leagueMeta), bookmark prompt action, one-bookmark option, chip age line */
+.ddf-fresh{display:flex;align-items:center;gap:10px 14px;flex-wrap:wrap;margin:0 0 16px;font-size:14px;line-height:1.45}
+.ddf-fresh-t{margin:0;flex:1 1 260px}
+.ddf-fresh-note{color:var(--muted)}
+.ddf-fresh-note .ddf-fresh-x{width:28px;height:28px}
+.ddf-fresh-prompt{background:#f3f5f2;border:1px solid #dbe0dc;border-radius:10px;padding:10px 12px}
+.ddf-fresh-stale{background:#fff7e6;border:1px solid #c9a227;border-radius:10px;padding:12px 14px;color:#3d3416}
+.ddf-fresh-go{font-weight:600;color:#176c4d;text-underline-offset:3px;white-space:nowrap}
+.ddf-fresh-x{background:none;border:0;padding:0;width:32px;height:32px;font-size:20px;line-height:1;color:inherit;cursor:pointer;flex:none}
+.ddf-bm-go{flex:none;background:#176c4d;color:#fff;border:0;border-radius:8px;padding:6px 12px;font-weight:600;cursor:pointer}
+.ddf-bm-ht{flex:1}
+.ddf-bm-keep{display:block;background:none;border:0;padding:6px 0 0;margin:0;color:#176c4d;font-weight:600;text-decoration:underline;text-underline-offset:3px;cursor:pointer;text-align:left;font-size:13.5px}
+.ddf-bm-keep[hidden],.ddf-bm-go[hidden]{display:none}
+.ddf-cm-age{font-size:13px;color:var(--muted);margin:2px 0 6px}
+.ddf-cm-age[hidden]{display:none}
