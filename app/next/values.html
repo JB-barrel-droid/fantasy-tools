@@ -1,5 +1,5 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="icon" href="data:,"><title>DDF · Values</title><link rel="stylesheet" href="styles.css"><style>@import url('https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
-.values-page{caret-color:#176c4d;scrollbar-color:#bec8c1 #f7f8f5}.values-page ::selection{background:#d7ecd9;color:#142b25}.values-page .values-context{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;color:#5c6a76;margin:20px 0 28px}.values-context strong{color:#12202c}.values-section{margin:0 0 36px;padding:24px;background:#fff;border:1px solid #dbe0dc;border-radius:14px}.values-section>.cluster{padding-bottom:24px;border-bottom:1px solid #dbe0dc;gap:14px}.values-section [role=toolbar]>label{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600}.values-page input[type=search]{max-width:145px;caret-color:#176c4d}.values-page input::placeholder{color:#5c6a76;opacity:1}.values-page input,.values-page select,.values-page button,.values-page summary{min-height:40px}.values-page button:hover,.values-page select:hover,.values-page summary:hover{border-color:#176c4d}.values-page :focus-visible{outline:3px solid #176c4d;outline-offset:3px}.values-more{margin-left:auto}.values-more .menu-panel{z-index:10;box-shadow:none;border-radius:12px}.values-page .values-more small{display:block;max-width:65ch}.values-page .values-legend-ddf,.values-page .values-legend-market,.values-page .values-legend-range{display:inline-flex;align-items:center;gap:7px;font-size:12px;color:#142b25}.values-legend-ddf:before{content:'';width:24px;border-top:4px solid #142b25}.values-legend-market:before{content:'';width:24px;border-top:2px dashed #5c6a76}.values-legend-range:before{content:'';height:15px;width:7px;background:#176c4d;opacity:.5}.values-page #chart{font-family:'IBM Plex Mono',monospace}.values-page .notice{max-width:75ch}.values-page .table-wrap{scrollbar-color:#bec8c1 #f7f8f5}.values-page .sitemap h2{font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.1em;color:#5c6a76;margin:0 0 10px}.values-footer{max-width:1200px;margin:0 auto;padding:18px 20px 28px}.values-page .sitemap .in{grid-template-columns:repeat(4,1fr)}
+.values-page{caret-color:#176c4d;scrollbar-color:#bec8c1 #f7f8f5}.values-page ::selection{background:#d7ecd9;color:#142b25}.values-page .values-context{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;color:#5c6a76;margin:20px 0 28px}.values-context strong{color:#12202c}.values-section{margin:0 0 36px;padding:24px;background:#fff;border:1px solid #dbe0dc;border-radius:14px}.values-section>.cluster{padding-bottom:24px;border-bottom:1px solid #dbe0dc;gap:14px}.values-section [role=toolbar]>label{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600}.values-page input[type=search]{max-width:145px;caret-color:#176c4d}.values-page input::placeholder{color:#5c6a76;opacity:1}.values-page input,.values-page select,.values-page button,.values-page summary{min-height:40px}.values-page button:hover,.values-page select:hover,.values-page summary:hover{border-color:#176c4d}.values-page :focus-visible{outline:3px solid #176c4d;outline-offset:3px}.values-more{margin-left:auto}.values-more .menu-panel{z-index:10;box-shadow:none;border-radius:12px}.values-page .values-more small{display:block;max-width:65ch}.values-page .values-legend-ddf,.values-page .values-legend-market,.values-page .values-legend-range{display:inline-flex;align-items:center;gap:7px;font-size:12px;color:#142b25}.values-legend-ddf:before{content:'';width:24px;border-top:4px solid #142b25}.values-legend-market:before{content:'';width:24px;border-top:2px dashed #5c6a76}.values-legend-range:before{content:'';height:15px;width:7px;background:#176c4d;opacity:.5}.values-page #vchart{font-family:'IBM Plex Mono',monospace}.values-page .notice{max-width:75ch}.values-page .table-wrap{scrollbar-color:#bec8c1 #f7f8f5}.values-page .sitemap h2{font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.1em;color:#5c6a76;margin:0 0 10px}.values-footer{max-width:1200px;margin:0 auto;padding:18px 20px 28px}.values-page .sitemap .in{grid-template-columns:repeat(4,1fr)}
 
 @media(max-width:760px){.values-section{padding:18px 14px}.values-more{margin-left:0}.values-page .sitemap .in{grid-template-columns:repeat(2,1fr)}.values-page .values-context{margin-bottom:22px}.values-section>.cluster{gap:12px}.values-page .values-more .menu-panel{left:0;right:auto;max-width:calc(100vw - 60px)}}
 </style><script src="site.js" defer></script><style>
@@ -244,11 +244,26 @@
  .dual input[type=range]::-webkit-slider-thumb{width:26px;height:26px}
  .values-risers button{min-height:44px;min-width:60px}
 }
+
+/* JEG-1535 live values: league settings, more sources, load error, risers prior -> now */
+.vset{border:0;margin:0 0 12px;padding:0}.vset legend{font-weight:700;padding:0;margin-bottom:4px}
+.vset-note{margin:0 0 8px;font-size:13px;color:#59666f}
+.vset-row{display:flex;align-items:center;gap:8px;margin:6px 0}.vset-row label{min-width:70px}
+.vset-row select{min-height:36px}
+.vset-slots{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
+.vset-slot{display:flex;flex-direction:column;font-size:12px;gap:2px}.vset-slot input{width:56px;min-height:36px}
+.vset-status{font-size:13px;color:#176c4d;min-height:1em;margin:4px 0 0}
+.vmore-src{display:inline-block}.vmore-src summary{cursor:pointer;text-decoration:underline}
+.vmore-list{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:6px}
+.values-error{background:#fff0e8;border:1px solid #a83e12;color:#a83e12;border-radius:8px;padding:10px 12px;margin:8px 0}
+.vr-was{font-size:13px;color:#59666f;white-space:nowrap}
+.vr-none{color:#59666f;font-size:14px;list-style:none}
+@media (max-width:760px){.vset-slot input,.vset-row select{min-height:44px}}
 </style>
-<h1>Values</h1><div class="screen-tabs" role="tablist" aria-label="Values views"><button type="button" role="tab" id="tab-chart" data-tab="chart" aria-controls="panel-chart" aria-selected="true">Chart</button><button type="button" role="tab" id="tab-bs" data-tab="buy-sell" aria-controls="panel-bs" aria-selected="false" tabindex="-1">Buy / Sell</button><button type="button" role="tab" id="tab-ov" data-tab="overrides" aria-controls="panel-ov" aria-selected="false" tabindex="-1">Overrides<span class="ov-tabn" id="ov-tabn" hidden></span></button></div><div class="vctx"><div class="vchips" aria-label="Snapshot context"><span class="vchip vchip-hist">HISTORICAL · OCT 29 2026</span><span class="vchip">Half PPR</span><span class="vchip">12 teams</span><span class="vchip" data-for="chart">Modeled depth</span><span class="vchip" data-for="buy-sell" hidden title="Charts = the average of the four charts (three analyst charts and the live market) that list the player; the badge says how many went in">Charts = average of the charts listed (n/4)</span><span class="vchip" data-for="overrides" hidden>Applied after DDF’s numbers</span><span class="vchip" id="vchip-ctx" hidden></span></div><details class="menu values-more"><summary>Customize</summary><div class="menu-panel"><p>These options change the Chart tab.</p><details class="values-adv" id="vaw-adv"><summary>Advanced</summary><div class="vaw-body"><div class="vaw-row"><label><input type="checkbox" id="vaw-on" aria-describedby="vaw-note"> Value above waivers</label><details class="vinfo"><summary aria-label="About Value above waivers">ⓘ</summary><span role="note">How much better a player is than the best one you could pick up for free at his position, counting all his points. DDF Value starts from this and adjusts it for where he ranks in your league: players good enough to start at their position, given roster sizes and team count, are valued at starter level, and players expected to sit on benches at bench level. <a href="learn.html#numbers/glossary/value-above-waivers">Value above waivers in the glossary</a></span></details></div><label class="vaw-sub"><input type="checkbox" id="vaw-chart" disabled aria-describedby="vaw-note"> Plot it on the chart</label><small id="vaw-note"></small></div></details></div></details></div><div role="tabpanel" id="panel-chart" aria-labelledby="tab-chart"><p class="muted vintro">Explore DDF fantasy trade values by player rank, with comparable sources and historical context.</p><section class="values-section"><div class="cluster" role="toolbar" aria-label="Values controls"><input id="search" type="search" placeholder="Search players…" aria-label="Search players"><select id="position" aria-label="Position"><option>All positions</option><option>QB</option><option>RB</option><option>WR</option><option>TE</option></select><label>Rank by: <select id="rank"><option value="ddf">DDF Value</option><option value="cbs">CBS Sports · indexed</option></select></label></div><div class="series"><strong>Sources (series):</strong><label><input type="checkbox" id="ddf" checked> DDF Value</label><label title="CBS Sports: an analyst trade chart"><input type="checkbox" id="cbs" checked> CBS Sports (analyst chart) · indexed</label><label title="FantasyCalc: live market activity, what people actually pay in trades"><input type="checkbox" id="fantasycalc"> Live market (FantasyCalc) · indexed</label><span class="vaw-legend" id="vaw-legend" hidden><svg width="26" height="10" aria-hidden="true"><path d="M1 5H25" stroke="#7a4fa8" stroke-width="3" stroke-dasharray="9 3 2 3"/></svg> Value above waivers</span><span>★ Roster players</span></div><div class="chart-layout"><div class="value-range"><span class="range-title">Value</span><input class="numeric-thumb" id="max-value" type="number" value="100.0" step="0.1" aria-label="Maximum value"><div class="dual dual-v"><input id="value-high" type="range" min="0" max="100" step="0.1" value="100" aria-label="Upper value range"><input id="value-low" type="range" min="0" max="100" step="0.1" value="0" aria-label="Lower value range"></div><input class="numeric-thumb" id="min-value" type="number" value="0.0" step="0.1" aria-label="Minimum value"></div><div class="chart-box"><svg id="chart" aria-describedby="chart-summary" viewBox="0 0 960 370" role="group" aria-label="DDF Value and CBS indexed by player rank. Use arrow keys to move between players and Enter for details." style="display:block;width:100%;touch-action:none"></svg><p id="chart-summary" class="vsr"></p></div></div><div class="rank-controls"><span class="range-title">Rank range</span><input id="low-number" class="numeric-thumb" type="number" min="1" max="25" value="1" aria-label="First rank"><div class="dual dual-h"><input id="low" type="range" min="1" max="25" value="1" aria-label="First rank slider"><input id="high" type="range" min="1" max="25" value="25" aria-label="Last rank slider"></div><input id="high-number" class="numeric-thumb" type="number" min="1" max="25" value="25" aria-label="Last rank"></div><div class="count-row"><span class="range-title" id="player-count-label">Player count:</span><div class="segmented" role="radiogroup" aria-labelledby="player-count-label"><button type="button" role="radio" aria-checked="true" data-count="25">25</button><button type="button" role="radio" aria-checked="false" data-count="50">50</button><button type="button" role="radio" aria-checked="false" data-count="100">100</button><button type="button" role="radio" aria-checked="false" data-count="All">All</button></div><input type="hidden" id="player-count" value="25"><button id="reset" type="button" class="link-button">↺ Reset zoom</button><span id="count" class="count-note" role="status">25 of 25 in view</span><span class="hint-i" tabindex="0" role="note" aria-label="Drag the chart to zoom. Hover or tap a player for details. Tap a number to type." data-tip="Drag the chart to zoom · Hover or tap a player for details · Tap a number to type">ⓘ</span></div><div class="table-wrap"><table><thead id="head"></thead><tbody id="rows"></tbody></table></div><p><a class="btn primary vcta" href="#buy-sell">See where the trade charts are wrong →</a></p></section><section class="values-risers" aria-labelledby="risers-h"><h2 id="risers-h">Risers and fallers</h2><p>Biggest changes in DDF value since the previous week in this snapshot. Inspect a player to find them on the chart.</p><div class="vr-grid"><div><h3>Biggest risers</h3><ul id="risers"></ul></div><div><h3>Biggest fallers</h3><ul id="fallers"></ul></div></div></section><details class="methodology"><summary>ⓘ Sources &amp; methodology — Compare source definitions, normalization and depth assumptions.</summary><p>CBS Sports is an <a href="learn.html#numbers/glossary/analyst-charts">analyst chart</a> (analysts' published trade values). FantasyCalc is the <a href="learn.html#numbers/glossary/live-market">live market</a>: live market activity, what people actually pay in trades. Both series are <a href="learn.html#numbers/glossary/indexed">indexed</a> for comparison with <a href="learn.html#numbers/glossary/ddf-value">DDF Value</a>. Indexed values differ from each chart's published numbers. Historical values use Half PPR, 12 teams and modeled depth.</p><p>On Buy / Sell, the Charts value averages the charts that list the player, with a count out of four next to it: 3/4 rows use the three analyst charts (CBS Sports, FantasyPros and USA Today), 2/4 rows the CBS Sports and FantasyCalc indexed values. In the player card, the gap is DDF Value minus the average of the CBS and FantasyCalc indexed values.</p></details></div><div role="tabpanel" id="panel-bs" aria-labelledby="tab-bs" tabindex="0" hidden>
+<h1>Values</h1><div class="screen-tabs" role="tablist" aria-label="Values views"><button type="button" role="tab" id="tab-chart" data-tab="chart" aria-controls="panel-chart" aria-selected="true">Chart</button><button type="button" role="tab" id="tab-bs" data-tab="buy-sell" aria-controls="panel-bs" aria-selected="false" tabindex="-1">Buy / Sell</button><button type="button" role="tab" id="tab-ov" data-tab="overrides" aria-controls="panel-ov" aria-selected="false" tabindex="-1">Overrides<span class="ov-tabn" id="ov-tabn" hidden></span></button></div><div class="vctx"><div class="vchips" aria-label="Values context"><span class="vchip vchip-hist" id="vchip-week">Loading values</span><span class="vchip" id="vchip-scoring" hidden></span><span class="vchip" id="vchip-teams" hidden></span><span class="vchip" id="vchip-sf" hidden>Superflex</span><span class="vchip" data-for="chart">Modeled depth</span><span class="vchip" data-for="buy-sell" hidden title="Charts = the average of the four charts (three analyst charts and the live market) that list the player; the badge says how many went in">Charts = average of the charts listed (n/4)</span><span class="vchip" data-for="overrides" hidden>Applied after DDF’s numbers</span><span class="vchip" id="vchip-ctx" hidden></span></div><details class="menu values-more"><summary>Customize</summary><div class="menu-panel"><fieldset class="vset" id="vset"><legend>Your league settings</legend><p class="vset-note">They change every number on this page and on the rest of the site, and are kept in this browser.</p><div class="vset-row"><label for="set-scoring">Scoring</label><select id="set-scoring"><option value="standard">Standard</option><option value="half_ppr">Half PPR</option><option value="ppr">Full PPR</option></select></div><div class="vset-row"><label for="set-teams">Teams</label><select id="set-teams"><option>8</option><option>10</option><option>12</option><option>14</option></select></div><div class="vset-row"><label><input type="checkbox" id="set-sf"> Superflex</label></div><div class="vset-slots" id="set-slots"></div><p class="vset-status" id="set-status" role="status"></p></fieldset><details class="values-adv" id="vaw-adv"><summary>Advanced</summary><div class="vaw-body"><div class="vaw-row"><label><input type="checkbox" id="vaw-on" aria-describedby="vaw-note"> Value above waivers</label><details class="vinfo"><summary aria-label="About Value above waivers">ⓘ</summary><span role="note">How much better a player is than the best one you could pick up for free at his position, counting all his points. DDF Value starts from this and adjusts it for where he ranks in your league: players good enough to start at their position, given roster sizes and team count, are valued at starter level, and players expected to sit on benches at bench level. <a href="learn.html#numbers/glossary/value-above-waivers">Value above waivers in the glossary</a></span></details></div><label class="vaw-sub"><input type="checkbox" id="vaw-chart" disabled aria-describedby="vaw-note"> Plot it on the chart</label><small id="vaw-note"></small></div></details></div></details></div><div role="tabpanel" id="panel-chart" aria-labelledby="tab-chart"><p class="muted vintro">Explore DDF fantasy trade values by player rank, with comparable sources and historical context.</p><section class="values-section"><div class="cluster" role="toolbar" aria-label="Values controls"><input id="search" type="search" placeholder="Search players…" aria-label="Search players"><select id="position" aria-label="Position"><option>All positions</option><option>QB</option><option>RB</option><option>WR</option><option>TE</option></select><label>Rank by: <select id="rank"><option value="ddf">DDF Value</option><option value="cbs">CBS Sports · indexed</option></select></label></div><div class="series"><strong>Sources (series):</strong><label><input type="checkbox" id="ddf" checked> DDF Value</label><label title="CBS Sports: an analyst trade chart"><input type="checkbox" id="cbs" checked> CBS Sports (analyst chart) · indexed</label><label title="FantasyCalc: live market activity, what people actually pay in trades"><input type="checkbox" id="fantasycalc"> Live market (FantasyCalc) · indexed</label><span class="vaw-legend" id="vaw-legend" hidden><svg width="26" height="10" aria-hidden="true"><path d="M1 5H25" stroke="#7a4fa8" stroke-width="3" stroke-dasharray="9 3 2 3"/></svg> Value above waivers</span><span id="star-legend" hidden>★ Your players</span><details class="vmore-src"><summary>More sources</summary><span class="vmore-list"><label><input type="checkbox" id="src-usat"> USA Today (analyst chart) · indexed</label><label><input type="checkbox" id="src-fp"> FantasyPros (analyst chart) · indexed</label><label><input type="checkbox" id="src-espn"> ESPN projections · adjusted</label><label><input type="checkbox" id="src-cbsros"> CBS rest of season projections · adjusted</label><label><input type="checkbox" id="src-razzball"> Razzball projections · adjusted</label></span></details></div><div class="chart-layout"><div class="value-range"><span class="range-title">Value</span><input class="numeric-thumb" id="max-value" type="number" value="100.0" step="0.1" aria-label="Maximum value"><div class="dual dual-v"><input id="value-high" type="range" min="0" max="100" step="0.1" value="100" aria-label="Upper value range"><input id="value-low" type="range" min="0" max="100" step="0.1" value="0" aria-label="Lower value range"></div><input class="numeric-thumb" id="min-value" type="number" value="0.0" step="0.1" aria-label="Minimum value"></div><div class="chart-box"><svg id="vchart" aria-describedby="chart-summary" viewBox="0 0 960 370" role="group" aria-label="DDF Value and CBS indexed by player rank. Use arrow keys to move between players and Enter for details." style="display:block;width:100%;touch-action:none"></svg><p class="values-error" id="values-error" role="alert" hidden>The values could not load. Reload the page to try again.</p><p id="chart-summary" class="vsr"></p></div></div><div class="rank-controls"><span class="range-title">Rank range</span><input id="low-number" class="numeric-thumb" type="number" min="1" max="25" value="1" aria-label="First rank"><div class="dual dual-h"><input id="low" type="range" min="1" max="25" value="1" aria-label="First rank slider"><input id="high" type="range" min="1" max="25" value="25" aria-label="Last rank slider"></div><input id="high-number" class="numeric-thumb" type="number" min="1" max="25" value="25" aria-label="Last rank"></div><div class="count-row"><span class="range-title" id="player-count-label">Player count:</span><div class="segmented" role="radiogroup" aria-labelledby="player-count-label"><button type="button" role="radio" aria-checked="true" data-count="25">25</button><button type="button" role="radio" aria-checked="false" data-count="50">50</button><button type="button" role="radio" aria-checked="false" data-count="100">100</button><button type="button" role="radio" aria-checked="false" data-count="All">All</button></div><input type="hidden" id="player-count" value="25"><button id="reset" type="button" class="link-button">↺ Reset zoom</button><span id="count" class="count-note" role="status">Loading values…</span><span class="hint-i" tabindex="0" role="note" aria-label="Drag the chart to zoom. Hover or tap a player for details. Tap a number to type." data-tip="Drag the chart to zoom · Hover or tap a player for details · Tap a number to type">ⓘ</span></div><div class="table-wrap"><table><thead id="head"></thead><tbody id="rows"></tbody></table></div><p><a class="btn primary vcta" href="#buy-sell">See where the trade charts are wrong →</a></p></section><section class="values-risers" aria-labelledby="risers-h"><h2 id="risers-h">Risers and fallers</h2><p>Biggest changes in DDF Value since last week<span id="risers-wk"></span>, at your league settings. Inspect a player to find them on the chart.</p><div class="vr-grid"><div><h3>Biggest risers</h3><ul id="risers"></ul></div><div><h3>Biggest fallers</h3><ul id="fallers"></ul></div></div></section><details class="methodology"><summary>ⓘ Sources &amp; methodology — Compare source definitions, normalization and depth assumptions.</summary><p>CBS Sports is an <a href="learn.html#numbers/glossary/analyst-charts">analyst chart</a> (analysts' published trade values). FantasyCalc is the <a href="learn.html#numbers/glossary/live-market">live market</a>: live market activity, what people actually pay in trades. Both series are <a href="learn.html#numbers/glossary/indexed">indexed</a> for comparison with <a href="learn.html#numbers/glossary/ddf-value">DDF Value</a>. Indexed values differ from each chart's published numbers. <a href="learn.html#numbers/glossary/ddf-value">DDF Value</a> is the average of the four trade charts' adjusted values (CBS Sports, USA Today, FantasyPros and FantasyCalc) at your league settings. A source that does not list a player shows —, never 0.</p><p>On Buy / Sell, the Charts value averages the charts that list the player, with a count out of four next to it (4/4 means all four charts list him). Values a chart does not publish are left out, not estimated. In the player card, the gap is DDF Value minus the average of the CBS and FantasyCalc indexed values.</p></details></div><div role="tabpanel" id="panel-bs" aria-labelledby="tab-bs" tabindex="0" hidden>
 <h2 class="bs-h" id="bs-h">Where the trade charts are wrong this week</h2>
 <p class="bs-sub">Gap between DDF Value and the trade charts. Natural fit checks both teams' starters and roster limits, not acceptance odds.</p>
-<div class="bs-def"><span>Charts: average of the charts that list the player (3/4 = three of four)</span><details class="vinfo bs-info"><summary aria-label="About the Charts number">ⓘ</summary><span role="note">Charts is the average of the analyst charts (CBS Sports, USA Today, FantasyPros) and the live market (FantasyCalc) that list the player. The badge counts how many of those four went into the number, so 4/4 means all of them. In this example, 3/4 is the three analyst charts and 2/4 is CBS Sports and FantasyCalc. <a href="learn.html#numbers/glossary/analyst-charts">Analyst charts</a> · <a href="learn.html#numbers/glossary/live-market">Live market</a></span></details></div>
+<div class="bs-def"><span>Charts: average of the charts that list the player (3/4 = three of four)</span><details class="vinfo bs-info"><summary aria-label="About the Charts number">ⓘ</summary><span role="note">Charts is the average of the analyst charts (CBS Sports, USA Today, FantasyPros) and the live market (FantasyCalc) that list the player. The badge counts how many of those four went into the number, so 4/4 means all of them. <a href="learn.html#numbers/glossary/analyst-charts">Analyst charts</a> · <a href="learn.html#numbers/glossary/live-market">Live market</a></span></details></div>
 <p class="bs-hlnote" id="bs-hlnote" role="status" hidden></p>
 <div class="bs-nolg" id="bs-nolg" hidden><p>Add your league to see which of your players to sell.</p><a class="btn primary" href="connect.html">Add your league</a></div>
 <div class="bs-two">
@@ -262,7 +277,7 @@
 <section class="bs-box" id="bs-fit"></section>
 <div class="bs-act"><a class="btn primary" id="bs-open" href="build.html">Open in Build a Trade →</a></div>
 </section>
-<p class="bs-fine">Charts = the average of the analyst charts (CBS Sports, USA Today, FantasyPros) and the live market (FantasyCalc) that list the player; the badge next to it (for example 3/4) counts the charts that went in. In this example data, 3/4 rows use the three analyst charts and 2/4 rows use CBS Sports and FantasyCalc indexed. Values at or below zero are never targets.</p>
+<p class="bs-fine">Charts = the average of the analyst charts (CBS Sports, USA Today, FantasyPros) and the live market (FantasyCalc) that list the player; the badge next to it (for example 3/4) counts the charts that went in. Values at or below zero are never targets.</p>
 </div><div role="tabpanel" id="panel-ov" aria-labelledby="tab-ov" tabindex="0" hidden>
 <h2 class="bs-h" id="ov-h">Change a player’s value and see what follows</h2>
 <p class="bs-sub">Think a player is worth more or less? Set your own value. It replaces DDF Value on every tab, applied after DDF’s numbers are computed, and this page shows what it changes.</p>
@@ -292,7 +307,7 @@
 </div>
 <section class="bs-card ov-what" aria-labelledby="ov-what-h">
 <h3 id="ov-what-h">What changes</h3>
-<p class="bs-note">Recomputed from the example data on this page, the example recommendations on Trade &amp; Waiver Recommendations and the example Stevenson → Love trade in Build a Trade. Chart values do not change: overrides replace DDF Value only.</p>
+<p class="bs-note">What your overrides move on this page: ranks by DDF Value and the Buy / Sell lists. Trade &amp; Waiver Recommendations and Build a Trade use the same values. The trade charts do not change: overrides replace DDF Value only.</p>
 <p class="vsr" id="ov-live" role="status" aria-live="polite"></p>
 <div id="ov-what"></div>
 </section>
@@ -370,540 +385,12 @@ ALWAYS
 4) THEN, if I stay: team assessment, pick players, pick trading partners (waivers are never a partner), Trade & Waiver Recommendations, build a trade (any players, or with my league) (original numbers, winner per source, several message styles, open slightly worse than you would accept). Name sources "Analyst charts" (CBS Sports, USA Today, FantasyPros average) and "Live market" (FantasyCalc: what people actually pay in trades), never plain "market". Say "available players", never invent values, cite Data Driven Football, and end every league answer with the make_state link. If I paste a ddf-state block or site link, call read_state first.
 </script>
 </section><div id="values-card" class="values-card" role="dialog" aria-label="Player details" tabindex="-1" hidden></div></main>
-<footer class="sitemap"><div class="in"><div><h2>TRADE</h2><a href="index.html">Home</a><a href="build.html">Build a Trade</a><a href="find.html">Trade &amp; Waiver Recommendations</a><a href="waivers.html">Waivers</a></div><div><h2>VALUES</h2><a href="values.html">Values</a><a href="values.html#buy-sell">Buy / Sell</a><a href="values.html#overrides">Overrides</a></div><div><h2>YOUR LEAGUE</h2><a href="connect.html">Paste my league</a><a href="setup.html">Your team</a><a href="settings.html">League settings</a><a href="team.html">Team assessment</a><a href="explore.html">Pick players</a><a href="partners.html">Pick trading partners</a></div><div><h2>LEARN</h2><a href="learn.html">Learn</a><a href="learn.html#numbers/pie">How we get our numbers</a><a href="ai.html">Use DDF with AI</a></div></div><div class="footer">Data Driven Football</div></footer><script>document.addEventListener('click',()=>{queueMicrotask(()=>{const w=document.querySelector('.morewrap');w.querySelector('button').setAttribute('aria-expanded',String(w.classList.contains('open')));});});document.addEventListener('keydown',e=>{if(e.key==='Escape'){const w=document.querySelector('.morewrap');if(w.classList.contains('open')){w.classList.remove('open');w.querySelector('button').setAttribute('aria-expanded','false');w.querySelector('button').focus();}document.querySelector('.values-more').open=false;}});</script><script>(()=>{
-const $=id=>document.getElementById(id);
-const AV='Available';
-const D=[['Jahmyr Gibbs','RB','Your team',96.66,79.6,77.4,1.2,1],['Kenneth Walker III','RB','Team 02',86.4,78.1,75.0,-0.8],['Bijan Robinson','RB','Team 04',86.3,77.1,74.6,0.4],['Jaxon Smith-Njigba','WR','Your team',79.04,74.5,72.1,-1.5,1],["Ja'Marr Chase",'WR','Team 05',74.6,71.7,69.2,2.1],['Puka Nacua','WR','Team 06',71.2,69.6,67.1,3.4],['James Cook','RB','Team 03',68.96,68.2,66.5,-2.2],['Amon-Ra St. Brown','WR','Team 03',62.42,64.5,63.3,0.9],['Justin Jefferson','WR','Team 09',58.0,62.5,60.0,-3.1],['Saquon Barkley','RB','Team 10',55.0,61.1,58.6,-1.8],['Ashton Jeanty','RB','Team 11',50.0,58.9,56.4,2.7],['Brock Bowers','TE','Team 12',44.0,56.1,53.6,1.6],['Josh Allen','QB','Your team',41.53,55.0,52.4,-2.4,1],['Trey McBride','TE','Your team',36.93,48.5,45.1,0.5,1],['Breece Hall','RB','Team 03',29.94,41.7,38.4,1.1],['George Pickens','WR','Your team',28.81,40.2,37.9,-0.6,1],['Jonathan Taylor','RB','Team 06',26.0,37.1,34.6,-1.3],['Jeremiyah Love','RB','Team 03',22.72,33.5,31.0,3.0],['Rhamondre Stevenson','RB','Your team',21.22,31.8,29.4,-0.9,1],['Joe Burrow','QB','Team 03',17.37,30.2,28.0,0.7],['Stefon Diggs','WR','Your team',12.75,24.4,21.6,-1.1,1],['Rachaad White','RB','Your team',7.24,18.3,15.9,0.4,1],['Antonio Williams','WR','Your team',2.58,12.5,10.1,0.8,1],['Brian Robinson','RB','Team 03',1.32,8.2,6.4,-0.3],['Keaton Mitchell','RB','Your team',0.55,5.0,4.2,0.2,1]].map(a=>({n:a[0],pos:a[1],team:a[2],ddf:a[3],cbs:a[4],fc:a[5],chg:a[6],star:!!a[7]}));
-D.forEach(p=>p.hist=[p.ddf-p.chg*.5,p.ddf-p.chg*1.3,p.ddf-p.chg,p.ddf]);
-/* p.base = DDF Value from the pipeline; p.ddf = the value every tab uses (your override when set, applied after the pipeline). */
-D.forEach(p=>{p.base=p.ddf;p.ov=false});
-function applyOverrides(){let o={};try{o=window.DDF&&DDF.overrides?DDF.overrides.get():{}}catch(_){}D.forEach(p=>{const v=o[p.n];p.ov=typeof v==='number'&&isFinite(v);p.ddf=p.ov?v:p.base})}
-/* Value above waivers = VORP before DDF's starter/bench weighting: per trade chart max(0, native - waiver line) x pie / surplusTotal,
-   averaged over the four charts (as DDF Value averages their adjusted values). Numbers come from a local engine run saved in
-   learn/data/vaw-week9.json (settings and capture in the file); never derived from DDF Value. A player missing from it shows n/a.
-   Overrides change DDF Value only, not this. */
-const VAW_URL='learn/data/vaw-week9.json';
-let VAW={},vawState='loading';
-const NAMES={ddf:'DDF',cbs:'CBS (indexed)',fc:'Live market (FantasyCalc, indexed)',vaw:'Value above waivers'};
-const vawOf=p=>typeof VAW[p.n]==='number'?VAW[p.n]:null;
-const vawTxt=p=>{const v=vawOf(p);return v===null?'n/a':v.toFixed(1)};
-const pv=(p,k)=>k==='vaw'?vawOf(p):p[k];
-const val=(p,k)=>{if(k==='vaw'){const v=vawOf(p);return v===null?-1e9:v}return k==='dcbs'?p.ddf-p.cbs:p[k]};
-const gapOf=p=>p.ddf-(p.cbs+p.fc)/2;
-const dCbs=p=>p.ddf-p.cbs;
-const sg=v=>(v>=0?'+':'−')+Math.abs(v).toFixed(1);
-const vpAttr=s=>String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
-const vpLeague=()=>{const v=window.DDFValues;return !!(v&&v.bs&&v.bs.isLeague&&v.bs.isLeague())};
-function vpActs(p,cls){const n=vpAttr(p.n);return `<span class="vp-acts ${cls||''}"><button type="button" class="vp-act" data-act="own" data-n="${n}" aria-label="Set your own value for ${n}">Set your own value</button>${vpLeague()?`<button type="button" class="vp-act" data-act="bs" data-n="${n}" aria-label="Buy / Sell view for ${n}">Buy / Sell view</button>`:''}</span>`}
-let firstDraw=true,quiet=false,sortKey='ddf',shown=[],geo=[],hl=null,pinned=null,cardIdx=null,anchorEl=null,hideT=null,focusIdx=0,W=960;
-const H=370;
-function rankKey(){return $('rank').value}
-function render(){
- const lo=+$('low').value,hi=+$('high').value;let min=+$('min-value').value,max=+$('max-value').value;
- if(max<=min){max=min+1;$('max-value').value=max.toFixed(1)}
- $('low-number').value=lo;$('high-number').value=hi;
- const rk=rankKey(),q=$('search').value.toLowerCase(),ps=$('position').value;
- shown=D.filter(p=>p.n.toLowerCase().includes(q)&&(ps==='All positions'||p.pos===ps)).sort((a,b)=>val(b,rk)-val(a,rk)).map((p,i)=>({p,rank:i+1})).filter(o=>o.rank>=lo&&o.rank<=hi);
- const n=shown.length,box=$('chart').parentElement.clientWidth||960;W=box<600?420:960;const narrow=W<960,fs=narrow?19:12.5,L=narrow?76:95,R=W-(narrow?24:45);
- $('chart').setAttribute('viewBox','0 0 '+W+' '+H);
- const x=i=>n<2?(L+R)/2:L+i*(R-L)/(n-1),y=v=>300-(v-min)*270/(max-min);
- const series=[['ddf','#176c4d',''],['cbs','#e07832','8 6'],['fantasycalc','#4a5fc1','2 5']].filter(s=>$(s[0]).checked).map(s=>[s[0]==='fantasycalc'?'fc':s[0],s[1],s[2]]);
- if($('vaw-on').checked&&$('vaw-chart').checked)series.push(['vaw','#7a4fa8','9 3 2 3']);
- const prim=series.length?series[0][0]:'ddf';
- let svg='<defs><clipPath id="plot"><rect x="'+(L-40)+'" y="0" width="'+(W-L+40)+'" height="312"/></clipPath></defs>';
- const step=(max-min)<=40?5:(max-min)<=100?10:25;
- for(let v=Math.ceil(min/step)*step;v<=max+1e-9;v+=step)svg+=`<path d="M${L-20} ${y(v)}H${W-10}" stroke="#dbe0dc"/><text x="${L-26}" y="${y(v)+4}" text-anchor="end" font-size="${fs}">${+v.toFixed(1)}</text>`;
- svg+=`<path d="M${L-20} 300H${W-10}" stroke="#142b25"/><text transform="translate(${narrow?9:16} 165) rotate(-90)" text-anchor="middle" font-size="${fs+1}" font-family="Archivo,sans-serif" font-weight="600" fill="#142b25">Value</text><text x="${(L+R)/2}" y="362" text-anchor="middle" font-size="${fs+1}" font-family="Archivo,sans-serif" font-weight="600" fill="#142b25">Player rank</text>`;
- const few=n<=6,anchor=i=>n<2?'middle':i===0?'start':i===n-1?'end':'middle',dx=i=>anchor(i)==='start'?-8:anchor(i)==='end'?8:0;
- const label=p=>narrow?p.n.split(' ').slice(-1)[0].replace('III',p.n.split(' ')[1]):p.n;
- const r=n>12?3.5:5;
- svg+='<g clip-path="url(#plot)">';
- series.forEach(([k,color,dash])=>{
-  if(n>1){let pen=false;const d=shown.map((o,i)=>{const v=pv(o.p,k);if(v===null){pen=false;return ''}const c=(pen?'L':'M')+x(i)+' '+y(v);pen=true;return c}).filter(Boolean).join(' ');if(d)svg+=`<path class="${dash?'vline-d':'vline'}" pathLength="1" d="${d}" fill="none" stroke="${color}" stroke-width="3" stroke-dasharray="${dash}"/>`}
-  shown.forEach((o,i)=>{const v=pv(o.p,k);if(v!==null)svg+=`<circle class="vdot" style="--i:${i}" cx="${x(i)}" cy="${y(v)}" r="${r}" fill="${color}"/>`});
-  if(k==='ddf'){const placed=[];
-   const others=series.filter(q=>q[0]!=='ddf').map(q=>q[0]);
-   const segs=[];series.forEach(([kk])=>{for(let i=0;i<n-1;i++){const a=pv(shown[i].p,kk),b=pv(shown[i+1].p,kk);if(a!==null&&b!==null)segs.push([x(i),y(a),x(i+1),y(b)])}});
-   const hitsLine=(l,t,rr,bb)=>segs.some(([x1,y1,x2,y2])=>{for(let q=0;q<=14;q++){const px=x1+(x2-x1)*q/14,py=y1+(y2-y1)*q/14;if(px>l-3&&px<rr+3&&py>t-3&&py<bb+3)return true}return false});
-   shown.map((o,i)=>({o,i,pri:o.p.n===hl?0:few?1:(o.p.star&&(o.p.ddf>=30||n<=12))?2:9})).filter(c=>c.pri<9).sort((a,b)=>a.pri-b.pri||b.o.p.ddf-a.o.p.ddf).forEach(({o,i,pri})=>{
-    const t=(o.p.star?'★ ':'')+label(o.p)+' '+o.p.ddf.toFixed(1),w=t.length*fs*.62,px=x(i),py=y(o.p.ddf);
-    const otherAbove=others.length&&others.some(kk=>pv(o.p,kk)!==null&&pv(o.p,kk)>o.p.ddf);
-    const below=py+fs+9,above=py-9;
-    const cand={ur:[px+9,above],ul:[px-9-w,above],lr:[px+9,below],ll:[px-9-w,below]};
-    const order=otherAbove?['ll','lr','ul','ur']:['ur','ul','lr','ll'];
-    let pick=null;
-    for(const c of order){const [l,yy]=cand[c];if(l<L-18||l+w>W-6||yy<fs||yy>296)continue;if(hitsLine(l,yy-fs+2,l+w,yy+3))continue;if(placed.some(q=>l<q.r+4&&l+w>q.l-4&&Math.abs(yy-q.y)<fs+3))continue;pick=[l,yy];break}
-    if(!pick){if(pri>0)return;pick=cand[order[0]];pick=[Math.max(L-18,Math.min(pick[0],W-6-w)),pick[1]]}
-    placed.push({l:pick[0],r:pick[0]+w,y:pick[1]});
-    svg+=`<text x="${pick[0]}" y="${pick[1]}" text-anchor="start" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round" font-size="${fs}" font-weight="700" fill="#176c4d">${t}</text>`})}
-  else if(few)shown.forEach((o,i)=>{const v=pv(o.p,k);if(v!==null)svg+=`<text x="${x(i)}" y="${y(v)+22}" text-anchor="middle" font-size="${fs}" fill="#12202c">${v.toFixed(1)}</text>`});
-  if(k==='ddf')shown.forEach((o,i)=>{if(!o.p.ov)return;const px=x(i),py=y(o.p.ddf),pb=y(o.p.base),s=narrow?11:8;
-   svg+=`<g class="vovr" aria-hidden="true"><path d="M${px} ${pb}V${py}" stroke="#a83e12" stroke-width="1.5" stroke-dasharray="3 3"/><circle cx="${px}" cy="${pb}" r="${r+1}" fill="#fff" stroke="#a83e12" stroke-width="1.5"/><path d="M${px} ${py-s}L${px+s} ${py}L${px} ${py+s}L${px-s} ${py}Z" fill="#a83e12" stroke="#fff" stroke-width="2"/><text x="${px+s+4}" y="${py+(pb<py?fs+6:-s-2)}" font-size="${fs}" font-family="Archivo,sans-serif" font-weight="700" fill="#a83e12" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">Override</text></g>`});
- });
- if(!few&&!series.some(s=>s[0]==='ddf')){shown.forEach((o,i)=>{if(o.p.n===hl)svg+=`<text x="${x(i)+dx(i)}" y="${y(pv(o.p,prim)||0)-16}" text-anchor="${anchor(i)}" paint-order="stroke" stroke="#fff" stroke-width="4" font-size="${fs}" font-weight="700" fill="#142b25">${label(o.p)}</text>`})}
- shown.forEach((o,i)=>{if(o.p.n===hl)svg+=`<circle cx="${x(i)}" cy="${y(pv(o.p,prim)||0)}" r="11" fill="none" stroke="#e96528" stroke-width="3"/>`});
- if(focusIdx>=n)focusIdx=Math.max(0,n-1);
- geo=shown.map((o,i)=>({i,x:x(i),ys:series.filter(s=>pv(o.p,s[0])!==null).map(s=>y(pv(o.p,s[0])))}));
- shown.forEach((o,i)=>svg+=`<circle class="values-hit" data-i="${i}" cx="${x(i)}" cy="${y(pv(o.p,prim)||0)}" r="10" role="button" tabindex="${i===focusIdx?0:-1}" aria-label="${o.p.n}, rank ${o.rank}, ${o.p.ov?'your value '+o.p.ddf.toFixed(1)+' (override; DDF '+o.p.base.toFixed(1)+')':'DDF '+o.p.ddf.toFixed(1)}. Press Enter for details."/>`);
- svg+='</g>';
- const tstep=Math.ceil(n/(narrow?9:14));
- shown.forEach((o,i)=>{if(i%tstep===0||i===n-1)svg+=`<text x="${x(i)}" y="328" text-anchor="middle" font-size="${fs+1}">${o.rank}</text>`});
- $('chart').innerHTML=svg;
- $('chart-summary').textContent='Chart data, '+n+' players by '+(NAMES[rk]||rk)+': '+shown.map(o=>'#'+o.rank+' '+o.p.n+' '+series.map(q=>NAMES[q[0]]+' '+(pv(o.p,q[0])===null?'n/a':pv(o.p,q[0]).toFixed(1))+(q[0]==='ddf'&&o.p.ov?' (your override; DDF '+o.p.base.toFixed(1)+')':'')).join(', ')).join('; ')+'. The table below lists the same values.';
- if(firstDraw){firstDraw=false;$('chart').classList.add('vdraw');setTimeout(()=>$('chart').classList.remove('vdraw'),2200)}
- renderTable();
- const cap=$('player-count').value==='All'?' (all players)':'';
- $('count').textContent=n+' of '+D.length+' in view'+cap;
- if(cardIdx!==null){if(pinned!==null&&shown[cardIdx]&&anchorEl&&anchorEl.closest('tbody'))placeAfter();else hideCard(true)}
-}
-function cols(){const c=[['ddf','DDF'],['cbs','CBS (indexed)']];if($('fantasycalc').checked)c.push(['fc','Live market (FantasyCalc, indexed)']);if($('vaw-on').checked)c.push(['vaw','<span class="vaw-wide">Value above waivers</span><span class="vaw-narrow" aria-hidden="true">Above waivers</span>']);c.push(['dcbs','DDF vs CBS']);return c}
-function renderTable(){
- const c=cols();if(!c.some(k=>k[0]===sortKey))sortKey='ddf';
- $('head').innerHTML='<tr><th scope="col" class="pl">Player</th>'+c.map(([k,t])=>`<th scope="col" class="num" aria-sort="${k===sortKey?'descending':'none'}"><button type="button" class="sort" data-key="${k}">${t} <span class="arrow" aria-hidden="true">${k===sortKey?'▼':''}</span></button></th>`).join('')+'</tr>';
- const rows=shown.map((o,i)=>({o,i})).sort((a,b)=>val(b.o.p,sortKey)-val(a.o.p,sortKey));
- $('rows').innerHTML=rows.map(({o,i})=>{const p=o.p;return `<tr data-i="${i}" tabindex="0" class="${p.n===hl?'values-hl':''}${p.ov?' ov-row':''}" aria-label="${p.n}${p.ov?', your override':''}, details on focus"><td class="pl"><span class="pn">${p.star?'<span class="pstar" aria-label="Your player">★</span> ':''}${p.n}</span> <span class="pos pos-${p.pos}">${p.pos}</span>${vpActs(p)}</td>`+c.map(([k])=>k==='ddf'&&p.ov?`<td class="num ovcell"><span class="ov-was">DDF ${p.base.toFixed(1)} →</span> <span class="ov-now">Yours ${p.ddf.toFixed(1)}</span></td>`:k==='dcbs'?`<td class="num ${dCbs(p)>=0?'dpos':'dneg'}">${sg(dCbs(p))}</td>`:k==='vaw'?`<td class="num vaw-cell${vawOf(p)===null?' vaw-na':''}"${vawOf(p)===null?' title="Not in the engine run for this example"':''}>${vawTxt(p)}</td>`:`<td class="num">${p[k].toFixed(1)}</td>`).join('')+'</tr>'}).join('');
-}
-/* player card */
-function cardHTML(o){const p=o.p,g=gapOf(p),v=$('vaw-on').checked;
- return `<div class="vc-head"><div><div class="vc-name">${p.star?'★ ':''}${p.n}</div><div class="vc-sub">${p.pos} · ${p.team}</div></div><button type="button" class="vc-close" aria-label="Close player card">×</button></div><dl><dt>Rank</dt><dd>#${o.rank}</dd>${p.ov?`<dt>DDF value</dt><dd>${p.base.toFixed(1)}</dd><dt>Your value (override)</dt><dd class="vc-neg">${p.ddf.toFixed(1)}</dd>`:`<dt>DDF value</dt><dd>${p.ddf.toFixed(1)}</dd>`}<dt>CBS indexed</dt><dd>${p.cbs.toFixed(1)}</dd><dt>Live market (FantasyCalc)</dt><dd>${p.fc.toFixed(1)}</dd><dt>DDF minus CBS/FantasyCalc average</dt><dd class="${g>=0?'vc-pos':'vc-neg'}">${sg(g)}</dd>${v?`<dt>Value above waivers</dt><dd>${vawTxt(p)}</dd>`:''}</dl>${vpActs(p)}<a class="vc-link" href="build.html?${p.yours?'give':'get'}=${encodeURIComponent(p.n)}">Open in Build a Trade</a>`}
-function placeAfter(){const c=$('values-card');if(!anchorEl||!document.contains(anchorEl)){return}const a=anchorEl.getBoundingClientRect(),w=c.offsetWidth,h=c.offsetHeight,vw=document.documentElement.clientWidth;let top=a.top-h-10;if(top<8)top=a.bottom+10;if(top+h>innerHeight-8)top=Math.max(8,innerHeight-h-8);let left=a.left+a.width/2-w/2;left=Math.max(8,Math.min(left,vw-w-8));c.style.top=top+'px';c.style.left=left+'px'}
-function refocus(a){if(a&&document.contains(a)){quiet=true;a.focus();quiet=false}}
-function showCard(i,el,pin){clearTimeout(hideT);if(quiet)return;const o=shown[i];if(!o)return;const c=$('values-card');if(pinned!==null&&!pin&&pinned!==i)return;cardIdx=i;anchorEl=el;if(pin)pinned=i;document.querySelectorAll('.values-hit.on').forEach(h=>h.classList.remove('on'));const he=hitEl(i);if(he)he.classList.add('on');c.innerHTML=cardHTML(o);c.hidden=false;placeAfter()}
-function hideCard(force){clearTimeout(hideT);if(!force&&pinned!==null)return;pinned=null;cardIdx=null;document.querySelectorAll('.values-hit.on').forEach(h=>h.classList.remove('on'));$('values-card').hidden=true}
-function softHide(){clearTimeout(hideT);hideT=setTimeout(()=>hideCard(false),220)}
-function hitEl(i){return $('chart').querySelector('.values-hit[data-i="'+i+'"]')}
-function rowEl(i){return $('rows').querySelector('tr[data-i="'+i+'"]')}
-function pickAt(cx,cy){const b=$('chart').getBoundingClientRect(),k=W/b.width,sx=(cx-b.left)*k,sy=(cy-b.top)*k,lim=22*k;let best=null,bd=lim;geo.forEach(g=>{g.ys.forEach(y=>{const d=Math.hypot(g.x-sx,y-sy);if(d<bd){bd=d;best=g.i}})});return best}
-/* chart interaction */
-let start=null,startY=0,captured=false,dragged=false;const chart=$('chart');
-chart.addEventListener('pointerdown',e=>{start=e.clientX;startY=e.clientY;captured=false;dragged=false});
-chart.addEventListener('pointermove',e=>{
- if(start!==null){if(!captured&&Math.abs(e.clientX-start)>8){captured=true;dragged=true;hideCard(true);try{chart.setPointerCapture(e.pointerId)}catch(_){}}return}
- if(e.pointerType==='mouse'){const i=pickAt(e.clientX,e.clientY);if(i!==null){showCard(i,hitEl(i),false);chart.style.cursor='pointer'}else{chart.style.cursor='';if(cardIdx!==null)softHide()}}});
-chart.addEventListener('pointerleave',e=>{if(start===null&&e.pointerType==='mouse'&&cardIdx!==null)softHide()});
-chart.addEventListener('pointerup',e=>{if(start===null)return;const s=start;start=null;
- if(dragged){const b=chart.getBoundingClientRect(),k=W/b.width,n=shown.length;if(n>1){const L=W<960?76:95,R=W-(W<960?24:45),idx=px=>Math.max(0,Math.min(n-1,Math.round(((px-b.left)*k-L)/(R-L)*(n-1))));const a=idx(s),z=idx(e.clientX);$('low').value=Math.min(shown[a].rank,shown[z].rank);$('high').value=Math.max(shown[a].rank,shown[z].rank);render()}return}
- const i=pickAt(e.clientX,e.clientY);if(i===null){hideCard(true);return}
- if(pinned===i){hideCard(true)}else{pinned=null;showCard(i,hitEl(i),true);focusIdx=i}});
-chart.addEventListener('pointercancel',()=>{start=null});
-chart.addEventListener('focusin',e=>{const t=e.target.closest&&e.target.closest('.values-hit');if(t){focusIdx=+t.dataset.i;if(pinned===null)showCard(focusIdx,t,false)}});
-chart.addEventListener('focusout',e=>{if(pinned===null)softHide()});
-chart.addEventListener('keydown',e=>{const t=e.target.closest&&e.target.closest('.values-hit');if(!t)return;const i=+t.dataset.i,n=shown.length;
- if(e.key==='ArrowRight'||e.key==='ArrowLeft'||e.key==='Home'||e.key==='End'){e.preventDefault();const j=e.key==='Home'?0:e.key==='End'?n-1:Math.max(0,Math.min(n-1,i+(e.key==='ArrowRight'?1:-1)));t.tabIndex=-1;const nt=hitEl(j);nt.tabIndex=0;focusIdx=j;nt.focus()}
- else if(e.key==='Enter'||e.key===' '){e.preventDefault();pinned=null;showCard(i,t,true);$('values-card').focus()}});
-/* table interaction */
-const rows=$('rows');
-rows.addEventListener('mouseover',e=>{const tr=e.target.closest('tr[data-i]');if(tr&&e.sourceCapabilities?.firesTouchEvents!==true)showCard(+tr.dataset.i,tr,false)});
-rows.addEventListener('mouseleave',()=>{if(cardIdx!==null)softHide()});
-rows.addEventListener('focusin',e=>{const tr=e.target.closest('tr[data-i]');if(tr&&pinned===null)showCard(+tr.dataset.i,tr,false)});
-rows.addEventListener('focusout',()=>{if(pinned===null)softHide()});
-rows.addEventListener('click',e=>{if(e.target.closest('.vp-act'))return;const tr=e.target.closest('tr[data-i]');if(!tr)return;const i=+tr.dataset.i;if(pinned===i){hideCard(true)}else{pinned=null;showCard(i,tr,true)}});
-rows.addEventListener('keydown',e=>{if(e.target.closest('.vp-act'))return;const tr=e.target.closest('tr[data-i]');if(tr&&(e.key==='Enter'||e.key===' ')){e.preventDefault();pinned=null;showCard(+tr.dataset.i,tr,true);$('values-card').focus()}});
-const card=$('values-card');
-card.addEventListener('mouseenter',()=>clearTimeout(hideT));
-card.addEventListener('mouseleave',()=>{if(pinned===null)softHide()});
-card.addEventListener('click',e=>{if(e.target.closest('.vc-close')){const a=anchorEl;hideCard(true);refocus(a)}});
-document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!card.hidden){const a=anchorEl;hideCard(true);refocus(a)}});
-document.addEventListener('pointerdown',e=>{if(pinned!==null&&!card.contains(e.target)&&!chart.contains(e.target)&&!rows.contains(e.target))hideCard(true)});
-addEventListener('scroll',()=>{if(cardIdx===null)return;if(pinned!==null)placeAfter();else hideCard(true)},{passive:true});
-addEventListener('resize',()=>{if(cardIdx!==null&&pinned!==null)placeAfter()});
-/* controls */
-['search','position','rank','ddf','cbs','fantasycalc'].forEach(id=>$(id).addEventListener('input',()=>{hideCard(true);render()}));
-document.querySelectorAll('.segmented [data-count]').forEach(b=>b.onclick=()=>{document.querySelectorAll('.segmented [data-count]').forEach(o=>o.setAttribute('aria-checked',String(o===b)));$('player-count').value=b.dataset.count;render()});
-$('head').addEventListener('click',e=>{const b=e.target.closest('.sort');if(b){sortKey=b.dataset.key;renderTable();const nb=$('head').querySelector('[data-key="'+sortKey+'"]');if(nb)nb.focus()}});
-let rw=0;addEventListener('resize',()=>{const w=chart.parentElement.clientWidth;if((w<600)!==(rw<600)){rw=w;render()}});
-['low','high','low-number','high-number'].forEach(id=>$(id).oninput=()=>{const first=id.startsWith('low');const v=Math.max(1,Math.min(25,+$(id).value||1));$(first?'low':'high').value=v;if(+$('low').value>+$('high').value)$(first?'high':'low').value=v;hideCard(true);render()});
-['value-high','value-low','max-value','min-value'].forEach(id=>$(id).oninput=()=>{const upper=id==='value-high'||id==='max-value';$(upper?'max-value':'min-value').value=(+$(id).value).toFixed(1);$(upper?'value-high':'value-low').value=$(id).value;hideCard(true);render()});
-function resetZoom(){$('low').value=1;$('high').value=25;$('min-value').value='0.0';$('max-value').value='100.0';$('value-low').value=0;$('value-high').value=100}
-$('reset').onclick=()=>{resetZoom();hl=null;hideCard(true);render()};
-/* value above waivers */
-function syncVaw(){const on=$('vaw-on').checked,sel=$('rank');let opt=sel.querySelector('option[value=vaw]');
- if(on&&!opt){opt=document.createElement('option');opt.value='vaw';opt.textContent='Value above waivers';sel.appendChild(opt)}
- if(!on&&opt){if(sel.value==='vaw')sel.value='ddf';opt.remove()}
- const ch=$('vaw-chart');ch.disabled=!on;if(!on)ch.checked=false;$('vaw-legend').hidden=!(on&&ch.checked);
- $('vaw-note').textContent=on?'Shown as a column, in the player card and in Rank by. The average of the four trade charts’ values above waivers, as DDF Value averages their adjusted values, from a week 9 engine run (Half PPR, 12 teams, QB1 RB2 WR3 TE1 FLEX1, 6 bench). This page’s DDF numbers are older example data, so the two columns do not line up row by row. Your overrides change DDF Value, not this.'+(vawState==='failed'?' The numbers did not load, so every row shows n/a.':''):'Off. Turn it on to add a Value above waivers column and a Rank by option.';
- hideCard(true);render()}
-$('vaw-on').addEventListener('change',syncVaw);$('vaw-chart').addEventListener('change',syncVaw);
-/* Esc closes an open (i) first, leaving Customize open */
-window.addEventListener('keydown',e=>{if(e.key!=='Escape')return;const i=document.querySelector('.values-more .vinfo[open]');if(!i)return;e.stopPropagation();i.open=false;i.querySelector('summary').focus()},true);
-/* risers and fallers */
-function spark(p){const h=p.hist,mn=Math.min(...h),mx=Math.max(...h),sp=mx-mn||1,pts=h.map((v,i)=>(2+i*18.67).toFixed(1)+','+(18-(v-mn)/sp*16).toFixed(1)).join(' ');const c=p.chg>=0?'#176c4d':'#a83e12';return `<svg width="60" height="20" viewBox="0 0 60 20" aria-hidden="true"><polyline points="${pts}" fill="none" stroke="${c}" stroke-width="2"/><circle cx="58" cy="${(18-(h[3]-mn)/sp*16).toFixed(1)}" r="2.5" fill="${c}"/></svg>`}
-function li(p){const up=p.chg>=0;return `<li><span class="vr-name">${p.n}<small>${p.pos}</small></span>${spark(p)}<span class="vr-delta ${up?'up':'down'}"><span class="vr-arr" aria-hidden="true">${up?'▲':'▼'}</span> ${up?'+':'−'}<span data-countup="${Math.abs(p.chg).toFixed(1)}" data-decimals="1">${Math.abs(p.chg).toFixed(1)}</span><span class="sr" style="position:absolute;left:-9999px">${up?' up':' down'}</span></span><button type="button" data-n="${p.n}" aria-label="Inspect ${p.n} on the chart">Inspect</button></li>`}
-const byChg=D.slice().sort((a,b)=>b.chg-a.chg);
-$('risers').innerHTML=byChg.slice(0,5).map(li).join('');$('fallers').innerHTML=byChg.slice(-5).reverse().map(li).join('');
-document.querySelector('.values-risers').addEventListener('click',e=>{const b=e.target.closest('button[data-n]');if(!b)return;
- hl=b.dataset.n;$('search').value='';$('position').value='All positions';resetZoom();hideCard(true);render();
- const i=shown.findIndex(o=>o.p.n===hl),el=hitEl(i);chart.scrollIntoView({block:'center',behavior:'smooth'});
- setTimeout(()=>{const j=shown.findIndex(o=>o.p.n===hl);if(j>=0){pinned=null;showCard(j,hitEl(j),true);focusIdx=j}},450)});
-document.addEventListener('click',e=>{const b=e.target.closest('.vp-act');if(!b)return;const g=window.DDFValues&&window.DDFValues.go;if(g)g(b.dataset.act==='bs'?'buy-sell':'overrides',{player:b.dataset.n})});
-/* AI chat module (same logic as index.html) */
-$('copy-prompt').addEventListener('click',function(){var phone=window.matchMedia('(pointer: coarse)').matches||window.matchMedia('(max-width: 768px)').matches;var src=document.getElementById(phone?'prompt-text-short':'prompt-text').textContent;window.DDF.copyText(src,document.getElementById('copy-status'),'Prompt copied.')});
-syncVaw();
-fetch(VAW_URL).then(r=>{if(!r.ok)throw new Error(r.status);return r.json()}).then(j=>{(j.players||[]).forEach(p=>{if(typeof p.vaw==='number'&&p.vaw>=0)VAW[p.n]=p.vaw});vawState='ok'}).catch(()=>{vawState='failed'}).then(()=>{if($('vaw-on').checked)syncVaw()});
-window.DDFValues={D,render,applyOverrides,hideCard:()=>hideCard(true),setYours:set=>{D.forEach(p=>p.star=set.has(p.n));render()}};
-})();</script><script>(()=>{
-const $=id=>document.getElementById(id);
-const V=()=>window.DDFValues;
-/* Analyst-charts averages (CBS Sports, FantasyPros, USA Today; key: mkt) for the players the old compare page priced; every other player uses the average of the two indexed charts on this page. */
-const PUB={'Stefon Diggs':17.30,'Rhamondre Stevenson':21.71,'Josh Allen':25.87,'Jahmyr Gibbs':61.03};
-const EXTRA=[['Rashee Rice','WR',13.61,16.65,'Team 08'],['DK Metcalf','WR',12.88,17.22,'Team 03']];
-const FIT_OVERRIDE={'Stefon Diggs>Rashee Rice':{your:0.85,their:0.64}};
-const f2=v=>v.toFixed(2),sg=v=>(v>=0?'+':'−')+Math.abs(v).toFixed(2);
-const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const short=n=>{const t=n.replace(/\s+(Jr\.?|Sr\.?|II|III|IV)$/,'').split(' ');return t.length>2&&/^St\.?$/.test(t[t.length-2])?t.slice(-2).join(' '):t[t.length-1]};
-const SHOW=5;
-let hlName=null,DB=[],league=false,expanded={sell:false,buy:false},sel={give:null,get:null,chip:'',side:'sell'};
-
-function baseDB(useBase){
- const d=V().D.map(p=>{const pub=PUB[p.n];return{n:p.n,pos:p.pos,ddf:useBase?p.base:p.ddf,base:p.base,ov:!useBase&&!!p.ov,mkt:pub!==undefined?pub:(p.cbs+p.fc)/2,charts:pub!==undefined?[['analyst charts',pub]]:[['CBS',p.cbs],['FantasyCalc',p.fc]],srcs:pub!==undefined?3:2,owner:p.team,yours:p.star,wk:null}});
- EXTRA.forEach(([n,pos,ddf,mkt,owner])=>d.push({n,pos,ddf,base:ddf,ov:false,mkt,charts:[['analyst charts',mkt]],srcs:3,owner,yours:false,wk:null}));
- return d;
-}
-function leagueCtx(){
- const st=window.DDF&&DDF.link&&DDF.link.current&&DDF.link.current();
- if(!st||!Array.isArray(st.teams)||st.me==null||!st.teams[st.me])return null;
- const owner=new Map(),mine=new Set();
- st.teams.forEach((t,i)=>(t.players||[]).forEach(e=>{let n;try{n=DDF.link.playerName(e)}catch(_){return}if(i===st.me)mine.add(n);else owner.set(n,t.name||('Team '+(i+1)))}));
- return{owner,mine};
-}
-/* makeDB(true) = the lists on DDF's own values; makeDB() = with your overrides (what the tab shows). No side effects. */
-function makeDB(useBase){
- const all=baseDB(useBase),ctx=leagueCtx();let d;
- if(ctx)d=all.filter(p=>ctx.mine.has(p.n)||ctx.owner.has(p.n)).map(p=>Object.assign(p,{yours:ctx.mine.has(p.n),owner:ctx.mine.has(p.n)?'Your team':ctx.owner.get(p.n)}));
- else d=all.filter(p=>!p.yours).map(p=>Object.assign(p,{owner:null}));
- return d.filter(p=>p.ddf>0&&p.mkt>0);
-}
-function build(){
- const ctx=leagueCtx();league=!!ctx;
- if(ctx&&V().setYours)V().setYours(ctx.mine);
- DB=makeDB();
-}
-function gapOf(p){/* largest gap vs any chart shown, signed DDF minus chart */
- let best=null;p.charts.forEach(([c,v])=>{const g=p.ddf-v;if(!best||Math.abs(g)>Math.abs(best.g))best={g,c}});return best;
-}
-function pairStats(give,get){
- const o=FIT_OVERRIDE[give.n+'>'+get.n];
- const your=o?o.your+(get.ddf-get.base)-(give.ddf-give.base):get.ddf-give.ddf,their=o?o.their:give.mkt-get.mkt,same=give.pos===get.pos;
- return{your,their,same,natural:same&&your>0&&their>=0};
-}
-function sellList(db){return (db||DB).filter(p=>p.yours&&p.mkt>p.ddf).map(p=>({p,g:gapOf(p)})).sort((a,b)=>Math.abs(b.g.g)-Math.abs(a.g.g))}
-function buyList(db){return (db||DB).filter(p=>!p.yours&&p.ddf>p.mkt).map(p=>({p,g:gapOf(p)})).sort((a,b)=>Math.abs(b.g.g)-Math.abs(a.g.g))}
-function comparables(give){return DB.filter(p=>!p.yours&&p.pos===give.pos).map(p=>({p,s:pairStats(give,p)})).sort((a,b)=>(b.s.natural-a.s.natural)||(Math.min(b.s.your,b.s.their)-Math.min(a.s.your,a.s.their))).slice(0,4)}
-function gives(get){const mine=DB.filter(p=>p.yours),same=mine.filter(p=>p.pos===get.pos),pool=same.length?same:mine;return pool.map(p=>({p,s:pairStats(p,get)})).sort((a,b)=>(b.s.natural-a.s.natural)||(Math.min(b.s.your,b.s.their)-Math.min(a.s.your,a.s.their))).slice(0,4)}
-const byName=n=>DB.find(p=>p.n===n);
-/* Charts count: how many of the four charts (three analyst charts + the live market) went into p.mkt. */
-const CHART_NAMES=p=>p.srcs>=3?'CBS Sports, USA Today and FantasyPros (analyst charts)':p.srcs===2?'CBS Sports (analyst chart) and FantasyCalc (live market)':'one chart';
-function srcCount(p){const n=Math.min(4,p.srcs);return `<span class="bs-cnt" role="img" aria-label="${n} of 4 charts" title="${n} of 4 charts: ${CHART_NAMES(p)}">${n}/4</span>`}
-function wkBadge(p){return p.wk?`<span class="bs-wk">Wk ${p.wk}</span>`:''}
-function fitTag(p){/* natural fit for a buy row = some one-for-one give of yours works */
- if(!league)return'';const g=gives(p);return g.length&&g[0].s.natural?'<span class="bs-tag nf">Natural fit</span>':''}
-function rowHTML(o,side){
- const p=o.p,g=o.g,cls=side==='sell'?'mh':'dg',chart=g.c,chartLong=g.c==='FantasyCalc'?'live market (FantasyCalc)':g.c;
- const label=`${p.n}, ${p.pos}${p.owner&&side==='buy'?', '+p.owner:''}. ${p.ov?'Your value '+f2(p.ddf)+' (override; DDF '+f2(p.base)+')':'DDF '+f2(p.ddf)}, charts ${f2(p.mkt)} (${Math.min(4,p.srcs)} of 4 charts), largest gap ${sg(Math.abs(g.g))} on ${chartLong}. Select to see a swap.`;
- const sub=side==='buy'?`<small>${esc(p.pos)}${p.owner?' · '+esc(p.owner):''}${wkBadge(p)}</small>`:`<small>${esc(p.pos)}${wkBadge(p)}</small>`;
- return `<li><button type="button" class="bs-row" data-side="${side}" data-n="${esc(p.n)}" aria-pressed="false" aria-label="${esc(label)}"><span class="bs-name"><strong>${p.yours?'<span aria-hidden="true">★</span> ':''}${esc(p.n)}</strong>${p.yours?'<span class="bs-yours">Yours</span>':''}${p.ov?'<span class="bs-ovr">Your value</span>':''}${p.srcs<2?'<span class="bs-flag">◐ 1 source</span>':''}${sub}${side==='buy'?fitTag(p):''}</span><span class="bs-n bs-ddf" data-label="${p.ov?'Your value':'DDF'}">${f2(p.ddf)}</span><span class="bs-n bs-mkt" data-label="Charts">${f2(p.mkt)} ${srcCount(p)}</span><span class="bs-gap"><span class="bs-tag ${cls}">${sg(Math.abs(g.g))} ${esc(chart)}</span></span></button><div class="vp-bs"><button type="button" class="vp-act" data-act="own" data-n="${esc(p.n)}" aria-label="Set your own value for ${esc(p.n)}">Set your own value</button></div></li>`;
-}
-function renderList(side){
- const items=side==='sell'?sellList():buyList(),ul=$('bs-'+side),btn=$('bs-'+side+'-more'),open=expanded[side],shown=open?items:items.slice(0,SHOW);
- ul.innerHTML=shown.length?shown.map(o=>rowHTML(o,side)).join(''):`<li class="bs-empty">${side==='sell'?'None of your players are priced higher by the charts than by DDF in this snapshot.':'No players are priced higher by DDF than by the charts in this snapshot.'}</li>`;
- const extra=items.length-SHOW;btn.hidden=extra<=0;btn.setAttribute('aria-expanded',String(open));btn.textContent=open?'Show fewer ▴':`Show ${extra} more ▾`;
-}
-function hlFind(){if(!hlName)return null;let i=sellList().findIndex(o=>o.p.n===hlName);if(i>=0&&league)return['sell',i];i=buyList().findIndex(o=>o.p.n===hlName);return i>=0?['buy',i]:null}
-function hlNote(){const n=$('bs-hlnote');if(!hlName){n.hidden=true;return}
- if(hlFind()){n.hidden=true;return}
- const p=D0().find(q=>q.n===hlName),yours=p&&(p.star||(leagueCtx()&&leagueCtx().mine.has(hlName)));
- n.textContent=league?hlName+' is not on the Buy or Sell lists: '+(yours?'the charts do not rate this player above DDF Value.':'DDF Value does not rate this player above the charts.'):'Add your league to see whether '+hlName+' is a sell. The Buy list shows players DDF Value rates above the charts.';
- n.hidden=false}
-const D0=()=>V().D;
-function renderLists(){
- const hf=hlFind();if(hf&&hf[1]>=SHOW)expanded[hf[0]]=true;
- $('bs-nolg').hidden=league;$('bs-sell-card').hidden=!league;
- $('bs-buy-note').textContent=league?'League-wide players DDF likes more than the charts · owner and fit · top 5':'Players DDF likes more than the charts · top 5';
- const two=document.querySelector('.bs-two');two.classList.toggle('solo',!league);two.style.gridTemplateColumns=league?'':'minmax(0,1fr)';
- renderList('sell');renderList('buy');syncPressed();hlNote();
-}
-function syncPressed(){
- document.querySelectorAll('.bs-list li').forEach(li=>{const r=li.querySelector('.bs-row');li.classList.toggle('bs-hl',!!(hlName&&r&&r.dataset.n===hlName))});
- document.querySelectorAll('.bs-row').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.side==='sell'?b.dataset.n===sel.give:b.dataset.n===sel.get)));
- document.querySelectorAll('.bs-opt').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.n===(sel.side==='sell'?sel.get:sel.give))));
-}
-function renderPick(){
- const box=$('bs-pick');
- if(!league||(sel.side==='sell'&&!byName(sel.give))||(sel.side==='buy'&&!byName(sel.get))){box.hidden=true;return}
- const anchor=byName(sel.side==='sell'?sel.give:sel.get),opts=sel.side==='sell'?comparables(anchor):gives(anchor);
- $('bs-pick-h').textContent=sel.side==='sell'?'Comparable targets for '+anchor.n:'Players to give for '+anchor.n;
- $('bs-pick-note').textContent=sel.side==='sell'?'Same position, natural fit first. Pick one to compare.':'Your players nearest in value, natural fit first. Pick one to compare.';
- $('bs-opts').innerHTML=opts.map(({p,s})=>`<button type="button" class="bs-opt" data-n="${esc(p.n)}" aria-pressed="false"><strong>${p.yours?'★ ':''}${esc(p.n)} · ${esc(p.pos)}${p.owner&&!p.yours?' · '+esc(p.owner):''}</strong><span class="bs-meta">DDF ${f2(p.ddf)} / Charts ${f2(p.mkt)}</span><span class="bs-tag ${s.natural?'nf':'ck'}">${s.natural?'Natural fit':'Check fit'}</span></button>`).join('')||'<p class="bs-empty">No comparable players in this league.</p>';
- box.hidden=false;
-}
-function check(cls,txt,sr){return `<li><span class="${cls}" aria-hidden="true">${cls==='ok'?'✓':cls==='no'?'✕':'•'}</span> <span class="vsr">${sr}: </span>${txt}</li>`}
-function renderDetail(pop){
- const d=$('bs-detail'),give=byName(sel.give),get=byName(sel.get);
- if(!get&&!give){d.hidden=true;return}
- d.hidden=false;
- $('bs-chip').textContent='After selecting '+sel.chip;
- $('bs-title').textContent=give&&get?short(give.n)+' → '+short(get.n):'Target: '+get.n;
- const row=p=>`<tr><td>${p.yours?'★ ':''}${esc(short(p.n))} · ${esc(p.pos)}${p.ov?' <span class="bs-ovr">Your value</span>':''}</td><td>${f2(p.ddf)}</td><td>${f2(p.mkt)} ${srcCount(p)}</td></tr>`;
- $('bs-vals').innerHTML=(give?row(give):'')+(get?row(get):'');
- const fit=$('bs-fit');
- if(give&&get){const s=pairStats(give,get);
-  fit.innerHTML=`<div class="bs-fithead"><h4>Roster fit</h4><span class="bs-tag ${s.natural?'nf':'ck'}">${s.natural?'Natural fit':'Not a natural fit'}</span></div><ul class="bs-checks">`+
-   check(s.your>0?'ok':'no',`Your DDF starters ${sg(s.your)}`,s.your>0?'Pass':'Fail')+
-   check(s.their>=0?'ok':'no',`Their starters on the charts ${sg(s.their)}`,s.their>=0?'Pass':'Fail')+
-   (s.same?check('ok','Both rosters valid','Pass')+check('ok','Starting slots filled','Pass'):check('na','Roster slots change when positions differ. Confirm in Build a Trade.','Check'))+'</ul>';
- }else{
-  fit.innerHTML=`<div class="bs-fithead"><h4>Roster fit</h4></div><p class="bs-note">Add your league to see which of your players to give and whether it is a natural fit.</p><a class="btn" href="connect.html">Add your league</a>`;
- }
- const q=[];if(give)q.push('give='+encodeURIComponent(give.n));if(get)q.push('get='+encodeURIComponent(get.n));
- $('bs-open').href='build.html'+(q.length?'?'+q.join('&'):'');
- if(pop){d.classList.remove('pop');void d.offsetWidth;d.classList.add('pop')}
-}
-function choose(side,name,fromRow){
- const p=byName(name);if(!p)return;
- if(fromRow){
-  sel.side=side;sel.chip=name;
-  if(side==='sell'){sel.give=name;const c=comparables(p);sel.get=c.length?c[0].p.n:null}
-  else{sel.get=name;if(league){const g=gives(p);sel.give=g.length?g[0].p.n:null}else sel.give=null}
-  renderPick();
- }else{
-  sel.chip=name;if(sel.side==='sell')sel.get=name;else sel.give=name;
- }
- syncPressed();renderDetail(true);
- const d=$('bs-detail');if(fromRow&&!d.hidden){const r=d.getBoundingClientRect();if(r.top>innerHeight*.85||r.bottom<0)d.scrollIntoView({block:'nearest',behavior:matchMedia('(prefers-reduced-motion:reduce)').matches?'auto':'smooth'})}
-}
-function defaultSel(){
- sel={give:null,get:null,chip:'',side:'sell'};
- if(!league)return;
- const sells=sellList();if(!sells.length){const b=buyList();if(b.length)choose('buy',b[0].p.n,true);return}
- const diggs=sells.find(o=>o.p.n==='Stefon Diggs'),first=diggs||sells[0];
- choose('sell',first.p.n,true);
- if(diggs&&byName('Rashee Rice')){sel.get='Rashee Rice';sel.chip='Rashee Rice';renderPick();syncPressed();renderDetail(false)}
-}
-function init(){build();renderLists();defaultSel();if(!league){renderPick();renderDetail(false)}}
-/* re-price after an override change, keeping the current selection when it still exists */
-function refresh(){build();renderLists();const ok=sel.side==='sell'?byName(sel.give):byName(sel.get);if(!ok)defaultSel();else{renderPick();syncPressed();renderDetail(false)}}
-V().bs={makeDB,sellList,buyList,gapOf,isLeague:()=>league,refresh,marketOf:p=>PUB[p.n]!==undefined?PUB[p.n]:(p.cbs+p.fc)/2};
-document.addEventListener('click',e=>{
- const r=e.target.closest('.bs-row');if(r){choose(r.dataset.side,r.dataset.n,true);return}
- const o=e.target.closest('.bs-opt');if(o){choose(sel.side,o.dataset.n,false);return}
- const m=e.target.closest('.bs-more');if(m){const s=m.id==='bs-sell-more'?'sell':'buy';expanded[s]=!expanded[s];renderList(s);syncPressed();$('bs-'+s+'-more').focus()}
-});
-init();
-document.addEventListener('DOMContentLoaded',()=>{const r=window.DDF&&DDF.link&&DDF.link.ready;if(r&&r.then)r.then(()=>{init()})});
-/* tabs: state lives in the URL hash next to any #s= chat-link token */
-const tabs=[...document.querySelectorAll('.screen-tabs [role=tab]')],panels={chart:$('panel-chart'),'buy-sell':$('panel-bs'),overrides:$('panel-ov')};
-const dec=t=>{try{return decodeURIComponent(t.replace(/\+/g,' '))}catch(_){return t}};
-/* hash tokens (joined by &): overrides | buy-sell, each optionally followed by ?player=Name+With+Pluses; #s= chat tokens are left alone */
-function parseHash(){const toks=location.hash.slice(1).split('&');for(const k of ['overrides','buy-sell']){for(const t of toks){const m=t.startsWith(k)&&(t.length===k.length||t[k.length]==='?')?t.slice(k.length+1):null;if(m!==null||t===k){const pm=/(?:^|&)player=([^&]*)/.exec(m||'');return{k,player:pm&&pm[1]?dec(pm[1]):null}}}}return{k:'chart',player:null}}
-const hashKey=()=>parseHash().k;
-function setTab(k,opts){opts=opts||{};
- tabs.forEach(t=>{const on=t.dataset.tab===k;t.setAttribute('aria-selected',String(on));t.tabIndex=on?0:-1;if(on&&opts.focus)t.focus()});
- Object.keys(panels).forEach(p=>panels[p].hidden=p!==k);
- document.querySelectorAll('[data-for]').forEach(el=>el.hidden=el.dataset.for!==k);
- if(k==='chart'&&V()){V().hideCard();V().render()}
- if(k==='overrides'&&V()&&V().ovRender)V().ovRender();
- if(k==='overrides'&&opts.player&&V()&&V().ovPreselect)V().ovPreselect(opts.player,!!opts.ui);
- if(k==='buy-sell'||hlName)bsHighlight(k==='buy-sell'?(opts.player||null):null,!!opts.ui&&k==='buy-sell');
- if(opts.write){const parts=location.hash.slice(1).split('&').filter(x=>x&&!/^(buy-sell|chart|overrides)(\?|$)/.test(x));if(k!=='chart')parts.push(k+(opts.player?'?player='+encodeURIComponent(opts.player).replace(/%20/g,'+'):''));const base=location.pathname+location.search,url=base+(parts.length?'#'+parts.join('&'):'');if(opts.push){if(url!==base+location.hash)history.pushState(null,'',url)}else history.replaceState(null,'',url)}
-}
-tabs.forEach((t,i)=>{t.addEventListener('click',()=>setTab(t.dataset.tab,{write:true,push:true}));
- t.addEventListener('keydown',e=>{let j=null;if(e.key==='ArrowRight')j=(i+1)%tabs.length;else if(e.key==='ArrowLeft')j=(i-1+tabs.length)%tabs.length;else if(e.key==='Home')j=0;else if(e.key==='End')j=tabs.length-1;if(j!==null){e.preventDefault();setTab(tabs[j].dataset.tab,{focus:true,write:true,push:true})}})});
-function bsHighlight(name,scroll){hlName=name||null;renderLists();
- if(hlName&&scroll){const r=[...document.querySelectorAll('#panel-bs .bs-row')].find(b=>b.dataset.n===hlName);
-  if(r){r.focus({preventScroll:true});r.scrollIntoView({block:'center',behavior:matchMedia('(prefers-reduced-motion:reduce)').matches?'auto':'smooth'})}else $('bs-hlnote').scrollIntoView({block:'nearest'})}}
-V().bsHighlight=bsHighlight;
-/* in-page path from a player: switch tab, update the hash (new history entry) and preselect / highlight */
-V().go=(k,o)=>{o=o||{};V().hideCard();setTab(k,{write:true,push:true,player:o.player,ui:true})};
-addEventListener('hashchange',()=>{const h=parseHash();setTab(h.k,{player:h.player,ui:true})});
-setTab(hashKey());
-document.addEventListener('DOMContentLoaded',()=>{const h=parseHash();if(h.player)setTab(h.k,{player:h.player})});
-})();</script><script>(()=>{
-/* Overrides tab: your value replaces DDF Value (applied after the pipeline); everything in "What changes" is recomputed here. */
-const $=id=>document.getElementById(id);
-const V=()=>window.DDFValues;
-const OV=()=>window.DDF&&window.DDF.overrides;
-const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const f1=v=>v.toFixed(1),f2=v=>v.toFixed(2);
-const sg=(v,d)=>(Math.abs(v)<.005?'±':v>0?'+':'−')+Math.abs(v).toFixed(d);
-const short=n=>{const t=n.replace(/\s+(Jr\.?|Sr\.?|II|III|IV)$/,'').split(' ');return t.length>2&&/^St\.?$/.test(t[t.length-2])?t.slice(-2).join(' '):t[t.length-1]};
-/* Example numbers copied from build.html (MY_ROSTER: name, pos, DDF Value; Love from TEAM_03) and the Buy / Sell tab (Rice, Metcalf),
-   and find.html rows: [partner, give, get, your starters DDF, fit, their starters on analyst charts (key: Market)]. Keep in sync with those pages. */
-const MY_ROSTER=[["Josh Allen","QB",41.53],["Bo Nix","QB",0],["Jahmyr Gibbs","RB",96.66],["Rachaad White","RB",7.24],["Rhamondre Stevenson","RB",21.22],["Keaton Mitchell","RB",0.55],["Jaxon Smith-Njigba","WR",79.04],["Stefon Diggs","WR",12.75],["George Pickens","WR",28.81],["Antonio Williams","WR",2.58],["Malachi Fields","WR",0.68],["Trey McBride","TE",36.93],["Dalton Schultz","TE",0]];
-const GET_DDF={'Jeremiyah Love':22.72,'Rashee Rice':13.61,'DK Metcalf':12.88};
-const PKGS=[['Team 03','Rhamondre Stevenson','Jeremiyah Love',1.50,'natural',1.36],['Team 08','Stefon Diggs','Rashee Rice',0.85,'natural',0.64],['Team 03','Stefon Diggs','DK Metcalf',0.13,'natural',0.08],['Team 07','Bo Nix','Omarion Hampton',0.53,'neutral',0.00]];
-const SLOTS={QB:1,RB:2,WR:3,TE:1},FLEX=['RB','WR','TE'];
-const D=()=>V().D,pOf=n=>D().find(p=>p.n===n);
-const val=(n,fallback,eff)=>{const p=pOf(n);return p?(eff?p.ddf:p.base):fallback};
-const buildHref=pk=>'build.html?'+new URLSearchParams({partner:pk[0],give:pk[1],get:pk[2]}).toString();
-
-/* ---- arithmetic ---- */
-function lineup(list){/* best lineup DDF total: QB1 RB2 WR3 TE1 + one FLEX (RB/WR/TE) */
- const by={};list.forEach(p=>(by[p.pos]=by[p.pos]||[]).push(p.v));let sum=0;const rest=[];
- Object.keys(by).forEach(pos=>{const k=SLOTS[pos]||0;by[pos].sort((a,b)=>b-a).forEach((v,i)=>{if(i<k)sum+=v;else if(FLEX.includes(pos))rest.push(v)})});
- return rest.length?sum+Math.max(...rest):sum}
-const roster=eff=>MY_ROSTER.map(([n,pos,d])=>({n,pos,v:val(n,d,eff)}));
-function starterGain(give,get,eff){const r=roster(eff),g=r.find(p=>p.n===give),gv=val(get,GET_DDF[get],eff);if(!g||gv===undefined)return null;
- return lineup(r.filter(p=>p.n!==give).concat([{n:get,pos:g.pos,v:gv}]))-lineup(r)}
-/* before = find.html's number; after = that number plus the change in your best-lineup DDF total caused by your overrides */
-function pkgEval(pk,eff){const [,give,get,g0,fit,their]=pk,gb=starterGain(give,get,false);
- if(gb===null)return{known:false,your:g0,their,natural:fit==='natural'};
- const your=eff?g0+(starterGain(give,get,true)-gb):g0,raw=val(get,GET_DDF[get],eff)-val(give,(MY_ROSTER.find(r=>r[0]===give)||[])[2],eff);
- return{known:true,your,their,raw,giveV:val(give,0,eff),getV:val(get,GET_DDF[get],eff),natural:fit==='natural'&&your>0&&their>=0}}
-function verdict(net,give,get){/* same wording rule as tradechart.js verdictText */
- const big=Math.max(give,get)||1;if(Math.abs(net)<.005)return'Even by DDF Value';
- if(Math.abs(net)/big<=.10)return net>0?'Slight edge to you':'Slight edge to them';
- return net>0?'You get more than you give':'You give more than you get'}
-function ranks(eff){const m=new Map();D().map((p,i)=>({p,i})).sort((a,b)=>(eff?b.p.ddf-a.p.ddf:b.p.base-a.p.base)||a.i-b.i).forEach((o,j)=>m.set(o.p.n,j+1));return m}
-
-function compute(){
- const act=D().filter(p=>p.ov),rows=[];
- const r0=ranks(false),r1=ranks(true);
- const rankRows=D().filter(p=>p.ov||r0.get(p.n)!==r1.get(p.n)).sort((a,b)=>r1.get(a.n)-r1.get(b.n)).map(p=>{const b=r0.get(p.n),a=r1.get(p.n);
-  return{area:'Rank',p,ov:p.ov,what:p.n+(p.ov?' (your value)':''),before:'#'+b,after:'#'+a,changed:a!==b,up:a<b,href:'#chart',link:'Chart'}});
- rows.push(...rankRows);
- const bs=V().bs,lg=bs.isLeague(),bsRows=[];
- (lg?['sell','buy']:['buy']).forEach(side=>{const fn=side==='sell'?bs.sellList:bs.buyList,b=fn(bs.makeDB(true)).slice(0,5),a=fn(bs.makeDB(false)).slice(0,5),bn=b.map(o=>o.p.n),an=a.map(o=>o.p.n),L=side==='sell'?'Sell':'Buy';
-  const gap=o=>sg(Math.abs(o.g.g),2)+' '+o.g.c;
-  a.forEach((o,i)=>{const j=bn.indexOf(o.p.n);
-   if(j<0)bsRows.push({area:L,what:o.p.n+' enters '+L+' top 5',before:'not in top 5',after:'#'+(i+1)+' · gap '+gap(o),changed:true});
-   else if(Math.abs(b[j].g.g-o.g.g)>=.005)bsRows.push({area:L,what:o.p.n+' gap changes',before:'#'+(j+1)+' · gap '+gap(b[j]),after:'#'+(i+1)+' · gap '+gap(o),changed:true});
-   else if(i!==j)bsRows.push({area:L,what:o.p.n+' moves in '+L+' top 5',before:'#'+(j+1),after:'#'+(i+1),changed:true})});
-  b.forEach((o,j)=>{if(!an.includes(o.p.n))bsRows.push({area:L,what:o.p.n+' leaves '+L+' top 5',before:'#'+(j+1)+' · gap '+gap(o),after:'not in top 5',changed:true})});
- });
- bsRows.forEach(r=>{r.href='#buy-sell';r.link='Buy / Sell'});rows.push(...bsRows);
- const touched=MY_ROSTER.some(r=>{const p=pOf(r[0]);return p&&p.ov});
- const recRows=PKGS.map(pk=>{const a=pkgEval(pk,false),b=pkgEval(pk,true),name=short(pk[1])+' → '+short(pk[2]);
-  const fit=e=>pk[4]==='neutral'?'Partner neutral':e.natural?'Natural fit':'Not a natural fit';
-  if(!b.known)return{area:'Recommendation',what:name+' ('+pk[0]+')',before:'+'+f2(a.your)+' DDF',after:touched?'not recomputed':'unchanged',changed:false,na:touched,note:touched?'Omarion Hampton has no DDF Value on this page, so this one is not recomputed.':'',href:'find.html',link:'Recommendations'};
-  const ch=Math.abs(b.your-a.your)>=.005||a.natural!==b.natural;
-  return{area:'Recommendation',what:name+' ('+pk[0]+')',before:sg(a.your,2)+' DDF · '+fit(a),after:sg(b.your,2)+' DDF · '+fit(b),changed:ch,dropped:a.natural&&!b.natural,href:'find.html',link:'Recommendations'}});
- const ord=list=>list.map((e,i)=>({i,y:e.your})).sort((x,y)=>y.y-x.y).map(o=>o.i);
- const o0=ord(PKGS.map(pk=>pkgEval(pk,false))),o1=ord(PKGS.map(pk=>pkgEval(pk,true)));
- const orderChanged=o0.join()!==o1.join();
- if(orderChanged)recRows.push({area:'Recommendation',what:'Order by your gain',before:o0.map(i=>short(PKGS[i][2])).join(', '),after:o1.map(i=>short(PKGS[i][2])).join(', '),changed:true,href:'find.html',link:'Recommendations'});
- rows.push(...recRows);
- const pk=PKGS[0],t0=pkgEval(pk,false),t1=pkgEval(pk,true),pass=e=>e.your>0&&e.their>=0;
- const tradeRows=[
-  {area:'Build a Trade',what:'Your starters (DDF)',before:sg(t0.your,2),after:sg(t1.your,2),changed:Math.abs(t1.your-t0.your)>=.005},
-  {area:'Build a Trade',what:'Their starters (analyst charts)',before:sg(t0.their,2),after:sg(t1.their,2),changed:false},
-  {area:'Build a Trade',what:'Trade checks',before:pass(t0)?'✓ Pass':'Review',after:pass(t1)?'✓ Pass':'Review',changed:pass(t0)!==pass(t1)},
-  {area:'Build a Trade',what:'DDF Value verdict',before:verdict(t0.raw,t0.giveV,t0.getV)+' ('+sg(t0.raw,2)+')',after:verdict(t1.raw,t1.giveV,t1.getV)+' ('+sg(t1.raw,2)+')',changed:Math.abs(t1.raw-t0.raw)>=.005}];
- tradeRows.forEach(r=>{r.href=buildHref(pk);r.link='Build a Trade'});
- rows.push(...tradeRows);
- return{act,rows,rankRows,bsRows,recRows,tradeRows,lg,tradeSame:tradeRows.every(r=>!r.changed),verdictSame:tradeRows[2].after===tradeRows[2].before&&verdict(t0.raw,t0.giveV,t0.getV)===verdict(t1.raw,t1.giveV,t1.getV),n:rows.filter(r=>r.changed).length};
-}
-
-/* ---- render ---- */
-const cell=(b,a,ch)=>`<span class="ov-num">${esc(b)}</span> → <span class="ov-num">${ch?'<strong>'+esc(a)+'</strong>':esc(a)}</span>`;
-function areaHTML(title,list,emptyText,max){
- const shown=max?list.slice(0,max):list,more=list.length-shown.length;
- return `<section class="ov-area"><h4>${title}</h4><ul>${shown.length?shown.map(r=>`<li class="${r.changed?'':'same'}">${esc(r.what)}: ${r.na?esc(r.note):cell(r.before,r.after,r.changed)}${r.changed||r.na?'':' · unchanged'}</li>`).join(''):`<li class="same">${esc(emptyText)}</li>`}${more>0?`<li class="same">${more} more in “Show every change”.</li>`:''}</ul></section>`}
-function renderWhat(){
- const box=$('ov-what'),c=compute();
- if(!c.act.length){box.innerHTML='<p class="ov-empty">No overrides yet. Set a value above and this panel lists what moves: ranks, the Buy / Sell lists, the example recommendations and the Stevenson → Love trade.</p>';return c}
- const others=c.rankRows.filter(r=>!r.ov&&r.changed),ups=others.filter(r=>r.up),dropped=c.recRows.filter(r=>r.dropped).length,recCh=c.recRows.filter(r=>r.changed).length;
- const bits=c.act.map(p=>{const r=c.rankRows.find(x=>x.p===p);return`<strong>${esc(p.n)}</strong> ${f1(p.base)} → ${f1(p.ddf)} (your value), rank ${r.before.slice(1)} → ${r.after.slice(1)}`});
- const tail=[];
- if(others.length)tail.push(others.length===1?short(others[0].p.n)+(others[0].up?' moves up':' moves down'):others.length+' other players move ('+[ups.length?ups.length+' up':'',others.length-ups.length?(others.length-ups.length)+' down':''].filter(Boolean).join(', ')+')');
- tail.push(c.bsRows.length?c.bsRows.length+' Buy / Sell '+(c.bsRows.length===1?'change':'changes'):'Buy / Sell top 5 unchanged');
- const na=c.recRows.filter(r=>r.na).length,naTxt=na?' ('+na+' not recomputed)':'';
- tail.push((dropped?dropped+' recommendation'+(dropped===1?' drops':'s drop')+' out of natural fit':recCh?recCh+' recommendation '+(recCh===1?'change':'changes'):na?'other recommendations unchanged':'recommendations unchanged')+naTxt);
- tail.push('Stevenson → Love verdict '+(c.verdictSame?'unchanged':'changes'));
- const every=c.rows.filter(r=>r.changed||r.na);
- box.innerHTML=`<p class="ov-sum">${bits.join('; ')}. ${esc(tail.join(' · '))}.</p><div class="ov-areas">`+
-  areaHTML('Rank by DDF Value',c.rankRows,'No rank changes.',8)+
-  areaHTML('Buy / Sell'+(c.lg?'':' (Buy list; Sell needs your league)'),c.bsRows,'Top 5 unchanged.',6)+
-  areaHTML('Recommendations',c.recRows,'',0)+
-  areaHTML('Build a Trade · Stevenson → Love',c.tradeRows,'',0)+
-  `</div><p class="bs-note" style="margin-top:12px">Trade &amp; Waiver Recommendations and Build a Trade still show DDF’s own numbers; the “after” values here are computed on this page.</p>`+
-  `<details class="ov-every"><summary>Show every change (${every.length})</summary>${every.length?`<table><thead><tr><th scope="col">Area</th><th scope="col">Change</th><th scope="col">Before → after</th><th scope="col">Open</th></tr></thead><tbody>${every.map(r=>`<tr><td>${esc(r.area)}</td><td>${esc(r.what)}</td><td>${r.na?esc(r.note):cell(r.before,r.after,true)}</td><td><a href="${esc(r.href)}">${esc(r.link)}</a></td></tr>`).join('')}</tbody></table>`:'<p class="ov-empty">Your values differ from DDF’s, but nothing computed here moves.</p>'}</details>`;
- return c;
-}
-function renderActive(){
- const o=OV()?OV().get():{},names=Object.keys(o),n=names.length;
- $('ov-n').textContent=n;$('ov-clear').hidden=!n;const L=window.DDF&&DDF.link;$('ov-copylink').hidden=!(n&&L&&typeof L.encode==='function'&&typeof DDF.copyText==='function');$('ov-chat').hidden=!(n&&L&&typeof L.copyForChat==='function'&&L.current&&L.current());if(!n)$('ov-loaded').hidden=true;const tb=$('ov-tabn');tb.hidden=!n;tb.textContent=n;tb.setAttribute('aria-label',n+(n===1?' override':' overrides'));
- $('ov-active').innerHTML=n?names.map(nm=>{const p=pOf(nm),v=+o[nm];
-  if(!p)return`<li><div class="ov-who"><strong>${esc(nm)}</strong><span>Yours ${f1(v)} · not on this page, so nothing is computed here</span></div><div class="ov-acts"><button type="button" class="btn" data-rm="${esc(nm)}" aria-label="Remove override for ${esc(nm)}">Remove</button></div></li>`;
-  const d=v-p.base;return`<li><div class="ov-who"><strong>${esc(nm)} <span class="pos pos-${p.pos}">${p.pos}</span></strong><span>DDF ${f1(p.base)} → Yours ${f1(v)} <span class="ov-d ${d>=0?'up':'dn'}">${sg(d,1)}</span></span></div><div class="ov-acts"><button type="button" class="btn" data-edit="${esc(nm)}" aria-label="Edit override for ${esc(nm)}">Edit</button><button type="button" class="btn" data-rm="${esc(nm)}" aria-label="Remove override for ${esc(nm)}">Remove</button></div></li>`}).join(''):'<li class="ov-empty">None yet. Pick a player and set your value; every tab then uses it in place of DDF Value.</li>';
-}
-let cur=null;
-function renderEditor(keepField){
- const p=cur&&pOf(cur);$('ov-editor').hidden=!p;if(!p)return;
- $('ov-name').textContent=p.n;$('ov-pos').className='pos pos-'+p.pos;$('ov-pos').textContent=p.pos;$('ov-team').textContent=p.team+(p.star?' · ★ your player':'');
- $('ov-ddf').textContent=f1(p.base);$('ov-mkt').textContent=f1(V().bs.marketOf(p));
- const cv=$('ov-cur');cv.textContent=p.ov?f1(p.ddf):'= DDF';cv.className=p.ov?'yours':'';
- if(!keepField){const v=p.ov?p.ddf:p.base;$('ov-num').value=+v.toFixed(2);$('ov-range').value=v}
- $('ov-apply').textContent=p.ov?'Update override':'Set override';$('ov-reset').disabled=!p.ov;
- preview();
-}
-function readNum(){const s=$('ov-num').value.trim(),v=+s;return s!==''&&isFinite(v)&&v>=0&&v<=100?Math.round(v*100)/100:null}
-function preview(){
- const p=cur&&pOf(cur);if(!p)return;const v=readNum();
- $('ov-err').textContent=v===null?'Enter a value from 0 to 100.':'';
- if(v===null){$('ov-preview').textContent='';return}
- const sorted=D().map(q=>({n:q.n,v:q.n===p.n?v:q.ddf})).sort((a,b)=>b.v-a.v),r=sorted.findIndex(q=>q.n===p.n)+1,r0=ranks(false).get(p.n);
- $('ov-preview').textContent=Math.abs(v-p.base)<.005?'Same as DDF Value (rank #'+r0+').':'At '+f1(v)+' ('+sg(v-p.base,1)+' vs DDF): rank #'+r0+' → #'+r+' by DDF Value.';
-}
-function renderAll(){renderActive();renderEditor(true);renderWhat()}
-function announce(msg){const l=$('ov-live');l.textContent='';setTimeout(()=>{l.textContent=msg},60)}
-let sig=null;const sigNow=()=>JSON.stringify(OV()?OV().get():{});
-/* overrides can also change from outside this tab's controls (e.g. a link loading them); re-render when the stored set differs */
-document.addEventListener('ddf:overrides',()=>queueMicrotask(()=>{if(sigNow()!==sig){const c=onChange();linkNote();announce('Overrides updated. '+c.n+(c.n===1?' change.':' changes.'))}}));
-function onChange(){sig=sigNow();const v=V();v.applyOverrides();v.hideCard();v.render();v.bs.refresh();renderActive();renderEditor(false);const c=renderWhat();return c}
-
-/* ---- picker (combobox) ---- */
-let opts=[],act=-1;
-const inp=$('ov-search'),list=$('ov-list');
-function openList(){const q=inp.value.trim().toLowerCase();opts=D().filter(p=>p.n.toLowerCase().includes(q));if(act>=opts.length)act=opts.length-1;
- list.innerHTML=opts.length?opts.map((p,i)=>`<li role="option" id="ov-o${i}" data-n="${esc(p.n)}" aria-selected="${i===act}"><span>${esc(p.n)} <span class="pos pos-${p.pos}">${p.pos}</span>${p.ov?'<span class="ov-badge">Yours</span>':''}</span><small>DDF ${f1(p.base)}</small></li>`).join(''):'<li class="none" role="option" aria-disabled="true" aria-selected="false">No player on this page matches.</li>';
- list.hidden=false;inp.setAttribute('aria-expanded','true');
- if(act>=0){inp.setAttribute('aria-activedescendant','ov-o'+act);const el=$('ov-o'+act);if(el)el.scrollIntoView({block:'nearest'})}else inp.removeAttribute('aria-activedescendant')}
-function closeList(){list.hidden=true;inp.setAttribute('aria-expanded','false');inp.removeAttribute('aria-activedescendant');act=-1}
-function pick(n){cur=n;inp.value=n;closeList();$('ov-saved').hidden=true;renderEditor(false);$('ov-num').focus();$('ov-num').select()}
-inp.addEventListener('input',()=>{act=inp.value.trim()?0:-1;openList()});
-inp.addEventListener('click',()=>{if(list.hidden)openList()});
-inp.addEventListener('keydown',e=>{
- if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();if(list.hidden){act=e.key==='ArrowDown'?0:opts.length-1;openList();return}const n=opts.length;if(!n)return;act=e.key==='ArrowDown'?(act+1)%n:(act-1+n)%n;openList()}
- else if(e.key==='Enter'){if(!list.hidden&&opts.length){e.preventDefault();pick(opts[Math.max(0,act)].n)}}
- else if(e.key==='Escape'){if(!list.hidden){e.preventDefault();e.stopPropagation();closeList()}}});
-inp.addEventListener('blur',()=>setTimeout(()=>{if(document.activeElement!==inp)closeList()},150));
-list.addEventListener('mousedown',e=>e.preventDefault());
-list.addEventListener('click',e=>{const li=e.target.closest('li[data-n]');if(li)pick(li.dataset.n)});
-
-/* ---- editor ---- */
-$('ov-num').addEventListener('input',()=>{const v=readNum();if(v!==null)$('ov-range').value=v;preview()});
-$('ov-num').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();$('ov-apply').click()}});
-$('ov-range').addEventListener('input',()=>{$('ov-num').value=(+$('ov-range').value).toFixed(1);preview()});
-$('ov-apply').addEventListener('click',()=>{const p=cur&&pOf(cur),v=readNum();if(!p)return;if(v===null){preview();$('ov-num').focus();return}
- if(!OV()){$('ov-err').textContent='Overrides are not available in this browser.';return}
- if(Math.abs(v-p.base)<.005){if(p.ov)OV().remove(p.n);$('ov-saved').hidden=true;const c=onChange();announce(p.n+' is back to DDF Value. '+c.n+(c.n===1?' change.':' changes.'));return}
- OV().set(p.n,v);const c=onChange();showSaved(p.n,v);announce('Override set: '+p.n+' '+f1(v)+'. '+c.n+(c.n===1?' change.':' changes.'));
- if(window.DDF&&DDF.celebrate&&c.n&&!matchMedia('(prefers-reduced-motion:reduce)').matches)DDF.celebrate($('ov-apply'))});
-$('ov-reset').addEventListener('click',()=>{const p=cur&&pOf(cur);if(!p)return;if(p.ov&&OV())OV().remove(p.n);$('ov-saved').hidden=true;const c=onChange();announce(p.n+' reset to DDF Value. '+c.n+(c.n===1?' change.':' changes.'));$('ov-num').focus()});
-function clearAll(){if(!OV())return;OV().clear();$('ov-saved').hidden=true;onChange();$('ov-loaded').hidden=true;announce('All overrides removed. Every tab uses DDF Value again.');inp.focus()}
-$('ov-clear').addEventListener('click',clearAll);$('ov-loaded-clear').addEventListener('click',clearAll);
-/* sharing: DDF.link carries DDF.overrides in links and chat blocks; feature-tested because the engine may still be landing */
-const DEFAULT_SETTINGS={scoring:'half_ppr',teams:12,superflex:false,slots:[1,2,3,1,1,6]};
-$('ov-copylink').addEventListener('click',()=>{const L=window.DDF&&DDF.link,st=$('ov-share');if(!L||!L.encode)return;
- const cur=L.current&&L.current(),state=Object.assign({},cur||{settings:DEFAULT_SETTINGS},{view:'values'});
- L.encode(state,{page:'values.html'}).then(url=>DDF.copyText(url,st,'Link copied.'),()=>{st.textContent='Could not make a link in this browser.'})});
-$('ov-chat').addEventListener('click',()=>{const L=window.DDF&&DDF.link;if(L&&L.copyForChat)L.copyForChat($('ov-share'))});
-$('ov-active').addEventListener('click',e=>{const ed=e.target.closest('[data-edit]'),rm=e.target.closest('[data-rm]');
- if(ed){cur=ed.dataset.edit;inp.value=cur;renderEditor(false);$('ov-pick-h').scrollIntoView({block:'nearest',behavior:matchMedia('(prefers-reduced-motion:reduce)').matches?'auto':'smooth'});$('ov-num').focus();$('ov-num').select();return}
- if(rm&&OV()){const n=rm.dataset.rm,btns=[...$('ov-active').querySelectorAll('[data-rm]')],i=btns.indexOf(rm);OV().remove(n);const c=onChange();announce('Override removed: '+n+'. '+c.n+(c.n===1?' change.':' changes.'));
-  const nb=[...$('ov-active').querySelectorAll('[data-rm]')];(nb[Math.min(i,nb.length-1)]||inp).focus()}});
-
-/* ---- start: site.js (deferred) provides DDF.overrides before DOMContentLoaded ---- */
-V().ovRender=renderAll;
-/* preselect a player in the picker (from the Chart tab actions or #overrides?player=Name) */
-V().ovPreselect=(n,focus)=>{const q=D().find(p=>p.n.toLowerCase()===String(n).toLowerCase());if(!q)return;cur=q.n;inp.value=q.n;closeList();$('ov-saved').hidden=true;renderEditor(false);
- if(focus){$('ov-pick-h').scrollIntoView({block:'nearest',behavior:matchMedia('(prefers-reduced-motion:reduce)').matches?'auto':'smooth'});$('ov-num').focus();$('ov-num').select()}};
-function showSaved(n,v){const s=$('ov-saved'),q=encodeURIComponent(n).replace(/%20/g,'+');s.innerHTML='Saved: '+esc(n)+' at '+f1(v)+'. <a href="#buy-sell?player='+q+'">See it in Buy / Sell</a> · <a href="find.html">See it in Trade &amp; Waiver Recommendations</a>';s.hidden=false}
-function linkNote(){const L=window.DDF&&DDF.link,n=OV()?OV().count():0;
- if(n&&L&&L.current&&L.current()){$('ov-loaded-t').textContent='Loaded from your link: '+n+(n===1?' override':' overrides');$('ov-loaded').hidden=false}
- const chip=$('vchip-ctx');let t='';try{t=L&&typeof L.describeContext==='function'?String(L.describeContext()||''):''}catch(_){}chip.textContent=t;chip.hidden=!t}
-function start(){sig=sigNow();const v=V();v.applyOverrides();if(D().some(p=>p.ov)){v.render();v.bs.refresh()}renderAll();
- const r=window.DDF&&DDF.link&&DDF.link.ready;if(r&&r.then)r.then(()=>{onChange();linkNote()},()=>linkNote());else linkNote()}
-if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();
-})();
-</script></body></html>
+<footer class="sitemap"><div class="in"><div><h2>TRADE</h2><a href="index.html">Home</a><a href="build.html">Build a Trade</a><a href="find.html">Trade &amp; Waiver Recommendations</a><a href="waivers.html">Waivers</a></div><div><h2>VALUES</h2><a href="values.html">Values</a><a href="values.html#buy-sell">Buy / Sell</a><a href="values.html#overrides">Overrides</a></div><div><h2>YOUR LEAGUE</h2><a href="connect.html">Paste my league</a><a href="setup.html">Your team</a><a href="settings.html">League settings</a><a href="team.html">Team assessment</a><a href="explore.html">Pick players</a><a href="partners.html">Pick trading partners</a></div><div><h2>LEARN</h2><a href="learn.html">Learn</a><a href="learn.html#numbers/pie">How we get our numbers</a><a href="ai.html">Use DDF with AI</a></div></div><div class="footer">Data Driven Football</div></footer><script>document.addEventListener('click',()=>{queueMicrotask(()=>{const w=document.querySelector('.morewrap');w.querySelector('button').setAttribute('aria-expanded',String(w.classList.contains('open')));});});document.addEventListener('keydown',e=>{if(e.key==='Escape'){const w=document.querySelector('.morewrap');if(w.classList.contains('open')){w.classList.remove('open');w.querySelector('button').setAttribute('aria-expanded','false');w.querySelector('button').focus();}document.querySelector('.values-more').open=false;}});</script><!-- ddf-engine -->
+<script src="v2/ddf-value-link.js" defer></script>
+<script src="v2/trade.js" defer></script>
+<script src="v2/finder.js" defer></script>
+<script src="ddf-engine.js" defer></script>
+<script src="values-chart.js" defer></script>
+<script src="values-buysell.js" defer></script>
+<script src="values-overrides.js" defer></script>
+</body></html>
