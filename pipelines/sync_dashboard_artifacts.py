@@ -37,6 +37,14 @@ def read_json(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def sync_search_identity_asset() -> dict:
+    if __package__:
+        from .build_jeg1505_search_identities import write_snapshot
+    else:
+        from build_jeg1505_search_identities import write_snapshot
+    return write_snapshot(root=ROOT, out=APP / "assets" / "jeg1505-search-identities.json")
+
+
 def replace_inline_players(index_html: str, players: dict) -> str:
     start_marker = '<script id="players-data" type="application/json">'
     end_marker = "</script>"
@@ -375,6 +383,8 @@ def publish_week_state(fixture_dest: Path, history_root: Path) -> None:
 
 
 def main() -> int:
+    # Validate search-only coverage before any build output is copied/written.
+    sync_search_identity_asset()
     players = read_json(FIXTURES / "players.json")
     import_health = import_health_source()
     # Match the current fixture to saved weeks before judging freshness.

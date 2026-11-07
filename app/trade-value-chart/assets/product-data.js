@@ -40,6 +40,7 @@
   const LEGACY_PATHS = Object.freeze({
     detail: "assets/comparison-sources-data.json",
     playersInlineId: "players-data",
+    searchIdentities: "assets/jeg1505-search-identities.json",
   });
 
   // JEG-484: same-origin static assets get no short timeout. A 4s timeout on
@@ -107,6 +108,7 @@
     activeSnapshotId: null,
     freshness: null,         // JEG-432 R5 buildSourceFreshness() at load
     loadStatus: {},          // JEG-484: asset name -> {ok, error, attempts}
+    searchIdentityPromise: null, // optional, search-only; never feeds api.players
   };
 
   // ---------- Fetch helpers ----------
@@ -177,6 +179,15 @@
     } catch (e) {
       return {};
     }
+  }
+
+  function getSearchIdentitySelection() {
+    if (!state.searchIdentityPromise) {
+      state.searchIdentityPromise = fetchJSON(LEGACY_PATHS.searchIdentities, FETCH_ATTEMPT_TIMEOUT_MS)
+        .then(payload => payload?.schema === "jeg1505-search-identities/1" && Array.isArray(payload.identities) ? payload : null)
+        .catch(() => null); // Optional coverage must not block the priced page.
+    }
+    return state.searchIdentityPromise;
   }
 
   // ---------- Contract-shape projection ----------
@@ -985,6 +996,8 @@
   // The semantic methods + transitional helpers. Consumers hold this
   // handle and never read window.TradeValueProductData internals.
   const publicHandle = Object.freeze({
+    // Optional JEG-1505 search coverage, separate from api.players/pricing.
+    getSearchIdentitySelection,
     // The contract surfaces (spec §8.1; getPlayerContext retired 2026-10-08).
     getPlayerValues,
     getPlayers,
@@ -1013,6 +1026,7 @@
   // ---------- Export ----------
 
   const api = {
+    getSearchIdentitySelection,
     initProductData,
     // Re-export the semantic methods at the top level so callers can
     // import the module as a flat namespace without the handle.
