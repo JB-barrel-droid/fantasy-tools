@@ -82,8 +82,12 @@ ROWS = """(jsn) => { const rows = window.TradeValueLeague.ui.result.rows;
     equal: pack(rows.find(r => !thrown(r))), unequal: pack(rows.find(thrown))}; }"""
 
 # Open a trade's details row and read its handoff: the Compare link, or the hold.
+# JEG-1539: the build-only shell is the root variant (served at /v2-app.html), where opening Compare stays in the same
+# document, so another row's details can still be open; close them first so the handoff read is this row's.
 PICK = """([id]) => { const b = document.querySelector(`[data-details-for="${id}"]`);
-  if (!b) return false; if (b.getAttribute('aria-expanded') !== 'true') b.click(); return true; }"""
+  if (!b) return false;
+  document.querySelectorAll('[data-details-for][aria-expanded="true"]').forEach(o => { if (o !== b) o.click(); });
+  if (b.getAttribute('aria-expanded') !== 'true') b.click(); return true; }"""
 HANDOFF = """() => { const panel = document.querySelector('.v2-lg-detail-body'); const a = panel && panel.querySelector('a[href^="#compare-trade"]');
   const held = panel && panel.querySelector('[data-hold="league-pricing"]');
   return {href: a ? a.getAttribute('href') : null, held: held ? held.textContent : null}; }"""
@@ -383,7 +387,9 @@ class LeagueSiteTest(unittest.TestCase):
             hand = self.handoff(page, first)
             self.assertIsNone(hand.get("href"), "a league-priced trade still links to Compare's standard bench")
             self.assertIn("prices with the standard bench", hand.get("held") or "")
-            self.assertEqual(page.evaluate("() => document.querySelectorAll('a[href^=\"#compare-trade\"]').length"), 0)
+            # JEG-1539: scoped to the league view; on the root variant of the shell the nav's own "Compare a trade"
+            # links also read "#compare-trade" (the /v2/ variant's read "v2/#compare-trade").
+            self.assertEqual(page.evaluate("() => document.querySelectorAll('#v2FindLeague a[href^=\"#compare-trade\"], .v2-lg-detail-body a[href^=\"#compare-trade\"]').length"), 0)
         self.assertEqual(self.problems, [])
 
 
