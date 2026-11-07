@@ -7115,6 +7115,7 @@
     "#values-auditing/*": "learn.html#numbers/pie",   // JEG-1536
     "#compare-trade": "build.html",   // JEG-1537: build.html reads the keys, league and value context from #?give=..&get=..
   };
+  const LINK_ENTRY_PAGE = "connect.html";   // JEG-1538
   // JEG-1537: a Compare link carrying a whole league state (mine/theirs/target, ddf-assist.js) or a carried trade (tc)
   // stays on the classic view until the codec moves (JEG-1538); every other Compare link goes to Build a Trade.
   const COMPARE_STAYS = ["mine", "theirs", "target", "tc"];
@@ -7170,9 +7171,10 @@
     const legacy = base === "#find-trade" && /^workspace=/.test(query[0] || "") ? "#find-league" : canonicalBase(base);
     const unknown = base !== "" && viewFor(legacy) === null;
     const next = unknown ? DEFAULT_ROUTE : legacy;
-    // A redesign chat-link token (#s=...) has no v2 route: it goes to the Values page whole, where site.js reads it.
-    if (unknown && base.startsWith("#s=") && swappedTarget(DEFAULT_ROUTE) && !stayForAutomation()) {
-      try { location.replace(new URL(swappedTarget(DEFAULT_ROUTE).split("#")[0], document.baseURI).href + location.hash); return; } catch (error) { /* falls through */ }
+    // A redesign chat-link token (#s=...) has no v2 route: it goes whole to connect.html (JEG-1538), the link's entry page,
+    // where site.js reads it and opens the page the link names.
+    if (unknown && base.startsWith("#s=") && !stayForAutomation()) {
+      try { location.replace(new URL(LINK_ENTRY_PAGE, document.baseURI).href + location.hash); return; } catch (error) { /* falls through */ }
     }
     if (leaveForSwappedPage(next, unknown ? [] : query)) return;
     if (next === base) return;
