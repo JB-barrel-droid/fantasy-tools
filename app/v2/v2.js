@@ -7113,7 +7113,11 @@
     "#values-auditing/health-check": "learn.html#numbers/pie",   // JEG-1536
     "#values-auditing/single-source": "learn.html#numbers/build-up",   // JEG-1536
     "#values-auditing/*": "learn.html#numbers/pie",   // JEG-1536
+    "#compare-trade": "build.html",   // JEG-1537: build.html reads the keys, league and value context from #?give=..&get=..
   };
+  // JEG-1537: a Compare link carrying a whole league state (mine/theirs/target, ddf-assist.js) or a carried trade (tc)
+  // stays on the classic view until the codec moves (JEG-1538); every other Compare link goes to Build a Trade.
+  const COMPARE_STAYS = ["mine", "theirs", "target", "tc"];
   function swappedTarget(base) {
     if (Object.prototype.hasOwnProperty.call(SWAPPED_ROUTES, base)) return SWAPPED_ROUTES[base];
     const prefix = Object.keys(SWAPPED_ROUTES).filter(key => key.endsWith("/*") && (base === key.slice(0, -2) || base.startsWith(key.slice(0, -1))))
@@ -7124,14 +7128,30 @@
   // render suites keep covering those views until step 5 retires them (JEG-1539 removes this escape); the redirect
   // tests pass ?swapped=1.
   const stayForAutomation = () => navigator.webdriver === true && !/[?&]swapped=1(&|$)/.test(location.search);
+  let leavingFor = null;   // JEG-1537: the first redirect wins; a later hash handler in the same turn cannot replace it
   function leaveForSwappedPage(base, query) {
+    if (leavingFor) return true;
     const target = swappedTarget(base);
     if (!target || stayForAutomation()) return false;
+    if (base === "#compare-trade") {
+      if (COMPARE_STAYS.some(key => new URLSearchParams(query.join("&")).has(key))) return false;
+      // An in-page jump (Add to trade, then #compare-trade) carries the trade it built.
+      if (!query.length && (TR.give.length || TR.receive.length) && C) query = [tradeHash().split("?").slice(1).join("?")].filter(Boolean);
+    }
     const rest = query.length ? "?" + query.join("?") : "";
     const url = new URL(target.includes("#") || !rest ? target : target + "#", document.baseURI);
     try { location.replace(url.href + rest); } catch (error) { return false; }
+    leavingFor = url.href + rest;
     return true;
   }
+  // JEG-1537: a Compare link opened inside the page leaves with the link as it arrived (the event's newURL): the compare
+  // view's own handlers rewrite the address to the bare route in the same turn.
+  window.addEventListener("hashchange", event => {
+    let hash = "";
+    try { hash = new URL(event.newURL).hash; } catch (error) { return; }
+    const [base, ...query] = hash.split("?");
+    if (canonicalBase(base) === "#compare-trade" && query.length) leaveForSwappedPage("#compare-trade", query);
+  });
   function canonicalizeHash() {
     const [base, ...query] = location.hash.split("?");
     // JEG-1094: a league share link (#find-trade?workspace=) now belongs to the league-wide screen.

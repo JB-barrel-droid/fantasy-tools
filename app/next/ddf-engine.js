@@ -21,6 +21,7 @@
  *   player(key)           one record
  *   settings()            {scoring, teams, roster:{QB,RB,WR,TE,FLEX,SUPERFLEX,BENCH,K,DST}}
  *   apply(partial)        set scoring / teams / superflex (bool) / roster; saves; returns settings()
+ *   applyVisit(partial)   the same (plus shares, week) for this visit only, never saved (a shared trade link's league)
  *   meta()                {buildTag, asOf, week}
  *   on(fn)                fn() after every rebuild (settings, basis or override change); returns an unsubscribe
  *   overrides.*           all(), get(key), set(key, value|{type:'adjustment', delta}), remove(key), clear(), count(),
@@ -172,6 +173,19 @@
     if (typeof partial.superflex === "boolean") C.setRosterSpot("SUPERFLEX", partial.superflex ? 1 : 0, false);
     if (partial.roster) Object.keys(partial.roster).forEach(function (k) { C.setRosterSpot(k, partial.roster[k], false); });
     saveSettings();
+    changed();
+    return settings();
+  }
+  // The same settings for this visit only (a shared link's league, JEG-1537): nothing is saved, as v2 applyLinkLeague.
+  function applyVisit(partial) {
+    partial = partial || {};
+    var attempt = function (fn) { try { fn(); } catch (e) { /* a part the engine does not accept is skipped */ } };
+    if (partial.scoring) attempt(function () { C.setScoring(partial.scoring, false); });
+    if (partial.teams) attempt(function () { C.setTeams(Number(partial.teams), false); });
+    if (typeof partial.superflex === "boolean") attempt(function () { C.setRosterSpot("SUPERFLEX", partial.superflex ? 1 : 0, false); });
+    if (partial.roster) Object.keys(partial.roster).forEach(function (k) { attempt(function () { C.setRosterSpot(k, partial.roster[k], false); }); });
+    if (partial.shares && C.setPositionWeights) attempt(function () { C.setPositionWeights(partial.shares, false); });
+    if (Number.isInteger(partial.week) && C.setWeek) attempt(function () { C.setWeek(partial.week, false); });
     changed();
     return settings();
   }
@@ -339,8 +353,8 @@
     return {name: String(ws.name || "Your league"), teams: teams, mine: mine};
   }
 
-  // Build a Trade link for players ({give:[record], get:[record]}). The root build points BUILD_PAGE at the live
-  // Compare a trade route (#compare-trade?give=<keys>&get=<keys>) until Build a Trade swaps in (names).
+  // Build a Trade link for players ({give:[record], get:[record]}): build.html?give=<name>&get=<name> (JEG-1537). The
+  // key form (a hash route: ?give=<keys>) is kept for a BUILD_PAGE that names one.
   var BUILD_PAGE = 'build.html';
   function buildHref(o) {
     o = o || {};
@@ -400,7 +414,7 @@
     controls: function () { return C; },
     players: function () { return build().list; },
     player: function (key) { return build().byKey.get(String(key)) || null; },
-    settings: settings, apply: apply, meta: meta, league: league,
+    settings: settings, apply: apply, applyVisit: applyVisit, meta: meta, league: league,
     on: function (fn) { listeners.push(fn); return function () { listeners = listeners.filter(function (f) { return f !== fn; }); }; },
     overrides: overrides,
     basis: function () { return JSON.parse(JSON.stringify(state.basis)); },

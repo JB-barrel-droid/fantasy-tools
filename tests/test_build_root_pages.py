@@ -44,10 +44,22 @@ MINIMAL_PAGE = (
 
 class RewriteLinksTest(unittest.TestCase):
 
-    def test_build_html_rewritten(self):
-        """build.html -> ./#compare-trade"""
-        result = brp.rewrite_links('"build.html"')
+    def test_build_html_rewritten_before_swap(self):
+        """build.html -> ./#compare-trade while Build a Trade is not swapped (JEG-1537 swaps it)."""
+        result = brp.rewrite_links('"build.html"', root_pages=("values.html", "learn.html"))
         self.assertEqual(result, '"./#compare-trade"')
+
+    def test_build_untouched_once_swapped(self):
+        """JEG-1537: build.html is a root page with the engine, so links to it stay (names in the query)."""
+        self.assertIn("build.html", brp.ROOT_PAGES)
+        self.assertIn("build.html", brp.ENGINE_PAGES)
+        for text in ('"build.html"', '"build.html?mode=any"', '"build.html?give=Josh%20Allen"'):
+            self.assertEqual(brp.rewrite_links(text), text)
+
+    def test_check_and_trade_go_to_build(self):
+        """JEG-1537: Check a trade and Trade detail are the Build a Trade screen."""
+        self.assertEqual(brp.rewrite_links('"check.html#trade=abc"'), '"build.html"')
+        self.assertEqual(brp.rewrite_links("'trade.html'"), "'build.html'")
 
     def test_learn_numbers_rewritten(self):
         """learn.html#numbers/x -> ./#writing/how-values while Learn is not swapped (JEG-1536 swaps it)."""
@@ -76,8 +88,8 @@ class RewriteLinksTest(unittest.TestCase):
             self.assertEqual(brp.rewrite_links(text), text)
 
     def test_single_quotes_also_rewritten(self):
-        result = brp.rewrite_links("'build.html'")
-        self.assertEqual(result, "'./#compare-trade'")
+        result = brp.rewrite_links("'find.html'")
+        self.assertEqual(result, "'./#find-trade'")
 
     def test_waivers_rewritten(self):
         result = brp.rewrite_links('"waivers.html"')
