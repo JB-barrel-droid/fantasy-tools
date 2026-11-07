@@ -11,6 +11,7 @@ Discrimination: test_checks_fail_on_broken_module runs the tier checks on mutate
 from __future__ import annotations
 
 import json
+import math
 import shutil
 import subprocess
 import tempfile
@@ -27,12 +28,20 @@ const O = require(process.argv[1]);
 const input = JSON.parse(process.argv[2]);
 const extra = input.extra ? require(input.extra) : null;
 const F = require(input.finder);
-const out = input.fns.map(([fn, ...args]) => {
+(async () => {
+const out = [];
+for (const [fn, ...args] of input.fns) out.push(await (async () => {
+  if (fn === '__negZero') return Object.is(O.shownPct(args[0]), -0);
+  if (fn === '__computeTeamSettles') {
+    const timeout = new Promise(r => setTimeout(() => r('hang'), 2000));
+    return Promise.race([O.computeTeam({teams: []}, {index: 0}).then(() => 'resolved', () => 'rejected'), timeout]);
+  }
   if (fn === '__netOf') { const [rows, shape, key, weights] = args; return extra.netOf(F.lineupValue(rows, shape, key), key, weights); }
   if (fn === '__teamFit') { const [team, ctx, key] = args; return F.teamFit(team, ctx, key).net; }
   return O[fn](...args);
-});
+})());
 console.log(JSON.stringify(out));
+})();
 """
 
 SHAPE = {"QB": 1, "RB": 2, "WR": 2, "TE": 1, "FLEX": 1, "SUPERFLEX": 0, "BENCH": 5, "K": 0, "DST": 0}
@@ -83,6 +92,35 @@ class Tiers(unittest.TestCase):
         got = run(("shownPct", 5.99), ("shownPct", 9.99), ("shownPct", 2.95), ("shownPct", -2.95), ("shownPct", 6.0), ("shownPct", -0.04))
         self.assertEqual(got, [5.9, 9.9, 2.9, -2.9, 6.0, 0.0])
 
+    def test_shown_and_tier_always_agree(self):
+        near = [2.9999999999999, 3.00000000001, 5.99999999999995, 5.9999999999995, 9.9999999999999, 10.0000000001, 6.04, 0.04]
+        got = run(*[("tierOf", v) for v in near], *[("tierOf", v) for v in [math.floor(v * 10 + 1e-9) / 10 for v in near]])
+        self.assertEqual(got[:len(near)], got[len(near):])
+        bands = [-0.9999999999999, -2.99999999999995, 0.99999999999995, -1.04]
+        got = run(*[("bandOf", v) for v in bands], *[("bandOf", -math.floor(-v * 10 + 1e-9) / 10 if v < 0 else math.floor(v * 10 + 1e-9) / 10) for v in bands])
+        self.assertEqual(got[:len(bands)], got[len(bands):])
+
+    def test_no_negative_zero(self):
+        self.assertEqual(run(("__negZero", -0.04), ("__negZero", -0.0), ("__negZero", -1.5)), [False, False, False])
+
+    def test_none_reasons_are_honest(self):
+        cases = [({"worth": 200, "trade": {"gain": 4, "tau": 1}}, "small", "too small to be worth chasing"),
+                 ({"worth": 200, "trade": {"gain": 2, "tau": 3}}, "sharp", "already sharp"),
+                 ({"worth": 200, "checked": False}, "unchecked", "no move was sized"),
+                 ({"worth": 10, "trade": {"gain": 5, "tau": 1}}, "unsized", "could not size")]
+        got = run(*[("assess", c) for c, *_ in cases])
+        for (case, reason, text), g in zip(cases, got):
+            with self.subTest(case=case):
+                self.assertEqual(g["tier"], "none")
+                self.assertEqual(g["reason"], reason)
+                self.assertIn(text, g["line"])
+                if reason != "sharp":
+                    self.assertNotIn("already sharp", g["line"])
+        self.assertIsNone(got[3]["source"])
+
+    def test_compute_team_never_hangs_on_error(self):
+        self.assertEqual(run(("__computeTeamSettles",)), ["rejected"])
+
     def test_assess_cases(self):
         # Shaped like the experiment's three reads (synthetic numbers): a medium trade, a gain under its noise floor,
         # a marginal trade; plus the boundaries on a 200-point roster and the waiver / trade choice.
@@ -98,7 +136,7 @@ class Tiers(unittest.TestCase):
             ({"worth": 200, "trade": {"gain": 20.0, "tau": 1}}, "big", "trade", True),        # 10.0%
             ({"worth": 200, "trade": {"gain": 4, "tau": 1}, "waiver": {"gain": 9, "tau": 2}}, "marginal", "waiver", False),
             ({"worth": 200, "trade": {"gain": 3, "tau": 3}, "waiver": {"gain": 2, "tau": 2}}, "none", None, True),  # at the floor = none
-            ({"worth": 10, "trade": {"gain": 5, "tau": 1}}, "none", "trade", True),           # tiny base: no percent
+            ({"worth": 10, "trade": {"gain": 5, "tau": 1}}, "none", None, True),             # tiny base: no percent, no move named
             ({"worth": 200}, "none", None, True),
         ]
         got = run(*[("assess", c) for c, *_ in cases])

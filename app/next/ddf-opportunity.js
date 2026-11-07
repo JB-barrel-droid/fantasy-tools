@@ -6,7 +6,7 @@
  *
  * ONE DENOMINATOR (Jeremy 2026-11-07: "your roster gets x% better"): a percent is the change in a roster's worth over
  * that roster's worth before the move, both in the same valuation. Compared on 36 real rosters (3 leagues, week 9, see
- * docs/claude-log/2026-11-07-opportunity-size.md): worth, starters-only value and the roster's value above waivers give
+ * docs/claude-log/2026-11-07-opportunity-module.md): worth, starters-only value and the roster's value above waivers give
  * nearly the same percent (median 6.6 / 6.6 / 6.1% for the best natural trade; none under 117 points), because DDF Value
  * is already priced above the waiver line. Worth was chosen: it is what the Waivers tab and the trade fit already count,
  * so the tier and the trade card say the same number; it counts the bench at its weight (a bench-only move is not 0%);
@@ -30,8 +30,8 @@
  *   unchanged       -1 < pct < 1
  *   slightly worse  -3 < pct <= -1
  *   clearly worse   pct <= -3
- * Percents are compared exactly and shown truncated toward zero to one decimal, so the shown number never crosses a
- * boundary the band did not (5.99 shows as 5.9, marginal).
+ * Tiers and bands are read from the percent truncated toward zero to one decimal, the same number the page shows, so
+ * the shown number and the tier always agree (5.99 shows as 5.9 and is marginal).
  *
  * API: window.DDFOpportunity (module.exports in Node)
  *   rosterImprovementPct(trade, side, ctx) -> {side, key, before, after, delta, pct, shown, band, label, sentence}
@@ -61,15 +61,21 @@
   var BANDS = {better: 1, unchanged: -1, slightly_worse: -3};
   var SLOTS = ["QB", "RB", "WR", "TE", "FLEX", "SUPERFLEX"];
 
-  function shownPct(pct) { return finite(pct) ? (pct < 0 ? -1 : 1) * Math.floor(Math.abs(pct) * 10 + 1e-9) / 10 : null; }
+  function shownPct(pct) {
+    if (!finite(pct)) return null;
+    var t = Math.floor(Math.abs(pct) * 10 + 1e-9) / 10;
+    return t === 0 ? 0 : (pct < 0 ? -t : t);   // never -0
+  }
   function fmt(pct) { return shownPct(Math.abs(pct)).toFixed(1) + "%"; }
   function tierOf(pct) {
     if (!finite(pct)) return "none";
+    pct = shownPct(pct);
     for (var i = 0; i < TIERS.length; i++) if (pct >= TIERS[i].min) return TIERS[i].id;
     return "none";
   }
   function bandOf(pct) {
     if (!finite(pct)) return "unsized";
+    pct = shownPct(pct);
     if (pct >= BANDS.better) return "better";
     if (pct > BANDS.unchanged) return "unchanged";
     if (pct > BANDS.slightly_worse) return "slightly_worse";
@@ -125,8 +131,11 @@
 
   // Tier wording (Jeremy 2026-11-07). Never a promise: "about", "we found".
   var HEADLINE = {big: "Big opportunity", medium: "A real opportunity", marginal: "A small edge", none: "No meaningful move right now"};
-  function lineFor(tier, gain, pct) {
+  function lineFor(tier, gain, pct, reason) {
     var n = "about " + gain.toFixed(1) + " value (" + fmt(pct) + " of your team)";
+    if (reason === "unsized") return "We could not size your best move: too few of your players have a value yet.";
+    if (reason === "unchecked") return "We had no other team's roster and no available players to check, so no move was sized.";
+    if (reason === "small") return "The best move we found adds only " + n + ", too small to be worth chasing.";
     if (tier === "big") return "Your best move adds " + n + ", roughly two places in your league's value ranking.";
     if (tier === "medium") return "Your best move adds " + n + ", about one place in your league's value ranking.";
     if (tier === "marginal") return "Your best move adds " + n + ". Your roster is close to its best.";
@@ -138,8 +147,11 @@
     var gain = Math.max(tg, wg);
     var pct = finite(w) && w >= MIN_BASE ? 100 * gain / w : null;
     var tier = gain > 0 ? tierOf(pct) : "none";
-    return {tier: tier, pct: pct, shown: shownPct(pct), gain: gain, source: gain <= 0 ? null : tg >= wg ? "trade" : "waiver",
-      waiversEmpty: wg <= 0, headline: HEADLINE[tier], line: lineFor(tier, gain, pct || 0), hole: o.hole || null};
+    // Why a "none" read is none: too few priced players, nothing was checked, a counted gain under 3%, or nothing beat
+    // its noise floor (the only case where "already sharp" is true).
+    var reason = pct === null ? "unsized" : tier !== "none" ? null : o.checked === false ? "unchecked" : gain > 0 ? "small" : "sharp";
+    return {tier: tier, reason: reason, pct: pct, shown: shownPct(pct), gain: gain, source: gain <= 0 || reason === "unsized" ? null : tg >= wg ? "trade" : "waiver",
+      waiversEmpty: wg <= 0, headline: reason === "unsized" ? "Your best move could not be sized" : HEADLINE[tier], line: lineFor(tier, gain, pct || 0, reason), hole: o.hole || null};
   }
 
   // Where to look: the starting slot furthest below the league's median for that slot, valued on the Analyst charts.
@@ -197,33 +209,44 @@
     if (on !== bestOn) return on ? c : best;
     return gain > best.gain ? c : best;
   }
-  function computeTeam(cur, mine) {
-    return new Promise(function (resolve) {
-      setTimeout(function () {
-        var DDF = root.DDF, ctx = DDF.find.context();
-        if (!ctx || !ctx.shape) { resolve(null); return; }
-        var mineRows = DDF.find.rowsOf(mine), w = worth(mineRows, ctx, OUR_KEY);
-        var cand = candidates(cur), waiver = null;
-        if (cand.length && root.TradeValueWaivers) {
-          var pk = DDF.find.pickups(ctx, DDF.find.entriesOf(mine), cand, "DDF");
-          pk.results.forEach(function (r) { waiver = better(waiver, r.totalDelta, r.tau); });
-        }
-        var trade = null, teams = [];
-        cur.teams.forEach(function (t) {
-          var rows = DDF.find.rowsOf(t);
-          if (!rows.length) return;
-          teams.push({index: t.index, rows: rows});
-          if (t.index === mine.index) return;
-          DDF.find.searchPartner(ctx, mineRows, rows, {your: "DDF", their: "Market", sizes: [1, 2]}).trades.forEach(function (tr) {
-            if (tr.cls !== "natural") return;
-            trade = better(trade, tr.fit.us.net, tr.fit.us.tau, {partner: t.index});
-          });
-        });
-        var res = assess({worth: w, waiver: waiver, trade: trade, hole: whereToLook(teams, mine.index, ctx.shape, ctx.analyst || ANALYST, ctx.weights)});
-        res.worth = w; res.trade = trade; res.waiver = waiver; res.candidates = cand.length;
-        resolve(res);
-      }, 0);
-    });
+  // Same partners and held players as find.html (DDF.league.skipped() team names, DDF.league.held() player keys), so
+  // "See trade ideas" leads to the trade that was counted. One search per league state (cached by its signature);
+  // the page stays responsive between partners. Rejects on any error so the page never shows "Sizing" forever.
+  var cache = {sig: null, value: null};
+  var pause = function () { return new Promise(function (r) { setTimeout(r, 0); }); };
+  async function computeTeam(cur, mine) {
+    var DDF = root.DDF;
+    await pause();
+    var ctx = DDF.find.context();
+    if (!ctx || !ctx.shape) return null;
+    var lg = DDF.league || {};
+    var skip = new Set(lg.skipped ? lg.skipped() : []), held = new Set((lg.held ? lg.held() : []).map(String));
+    var mineRows = DDF.find.rowsOf(mine), cand = candidates(cur);
+    var teams = cur.teams.map(function (t) { return {index: t.index, name: t.name, rows: DDF.find.rowsOf(t)}; }).filter(function (t) { return t.rows.length; });
+    var partners = teams.filter(function (t) { return t.index !== mine.index && !skip.has(t.name); });
+    var sig = JSON.stringify([DDF.engine.settings(), DDF.engine.basis ? DDF.engine.basis() : null, DDF.engine.overrides ? DDF.engine.overrides.count() : 0,
+      ctx.gate, mine.index, Array.from(held).sort(), partners.map(function (t) { return t.index; }),
+      teams.map(function (t) { return [t.index, t.rows.map(keyOf)]; }), cand.map(function (c) { return c.key; })]);
+    if (cache.sig === sig) return cache.value;
+    var w = worth(mineRows, ctx, OUR_KEY), waiver = null, trade = null;
+    if (cand.length && root.TradeValueWaivers) {
+      var pk = DDF.find.pickups(ctx, DDF.find.entriesOf(mine), cand, "DDF");
+      pk.results.forEach(function (r) { waiver = better(waiver, r.totalDelta, r.tau); });
+    }
+    for (var i = 0; i < partners.length; i++) {
+      await pause();
+      DDF.find.searchPartner(ctx, mineRows, partners[i].rows, {your: "DDF", their: "Market", sizes: [1, 2], held: held}).trades.forEach(function (tr) {
+        if (tr.cls !== "natural") return;
+        trade = better(trade, tr.fit.us.net, tr.fit.us.tau, {partner: partners[i].index});
+      });
+    }
+    var checked = partners.length > 0 || (cand.length > 0 && Boolean(root.TradeValueWaivers));
+    var res = assess({worth: w, waiver: waiver, trade: trade, checked: checked,
+      hole: whereToLook(teams, mine.index, ctx.shape, ctx.analyst || ANALYST, ctx.weights)});
+    res.worth = w; res.trade = trade; res.waiver = waiver; res.candidates = root.TradeValueWaivers ? cand.length : 0;
+    res.partners = partners.length; res.skipped = teams.length - 1 - partners.length; res.held = held.size;
+    cache = {sig: sig, value: res};
+    return res;
   }
 
   var api = {MIN_BASE: MIN_BASE, TIERS: TIERS, BANDS: BANDS, HEADLINE: HEADLINE, tierOf: tierOf, bandOf: bandOf, shownPct: shownPct,
