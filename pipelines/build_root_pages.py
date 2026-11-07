@@ -60,6 +60,11 @@ ROOT_FILES = ("site.js", "styles.css", "players-table-1.json", "ddf-engine.js",
               # Entry pages (JEG-1538): paste reader, page scripts, league ID screenshots (actionbar.* listed above).
               "rosterparse.js", "league-paste.js", "connect-entry.js", "setup-entry.js",
               "img/league-id")
+# JEG-1539: the get-values edge function (supabase/functions/get-values/index.ts) and the MCP tools read the
+# players-data island from the site root page (PAGE_URL = <origin>/). The front door has no engine, so it carries that
+# island alone (inert JSON, nothing reads it on the page) until get-values reads the data from another address.
+DATA_ISLAND_PAGES = frozenset({"index.html"})
+PLAYERS_ISLAND = re.compile(r'<script id="players-data" type="application/json">.*?</script>', re.S)
 # Shared scripts copied as they are: legacy-routes.js names the redesigned pages on purpose (it is the redirect map).
 NO_REWRITE = frozenset({"legacy-routes.js"})
 ENGINE_MARKER = "<!-- ddf-engine -->"
@@ -135,6 +140,12 @@ def root_page_html(html: str, name: str, engine_html: str | None, tag: str | Non
         if not head:
             raise ValueError(f"{name}: no <head> to carry the build tag")
         html = html[:head.end()] + BUILD_META.format(tag=html_lib.escape(tag)) + data_version_script(tag) + html[head.end():]
+    if name in DATA_ISLAND_PAGES and engine_html is not None:
+        island = PLAYERS_ISLAND.search(engine_html)
+        if not island:
+            raise ValueError(f"{name}: the engine page has no players-data island to carry (get-values reads it here)")
+        at = html.rindex("</body>")
+        html = html[:at] + island.group(0) + "\n" + html[at:]
     if name in ENGINE_PAGES or ENGINE_MARKER in html:
         if engine_html is None:
             raise ValueError(f"{name}: needs the engine page, which is not built")

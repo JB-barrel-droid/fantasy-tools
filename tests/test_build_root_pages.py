@@ -262,5 +262,21 @@ def _strip_text_plain(html: str) -> str:
     )
 
 
+class FrontDoorDataIslandTest(unittest.TestCase):
+    """JEG-1539: get-values (supabase/functions/get-values/index.ts) parses players-data from the root page."""
+
+    def test_root_page_carries_players_data(self):
+        import json
+        import re
+        page = ROOT / "dist" / "index.html"
+        if not page.exists() or "legacy-routes.js" not in page.read_text(encoding="utf-8"):
+            self.skipTest("run make sync first")
+        html = page.read_text(encoding="utf-8")
+        m = re.search(r'id="players-data"[^>]*>([\s\S]*?)<\/script>', html)   # get-values' own pattern
+        self.assertIsNotNone(m, "players-data island missing from the front door: get-values would fail")
+        doc = json.loads(m.group(1))
+        self.assertGreater(len(doc["players"]), 100)
+
+
 if __name__ == '__main__':
     unittest.main()
