@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-11-07T08:00:15.414974+00:00",
+  "run_at": "2026-11-07T09:43:05.115579+00:00",
   "nfl_week": 9,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -14,6 +14,7 @@
   "success": true,
   "outcome": "published_with_holds",
   "held": [
+    "cbsros",
     "espn",
     "razzball",
     "usatoday"
@@ -44,6 +45,19 @@
       ],
       "detail": "sentinel players outside their per-game band (JEG-592): Lamar Jackson 0 (expected 16 to 30)",
       "hold_severity": "red",
+      "week": 9
+    },
+    "cbsros": {
+      "reason": "fidelity: publisher_vs_stored",
+      "held_series": [
+        "cbsros",
+        "cbsros_vorp"
+      ],
+      "sections": [
+        "cbsros"
+      ],
+      "detail": "1101/1101 values match exactly across 3 columns; 1 publisher names do not resolve to a canonical player; 2 players at the page's last listed value swapped in or out (ties at the row cap: Eli Stowers, Kylen Granson); parse notes: RB: 1 players listed with another position in the cell (kept as RB): ['",
+      "hold_severity": "amber",
       "week": 9
     },
     "razzball": {
@@ -256,6 +270,7 @@
   "fidelity_holds": {
     "usatoday": "fidelity: publisher_vs_stored",
     "espn": "fidelity: scrape_validity",
+    "cbsros": "fidelity: publisher_vs_stored",
     "razzball": "fidelity: scrape_validity"
   }
 }

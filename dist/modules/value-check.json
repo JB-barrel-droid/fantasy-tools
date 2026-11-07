@@ -1,6 +1,6 @@
 {
  "schema": "value-check/2",
- "generated_at": "2026-11-07T09:06:56.189290+00:00",
+ "generated_at": "2026-11-07T11:07:53.014571+00:00",
  "reference_version": "value-reference-002/2",
  "pipeline_version": "value-pipeline/2",
  "tolerance": 0.05,
@@ -950,6 +950,15 @@
   "ppr/12/sf0/cw9+regular"
  ],
  "held_sections": {
+  "cbsros": {
+   "reason": "fidelity: publisher_vs_stored",
+   "week": 9,
+   "root": "cbsros",
+   "stage": "publisher_vs_stored",
+   "identity": "2026-11-07@2026-11-07T03:26:03.033265Z",
+   "since": "2026-11-07T09:40:18.547746Z",
+   "hold_level": "amber"
+  },
   "espn": {
    "reason": "fidelity: scrape_validity",
    "week": 9,
