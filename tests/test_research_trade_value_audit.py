@@ -105,6 +105,12 @@ class AuditData(unittest.TestCase):
         self.assertEqual("Not measured", card["dynastyprocess"]["balance"]["label"])
         self.assertEqual("Weak", card["dynastyprocess"]["scoring"]["label"])
 
+    def test_named_min_and_max_in_the_text(self):
+        """Section 9 names the charts at the ends of the like-for-like range."""
+        c = {k: v for k, v in self.fresh["dynastyprocess"]["rank_corr_common"].items() if k != "n"}
+        self.assertEqual("fantasypros", min(c, key=c.get))
+        self.assertEqual("fantasycalc", max(c, key=c.get))
+
     def test_dynastyprocess_snapshot_is_licensed_and_dated(self):
         folder = audit.DP_DIR
         self.assertIn("GNU GENERAL PUBLIC LICENSE", (folder / "LICENSE").read_text(encoding="utf-8"))
