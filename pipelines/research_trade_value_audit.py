@@ -420,7 +420,7 @@ def weekly(inp) -> dict:
 
 RULES = {
     "balance": "Position balance: share of value that would have to move between positions to match the projections (ESPN, CBS rest-of-season, Razzball run through our model), Half PPR, 12 teams. Strong up to 5 points, OK up to 10, Weak above 10.",
-    "scoring": "Scoring formats: compare Standard with Full PPR for the top 36 at RB, WR and TE. Strong when at least 20% of those players change places on average; OK when the numbers change but fewer change places; Weak when the numbers do not change. For ESPN and CBS rest-of-season the formats are our scoring of their projected stats; Razzball publishes its own columns.",
+    "scoring": "Scoring formats: compare Standard with Full PPR for the top 36 at RB, WR and TE. Strong when at least 20% of those players change places on average; OK when the numbers change but fewer change places; Weak when the numbers do not change. For ESPN the formats are our scoring of its projected stats, for CBS rest-of-season we add points per catch to its Standard total; Razzball publishes its own columns.",
     "superflex": "Superflex: Strong with superflex values for 24 or more QBs (two per team); OK with fewer; Weak with none.",
     "league_size": "League size: Strong when the source offers its own numbers by team count; Weak with one table for every league size.",
     "depth": "Depth: the thinnest position's listed players as a share of the players a 12-team league rosters there. Strong at 100% or more, OK at 70% or more, Weak below.",
@@ -767,7 +767,7 @@ def depth_vs_waiver(inp, data: dict) -> dict:
                 if t == 12:
                     row[p]["curve"] = [r(100 * nat[i] / top, 1) for i in order[:DEPTH_CURVE_MAX]]
             row["value_past_line_pct"] = r(100 * past_value / total, 1)
-        # Our model against the same line: players past it that still get a DDF Value above zero.
+        # Our model against the same line. "Valued" = DDF Value above a token 0.05 (the page states the cutoff).
         ddf = ddf_values(s)
         drow = out["ddf"].setdefault(t, {})
         for p in POS:

@@ -450,7 +450,7 @@
       hd.appendChild(el('span', { 'aria-hidden': 'true', class: 'sw', style: 'background:' + color('ddf') }));
       hd.appendChild(el('b', null, NAME.ddf));
       li.appendChild(hd);
-      li.appendChild(el('div', null, fmt(m.valued) + ' players valued above zero; ' + (m.valued < m.rostered ? (m.rostered - m.valued) + ' rostered players at about zero.' : 'every rostered player valued.') + (m.past_line_valued ? ' ' + m.past_line_valued + ' past the line valued above zero.' : '')));
+      li.appendChild(el('div', null, fmt(m.valued) + ' players valued above a token amount (0.05); ' + (m.valued < m.rostered ? (m.rostered - m.valued) + ' rostered players below it.' : 'every rostered player valued.') + (m.past_line_valued ? ' ' + m.past_line_valued + ' past the line valued above zero.' : '')));
       ul.appendChild(li);
       host2.appendChild(ul);
     }
