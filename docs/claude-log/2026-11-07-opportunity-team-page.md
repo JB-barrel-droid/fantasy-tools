@@ -49,3 +49,4 @@ pickup of 1.63 beat its floor). Fixed in both PRs: the best counted move wins.
 - One search per league state (cached), with a pause between partners so the page stays responsive.
 - The render oracle still uses the same finder/find functions. Those functions are the engine under test elsewhere; the
   part under test here is the page's counting and copy.
+- Delta review on 6d9094195: no waivers line on an unsized read; the note names the page "Pick trading partners". Render test and team parity rerun: pass.
