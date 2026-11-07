@@ -79,6 +79,7 @@
         ddf: ddf, tier: row.ddfTier || null,
         ddfSources: (blended.sources || []).slice(),
         override: row.valueOverride !== undefined && row.valueOverride !== null ? finite(row.values && row.values.ddf_value) : null,
+        overrideSet: row.valueOverride !== undefined && row.valueOverride !== null,
         sources: sources
       });
     });
@@ -118,6 +119,7 @@
       basis: basis ? { isDefault: basis.isDefault !== false, label: basis.label || '', percents: basis.percents || {} } : { isDefault: true, label: '', percents: {} },
       sources: srcMeta,
       players: players,
+      overrides: players.filter(function (p) { return p.overrideSet; }).length,
       inspection: ins
     };
   }
@@ -155,11 +157,18 @@
     return url;
   }
 
-  /* Apply settings, then resolve with a fresh snapshot. */
+  /* Settings checked on this page apply to this page only: the engine's own setters with publish off, never
+     DDF.engine.apply (which saves them as the reader's league). With no settings the engine keeps the reader's
+     saved league, which ddf-engine.js applied before `ready` resolved. */
+  function applyHere(C, s) {
+    if (s.scoring) C.setScoring(s.scoring, false);
+    if (s.teams) C.setTeams(Number(s.teams), false);
+    if (s.roster) Object.keys(s.roster).forEach(function (k) { C.setRosterSpot(k, s.roster[k], false); });
+  }
   function load(settings) {
     var E = engine();
     if (!E) return Promise.reject(new Error('engine missing'));
-    return E.ready.then(function () { return settings ? E.apply(settings) : null; }).then(function () { return snapshot(); });
+    return E.ready.then(function (C) { if (settings) applyHere(E.controls() || C, settings); return snapshot(); });
   }
 
   window.DDFLearnEngine = {

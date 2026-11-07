@@ -32,11 +32,14 @@ sys.path.insert(0, str(ROOT / "pipelines"))
 from build_next_preview import DATA_VERSION, LOCAL_ASSET, data_version_script  # noqa: E402
 from build_v2_page import ENGINE_PAGE, ENGINE_SCRIPT_MARKER, FETCH_SHARE_SHIM  # noqa: E402
 
-ROOT_PAGES = ("values.html",)
-ENGINE_PAGES = frozenset({"values.html"})
+ROOT_PAGES = ("values.html", "learn.html")
+ENGINE_PAGES = frozenset({"values.html", "learn.html"})
 # Files the root pages load from beside them (copied from app/next/). v2/*.js are already published by build_v2_page.
 ROOT_FILES = ("site.js", "styles.css", "players-table-1.json", "ddf-engine.js",
-              "values-chart.js", "values-buysell.js", "values-overrides.js")
+              "values-chart.js", "values-buysell.js", "values-overrides.js",
+              # Learn (JEG-1536): the posts, the markdown renderer and the numbers tabs.
+              "learn/render.js", "learn/posts.json", "learn/posts",
+              "learn/numbers/learn-engine.js", "learn/numbers/numbers.js")
 ENGINE_MARKER = "<!-- ddf-engine -->"
 ICON_BLANK = '<link rel="icon" href="data:,">'
 ICON_SITE = '<link rel="icon" href="icon.jpg">'
@@ -135,7 +138,12 @@ def build(dist: Path = DIST, tag: str | None = None, source: Path = SOURCE, engi
         if not src.exists():
             raise SystemExit(f"build_root_pages: {name} is missing from {source}")
         out = dist / name
-        if name.endswith(".js"):
+        out.parent.mkdir(parents=True, exist_ok=True)
+        if src.is_dir():   # a folder of data files (Learn's posts): copied whole, so a new post needs no entry here
+            if out.exists():
+                shutil.rmtree(out)
+            shutil.copytree(src, out, ignore=shutil.ignore_patterns("README.md", ".DS_Store"))
+        elif name.endswith(".js"):
             out.write_text(rewrite_links(src.read_text(encoding="utf-8"), root_pages), encoding="utf-8")
         else:
             shutil.copy2(src, out)

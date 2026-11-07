@@ -69,27 +69,6 @@
   function settingsLine(st) {
     return st.scoringLabel + ', ' + st.teams + ' teams, roster ' + st.rosterLabel + (st.superflex ? ' (superflex)' : '');
   }
-  /* The reader's own league, when this browser has one: the new pages' league (DDF.link), else the
-     settings saved on the classic pages (ddf.v2.league-settings). Read only; nothing is written. */
-  var SLOT_ORDER = ['QB', 'RB', 'WR', 'TE', 'FLEX', 'BENCH'];
-  function leagueSettings() {
-    try {
-      var st = window.DDF && DDF.link && DDF.link.current ? DDF.link.current() : null;
-      var s = st && st.settings;
-      if (s && s.scoring && s.teams && Array.isArray(s.slots)) {
-        var r = {};
-        SLOT_ORDER.forEach(function (k, i) { r[k] = Number(s.slots[i] || 0); });
-        r.SUPERFLEX = s.superflex ? 1 : 0;
-        return { scoring: s.scoring, teams: Number(s.teams), roster: r };
-      }
-    } catch (e) { /* no league on this page */ }
-    try {
-      var saved = JSON.parse(localStorage.getItem('ddf.v2.league-settings') || 'null');
-      if (saved && saved.scoring && saved.teams) return { scoring: saved.scoring, teams: Number(saved.teams), roster: saved.roster || undefined };
-    } catch (e) { /* storage blocked or empty */ }
-    return null;
-  }
-
   /* ---------- formulas ---------- */
   function shownMean(p) {
     var t = snap.charts.reduce(function (a, s) { return a + tenths(p.sources[s].adjusted); }, 0);
@@ -118,7 +97,9 @@
     var m = snap.meta;
     return [m.week ? 'Week ' + m.week : null, m.asOf ? 'as of ' + m.asOf : null, m.build ? 'build ' + m.build : null].filter(Boolean).join(' · ');
   }
-  function overridesLine() { return 'no overrides (the model’s own value)'; }
+  function overridesLine() {
+    return snap.overrides ? 'your ' + snap.overrides + ' override' + (snap.overrides === 1 ? ' is' : 's are') + ' not applied here (the model’s own value)' : 'no overrides (the model’s own value)';
+  }
   function permalink(view, arg) {
     return location.href.split('#')[0] + '#numbers/' + view + (arg !== undefined && arg !== '' ? '/' + arg : '') + settingsQuery(snap.settings);
   }
@@ -182,7 +163,7 @@
 
   /* ---------- player pickers ---------- */
   function fillPickers() {
-    $('nx-players').innerHTML = snap.players.map(function (p) { return '<option value="' + esc(p.name) + '">' + esc(p.pos + ' · ' + f1(p.ddf)) + '</option>'; }).join('');
+    $('nx-players').innerHTML = snap.players.map(function (p) { return '<option data-key="' + p.player_key + '" value="' + esc(p.name) + '">' + esc(p.pos + ' · ' + f1(p.ddf)) + '</option>'; }).join('');
   }
   function wirePicker(input, view) {
     var status = $(input.id + '-hint');
@@ -236,7 +217,7 @@
       '<thead><tr><th scope="col">Chart</th><th scope="col">Adjusted</th><th scope="col">÷ ' + n + ' = contribution</th><th scope="col">Share</th></tr></thead><tbody>' +
       segs.map(function (g) {
         var r = p.sources[g.s];
-        return '<tr><th scope="row"><span class="nx-sw" style="background:' + COLORS[g.i % COLORS.length] + '"></span>' + esc(label(g.s)) + estTag(r) + '</th><td class="nx-n">' + f1(g.v) + '</td><td class="nx-n">' + (num(g.v) ? trim((tenths(g.v) / (10 * n)).toFixed(3)) : DASH) + '</td><td class="nx-n">' + pct(g.share) + '</td></tr>';
+        return '<tr data-src="' + g.s + '"><th scope="row"><span class="nx-sw" style="background:' + COLORS[g.i % COLORS.length] + '"></span>' + esc(label(g.s)) + estTag(r) + '</th><td class="nx-n">' + f1(g.v) + '</td><td class="nx-n">' + (num(g.v) ? trim((tenths(g.v) / (10 * n)).toFixed(3)) : DASH) + '</td><td class="nx-n">' + pct(g.share) + '</td></tr>';
       }).join('') +
       '</tbody><tfoot><tr><th scope="row">DDF Value</th><td class="nx-n">' + trim((tSum / 10).toFixed(1)) + '</td><td class="nx-n">' + (inDdf(p) ? trim(shownMean(p).toFixed(3)) : f1(p.ddf)) + '</td><td class="nx-n">100%</td></tr></tfoot>';
     $('pie-formula').textContent = 'DDF Value = ' + formula(p);
@@ -278,7 +259,7 @@
       '<div class="nx-scroll" tabindex="0" role="region" aria-label="Totals by source"><table class="nx-table nx-hc"><thead><tr><th scope="col">Source</th><th scope="col">Starters</th><th scope="col">Bench</th><th scope="col">Total</th><th scope="col">Per roster slot</th></tr></thead><tbody>' +
       rows.map(function (r) {
         var off = totalsFlag.indexOf(r.src) >= 0 || Math.abs(r.totalAdjusted - data.pie) > 0.5;
-        return '<tr><th scope="row">' + src(r) + '</th><td class="nx-n">' + f1(r.starterTotal) + '</td><td class="nx-n">' + f1(r.benchTotal) + '</td><td class="nx-n' + (off ? ' nx-off' : '') + '">' + f1(r.totalAdjusted) + '</td><td class="nx-n">' + (num(r.perRosterable) ? r.perRosterable.toFixed(2) : DASH) + '</td></tr>';
+        return '<tr data-src="' + esc(r.src) + '"><th scope="row">' + src(r) + '</th><td class="nx-n">' + f1(r.starterTotal) + '</td><td class="nx-n">' + f1(r.benchTotal) + '</td><td class="nx-n' + (off ? ' nx-off' : '') + '">' + f1(r.totalAdjusted) + '</td><td class="nx-n">' + (num(r.perRosterable) ? r.perRosterable.toFixed(2) : DASH) + '</td></tr>';
       }).join('') + '</tbody></table></div>';
     html += '<details class="nx-details"><summary>Do sources agree by position?</summary><p class="nx-hint">Within each position, starter values should agree within 24%. QB is shown for reference and never flagged. The budget is the position’s share of the value pie.</p>' +
       POS.map(function (pos, pi) {
@@ -368,7 +349,7 @@
     var body = rows.map(function (r) {
       var p = byKey[r.key];
       var oth = p ? others.map(function (s) { return p.sources[s] ? f1(p.sources[s].adjusted) : DASH; }).join(' · ') : DASH;
-      return '<tr><td class="nx-n nx-muted">' + r.rank + '</td><th scope="row">' + esc(r.name) + (r.estimated ? ' <span class="nx-est" title="Filled in from other charts">est.</span>' : '') + '</th><td>' + esc(r.pos) + '</td><td>' + esc(ROLE[r.role] || r.role || DASH) + '</td>' +
+      return '<tr data-key="' + esc(r.key) + '"><td class="nx-n nx-muted">' + r.rank + '</td><th scope="row">' + esc(r.name) + (r.estimated ? ' <span class="nx-est" title="Filled in from other charts">est.</span>' : '') + '</th><td>' + esc(r.pos) + '</td><td>' + esc(ROLE[r.role] || r.role || DASH) + '</td>' +
         (chart ? '<td class="nx-n">' + fPub(src, r.published) + '</td><td class="nx-n">' + f1(r.indexed) + '</td>' : '<td class="nx-n">' + fPts(r.published) + '</td>') +
         '<td class="nx-n nx-strong">' + f1(r.adjusted) + '</td>' + (chart ? '<td class="nx-n nx-muted">' + oth + '</td>' : '') +
         '<td class="nx-n nx-ddf">' + (p ? '<a href="' + link('trace', p.player_key) + '" aria-label="Trace ' + esc(r.name) + '’s DDF Value ' + f1(p.ddf) + '">' + f1(p.ddf) + '</a>' : DASH) + '</td></tr>';
@@ -398,13 +379,15 @@
     $('tr-pub').innerHTML = '<caption class="nx-sr">' + esc(p.name) + ': published, indexed and adjusted by chart</caption><thead><tr><th scope="col">Chart</th><th scope="col">Published</th><th scope="col" class="nx-fac">× factor</th><th scope="col">Indexed</th><th scope="col">Adjusted</th></tr></thead><tbody>' +
       snap.charts.map(function (s) {
         var r = p.sources[s];
-        return '<tr><th scope="row">' + esc(label(s)) + estTag(r) + '</th><td class="nx-n">' + fPub(s, r && r.published) + '</td><td class="nx-n nx-muted nx-fac">' + fFactor(snap.sources[s].factor) + '</td><td class="nx-n">' + f1(r && r.indexed) + '</td><td class="nx-n nx-strong">' + f1(r && r.adjusted) + '</td></tr>';
+        return '<tr data-src="' + s + '"><th scope="row">' + esc(label(s)) + estTag(r) + '</th><td class="nx-n">' + fPub(s, r && r.published) + '</td><td class="nx-n nx-muted nx-fac">' + fFactor(snap.sources[s].factor) + '</td><td class="nx-n">' + f1(r && r.indexed) + '</td><td class="nx-n nx-strong">' + f1(r && r.adjusted) + '</td></tr>';
       }).join('') + '</tbody>';
     $('tr-avg').textContent = formula(p);
     var round = inDdf(p) && !tiesOut(p);
     $('tr-round').textContent = round ? ROUNDING_NOTE : '';
     $('tr-round').hidden = !round;
     $('tr-pin').textContent = snapshotLine() + ' · ' + settingsLine(snap.settings) + ' · ' + overridesLine();
+    $('tr-ov').innerHTML = p.overrideSet ? 'Your override for ' + esc(p.name) + ' is ' + f1(p.override) + '. It replaces DDF Value on the other pages; this trace shows the model’s own value. <a href="values.html#overrides">See your overrides</a>' : '';
+    $('tr-ov').hidden = !p.overrideSet;
     $('tr-llm').textContent = llmText(p);
     $('tr-status').textContent = '';
   }
@@ -466,7 +449,7 @@
     setBusy(true);
     var p = LE().load(want).then(function (s) {
       snap = s;
-      loadedQuery = key;
+      loadedQuery = key || settingsQuery(s.settings);
       byKey = {}; byName = {};
       s.players.forEach(function (pl) { byKey[pl.player_key] = pl; byName[pl.name.toLowerCase()] = pl; });
       onSnapshot();
@@ -600,18 +583,9 @@
     $('tr-copy-json').addEventListener('click', function () { copy(jsonFor(byKey[state.player]), this); });
     ['set-scoring', 'set-teams', 'set-sf'].forEach(function (id) { $(id).addEventListener('change', changeSettings); });
     window.addEventListener('hashchange', route);
-    /* First visit with no settings in the address: use the reader's league when this browser has one. */
-    var linkReady = window.DDF && DDF.link && DDF.link.ready ? Promise.race([DDF.link.ready, new Promise(function (res) { setTimeout(res, 1500); })]) : Promise.resolve();
-    linkReady.then(function () {
-      var r = parse();
-      var own = isNumbersHash() && !r.query ? leagueSettings() : null;
-      if (own && LE()) {
-        var roster = own.roster || null;
-        var q = '?scoring=' + own.scoring + '&teams=' + own.teams + (roster ? '&roster=' + rosterParam(roster) : '');
-        if (querySettings(q)) history.replaceState(null, '', location.hash + q);
-      }
-      route();
-    }, route);
+    /* The reader's league or overrides changed elsewhere (another tab): read the engine again. */
+    if (LE()) LE().onRebuild(function () { snap = null; loadedQuery = null; loading = null; lastRendered = ''; if (isNumbersHash()) route(); });
+    route();
   }
   window.DDFNumbers = { isNumbersHash: isNumbersHash, snapshot: function () { return snap; } };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();

@@ -214,7 +214,7 @@ main a:focus-visible,main button:focus-visible{outline:3px solid #176c4d;outline
       <label for="set-scoring">Scoring<select id="set-scoring"><option value="standard">Standard</option><option value="half_ppr">Half PPR</option><option value="ppr">Full PPR</option></select></label>
       <label for="set-teams">Teams<select id="set-teams"><option value="8">8</option><option value="10">10</option><option value="12">12</option><option value="14">14</option></select></label>
       <label class="nx-check-label" for="set-sf"><input type="checkbox" id="set-sf">Superflex</label>
-      <p>The numbers follow your league when this browser has it. Check another setting here; nothing is saved.</p>
+      <p>The numbers start from your league settings saved in this browser. Check another setting here; it applies to this page only and is not saved.</p>
     </form>
     <div class="nx-tabs" role="tablist" aria-label="How we get our numbers" id="nx-tabs">
       <a role="tab" id="nx-tab-pie" href="#numbers/pie" aria-controls="nx-view-pie" aria-selected="true">Value pie</a>
@@ -279,6 +279,7 @@ main a:focus-visible,main button:focus-visible{outline:3px solid #176c4d;outline
         <h2 id="tr-name"></h2>
         <div class="nx-big nx-n" id="tr-big"></div>
         <p class="nx-hint" id="tr-sub"></p>
+        <p class="nx-hint" id="tr-ov" hidden></p>
         <ol class="nx-steps">
           <li><b id="tr-step1">Four charts publish a value, it is indexed onto one scale, then adjusted for your league</b>
             <div class="nx-scroll"><table class="nx-table" id="tr-pub"></table></div></li>
@@ -470,4 +471,5 @@ window.addEventListener('DOMContentLoaded', () => {
     $('learn-error').hidden = false;
   });
 });
-</script></body></html>
+</script><!-- ddf-engine -->
+</body></html>
