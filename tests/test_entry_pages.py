@@ -177,10 +177,50 @@ class EntryPagesRenderTest(unittest.TestCase):
         self.assertEqual([t["name"] for t in live["teams"]], names)
         self.assertEqual([t["name"] for t in live["teams"] if t["id"] == live["myTeamId"]], ["Hail Marys"])
         self.assertEqual([e["name"] for e in live["teams"][0]["entries"]], ["Drake Maye", "Ollie Gordon II", "Sione Vaki"])
+        self.assertTrue(page.is_hidden("#bridge-ask"))
+        # confirming another team updates the same live league in place (same ids)
+        ids = [t["id"] for t in live["teams"]]
+        page.click("label.setup-option >> nth=2")
+        again = page.evaluate("JSON.parse(localStorage.getItem('ddf.v2.workspaces')).workspaces[0]")
+        self.assertEqual([t["id"] for t in again["teams"]], ids)
+        self.assertEqual(again["id"], live["id"])
+        self.assertEqual(again["myTeamId"], ids[2])
         page.evaluate("sessionStorage.clear()")
         page.reload(wait_until="networkidle")
         self.assertTrue(page.is_visible("#setup-empty"))
         self.assertEqual(page.eval_on_selector_all("input[name=team]", "els => els.length"), 0)
+
+    def test_bridge_asks_before_replacing_a_saved_league(self):
+        page = self.page()
+        saved = {"v": 1, "activeId": "lg-old", "workspaces": [{"id": "lg-old", "name": "Old league", "settings": {"teams": 10},
+                 "teams": [{"id": "t1", "name": "Old A", "entries": []}, {"id": "t2", "name": "Old B", "entries": []}], "myTeamId": "t1"}]}
+        page.add_init_script("if (!localStorage.getItem('ddf.v2.workspaces')) localStorage.setItem('ddf.v2.workspaces', %s);" % json.dumps(json.dumps(saved)))
+        self.connect(page)
+        self.paste(page, (FIXTURES / "03-espn.txt").read_text(encoding="utf-8"))
+        page.wait_for_selector("#recognized:not([hidden])", timeout=20000)
+        page.click("#connect-next")
+        page.wait_for_url("**/setup.html", timeout=20000)
+        page.click("label.setup-option >> nth=0")
+        self.assertTrue(page.is_visible("#bridge-ask"))
+        self.assertEqual(page.evaluate("JSON.parse(localStorage.getItem('ddf.v2.workspaces'))"), saved, "untouched before the reader says so")
+        page.click("#bridge-replace")
+        ws = page.evaluate("JSON.parse(localStorage.getItem('ddf.v2.workspaces'))")["workspaces"][0]
+        self.assertNotEqual(ws["id"], "lg-old")
+        self.assertIsNone(ws["settings"])
+        self.assertEqual([t["name"] for t in ws["teams"]], ["Gridiron Gurus", "Taco Tuesday", "Mahomes Alone"])
+
+    def test_link_after_paste_replaces_the_pasted_league(self):
+        page = self.page()
+        self.connect(page)
+        self.paste(page, (FIXTURES / "03-espn.txt").read_text(encoding="utf-8"))
+        page.wait_for_selector("#recognized:not([hidden])", timeout=20000)
+        self.assertIsNotNone(page.evaluate("sessionStorage.getItem('ddf:pasted')"))
+        state = {"v": 1, "view": "team", "settings": {"scoring": "ppr", "teams": 10, "superflex": False, "slots": [1, 2, 2, 1, 1, 6]},
+                 "teams": [{"name": "Link A", "players": ["Josh Allen"]}, {"name": "Link B", "players": ["Jordan Love"]}]}
+        page.evaluate("s => DDF.link.decodeBlock(JSON.stringify(s))", state)
+        self.assertIsNone(page.evaluate("sessionStorage.getItem('ddf:pasted')"))
+        page.goto(f"{self.base}/setup.html", wait_until="networkidle")
+        self.assertEqual(page.eval_on_selector_all("input[name=team]", "els => els.map(e => e.value)"), ["Link A", "Link B"])
 
     def test_link_codec_vectors_and_round_trip(self):
         page = self.page()
@@ -210,11 +250,15 @@ class EntryPagesRenderTest(unittest.TestCase):
         self.assertTrue(page.url.endswith("/connect.html?x=1#paste") and "/next/" not in page.url, page.url)
         page.goto(f"{self.base}/next/setup.html", wait_until="networkidle")
         self.assertTrue(page.url.endswith("/setup.html") and "/next/" not in page.url, page.url)
-        # a chat link for Build a Trade (view check) before that page is live: its live route, league kept in the tab
-        page.goto(f"{self.base}/index.html?swapped=1#s={VECTOR_6}", wait_until="networkidle", timeout=60000)
-        page.wait_for_function("() => /#compare-trade$/.test(location.href)", timeout=20000)
+        # a chat link for a view whose page is not live yet (check): Values with the token, as before the entry swap,
+        # so the link's overrides and basis still reach the live store; never a token glued after a v2 hash route
+        page.goto(f"{self.base}/index.html?swapped=1#s={VECTOR_61}", wait_until="networkidle", timeout=60000)
+        page.wait_for_function("() => /values\\.html#s=/.test(location.href)", timeout=20000)
         league = json.loads(page.evaluate("sessionStorage.getItem('ddf:league')"))
         self.assertEqual(league["trade"], VECTOR_6_STATE["trade"])
+        page.wait_for_function("() => DDF.engine && DDF.engine.controls && DDF.engine.controls()", timeout=60000)
+        page.wait_for_function("() => DDF.engine.overrides.count() > 0", timeout=20000)
+        self.assertEqual(page.evaluate("DDF.engine.overrides.count()"), 2, "the link's two overrides apply on Values")
 
     def test_league_id_help_and_device_tip(self):
         page = self.page()

@@ -494,6 +494,7 @@ document.addEventListener('keydown', event => { if (event.key === 'Escape' && wr
   
   function upd(){
     var kept=null;try{kept=DDF.state.get('pasted',null)}catch(e){}
+    try{linked=!!DDF.state.get('league',null)}catch(e){}
     var has=!!(linked||(kept&&Array.isArray(kept.teams)&&kept.teams.length>1));
     ddfGate([document.getElementById('connect-next')],has,'Check your pasted rosters, enter them manually or add a link first','gate-reason');
     if(window.DDF&&DDF.actionBar&&has)DDF.actionBar.setSummary('Rosters added, next: confirm your team');

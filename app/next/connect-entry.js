@@ -228,7 +228,7 @@
     var name = q.replace(/\s*\([^)]*\)\s*$/, "").toLowerCase();
     var hits = r.filter(function (p) { return p.name.toLowerCase() === name; });
     if (hits.length > 1) { var exact = hits.filter(function (p) { return (p.name + " (" + p.pos + (p.team ? ", " + p.team : "") + ")") === q; }); if (exact.length) hits = exact; }
-    if (hits.length !== 1) { st.textContent = hits.length ? "More than one player has that name. Pick one from the list." : "No player found with that name. Check the spelling."; return; }
+    if (hits.length !== 1) { st.textContent = hits.length ? "More than one player has that name. Check the list and add the right player." : "No player found with that name. Check the spelling."; return; }
     var p = hits[0], key = String(p.player_key);
     var owner = manual.teams.filter(function (x) { return x.players.some(function (y) { return y.key === key; }); })[0];
     if (owner) { st.textContent = p.name + " is already on " + owner.name + "."; return; }

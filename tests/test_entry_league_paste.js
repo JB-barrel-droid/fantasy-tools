@@ -78,6 +78,23 @@ test("readWithNames: a typed name not in the paste is still a team, one name is 
   assert.deepStrictEqual(res.teams.map(t => [t.name, t.players.length]), [["GG!", 1], ["Somebody Else", 0]]);
   assert.strictEqual(LP.readWithNames("GG!\nJosh Allen\n", ["GG!"], TABLE_ROWS).ok, false);
 });
+test("a team named like a player's first name does not swallow that player", () => {
+  const res = LP.read("Josh\nJosh Allen\nBijan Robinson\nMike\nJordan Love\nSaquon Barkley\n", TABLE_ROWS, {table: TABLE});
+  assert.deepStrictEqual(res.teams.map(t => [t.name, t.players.map(p => p.name)]), [["Josh", ["Josh Allen", "Bijan Robinson"]], ["Mike", ["Jordan Love", "Saquon Barkley"]]]);
+  const named = LP.readWithNames("Allen\nKyler Murray\nJosh Allen\nKyler\nJordan Love\n", ["Allen", "Kyler"], TABLE_ROWS);
+  assert.deepStrictEqual(named.teams.map(t => [t.name, t.players.map(p => p.name)]), [["Allen", ["Kyler Murray", "Josh Allen"]], ["Kyler", ["Jordan Love"]]]);
+});
+test("kickers and defenses keep the live roster key", () => {
+  const res = LP.read(fs.readFileSync(path.join(DIR, "01-yahoo-iphone.txt"), "utf8"), TABLE_ROWS, {table: TABLE});
+  const kd = res.teams[1].unmatched.filter(u => u.reason === "kdef");
+  assert.strictEqual(kd.length, 1);
+  assert.ok(/^x:DEF:/.test(kd[0].key), kd[0].key);
+});
+test("readWithNames: a long typed name is one team", () => {
+  const long = "The Long Name Report With Bill And Friends";
+  const res = LP.readWithNames("GG!\nJosh Allen\n", ["GG!", long], TABLE_ROWS);
+  assert.deepStrictEqual(res.teams.map(t => t.name), ["GG!", long]);
+});
 test("unreadable and empty pastes", () => {
   assert.strictEqual(LP.read("", TABLE_ROWS).reason, "empty");
   const r = LP.read("Alpha Squad\nfoo bar\nBeta Crew\nbaz qux", TABLE_ROWS);

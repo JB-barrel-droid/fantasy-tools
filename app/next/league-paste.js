@@ -10,10 +10,11 @@
  * reads the same here.
  *
  * DDF.leaguePaste.read(text, rows, opts)      rows: engine rows [{player_key, name, pos, team}]
- *   -> {ok, reason, site, strategy, names, teams:[{name, players:[{name, key, pos, team, slot, line, id}], unmatched:[{line, reason, pos}]}],
+ *   -> {ok, reason, site, strategy, names, teams:[{name, players:[{name, key, pos, team, slot, line, id}], unmatched:[{line, reason, pos, key?, team?}]}],
  *       matched, look, missing, notEvaluated}
  *   reason (when !ok): 'empty' | 'one-team' | 'unreadable'
- *   unmatched reason: 'look' (more than one player fits) | 'missing' (no player found) | 'kdef' (kicker or defense, not evaluated)
+ *   unmatched reason: 'look' (more than one player fits) | 'missing' (no player found) | 'kdef' (kicker or defense, not evaluated;
+ *   carries the live roster key "x:POS:..." and team)
  * DDF.leaguePaste.readWithNames(text, names, rows, opts)   same, with team names the reader typed (the edit-names box)
  * opts.table: player table rows ("Name|POS|TEAM|player_key"), for the table id of each player (DDF.link IDs).
  */
@@ -54,7 +55,12 @@
       unmatched: (unmatched || []).filter(function (u) {
         var line = String(u.line || "").trim(), lib = P();
         return !((u.pos === "K" || u.pos === "DEF") && (!/[a-z]/.test(line) || (lib && lib.isSlotLabel && lib.isSlotLabel(line))));
-      }).map(function (u) { return {line: String(u.line || "").trim().slice(0, 80), reason: reasonOf(u), pos: u.pos || ""}; })
+      }).map(function (u) {
+        var out = {line: String(u.line || "").trim().slice(0, 80), reason: reasonOf(u), pos: u.pos || ""};
+        /* K and DEF keep the live roster key ("x:POS:TEAM" or "x:POS:<name>", league.js) so the live store lists them too */
+        if (out.reason === "kdef") { var lib = P(); out.team = u.team || ""; out.key = "x:" + out.pos + ":" + (u.team || (lib && lib.normName ? lib.normName(out.line) : out.line.toLowerCase())); }
+        return out;
+      })
         .filter(function (u) { return u.line; })
     };
   }
@@ -72,7 +78,13 @@
       var exact = keys.indexOf(have);
       if (exact >= 0) return exact;
       if (/[\t,]/.test(line)) return -1;
-      for (var k = 0; k < keys.length; k++) if (keys[k] && have.indexOf(keys[k] + " ") === 0 && have.length <= keys[k].length + 14 && !INLINE.test(line)) return k;
+      /* a name with a record, rank or owner after it ("Team (5-1-0)", "Team 5-2", "Team (Walt)"), never a longer name
+         such as a player whose first name is a team's name ("Josh" and "Josh Allen") */
+      for (var k = 0; k < keys.length; k++) {
+        if (!keys[k] || have.indexOf(keys[k] + " ") !== 0 || INLINE.test(line)) continue;
+        var rest = have.slice(keys[k].length).trim();
+        if (/^[\d ]+$/.test(rest) || (/\(/.test(line) && rest.split(" ").length <= 3)) return k;
+      }
       return -1;
     };
     String(text || "").split(/\r?\n/).forEach(function (line) {
@@ -153,7 +165,7 @@
     var found = {};
     teams.forEach(function (t) { found[t.name.toLowerCase()] = 1; });
     /* a typed name we could not find in the paste still counts as a team (no players yet) */
-    list.forEach(function (n) { if (!found[n.slice(0, 40).toLowerCase()]) teams.push({name: n.slice(0, 40), players: [], unmatched: []}); });
+    list.forEach(function (n) { if (!found[n.toLowerCase()]) teams.push({name: n, players: [], unmatched: []}); });
     out.teams = teams;
     out.ok = teams.length >= 2;
     out.reason = out.ok ? null : "unreadable";
