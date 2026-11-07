@@ -52,7 +52,7 @@ class EntryBuildTest(unittest.TestCase):
             self.assertIn(page, brp.ROOT_PAGES)
             self.assertEqual(brp.rewrite_links(f'"{page}#paste"'), f'"{page}#paste"')
         self.assertIn("connect.html", brp.ENGINE_PAGES)
-        for name in ("rosterparse.js", "league-paste.js", "connect-entry.js", "setup-entry.js", "img/league-id", "assets/howto"):
+        for name in ("rosterparse.js", "league-paste.js", "connect-entry.js", "setup-entry.js", "img/league-id", "assets/howto/slides"):
             self.assertIn(name, brp.ROOT_FILES)
             self.assertTrue((ROOT / "app" / "next" / name).exists(), name)
 
@@ -250,15 +250,22 @@ class EntryPagesRenderTest(unittest.TestCase):
         self.assertTrue(page.url.endswith("/connect.html?x=1#paste") and "/next/" not in page.url, page.url)
         page.goto(f"{self.base}/next/setup.html", wait_until="networkidle")
         self.assertTrue(page.url.endswith("/setup.html") and "/next/" not in page.url, page.url)
-        # a chat link for a view whose page is not live yet (check): Values with the token, as before the entry swap,
-        # so the link's overrides and basis still reach the live store; never a token glued after a v2 hash route
+        # a chat link for Build a Trade (view check, live since JEG-1537): build.html with the token and its overrides
         page.goto(f"{self.base}/index.html?swapped=1#s={VECTOR_61}", wait_until="networkidle", timeout=60000)
-        page.wait_for_function("() => /values\\.html#s=/.test(location.href)", timeout=20000)
+        page.wait_for_function("() => /build\\.html#s=/.test(location.href)", timeout=20000)
         league = json.loads(page.evaluate("sessionStorage.getItem('ddf:league')"))
         self.assertEqual(league["trade"], VECTOR_6_STATE["trade"])
         page.wait_for_function("() => DDF.engine && DDF.engine.controls && DDF.engine.controls()", timeout=60000)
         page.wait_for_function("() => DDF.engine.overrides.count() > 0", timeout=20000)
-        self.assertEqual(page.evaluate("DDF.engine.overrides.count()"), 2, "the link's two overrides apply on Values")
+        self.assertEqual(page.evaluate("DDF.engine.overrides.count()"), 2, "the link's two overrides apply")
+        # a view whose page is not live yet (team): Values with the token, never a token glued after a v2 hash route
+        token = page.evaluate("""() => DDF.link.encodeToken({v: 1, view: 'team', settings: {scoring: 'ppr', teams: 10, superflex: false,
+            slots: [1, 2, 2, 1, 1, 6]}, teams: [{name: 'A', players: ['Josh Allen']}, {name: 'B', players: ['Jordan Love']}],
+            overrides: {'Josh Allen': 80}})""")
+        page.goto(f"{self.base}/index.html?swapped=1#s={token}", wait_until="networkidle", timeout=60000)
+        page.wait_for_function("() => /values\\.html#s=/.test(location.href)", timeout=20000)
+        page.wait_for_function("() => DDF.engine && DDF.engine.controls && DDF.engine.controls() && DDF.engine.overrides.count() > 0", timeout=60000)
+        self.assertEqual(page.evaluate("DDF.engine.overrides.count()"), 1)
 
     def test_league_id_help_and_device_tip(self):
         page = self.page()

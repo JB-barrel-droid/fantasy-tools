@@ -148,7 +148,7 @@
 
     var lo = scale.lo, hi = scale.hi;
     var table = '<section class="tc-table" aria-labelledby="' + id + '-t"><h3 id="' + id + '-t">Difference by source</h3>' +
-      '<p class="tc-sub">Receive − give · ' + rows.length + (rows.length === 1 ? ' source' : ' sources') + ' · original published numbers. Every row shares one scale, ' + signed(lo).replace('+', '') + ' to ' + signed(hi).replace('+', '') + '; the line marks 0.' + (multi ? ' Open “Show players” to see each player.' : '') + '</p>' +
+      '<p class="tc-sub">Receive − give · ' + rows.length + (rows.length === 1 ? ' source' : ' sources') + ' · values priced for your league settings. Every row shares one scale, ' + signed(lo).replace('+', '') + ' to ' + signed(hi).replace('+', '') + '; the line marks 0.' + (multi ? ' Open “Show players” to see each player.' : '') + '</p>' +
       '<div class="tc-rows" role="table" aria-label="Difference by source">' + head + body + '</div>' +
       (data.note ? '<p class="tc-note">' + esc(data.note) + '</p>' : '') + '</section>';
 
