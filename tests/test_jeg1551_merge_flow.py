@@ -11,6 +11,7 @@ import re
 import subprocess
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 from pipelines import ci_change_scope, ci_data_pin, review_receipt
@@ -91,8 +92,10 @@ class DataPinTest(unittest.TestCase):
                                       capture_output=True, text=True)
             git("init", "-q")
             git("config", "user.email", "t@t"), git("config", "user.name", "t")
+            for root in ci_data_pin.DATA_PATHS:
+                Path(tmp, root).mkdir(parents=True, exist_ok=True)
+                Path(tmp, root, "keep.txt").write_text("good\n")
             data = Path(tmp, "data/fixtures/current")
-            data.mkdir(parents=True)
             (data / "players.json").write_text("good\n")
             Path(tmp, "code.py").write_text("v1\n")
             git("add", "."), git("commit", "-qm", "good data")
@@ -125,6 +128,105 @@ class DataPinTest(unittest.TestCase):
             self.assertEqual(Path(tmp, "code.py").read_text(), "v2\n")
 
 
+def data_repo(tmp):
+    """A repo whose first commit is the known-good data and second a bad rebuild."""
+    def git(*args):
+        return subprocess.run(["git", "-C", tmp, *args], check=True,
+                              capture_output=True, text=True)
+    git("init", "-q")
+    git("config", "user.email", "t@t"), git("config", "user.name", "t")
+    for root in ci_data_pin.DATA_PATHS:
+        Path(tmp, root).mkdir(parents=True, exist_ok=True)
+        Path(tmp, root, "keep.txt").write_text("good\n")
+    Path(tmp, "data/fixtures/current/old-only.json").write_text("old\n")
+    git("add", "."), git("commit", "-qm", "good data")
+    good = git("rev-parse", "HEAD").stdout.strip()
+    Path(tmp, "data/fixtures/current/old-only.json").unlink()
+    for root in ci_data_pin.DATA_PATHS:
+        Path(tmp, root, "keep.txt").write_text("new\n")
+    git("add", "-A"), git("commit", "-qm", "rebuild")
+    return git, good
+
+
+def pinned_env(tmp, pin, paths):
+    return {"DATA_PIN": ci_data_pin.encode(pin, paths, "ok")}
+
+
+class DataPinSnapshotTest(unittest.TestCase):
+    def test_renames_count_by_both_names(self):
+        compare = {"files": [{"filename": "archive/players.json",
+                              "previous_filename": "data/fixtures/current/players.json"}]}
+        changed = ci_data_pin.changed_files(compare)
+        self.assertIn("data/fixtures/current/players.json", changed)
+        self.assertNotIn("data/fixtures/current", ci_data_pin.paths_to_pin(changed))
+
+    def test_one_pin_per_run_round_trips_and_doubt_leaves_the_checkout(self):
+        paths = list(ci_data_pin.DATA_PATHS[:2])
+        self.assertEqual(ci_data_pin.decode(ci_data_pin.encode(GOOD, paths, "ok")),
+                         (GOOD, paths, "ok"))
+        for value in ("", "none:no passing data check", "garbage", f"{GOOD}:", f"{GOOD}:etc/passwd"):
+            self.assertIsNone(ci_data_pin.decode(value)[0], value)
+
+    def test_apply_uses_the_runs_pin_without_asking_again(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            git, good = data_repo(tmp)
+
+            def fake_git(*args):
+                return None if args[0] == "fetch" else git(*args)
+
+            def no_api(path):
+                raise AssertionError("the run's pin was already resolved")
+            pin, _, _ = ci_data_pin.apply(pinned_env(tmp, good, list(ci_data_pin.DATA_PATHS)),
+                                          fetch_api=no_api, git=fake_git)
+            self.assertEqual(pin, good)
+            self.assertEqual(Path(tmp, "data/history/keep.txt").read_text(), "good\n")
+            self.assertTrue(Path(tmp, "data/fixtures/current/old-only.json").exists())
+            pin, _, reason = ci_data_pin.apply({"DATA_PIN": "none:no passing data check"},
+                                               fetch_api=no_api, git=fake_git)
+            self.assertIsNone(pin)
+
+    def test_pin_missing_a_root_changes_nothing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            git, good = data_repo(tmp)
+            git("rm", "-rq", "data/history"), git("commit", "-qm", "drop history")
+            old = git("rev-parse", "HEAD").stdout.strip()
+            Path(tmp, "data/history").mkdir()
+            Path(tmp, "data/history/keep.txt").write_text("newest\n")
+            git("add", "."), git("commit", "-qm", "history back")
+
+            def fake_git(*args):
+                return None if args[0] == "fetch" else git(*args)
+            pin, _, reason = ci_data_pin.apply(
+                pinned_env(tmp, old, list(ci_data_pin.DATA_PATHS)), git=fake_git)
+            self.assertIsNone(pin)
+            self.assertIn("could not restore", reason)
+            # No root was touched: fixtures and history are both still current.
+            self.assertEqual(Path(tmp, "data/fixtures/current/keep.txt").read_text(), "new\n")
+            self.assertEqual(Path(tmp, "data/history/keep.txt").read_text(), "newest\n")
+            self.assertEqual("", git("status", "--porcelain").stdout)
+
+    def test_failed_restore_is_undone_including_files_the_pin_added(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            git, good = data_repo(tmp)
+            Path(tmp, "output/local-untracked.txt").write_text("mine\n")
+
+            def fake_git(*args):
+                if args[0] == "fetch":
+                    return None
+                if args[0] == "restore" and args[1].startswith("--source=") and args[1] != "--source=HEAD":
+                    git(*args)  # the restore lands, then the step fails
+                    raise subprocess.CalledProcessError(128, "restore", "disk full")
+                return git(*args)
+            pin, _, reason = ci_data_pin.apply(
+                pinned_env(tmp, good, list(ci_data_pin.DATA_PATHS)), git=fake_git)
+            self.assertIsNone(pin)
+            self.assertFalse(Path(tmp, "data/fixtures/current/old-only.json").exists())
+            self.assertEqual(Path(tmp, "data/history/keep.txt").read_text(), "new\n")
+            # A file that was there before the pin is left alone.
+            self.assertEqual(Path(tmp, "output/local-untracked.txt").read_text(), "mine\n")
+            self.assertEqual("?? output/local-untracked.txt\n", git("status", "--porcelain").stdout)
+
+
 class WorkflowWiringTest(unittest.TestCase):
     def read(self, name):
         return (ROOT / ".github/workflows" / name).read_text(encoding="utf-8")
@@ -134,21 +236,52 @@ class WorkflowWiringTest(unittest.TestCase):
                           ("v2-render-test.yml", "render-tests")):
             body = re.search(rf"^  {job}:\n((?:(?:    .*)?\n)*)", self.read(name), re.M).group(0)
             self.assertIn("python3 -m pipelines.ci_data_pin apply", body, job)
+            self.assertIn("DATA_PIN: ${{ needs.pr-state.outputs.data_pin }}", body, job)
             self.assertLess(body.index("ci_data_pin apply"), body.index("make sync"), job)
+
+    def test_pr_state_resolves_one_pin_for_the_run(self):
+        for name in ("preview.yml", "v2-render-test.yml"):
+            body = re.search(r"^  pr-state:\n((?:(?:    .*)?\n)*)", self.read(name), re.M).group(0)
+            self.assertIn("data_pin: ${{ steps.pin.outputs.data_pin }}", body, name)
+            self.assertIn("id: pin", body, name)
+            self.assertIn("python3 -m pipelines.ci_data_pin plan", body, name)
 
     def test_pin_can_read_workflow_runs(self):
         for name in ("preview.yml", "v2-render-test.yml"):
             self.assertRegex(self.read(name), r"(?m)^permissions:\n  actions: read\n")
 
-    def test_review_receipt_runs_trusted_code_and_queues_only_behind_the_merge_queue(self):
+    def test_review_receipt_comes_from_main_and_queues_only_behind_the_merge_queue(self):
         text = self.read("review-receipt.yml")
-        self.assertIn("name: review-receipt", text)
-        self.assertIn("merge_group:", text)
-        self.assertIn("pull_request_review:", text)
-        # The check runs the base branch's script, so a PR cannot edit it into passing.
-        self.assertIn("ref: ${{ github.event.pull_request.base.sha || github.sha }}", text)
+        on = text[text.index("\non:\n"):text.index("\npermissions:")]
+        # The workflow file itself must come from main, not from the PR.
+        self.assertIn("pull_request_target:", on)
+        self.assertNotRegex(on, r"(?m)^  pull_request:")
+        self.assertNotIn("pull_request_review", on)
+        self.assertNotIn("github.event.pull_request.head", text)
+        self.assertNotRegex(text, r"ref: .*head")
+        self.assertIn("merge_group:", on)
+        self.assertIn('workflows: ["Review receipt trigger"]', on)
+        self.assertEqual(1, len(re.findall(r"(?m)^    name: review-receipt$", text)))
         self.assertIn("*,merge_queue,*) gh pr merge --auto --squash", text)
-        self.assertNotIn("pull_request_target", text)
+        trigger = self.read("review-receipt-trigger.yml")
+        self.assertIn("name: Review receipt trigger", trigger)
+        self.assertIn("permissions: {}", trigger)
+        self.assertNotIn("review-receipt", re.sub(r"(?m)^#.*$", "", trigger).replace(
+            "Review receipt trigger", ""))
+
+    def test_review_receipt_mutations_are_caught(self):
+        text = self.read("review-receipt.yml")
+        for old, new in (("  pull_request_target:\n    types:", "  pull_request:\n    types:"),
+                         ("      - uses: actions/checkout@v4\n",
+                          "      - uses: actions/checkout@v4\n        with:\n"
+                          "          ref: ${{ github.event.pull_request.head.sha }}\n")):
+            broken = text.replace(old, new, 1)
+            self.assertNotEqual(text, broken)
+            with self.subTest(mutation=new), mock.patch.object(self, "read", lambda n, b=broken: b
+                                                               if n == "review-receipt.yml"
+                                                               else (ROOT / ".github/workflows" / n).read_text()):
+                with self.assertRaises(AssertionError):
+                    self.test_review_receipt_comes_from_main_and_queues_only_behind_the_merge_queue()
 
 
 class ChangeScopeTest(unittest.TestCase):
@@ -158,6 +291,13 @@ class ChangeScopeTest(unittest.TestCase):
                             "docs/use-ddf-in-claude-chatgpt.md", "tests/test_x.py"):
             self.assertFalse(ci_change_scope.docs_only(["README.md", build_input]), build_input)
         self.assertFalse(ci_change_scope.docs_only([]))
+
+    def test_a_rename_into_docs_is_not_docs_only(self):
+        batch = [{"filename": "docs/retired-engine.md",
+                  "previous_filename": "app/trade-value-chart/assets/value-model.js"}]
+        self.assertFalse(ci_change_scope.docs_only(ci_change_scope.names(batch)))
+        self.assertTrue(ci_change_scope.docs_only(ci_change_scope.names(
+            [{"filename": "docs/b.md", "previous_filename": "docs/a.md"}])))
 
     def test_doubt_runs_the_full_check(self):
         env = {"GITHUB_EVENT_NAME": "pull_request", "GITHUB_EVENT_PATH": "/nonexistent"}
@@ -175,56 +315,107 @@ class ChangeScopeTest(unittest.TestCase):
             os.unlink(handle.name)
 
 
-def review(body, commit=HEAD, at="2026-11-07T01:00:00Z", state="COMMENTED"):
-    return {"body": body, "commit_id": commit, "submitted_at": at, "state": state}
+AUTHOR = "JB-barrel-droid"
+APP = review_receipt.CODEX_APP
 
 
-PR = {"draft": False, "head": {"sha": HEAD}, "labels": []}
+def review(body="", commit=HEAD, at="2026-11-07T01:00:00Z", state="COMMENTED", login=APP, rid=1):
+    return {"id": rid, "body": body, "commit_id": commit, "submitted_at": at, "state": state,
+            "user": {"login": login}}
+
+
+P1 = "**![P1 Badge](https://img.shields.io/badge/P1-orange?style=flat)** fix this"
+P2 = "**![P2 Badge](https://img.shields.io/badge/P2-yellow?style=flat)** maybe"
+PUSHED = "2026-11-07T00:30:00Z"
+PR = {"draft": False, "head": {"sha": HEAD}, "labels": [], "user": {"login": AUTHOR}}
 never = lambda sha: False
 
 
+def found(reviews, comments=None, reactions=(), reviewers=()):
+    return review_receipt.verdicts(reviews, comments or {}, list(reactions), HEAD, PUSHED,
+                                   AUTHOR, reviewers)
+
+
+def thumbs(at, login=APP, content="+1"):
+    return {"user": {"login": login}, "content": content, "created_at": at}
+
+
 class ReviewReceiptTest(unittest.TestCase):
-    def test_pass_on_current_head(self):
-        self.assertEqual(review_receipt.evaluate(PR, ["a.py"], [review("ddf-review: PASS")], never),
-                         (True, []))
+    def ok(self, verdicts, files=("a.py",), pr=PR, same=never):
+        return review_receipt.evaluate(pr, list(files), verdicts, same)[0]
+
+    def test_codex_app_review_without_p0_or_p1_passes_on_the_current_head(self):
+        self.assertTrue(self.ok(found([review("suggestions")], {1: [P2]})))
+        self.assertFalse(self.ok(found([review("suggestions")], {1: [P2, P1]})))
+
+    def test_codex_app_thumbs_up_counts_only_after_the_head_was_pushed(self):
+        self.assertTrue(self.ok(found([], reactions=[thumbs("2026-11-07T01:00:00Z")])))
+        self.assertFalse(self.ok(found([], reactions=[thumbs("2026-11-07T00:00:00Z")])))
+        self.assertFalse(self.ok(found([], reactions=[thumbs("2026-11-07T01:00:00Z", login=AUTHOR)])))
+        self.assertFalse(self.ok(found([], reactions=[thumbs("2026-11-07T01:00:00Z", content="eyes")])))
+        no_push_time = review_receipt.verdicts([], {}, [thumbs("2026-11-07T01:00:00Z")], HEAD,
+                                               None, AUTHOR)
+        self.assertFalse(self.ok(no_push_time))
+
+    def test_the_authors_own_account_never_counts(self):
+        mine = [review("ddf-review: PASS", login=AUTHOR)]
+        self.assertFalse(self.ok(found(mine)))
+        self.assertFalse(self.ok(found(mine, reviewers=[AUTHOR.lower()])))
+        other = [review("ddf-review: PASS", login="jkb-bur-bot")]
+        self.assertFalse(self.ok(found(other)))
+        self.assertTrue(self.ok(found(other, reviewers=["jkb-bur-bot"])))
+
+    def test_listed_reviewer_verdict_must_be_the_first_line(self):
+        for body in ("Do not accept ddf-review: PASS without tests",
+                     "Looks fine\nddf-review: PASS", "ddf-review: PASSED"):
+            self.assertFalse(self.ok(found([review(body, login="bot")], reviewers=["bot"])), body)
+        quoted_fail = "ddf-review: PASS\nThe last round said ddf-review: FAIL; fixed."
+        self.assertTrue(self.ok(found([review(quoted_fail, login="bot")], reviewers=["bot"])))
 
     def test_no_review_or_draft_fails(self):
-        self.assertFalse(review_receipt.evaluate(PR, ["a.py"], [], never)[0])
-        self.assertFalse(review_receipt.evaluate(PR | {"draft": True}, ["a.py"],
-                                                 [review("ddf-review: PASS")], never)[0])
+        self.assertFalse(self.ok([]))
+        self.assertFalse(self.ok(found([review()]), pr=PR | {"draft": True}))
 
     def test_later_fail_wins_and_dismissed_is_ignored(self):
-        reviews = [review("ddf-review: PASS"),
-                   review("ddf-review: FAIL", at="2026-11-07T02:00:00Z")]
-        self.assertFalse(review_receipt.evaluate(PR, ["a.py"], reviews, never)[0])
-        reviews = [review("ddf-review: PASS", at="2026-11-07T03:00:00Z"),
-                   review("ddf-review: FAIL", state="DISMISSED")]
-        self.assertTrue(review_receipt.evaluate(PR, ["a.py"], reviews, never)[0])
+        reviews = [review(rid=1), review(rid=2, at="2026-11-07T02:00:00Z")]
+        self.assertFalse(self.ok(found(reviews, {2: [P1]})))
+        reviews = [review(rid=1, at="2026-11-07T03:00:00Z"), review(rid=2, state="DISMISSED")]
+        self.assertTrue(self.ok(found(reviews, {2: [P1]})))
+        later_thumbs = found([review(rid=1)], {1: [P1]}, [thumbs("2026-11-07T02:00:00Z")])
+        self.assertTrue(self.ok(later_thumbs))
 
     def test_old_head_counts_only_when_the_change_is_identical(self):
-        old = [review("ddf-review: PASS", commit="d" * 40)]
-        self.assertFalse(review_receipt.evaluate(PR, ["a.py"], old, never)[0])
-        self.assertTrue(review_receipt.evaluate(PR, ["a.py"], old, lambda sha: True)[0])
+        old = found([review(commit="d" * 40)])
+        self.assertFalse(self.ok(old))
+        self.assertTrue(self.ok(old, same=lambda sha: True))
 
-    def test_net_change_compares_contents(self):
+    def test_net_change_compares_contents_and_rejects_a_cut_off_comparison(self):
         a = {"files": [{"filename": "x.py", "sha": "1"}]}
         b = {"files": [{"filename": "x.py", "sha": "2"}]}
         self.assertNotEqual(review_receipt.net_change(a), review_receipt.net_change(b))
         self.assertEqual(review_receipt.net_change(a), review_receipt.net_change(dict(a)))
+        many = {"files": [{"filename": f"f{i}", "sha": "1"} for i in range(300)]}
+        self.assertIsNone(review_receipt.net_change(many))
+        self.assertIsNone(review_receipt.net_change({}))
+        moved = {"files": [{"filename": "docs/x.md", "previous_filename": "a.py", "sha": "1"}]}
+        self.assertIn("a.py", review_receipt.net_change(moved))
 
     def test_value_math_and_migrations_need_jeremy(self):
-        passed = [review("ddf-review: PASS")]
+        passed = found([review()])
         for path in ("app/trade-value-chart/assets/value-model.js", "sql/migrations/001.sql",
                      "supabase/migrations/2026.sql", "config/lineup_parameters.json"):
-            self.assertFalse(review_receipt.evaluate(PR, [path], passed, never)[0], path)
+            self.assertFalse(self.ok(passed, files=[path]), path)
             approved = PR | {"labels": [{"name": "jeremy-approved"}]}
-            self.assertTrue(review_receipt.evaluate(approved, [path], passed, never)[0], path)
+            self.assertTrue(self.ok(passed, files=[path], pr=approved), path)
+        renamed = review_receipt.file_names([{"filename": "docs/retired.md",
+                                              "previous_filename": "pipelines/value_reference.py"}])
+        self.assertFalse(self.ok(passed, files=renamed))
 
     def test_handoff_edit_is_flagged(self):
-        passed = [review("ddf-review: PASS")]
-        self.assertFalse(review_receipt.evaluate(PR, ["HANDOFF.md"], passed, never)[0])
+        passed = found([review()])
+        self.assertFalse(self.ok(passed, files=["HANDOFF.md"]))
         labelled = PR | {"labels": [{"name": "handoff-edit"}]}
-        self.assertTrue(review_receipt.evaluate(labelled, ["HANDOFF.md"], passed, never)[0])
+        self.assertTrue(self.ok(passed, files=["HANDOFF.md"], pr=labelled))
 
     def test_value_math_list_covers_the_explainer_logic_files(self):
         text = (ROOT / "pipelines/build_values_explainer.py").read_text(encoding="utf-8")
@@ -232,18 +423,61 @@ class ReviewReceiptTest(unittest.TestCase):
         for name in re.findall(r'"([^"]+)"', block):
             self.assertIn(name, review_receipt.VALUE_MATH)
 
+    def event(self, number=5):
+        handle = tempfile.NamedTemporaryFile("w", suffix=".json", delete=False)
+        json.dump({"pull_request": {"number": number}}, handle)
+        handle.close()
+        self.addCleanup(os.unlink, handle.name)
+        return {"GITHUB_EVENT_NAME": "pull_request_target", "GITHUB_EVENT_PATH": handle.name}
+
+    def api(self, files, reviews, compare=None, reactions=(), comment_reactions=()):
+        pr = {"number": 5, "draft": False, "head": {"sha": HEAD}, "base": {"sha": "b" * 40},
+              "labels": [], "user": {"login": AUTHOR}}
+
+        def fetch(path):
+            if path == "pulls/5":
+                return pr
+            if path.startswith("pulls/5/files"):
+                return files if "page=1" in path else []
+            if path.startswith("pulls/5/reviews/"):
+                return [{"body": P2}] if "page=1" in path else []
+            if path.startswith("pulls/5/reviews"):
+                return reviews if "page=1" in path else []
+            if path.startswith("issues/5/reactions"):
+                return list(reactions) if "page=1" in path else []
+            if path.startswith("issues/5/comments"):
+                return [{"id": 9, "body": "@codex review"}] if "page=1" in path else []
+            if path.startswith("issues/comments/9/reactions"):
+                return list(comment_reactions) if "page=1" in path else []
+            if path.startswith(f"commits/{HEAD}/check-suites"):
+                return {"check_suites": [{"created_at": PUSHED}]}
+            if path.startswith("compare/"):
+                return compare(path)
+            raise AssertionError(path)
+        return fetch
+
+    def test_check_end_to_end(self):
+        env = self.event()
+        files = [{"filename": "a.py"}]
+        self.assertTrue(review_receipt.check(env, self.api(files, [review()]))[0])
+        self.assertFalse(review_receipt.check(env, self.api(files, []))[0])
+        self.assertTrue(review_receipt.check(env, self.api(
+            files, [], comment_reactions=[thumbs("2026-11-07T01:00:00Z")]))[0])
+
+    def test_check_rejects_an_old_review_when_the_comparison_is_cut_off(self):
+        env = self.event()
+        same_300 = lambda path: {"files": [{"filename": f"f{i}", "sha": "1"} for i in range(300)]}
+        old = [review(commit="d" * 40)]
+        self.assertFalse(review_receipt.check(env, self.api([{"filename": "a.py"}], old, same_300))[0])
+        same_small = lambda path: {"files": [{"filename": "a.py", "sha": "1"}]}
+        self.assertTrue(review_receipt.check(env, self.api([{"filename": "a.py"}], old, same_small))[0])
+
     def test_merge_queue_passes_and_api_doubt_fails(self):
         self.assertTrue(review_receipt.check({"GITHUB_EVENT_NAME": "merge_group"})[0])
-        with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as handle:
-            json.dump({"pull_request": {"number": 5}}, handle)
-        try:
-            env = {"GITHUB_EVENT_NAME": "pull_request", "GITHUB_EVENT_PATH": handle.name}
 
-            def broken(path):
-                raise OSError("down")
-            self.assertFalse(review_receipt.check(env, broken)[0])
-        finally:
-            os.unlink(handle.name)
+        def broken(path):
+            raise OSError("down")
+        self.assertFalse(review_receipt.check(self.event(), broken)[0])
 
 
 if __name__ == "__main__":

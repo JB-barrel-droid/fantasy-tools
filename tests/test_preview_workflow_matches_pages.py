@@ -37,6 +37,7 @@ SHARD_COMMANDS = ["make reference", "make sync", "make test-core-shard-${{ matri
 DATA_PIN_STEP = """      - name: Test on known-good data (JEG-1551)
         env:
           GH_TOKEN: ${{ github.token }}
+          DATA_PIN: ${{ needs.pr-state.outputs.data_pin }}
         run: python3 -m pipelines.ci_data_pin apply
 """
 

@@ -153,6 +153,29 @@ def filter_problems(name, text):
     return out
 
 
+# The probes the old paths filter was held to (filter_problems above), now
+# applied to the classifier that replaced it (JEG-1551).
+MUST_BUILD = ("tests/test_example.py", "pipelines/x.py", ".github/workflows/preview.yml",
+              "app/llm/skill/SKILL.md", "Makefile")
+DOCS_ONLY = ("README.md", "docs/claude-log/x.md", "docs/runbook.txt")
+
+
+def classifier_problems(classify=None):
+    """Every build input runs the check, alone or beside a docs file; docs alone do not."""
+    if classify is None:
+        from pipelines.ci_change_scope import docs_only as classify
+    out = []
+    probes = list(MUST_BUILD) + [p.replace("**", "skill/SKILL.md") for p in BUILD_DOCS] \
+        + [p.replace("**", "deep/nested/notes.md") for p in BUILD_DOCS if "**" in p]
+    for path in probes:
+        if classify([path]) or classify(["README.md", path]):
+            out.append(f"ci_change_scope: a PR changing {path} would skip the build")
+    for path in DOCS_ONLY:
+        if not classify([path]):
+            out.append(f"ci_change_scope: a docs-only PR ({path}) still runs the build")
+    return out
+
+
 def scope_problems(name, text):
     """JEG-1551: required checks always report; docs-only is decided in pr-state."""
     out = []
@@ -207,6 +230,17 @@ class CiSpeedupTest(unittest.TestCase):
         for name in PR_FILTERED:
             self.assertEqual([], filter_problems(name, read(name)))
             self.assertEqual([], scope_problems(name, read(name)))
+        self.assertEqual([], classifier_problems())
+
+    def test_classifier_dropping_any_build_input_is_caught(self):
+        from unittest import mock
+        from pipelines import ci_change_scope
+        for dropped in ci_change_scope.BUILD_DOCS:
+            kept = tuple(p for p in ci_change_scope.BUILD_DOCS if p != dropped)
+            with self.subTest(dropped=dropped), mock.patch.object(ci_change_scope, "BUILD_DOCS", kept):
+                self.assertTrue(classifier_problems(ci_change_scope.docs_only))
+        self.assertTrue(classifier_problems(lambda files: True))
+        self.assertTrue(classifier_problems(lambda files: False))
 
     def test_pages_has_no_path_filter(self):
         self.assertIsNone(re.search(r"paths", read("pages.yml")))

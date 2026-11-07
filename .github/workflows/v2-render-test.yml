@@ -51,12 +51,18 @@ jobs:
     outputs:
       run_expensive: ${{ steps.gate.outputs.run_expensive }}
       docs_only: ${{ steps.scope.outputs.docs_only }}
+      data_pin: ${{ steps.pin.outputs.data_pin }}
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - name: Cheap draft CI guards
         run: python3 -m unittest tests.test_draft_ci_workflows tests.test_ci_speedup_workflows
+      - name: Pick known-good data for this run (JEG-1551)
+        id: pin
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 -m pipelines.ci_data_pin plan
       - name: Docs-only change? (JEG-1551)
         id: scope
         env:
@@ -110,6 +116,7 @@ jobs:
       - name: Test on known-good data (JEG-1551)
         env:
           GH_TOKEN: ${{ github.token }}
+          DATA_PIN: ${{ needs.pr-state.outputs.data_pin }}
         run: python3 -m pipelines.ci_data_pin apply
       - run: make sync
       - if: matrix.lane == 'contract'

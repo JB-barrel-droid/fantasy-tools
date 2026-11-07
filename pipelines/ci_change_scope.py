@@ -5,8 +5,8 @@
 required on main a docs-only PR could never merge. The filter moved here: the
 workflows always run, and the cheap pr-state job decides. Same rule as the old
 filter: every changed file is Markdown or under docs/, except the docs the
-build reads. Any doubt (not a PR, API error, a list that may be cut off) means
-not docs-only, so the full check runs.
+build reads; a rename counts by both names. Any doubt (not a PR, API error, a
+list that may be cut off) means not docs-only, so the full check runs.
 
     python3 -m pipelines.ci_change_scope   # writes docs_only=true|false to $GITHUB_OUTPUT
 """
@@ -35,6 +35,16 @@ def docs_only(files):
     return bool(files) and all(is_doc(f) for f in files)
 
 
+def names(batch):
+    """Both names of a renamed file: moving the engine into docs/ is not a docs change."""
+    out = []
+    for f in batch:
+        for key in ("filename", "previous_filename"):
+            if f.get(key):
+                out.append(f[key])
+    return out
+
+
 def _files(repo, number, token):
     out, page = [], 1
     while True:
@@ -46,7 +56,7 @@ def _files(repo, number, token):
         )
         with urlopen(request, timeout=20) as response:
             batch = json.load(response)
-        out.extend(f["filename"] for f in batch)
+        out.extend(names(batch))
         if len(batch) < 100:
             return out
         page += 1

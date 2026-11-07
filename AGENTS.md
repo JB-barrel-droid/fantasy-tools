@@ -146,11 +146,20 @@ day right now". This section wins over conflicting text below and in
   (`pipelines/ci_data_pin.py`). A data rebuild that breaks a test turns that
   data run red; it holds the data, never the code PRs. Fix the data or the
   test on its own ticket.
-- **Review receipt.** The independent reviewer (another Claude or Codex
-  session) posts a GitHub COMMENT review on the exact head whose body starts
-  `ddf-review: PASS` or `ddf-review: FAIL`. The required `review-receipt`
-  check (`pipelines/review_receipt.py`) passes on a PASS for the current head,
-  or for an older head when a clean catch-up left the net change identical.
+- **Review receipt.** Every agent posts to GitHub as the PR author, so an
+  agent's own comment proves nothing. The independent review that counts is
+  the Codex GitHub app (`chatgpt-codex-connector[bot]`): it reviews a PR when
+  it opens or is marked ready, and again on an `@codex review` comment, which
+  the PR owner posts after each push. An app review with no P0 or P1 finding
+  passes; one with a P0 or P1 finding fails; the app's thumbs-up after the
+  push passes that head. A thumbs-up fires no workflow, so after one the
+  owner re-runs the PR's `review-receipt` run. Logins in the repository
+  variable `DDF_REVIEW_LOGINS` (never the author) may also post a COMMENT
+  review whose first line is `ddf-review: PASS` or `ddf-review: FAIL`. The
+  required `review-receipt` check (`pipelines/review_receipt.py`, run from
+  main through `pull_request_target`, so a PR cannot change it) passes on a
+  pass for the current head, or for an older head when a clean catch-up left
+  the net change identical.
 - **Self-merging.** Once Jeremy's ruleset clicks are in (required checks
   `preview`, `v2-render`, `review-receipt`; merge queue, squash), the
   `review-receipt` workflow turns on auto-merge and GitHub's merge queue
