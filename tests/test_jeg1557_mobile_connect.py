@@ -104,6 +104,14 @@ class MobileConnectTest(_RenderBase):
         self.assertNotEqual(sum_.evaluate("e => getComputedStyle(e).color"), "rgb(168, 62, 18)", "first-load hint must not read as an error")
         self.assertLessEqual(page.eval_on_selector(".ddf-actionbar", "e => e.getBoundingClientRect().height"), 92)
 
+    def test_settings_intro_names_the_real_defaults(self):
+        page = self.page(390)
+        self.go(page, "settings.html")
+        self.assertNotIn("We filled in what we could read", page.inner_text("main"))
+        self.assertIn("We started with common settings (PPR, 12 teams, 1 QB, 2 RB, 2 WR, 1 TE, 1 FLEX, 7 bench)", page.inner_text("main"))
+        self.assertEqual(page.eval_on_selector("#scoring", "e => e.value"), "ppr")
+        self.assertEqual([page.input_value(f"#lineup-{k}") for k in ("qb", "rb", "wr", "te", "flex", "bench")], ["1", "2", "2", "1", "1", "7"])
+
     # ---- 3 ----
     def test_info_icon_stays_a_circle(self):
         page = self.page(390)
