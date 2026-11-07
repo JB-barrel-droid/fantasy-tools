@@ -160,6 +160,37 @@ class BookmarkFreshnessTest(unittest.TestCase):
         page.evaluate("DDF.leagueMeta.want('team', 'B')")
         page.wait_for_function("() => { const h = document.querySelector('.ddf-bm-hint'); return h && !h.hidden && h.getAttribute('data-reason') === 'team'; }", timeout=5000)
 
+    def test_link_overrides_do_not_ask_for_a_bookmark(self):
+        page = self.page()
+        page.goto(f"{self.base}/values.html", wait_until="networkidle", timeout=60000)
+        page.wait_for_function("() => DDF.link && DDF.link.table(1)", timeout=20000)
+        token = page.evaluate("""() => DDF.link.encodeToken({v: 1, view: 'team', settings: {scoring: 'ppr', teams: 10, superflex: false,
+            slots: [1, 2, 2, 1, 1, 6]}, teams: [{name: 'A', players: ['Josh Allen']}, {name: 'B', players: ['Jordan Love']}], me: 0,
+            overrides: {'Josh Allen': 80, 'Jordan Love': 70, 'Puka Nacua': 60, 'Jahmyr Gibbs': 90}})""")
+        fresh = self.page()
+        fresh.goto(f"{self.base}/values.html", wait_until="networkidle", timeout=60000)   # the session's override baseline is 0
+        fresh.wait_for_function("() => sessionStorage.getItem('ddf:bmovbase') !== null", timeout=20000)
+        fresh.goto(f"{self.base}/team.html#s={token}", wait_until="networkidle", timeout=60000)
+        fresh.wait_for_function(ENGINE_READY, timeout=60000)
+        fresh.wait_for_selector(".ddf-bm", state="visible", timeout=20000)
+        fresh.wait_for_timeout(2000)
+        self.assertEqual(fresh.evaluate("DDF.overrides.count()"), 4, "the link's overrides applied")
+        want = fresh.evaluate("JSON.parse(sessionStorage.getItem('ddf:bmwant') || 'null')")
+        self.assertFalse(want and want["reason"] == "overrides", want)
+        self.assertNotEqual(fresh.evaluate("(document.querySelector('.ddf-bm-hint') || document.body).getAttribute('data-reason')"), "overrides")
+
+    def test_league_id_stays_on_the_device(self):
+        seed = seed_script(0).replace('"site": "yahoo",', '"site": "yahoo", "leagueId": "848938",')
+        page = self.page(seed=seed)
+        self.team(page)
+        page.wait_for_selector(".ddf-bm", state="visible", timeout=20000)
+        self.assertNotIn("848938", page.title())
+        page.click(".ddf-bm")
+        page.wait_for_function("() => /#s=/.test(location.href)", timeout=10000)
+        linked = page.evaluate("() => DDF.link.decodeBlock(location.href)")
+        self.assertNotIn("848938", json.dumps(linked))
+        self.assertNotIn("leagueId", linked)
+
     def test_chip_names_fit(self):
         names = [("Gurus", "Gurus"), ("USO Season XVIII", None), ("The Extremely Long Name Report With Bill And Friends", None), ("Gridiron 🏈 Kings", None)]
         for width in (390, 1440):
@@ -172,6 +203,8 @@ class BookmarkFreshnessTest(unittest.TestCase):
                     if exact:
                         self.assertEqual(shown, exact)
                     self.assertTrue(full.startswith(shown.rstrip("…").split(" ")[0]), shown)
+                    cap = 120 if width < 768 else 200
+                    self.assertLessEqual(page.evaluate("document.querySelector('header .ddf-chip .ddf-chip-t').getBoundingClientRect().width"), cap + 2)
                     self.assertIn(full, page.get_attribute("header .ddf-chip", "aria-label"))
                     self.assertEqual(page.evaluate("document.documentElement.scrollWidth - document.documentElement.clientWidth"), 0)
                     self.assertLessEqual(page.evaluate("(() => { const h = document.querySelector('header .ddf-chip').closest('.header-inner') || document.querySelector('header'); return h.scrollWidth - h.clientWidth; })()"), 1)
@@ -231,8 +264,11 @@ class BookmarkFreshnessTest(unittest.TestCase):
         page.wait_for_url("**/setup.html", timeout=20000)
         self.assertEqual(page.input_value("#league-name"), "Sample League")
         self.assertIsNone(page.evaluate("JSON.parse(sessionStorage.getItem('ddf:pasted')).name || null"), "not saved before confirming")
-        page.fill("#league-name", "Sunday League")
         page.click("label.setup-option >> nth=0")
+        self.assertIsNone(page.evaluate("JSON.parse(sessionStorage.getItem('ddf:pasted')).name || null"), "an untouched suggestion is not saved on team confirm")
+        self.assertEqual(page.evaluate("JSON.parse(localStorage.getItem('ddf.v2.workspaces')).workspaces[0].name"), "My league")
+        page.fill("#league-name", "Sunday League")
+        page.press("#league-name", "Tab")
         self.assertEqual(page.evaluate("JSON.parse(sessionStorage.getItem('ddf:pasted')).name"), "Sunday League")
         self.assertEqual(page.evaluate("JSON.parse(localStorage.getItem('ddf.v2.workspaces')).workspaces[0].name"), "Sunday League")
         self.assertEqual(page.evaluate("document.documentElement.scrollWidth - document.documentElement.clientWidth"), 0)

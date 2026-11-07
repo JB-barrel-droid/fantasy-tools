@@ -486,7 +486,7 @@ document.querySelectorAll('[data-slideshow]').forEach(function(slideshow){
   /* League name and roster input date (JEG-1564), JSON body only: name = 1-40 chars, enteredAt = 'YYYY-MM-DD'.
      Readers drop a bad value; writers reject it. Header and ID stream unchanged; old decoders keep them as unknown keys. */
   var DATE_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
-  function cleanName(n){ if(typeof n !== 'string') return null; n = n.replace(/[\u0000-\u001f]/g, ' ').replace(/\s+/g, ' ').trim(); return n && n.length <= 40 ? n : null; }
+  function cleanName(n){ if(typeof n !== 'string') return null; n = n.replace(/[\u0000-\u001f]/g, ' ').replace(/\s+/g, ' ').trim(); return n && Array.from(n).length <= 40 ? n : null; }
   function cleanDate(d){
     var m = typeof d === 'string' && DATE_RE.exec(d); if(!m) return null;
     var t = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]));
@@ -603,7 +603,8 @@ document.querySelectorAll('[data-slideshow]').forEach(function(slideshow){
 
   /* ---- reader context stores: DDF.overrides (names as keys), 'ddf:basis', 'ddf:posweights' ---- */
   function readOverrides(){ var o = DDF.overrides ? DDF.overrides.get() : DDF.state.get('overrides', {}); return isObj(o) ? o : {}; }
-  function writeOverrides(o){ if(DDF.overrides && DDF.overrides.replace) DDF.overrides.replace(o); else DDF.state.set('overrides', o); }
+  /* _fromLink: the bookmark prompt (JEG-1564) does not count a link's overrides as the reader's own edits */
+  function writeOverrides(o){ if(DDF.overrides && DDF.overrides.replace){ DDF.overrides._fromLink = true; try{ DDF.overrides.replace(o); } finally { DDF.overrides._fromLink = false; } } else DDF.state.set('overrides', o); }
   /* ID keys -> table names (unresolvable IDs are dropped: the site keys overrides by name). */
   function overridesByName(o, v){
     var out = {};
@@ -1181,6 +1182,7 @@ document.querySelectorAll('[data-slideshow]').forEach(function(slideshow){
     while(host && host.scrollWidth > host.clientWidth + 1 && at < list.length - 1){ at++; t.textContent = list[at]; }
   }
   window.addEventListener('resize', function(){ clearTimeout(fitLeagueChip._t); fitLeagueChip._t = setTimeout(fitLeagueChip, 100); });
+  try{ if(document.fonts && document.fonts.ready) document.fonts.ready.then(function(){ fitLeagueChip(); }); }catch(e){}
   function refresh(){ renderBanner(); applyTitle(); fitLeagueChip(); }
   var t0;
   function soon(){ clearTimeout(t0); t0 = setTimeout(refresh, 60); }
@@ -1250,6 +1252,11 @@ document.querySelectorAll('[data-slideshow]').forEach(function(slideshow){
     return nav && nav.parentNode;
   }
   /* The league's settings for the link: the link's own, else the reader's saved engine settings (a pasted or saved league). */
+  function cleanLeagueName(n){
+    if(typeof n !== 'string') return null;
+    var c = Array.from(n.replace(/[\u0000-\u001f]/g, ' ').replace(/\s+/g, ' ').trim());
+    return c.length ? c.slice(0, 40).join('').trim() : null;
+  }
   function linkSettings(){
     var st = DDF.link && DDF.link.settings && DDF.link.settings();
     if(st) return st;
@@ -1268,16 +1275,17 @@ document.querySelectorAll('[data-slideshow]').forEach(function(slideshow){
     st.settings = Object.assign({}, cur && cur.settings, settings);
     if(!st.view) st.view = 'team';
     if(Array.isArray(st.teams) && st.teams.length) return st;
+    delete st.name; delete st.enteredAt; delete st.me;   /* a settings-only chat state lends no name, date or team */
     var table = (DDF.link.table && DDF.link.table(1)) || [], idByKey = {};
     table.forEach(function(row, i){ var k = String(row).split('|')[3]; if(k && idByKey[k] === undefined) idByKey[k] = i; });
     var entry = function(p){ return Number.isInteger(p.id) ? p.id : (p.key && idByKey[String(p.key)] !== undefined ? idByKey[String(p.key)] : p.name); };
     var pasted = DDF.state.get('pasted', null), ws = DDF.leagueMeta && DDF.leagueMeta.savedLeague();
     var teams = null, me = null, name = null, at = null;
-    if(pasted && Array.isArray(pasted.teams) && pasted.teams.length > 1){
+    if(pasted && Array.isArray(pasted.teams) && pasted.teams.length){
       teams = pasted.teams.map(function(t){ return {name: t.name, players: (Array.isArray(t.players) ? t.players : []).map(entry).filter(function(x){ return x !== undefined && x !== null && x !== ''; })}; });
       me = pasted.me; name = pasted.name; at = pasted.enteredAt;
     } else if(ws){
-      teams = ws.teams.map(function(t){ return {name: t.name, players: (t.entries || []).map(function(e){ return entry({key: e.key, name: e.name}); })}; });
+      teams = ws.teams.map(function(t){ return {name: t.name, players: (t.entries || []).map(function(e){ return entry({key: e.key, name: e.name}); }).filter(function(x){ return x !== undefined && x !== null && x !== ''; })}; });
       ws.teams.forEach(function(t, i){ if(t.id === ws.myTeamId) me = i; });
       name = ws.name && ws.name !== 'My league' ? ws.name : null; at = ws.enteredAt;
     }
@@ -1285,8 +1293,9 @@ document.querySelectorAll('[data-slideshow]').forEach(function(slideshow){
       st.teams = teams.map(function(t){ return {name: String(t.name || '').slice(0, 60), players: t.players}; });
       if(Number.isInteger(me) && st.teams[me]) st.me = me;
       if(st.teams.some(function(t){ return t.players.some(Number.isInteger); })) st.table = 1;
-      if(name) st.name = String(name).slice(0, 40);
-      if(at) st.enteredAt = at;
+      var nm = cleanLeagueName(name), dt = /^\d{4}-\d{2}-\d{2}$/.test(at || '') ? at : null;
+      if(nm) st.name = nm;
+      if(dt) st.enteredAt = dt;
     }
     return st;
   }
@@ -1380,7 +1389,7 @@ document.querySelectorAll('[data-slideshow]').forEach(function(slideshow){
     wrap.hidden = false;
     var was = visible; visible = true;
     paint();
-    if(!was) { check(); if(!showWant()) showHint(); }
+    if(!was) { check(); if(!showWant() && !(sget(OK_KEY) === '1' && /(^|\/)settings\.html$/.test(location.pathname) && wantNow())) showHint(); }
   }
   function paint(){
     var label = changed ? 'Bookmark again' : 'Bookmark';
@@ -1406,7 +1415,8 @@ document.querySelectorAll('[data-slideshow]').forEach(function(slideshow){
       return DDF.copyText(url).then(function(ok){ showPop(howTo(platform(), ok === true)); }, function(){ showPop(howTo(platform(), false)); })
         .then(function(){
           var M = DDF.leagueMeta, i = M && M.info();
-          keep.hidden = !(M && M.savedLeague() && i && i.source !== 'link');
+          var ws = M && M.savedLeague();
+          keep.hidden = !(ws && i && (i.source === 'saved' || (i.source === 'pasted' && sget('ddf:bridgedWs') === JSON.stringify(ws.id))));
           setTimeout(function(){ btn._ddfCopied = false; }, 2000);
         });
     }).catch(function(){});
@@ -1463,7 +1473,7 @@ document.querySelectorAll('[data-slideshow]').forEach(function(slideshow){
   var OV_BASE = 'ddf:bmovbase', OV_BATCH = 3;
   document.addEventListener('ddf:overrides', function(){
     var n = DDF.overrides ? DDF.overrides.count() : 0, base = Number(sget(OV_BASE));
-    if(sget(OV_BASE) === null){ sset(OV_BASE, String(n)); return; }
+    if(sget(OV_BASE) === null || DDF.overrides._fromLink){ sset(OV_BASE, String(n)); return; }
     if(Math.abs(n - base) >= OV_BATCH){ sset(OV_BASE, String(n)); if(DDF.leagueMeta) DDF.leagueMeta.want('overrides', n + '@' + Date.now()); }
   });
   window.addEventListener('pageshow', soon); window.addEventListener('focus', soon);

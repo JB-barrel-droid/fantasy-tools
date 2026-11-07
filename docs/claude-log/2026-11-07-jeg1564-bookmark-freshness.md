@@ -40,20 +40,25 @@ What changed
   names are never a league name. Sleeper and CBS header names are not read (format not verified).
 - connect: "We found: <name> · ID# <n>" on the card; `ddf:pasted` gets `enteredAt`, `suggestedName`, `leagueId`,
   `platform`. setup: "Name this league (optional)", prefilled with the suggestion and labelled as found in the paste;
-  saved when the reader edits it, confirms a team or presses Next; the bridge writes name, date and ID to the saved
+  saved only when the reader edits it or presses Next (an untouched suggestion is never saved on its own); the bridge writes name, date and ID to the saved
   league. The league ID stays on the device.
 
 ### Verified (check named)
 - `node tests/test_entry_league_paste.js` (32 pass): adds league-header cases on 7 fixtures, headings/team names never a
   league name, record carries a suggestion and never a saved name.
-- `tests.test_bookmark_freshness` (7 pass): band boundaries 0/1/2/3/4/6/7/8 days and plain-word ages; banner per band,
+- `tests.test_bookmark_freshness` (9 pass; the link-overrides test fails without the fix): band boundaries 0/1/2/3/4/6/7/8 days and plain-word ages; banner per band,
   dismissing the prompt band keeps the stale band; title scheme and "My league"; prompt once per change; chip fit for
   short/long/very long/emoji names at 390 and 1440 with no header overflow, aria-label, fallback; codec round trip, old
   vector decodes, bad values dropped/rejected; the Bookmark link carries the pasted league; setup suggests, saves on
-  confirm.
+  edit or Next; a link's overrides never ask for a bookmark; the league ID is not in the link or the title.
 - `tests.test_entry_pages`, `tests.test_build_root_pages`, `tests.test_launch_copy_guard`: 40 pass.
 - `09-mcp-server/test/league_meta_test.ts` (handoff folder, Deno, against the repo site.js): 3 pass; the whole handoff
   mcp suite 51 pass.
+
+Review fixes (independent review of a4a30e7a, CHANGES NEEDED): a link's overrides no longer count as edits;
+"Keep one bookmark on this device" only for the saved or bridged league; a settings-only chat state lends no name,
+date or team; 1-team pastes read the same in the chip and the link; names cleaned by code points; chip re-fit after
+fonts load; no generic hint on settings.html right after confirm.
 
 ### Claimed, not confirmed
 - CI on the PR head; live behaviour after deploy (verify_live.py and a live Playwright pass follow the merge).

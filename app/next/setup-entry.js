@@ -114,7 +114,7 @@
     var nb = document.getElementById("continue-btn");
     if (nb) nb.setAttribute("data-summary", src.me >= 0 ? "Team: " + src.teams[src.me].name : "Confirm your team");
     /* "Name this league" (JEG-1564): the saved name, else the name found in the paste as a suggestion, else empty
-       ("My league" is the default). Saved when the reader edits it, confirms a team or presses Next. */
+       ("My league" is the default). Saved only when the reader edits it or presses Next, never on its own. */
     var nameBox = document.getElementById("setup-name-box"), nameIn = document.getElementById("league-name"), note = document.getElementById("league-name-note");
     var curLink = null; try { curLink = DDF.link && DDF.link.current && DDF.link.current(); } catch (e) { curLink = null; }
     var savedName = src.kind === "pasted" ? src.rec.name : curLink && curLink.name;
@@ -128,7 +128,7 @@
     }
     function saveName() {
       if (!nameIn) return;
-      var v = nameIn.value.replace(/\s+/g, " ").trim().slice(0, 40) || null;
+      var v = Array.from(nameIn.value.replace(/\s+/g, " ").trim()).slice(0, 40).join("").trim() || null;
       if (src.kind === "pasted") { src.rec.name = v; DDF.state.set("pasted", src.rec); if (Number.isInteger(src.rec.me) && DDF.state.get("bridgedWs", null)) bridge(src.rec); }
       else if (DDF.link && DDF.link.update) { try { var cur = DDF.link.current(); if (cur) { DDF.link.update({name: v || undefined}); } } catch (e) { /* the name still shows */ } }
       if (DDF.leagueMeta) DDF.leagueMeta.refresh();
@@ -144,7 +144,7 @@
       i = Number(i);
       if (DDF.leagueMeta) DDF.leagueMeta.want("team", i + ":" + src.teams[i].name);
       if (src.kind === "pasted") {
-        src.rec.me = i; saveName(); DDF.state.set("pasted", src.rec);
+        src.rec.me = i; DDF.state.set("pasted", src.rec);
         if (bridge(src.rec) === "ask" && !DDF.state.get("bridgeKeep", false)) offerReplace(src.rec);
       }
       else if (DDF.link && DDF.link.update) { try { DDF.link.update({me: i}); } catch (err) { /* the choice still shows */ } }
