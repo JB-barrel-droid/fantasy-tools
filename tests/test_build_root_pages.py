@@ -79,9 +79,15 @@ class RewriteLinksTest(unittest.TestCase):
         result = brp.rewrite_links("'build.html'")
         self.assertEqual(result, "'./#compare-trade'")
 
-    def test_waivers_rewritten(self):
-        result = brp.rewrite_links('"waivers.html"')
-        self.assertEqual(result, '"./#waivers"')
+    def test_waivers_root_page_untouched(self):
+        """JEG-1539: waivers.html is a root page, so links to it stay; before the swap they went to ./#waivers."""
+        self.assertEqual(brp.rewrite_links('"waivers.html"'), '"waivers.html"')
+        self.assertEqual(brp.rewrite_links('"waivers.html"', root_pages=("values.html",)), '"./#waivers"')
+
+    def test_escaped_quotes_are_not_rewritten_into_broken_js(self):
+        """A rewritten shared script must still parse: the lane scripts avoid \\" inside strings (lane find, JEG-1539)."""
+        for name in ("find-engine.js", "find-page.js", "waivers-page.js"):
+            self.assertNotIn('\\"', (brp.SOURCE / name).read_text(encoding="utf-8"), name)
 
     def test_href_into_root_page_untouched(self):
         """An href that IS a root page (values.html) must stay."""

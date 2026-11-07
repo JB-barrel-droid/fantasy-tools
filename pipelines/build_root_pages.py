@@ -48,7 +48,11 @@ ROOT_FILES = ("site.js", "styles.css", "players-table-1.json", "ddf-engine.js",
               # Workspace pages (JEG-1539).
               "actionbar.js", "actionbar.css", "legacy-routes.js",
               # Lane "team" (JEG-1539): the shared league adapter (DDF.league) for team/explore/partners/settings/find/waivers.
-              "ddf-league.js")
+              "ddf-league.js",
+              # Lane "find" (JEG-1539): the recommendation and waiver searches, and the two pages' scripts.
+              "find-engine.js", "find-page.js", "waivers-page.js",
+              # waivers.html how-to slides (the provider walkthrough).
+              "assets/howto/slides")
 ENGINE_MARKER = "<!-- ddf-engine -->"
 ICON_BLANK = '<link rel="icon" href="data:,">'
 ICON_SITE = '<link rel="icon" href="icon.jpg">'
