@@ -68,7 +68,8 @@ def serve(directory: Path = DIST, overrides: dict[str, bytes] | None = None):
             for key, body in overrides.items():
                 if rel == key or rel.endswith("/" + key):
                     self.send_response(200)
-                    self.send_header("Content-Type", "text/javascript" if key.endswith(".js") else "application/json")
+                    self.send_header("Content-Type", "text/javascript" if key.endswith(".js")
+                                     else "text/html; charset=utf-8" if key.endswith(".html") else "application/json")
                     self.send_header("Content-Length", str(len(body)))
                     self.end_headers()
                     self.wfile.write(body)

@@ -138,6 +138,7 @@ export const LEGACY_REDIRECTS = [
   { from: "#compare-trade", to: "build.html" },
   { from: "#waivers", to: "waivers.html" },
   { from: "#writing/manifesto", to: "learn.html" },
+  { from: "#s=AAAA", to: "connect.html" },
 ];
 
 function siteRoot(url) {
@@ -188,6 +189,13 @@ async function checkPages(browser, url, rootTag) {
       });
       if (!main.visible) result.problems.push("<main> not visible");
       if (main.text < 40) result.problems.push(`<main> has almost no text (${main.text} chars)`);
+      if (name === "values.html") {
+        // A deploy where every DDF Value reads missing must fail: the Chart table needs 10+ rows with a number.
+        const valued = await page.waitForFunction(() => [...document.querySelectorAll("#rows tr")]
+          .filter(tr => [...tr.querySelectorAll("td")].some(td => /^\d+(\.\d+)?$/.test(td.textContent.trim()))).length >= 10,
+          null, { timeout: 30000 }).then(() => true, () => false);
+        if (!valued) result.problems.push("values.html: fewer than 10 Chart rows with a value");
+      }
     }
     await page.close();
     pages.push(finish(result));

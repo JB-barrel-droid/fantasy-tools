@@ -85,6 +85,15 @@ class LegacyLeagueLinks(unittest.TestCase):
         got = page.evaluate("() => [DDF.engine.settings().scoring, DDF.engine.settings().teams, localStorage.getItem('ddf.v2.league-settings')]")
         self.assertEqual(got, ["standard", 10, None])
 
+    def test_chat_league_prices_every_page_in_the_tab(self):
+        """Review of PR #1345: after a chat league arrives, Values in the same tab prices that league (visit only)."""
+        a, b, c = self.p[:3]
+        page, lg = self.land(f"/#find-trade?mine={a['key']},{b['key']}&theirs={c['key']}&scoring=standard&teams=10", r"/find\.html#s=")
+        page.goto(self.base + "/values.html", wait_until="load", timeout=60000)
+        page.wait_for_function("() => window.DDF && DDF.engine && DDF.engine.controls()", timeout=90000)
+        got = page.evaluate("() => [DDF.engine.settings().scoring, DDF.engine.settings().teams, localStorage.getItem('ddf.v2.league-settings')]")
+        self.assertEqual(got, ["standard", 10, None])
+
     def test_plain_route_league_settings(self):
         """#risers-fallers?scoring=&teams=&roster= (chat site_url, no rosters): values.html prices that league for the visit."""
         ctx = self.browser.new_context()

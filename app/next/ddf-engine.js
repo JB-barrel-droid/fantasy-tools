@@ -226,6 +226,18 @@
     return out;
   }
 
+  // JEG-1539 (review of PR #1345): a chat link's league (sessionStorage ddf:league, LINK-FORMAT settings) prices every
+  // engine page in the tab the same way, for the visit only, so Values / Learn / Build agree with Team and Find.
+  function chatLeague() {
+    var st = readJSON(sessionStorage, "ddf:league");
+    var s = st && st.settings;
+    if (!s || ["standard", "half_ppr", "ppr"].indexOf(s.scoring) < 0 || !Array.isArray(s.slots) || s.slots.length !== 6) return null;
+    var keys = ["QB", "RB", "WR", "TE", "FLEX", "BENCH"], roster = {};
+    keys.forEach(function (k, i) { if (Number.isInteger(s.slots[i])) roster[k] = s.slots[i]; });
+    roster.SUPERFLEX = s.superflex ? 1 : 0;
+    return {scoring: s.scoring, teams: Number(s.teams), roster: roster};
+  }
+
   /* ---- basis and overrides (shared with the live Overrides tab) ---- */
   function engineBasis() { return !state.basis || state.basis.mode === "default" ? null : state.basis; }
   function cleanBasis(rec) {
@@ -427,7 +439,9 @@
   }).then(function (c) {
     defaults = JSON.stringify(snapshot());
     applySaved(readJSON(localStorage, LEAGUE_KEY));
-    var visit = hashLeague();
+    var chat = chatLeague();
+    if (chat) applyVisit(chat);
+    var visit = hashLeague();   // an explicit link on this address wins over the tab's chat league
     if (visit) applyVisit(visit);
     load();
     applyLinkContext();
@@ -436,7 +450,11 @@
     if (Object.keys(state.values).length) C.setValueOverrides(state.values);
     cache = null;
     window.addEventListener("trade-value-rows-change", function () { cache = null; });
-    document.addEventListener("ddf:link", function () { if (LINK_TOKEN.test(location.hash) && importLinked()) push(); });
+    document.addEventListener("ddf:link", function () {
+      var arrived = chatLeague();
+      if (arrived) applyVisit(arrived);
+      if (LINK_TOKEN.test(location.hash) && importLinked()) push();
+    });
     window.addEventListener("storage", function (e) {
       if (e.key === OV_KEY && !state.session) { load(); push(); }
       if (e.key === LEAGUE_KEY) { applySaved(readJSON(localStorage, LEAGUE_KEY) || JSON.parse(defaults)); changed(); }
