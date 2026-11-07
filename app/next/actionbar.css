@@ -21,3 +21,9 @@ body.has-actionbar{padding-bottom:var(--ddf-actionbar-h)}
  .ddf-actionbar .ddf-actionbar__next{flex:1;white-space:normal;line-height:1.2;padding-left:12px;padding-right:12px}
 }
 @media print{.ddf-actionbar{display:none}body.has-actionbar{padding-bottom:0}}
+/* JEG-1557: the blocked-state reason is guidance, not an error; keep the bar to two tight rows on a phone */
+.ddf-actionbar__sum.is-reason{color:#4b5a66;font-weight:500}
+@media(max-width:600px){
+ .ddf-actionbar__in{gap:6px 10px;padding-top:6px;padding-bottom:8px}
+ .ddf-actionbar__sum{font-size:13px;line-height:1.25}
+}

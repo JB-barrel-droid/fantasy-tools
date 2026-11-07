@@ -793,6 +793,8 @@ test-core:
 	python3 -m unittest tests.test_learn_engine_parity
 	# JEG-1538: entry pages at the root (paste -> recognition, setup -> live league store, link codec vectors, routes).
 	python3 -m unittest tests.test_entry_pages
+	# JEG-1557: mobile defects, connect rework, caveats note, touch behavior (390 and 360, 1440 for the note).
+	python3 -m unittest tests.test_jeg1557_mobile_connect
 	# JEG-1564: bookmark prompts, titles, league names, roster date freshness bands, header chip fit.
 	python3 -m unittest tests.test_bookmark_freshness
 	python3 -m unittest tests.test_week_history
@@ -1006,6 +1008,8 @@ test-core-shard-5:
 	python3 -m unittest tests.test_learn_engine_parity
 	# JEG-1538: entry pages at the root (paste -> recognition, setup -> live league store, link codec vectors, routes).
 	python3 -m unittest tests.test_entry_pages
+	# JEG-1557: mobile defects, connect rework, caveats note, touch behavior (390 and 360, 1440 for the note).
+	python3 -m unittest tests.test_jeg1557_mobile_connect
 	# JEG-1564: bookmark prompts, titles, league names, roster date freshness bands, header chip fit.
 	python3 -m unittest tests.test_bookmark_freshness
 	python3 -m unittest tests.test_missing_section_render
