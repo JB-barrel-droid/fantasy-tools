@@ -484,6 +484,178 @@ def scorecard(meta, pw, sc, sfx, wk, cons) -> dict:
     return out
 
 
+
+# ---------------------------------------------------------------------------
+# DynastyProcess (open data, GPL-3.0): data/research/jeg1565/dynastyprocess
+# ---------------------------------------------------------------------------
+
+DP = "dynastyprocess"
+DP_DIR = REPO / "data" / "research" / "jeg1565" / "dynastyprocess"
+DP_DATES = ("2026-10-09", "2026-10-16", "2026-10-23", "2026-10-30", "2026-11-06")
+DP_CURRENT = DP_DATES[-1]
+AGE_BANDS = ((0, 25, "under 25"), (25, 28, "25 to 27"), (28, 30, "28 to 29"), (30, 99, "30 and over"))
+
+
+def _norm(name: str) -> str:
+    import re
+    import unicodedata
+    n = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode().lower()
+    n = re.sub(r"[.'\u2019\-]", "", n)
+    n = re.sub(r"\b(jr|sr|ii|iii|iv|v)\b", "", n)
+    return re.sub(r"\s+", " ", n).strip()
+
+
+def dp_snapshot(inp, day: str) -> dict:
+    """{player_key: {"v1", "v2", "age"}} from the stored file, matched by
+    normalized name and position; names that match no player, or more than
+    one, are counted in "unmatched"."""
+    import csv
+    by = {}
+    for k, p in inp.players.items():
+        by.setdefault((_norm(p["name"]), p["pos"]), []).append(k)
+    out, unmatched, unmatched_max = {}, 0, 0.0
+    with open(DP_DIR / f"values-players-{day}.csv", newline="", encoding="utf-8") as f:
+        for row in csv.DictReader(f):
+            if row["pos"] not in POS:
+                continue
+            keys = by.get((_norm(row["player"]), row["pos"]))
+            if not keys or len(keys) > 1:
+                unmatched += 1
+                unmatched_max = max(unmatched_max, float(row["value_1qb"]))
+                continue
+            out[keys[0]] = {"v1": float(row["value_1qb"]), "v2": float(row["value_2qb"]),
+                            "age": float(row["age"]) if row["age"] not in ("", "NA") else None}
+    top = max((v["v1"] for v in out.values()), default=1.0)
+    return {"players": out, "unmatched": unmatched, "unmatched_max_pct": round(100 * unmatched_max / top, 1)}
+
+
+def dp_run(inp, snap: dict, scoring="half_ppr", superflex=0):
+    """Our model run with DynastyProcess added as one more chart, read for its
+    own diagnostics only (the other sources' numbers come from runs without it).
+    DynastyProcess publishes one value set for every scoring format; in
+    superflex its 2QB column prices every player it lists."""
+    s = setting(inp, scoring, 12, superflex)
+    st = s.state()
+    field = "v2" if superflex else "v1"
+    nat = {k: v[field] for k, v in snap["players"].items()}
+    srcs = s._sources(st["current"])
+    srcs[DP] = vr.SourceInput(DP, "chart", dict(nat))
+    res = vr.run_pipeline(s.league, srcs, s.pos_of, list(st["included"]) + [DP], s.selection,
+                          lineup=s.lineup, hidden=st.get("hidden"), promotion_model=s.promotion_model,
+                          flex_bench_seats=s.flex_bench_seats, basis=s.basis)
+    return s, nat, res["sources"][DP]
+
+
+def dynastyprocess(inp, data: dict) -> dict:
+    snap = dp_snapshot(inp, DP_CURRENT)
+    pw = data["position_weighting"]
+    out = {"matched": len(snap["players"]), "unmatched": snap["unmatched"],
+           "unmatched_max_pct": snap["unmatched_max_pct"], "snapshot": DP_CURRENT}
+    shares = {}
+    for cid, (sc, sf) in {"half_ppr/12/1qb": ("half_ppr", 0), "half_ppr/12/sf": ("half_ppr", 1),
+                          "standard/12/1qb": ("standard", 0), "ppr/12/1qb": ("ppr", 0)}.items():
+        _, _, det = dp_run(inp, snap, sc, sf)
+        w = det["weights"]
+        shares[cid] = pct({p: w[f"{p}|starter"] + w[f"{p}|bench"] for p in POS})
+        proj = {p: pw[cid]["projections_mean"][p] / 100 for p in POS}
+        out.setdefault("gap_vs_projections", {})[cid] = r(l1_points({p: shares[cid][p] / 100 for p in POS}, proj), 1)
+    out["shares"] = shares
+    s, nat, det = dp_run(inp, snap)
+    pos_of = s.pos_of
+    order = overall_order(nat, pos_of)
+    top = nat[order[0]]
+    waiver = {p: det["positions"][p]["waiver_value"] for p in POS}
+    out["listed"] = {p: det["positions"][p]["listed"] for p in POS}
+    out["rostered"] = {p: det["positions"][p]["rostered"] for p in POS}
+    out["filled_in"] = {p: len(det["positions"][p]["imputation_ratios"] or {}) for p in POS}
+    out["waiver_line"] = {p: r(waiver[p], 2) for p in POS}
+    out["top50_mix"] = {p: sum(1 for i in order[:TOP_N] if pos_of[i] == p) for p in POS}
+    out["curve"] = [r(100 * nat[i] / top, 1) for i in order[:CURVE_N]]
+    out["curve_stats"] = {
+        "listed_total": len(order),
+        **{f"rank{n}_pct": r(100 * nat[order[n - 1]] / top, 0) for n in (12, 24, 50, 100)},
+        "position_top_pct": {p: r(100 * max(v for i, v in nat.items() if pos_of[i] == p) / top, 0) for p in POS},
+    }
+    # 2-for-1, same rule as the charts.
+    vaw = {i: max(0.0, nat[i] - waiver[pos_of[i]]) for i in order}
+    stars, pairs = order[:12], list(combinations(order[24:60], 2))
+    tot = len(stars) * len(pairs)
+    raw = sum(1 for st in stars for a, b in pairs if nat[a] + nat[b] > nat[st])
+    aft = sum(1 for st in stars for a, b in pairs if vaw[a] + vaw[b] > vaw[st])
+    out["consolidation"] = {"pairs_tested": tot, "raw_beats_star_pct": r(100 * raw / tot, 0),
+                            "after_waiver_beats_star_pct": r(100 * aft / tot, 0)}
+    # Superflex: the 2QB column.
+    sf_qbs = sum(1 for k, v in snap["players"].items() if pos_of.get(k) == "QB" and v["v2"] > 0)
+    out["superflex"] = {"superflex_qbs_listed": sf_qbs, "qb_share_1qb": shares["half_ppr/12/1qb"]["QB"],
+                        "qb_share_sf": shares["half_ppr/12/sf"]["QB"]}
+    # Agreement with the four redraft charts (players both list), Half PPR.
+    base = setting(inp)
+    out["rank_corr_with"] = {}
+    for k in CHARTS:
+        other = base.natives(k)
+        common = [i for i in nat if i in other]
+        out["rank_corr_with"][k] = r(spearman([nat[i] for i in common], [other[i] for i in common]), 3)
+    # Age: position rank on DynastyProcess against position rank by our (redraft) DDF Value.
+    ddf = ddf_values(base)
+    pool = sorted(ddf, key=lambda i: (-ddf[i], i))[:TRADE_POOL]
+    pool = [i for i in pool if i in nat and snap["players"][i]["age"] is not None]
+    def prank(values, keys):
+        rk = {}
+        for p in POS:
+            ks = sorted((i for i in keys if pos_of[i] == p), key=lambda i: (-values[i], i))
+            rk.update({i: n + 1 for n, i in enumerate(ks)})
+        return rk
+    rd, rp = prank(ddf, pool), prank(nat, pool)
+    bands = []
+    for lo, hi, label in AGE_BANDS:
+        ks = [i for i in pool if lo <= snap["players"][i]["age"] < hi]
+        moves = [rd[i] - rp[i] for i in ks]
+        bands.append({"band": label, "n": len(ks), "mean_rank_gain": r(sum(moves) / len(moves), 1) if moves else None})
+    out["age_bands"] = bands
+    # Week to week, same rule as the other sources.
+    snaps = [dp_snapshot(inp, d)["players"] for d in DP_DATES]
+    moves, same = [], []
+    for prev, cur in zip(snaps, snaps[1:]):
+        deltas, n_same = [], 0
+        for p in POS:
+            both = [i for i in prev if i in cur and pos_of.get(i) == p]
+            rpv = {i: n for n, i in enumerate(sorted(both, key=lambda i: (-prev[i]["v1"], i)))}
+            rcu = {i: n for n, i in enumerate(sorted(both, key=lambda i: (-cur[i]["v1"], i)))}
+            topk = sorted(both, key=lambda i: (-prev[i]["v1"], i))[:WEEKLY_TOP]
+            deltas += [abs(rcu[i] - rpv[i]) for i in topk]
+            n_same += sum(1 for i in topk if cur[i]["v1"] == prev[i]["v1"])
+        moves.append(r(sum(deltas) / len(deltas), 2))
+        same.append(r(100 * n_same / len(deltas), 0))
+    out["weekly"] = {"snapshot_dates": list(DP_DATES), "rank_move": moves, "unchanged_pct": same}
+    # Scoring: one value set for every format (the file has no scoring columns).
+    out["scoring_note"] = "one value set for every scoring format"
+    # Trade box rows.
+    for row in data["players"]:
+        row["published"][DP] = nat.get(row["key"])
+    dp_rank = prank(nat, list(nat))
+    for row in data["players"]:
+        row["pos_rank"][DP] = dp_rank.get(row["key"])
+    data["waiver_line"][DP] = out["waiver_line"]
+    # Scorecard (balance not graded: dynasty values price future seasons, our yardstick is this season).
+    depth = min(out["listed"][p] / out["rostered"][p] for p in POS)
+    fresh_weeks = sum(1 for m in moves if m >= 0.25)
+    cgap = out["consolidation"]["raw_beats_star_pct"] - out["consolidation"]["after_waiver_beats_star_pct"]
+    card = {
+        "balance": {"level": None},
+        "scoring": {"level": 1},
+        "superflex": {"level": 3 if sf_qbs >= 24 else 2 if sf_qbs else 1, "value": sf_qbs},
+        "league_size": {"level": 1},
+        "depth": {"level": grade(100 * depth, 100, 70, True), "value": r(100 * depth, 0)},
+        "freshness": {"level": 3 if fresh_weeks == len(moves) else 2 if fresh_weeks >= len(moves) - 1 else 1,
+                      "value": fresh_weeks},
+        "consolidation": {"level": grade(cgap, 10, 25), "value": r(cgap, 0)},
+    }
+    for dim in card.values():
+        dim["label"] = LEVEL[dim["level"]]
+    data["scorecard"][DP] = card
+    return out
+
+
 def headline(d: dict) -> dict:
     """The numbers the article quotes in its text, gathered in one place."""
     sc, pw, sfx, cons, cs = d["scoring"], d["position_weighting"], d["superflex"], d["consolidation"], d["curve_stats"]
@@ -563,6 +735,7 @@ def build() -> dict:
     dp = lambda rank: 10500 * math.exp(-0.0235 * rank)  # noqa: E731
     data["dynastyprocess_formula"] = {"scale": 10500, "rate": 0.0235,
                                       **{f"rank{n}_pct": r(100 * dp(n) / dp(1), 0) for n in (12, 24, 50, 100)}}
+    data["dynastyprocess"] = dynastyprocess(inp, data)
     data["headline"] = headline(data)
     return data
 

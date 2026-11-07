@@ -54,7 +54,7 @@ class Spans(HTMLParser):
 def lookup(data, path):
     cur = data
     for key in path.split("."):
-        cur = cur[key]
+        cur = cur[int(key)] if isinstance(cur, list) else cur[key]
     return cur
 
 
@@ -102,6 +102,16 @@ class AuditData(unittest.TestCase):
         self.assertEqual("Weak", card["cbs"]["depth"]["label"])
         for k in audit.PROJ:
             self.assertEqual("Not measured", card[k]["balance"]["label"])
+        self.assertEqual("Not measured", card["dynastyprocess"]["balance"]["label"])
+        self.assertEqual("Weak", card["dynastyprocess"]["scoring"]["label"])
+
+    def test_dynastyprocess_snapshot_is_licensed_and_dated(self):
+        folder = audit.DP_DIR
+        self.assertIn("GNU GENERAL PUBLIC LICENSE", (folder / "LICENSE").read_text(encoding="utf-8"))
+        self.assertIn("GPL-3.0", (folder / "SOURCE.md").read_text(encoding="utf-8"))
+        for day in audit.DP_DATES:
+            self.assertTrue((folder / f"values-players-{day}.csv").exists(), day)
+        self.assertEqual(audit.DP_CURRENT, self.fresh["dynastyprocess"]["snapshot"])
 
 
 class StaysPrivate(unittest.TestCase):
