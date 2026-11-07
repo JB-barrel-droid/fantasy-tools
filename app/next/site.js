@@ -37,6 +37,8 @@ document.querySelectorAll('[data-slideshow]').forEach(function(slideshow){
    League = a #s= link in the URL or ddf:league in sessionStorage. Pages without the main nav (entry flow) are untouched. */
 (function(){
   function leagueLoaded(){
+    /* JEG-1539: DDF.league (ddf-league.js) sets DDF.leagueKnown after it reads the league, so a pasted or saved league counts too. */
+    if(window.DDF && DDF.leagueKnown === true) return true;
     try{ if(/^#s=/.test(location.hash)) return true; return !!sessionStorage.getItem('ddf:league'); }
     catch(e){ return false; }
   }
@@ -76,6 +78,7 @@ document.querySelectorAll('[data-slideshow]').forEach(function(slideshow){
     else if(window.DDF && DDF.link && DDF.link.current){
       var st = DDF.link.current();
       if(st && st.settings){ src = 'My league · From your chat'; set = DDF.link.settingsLabel(st.settings); }
+      else if(DDF.league && DDF.league.current && DDF.league.current()){ var lg = DDF.league.current(); src = lg.name; set = DDF.link.settingsLabel(lg.settings); }
     }
     wrap.querySelector('.ddf-cm-src').textContent = src;
     var p = wrap.querySelector('.ddf-cm-set'); p.textContent = set; p.hidden = !set;

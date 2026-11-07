@@ -146,10 +146,18 @@
     cache = {value: value};
     return value;
   }
+  // The journey nav (site.js) shows the post-league links when DDF.leagueKnown is true: same source as the pages.
+  function syncNav(cur) {
+    var known = !!cur;
+    if (DDF.leagueKnown === known) return;
+    DDF.leagueKnown = known;
+    if (DDF.refreshNav) { try { DDF.refreshNav(); } catch (e) { console.error(e); } }
+  }
   function changed() {
     cache = null;
     if (!started) return;
     var cur = build();
+    syncNav(cur);
     listeners.slice().forEach(function (fn) { try { fn(cur); } catch (e) { console.error(e); } });
   }
 
@@ -284,7 +292,9 @@
     DDF.engine.on(changed);
     document.addEventListener("ddf:link", function () { setTimeout(function () { changed(); applySettings(); }, 0); });
     window.addEventListener("storage", function (e) { if (e.key === WS_KEY) changed(); });
-    return build();
+    var cur = build();
+    syncNav(cur);
+    return cur;
   });
   ready.catch(function (e) { console.error(e); });
 
