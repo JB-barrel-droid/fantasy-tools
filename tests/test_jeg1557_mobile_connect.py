@@ -218,7 +218,7 @@ class MobileConnectTest(_RenderBase):
     # ---- caveats ----
     def test_caveats_note_on_team_and_recommendations_pages(self):
         for width in (1440, 390):
-            for name in ("team.html", "find.html"):
+            for name in ("team.html", "find.html", "partners.html"):
                 with self.subTest(width=width, page=name):
                     page = self.page(width, 900 if width > 760 else 844)
                     self.with_league(page)
