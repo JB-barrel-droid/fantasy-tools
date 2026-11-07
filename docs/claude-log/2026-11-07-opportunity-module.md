@@ -39,3 +39,14 @@ leagues. Re-check them on superflex and full-PPR leagues: JEG-1562.
 ### Claimed, not confirmed
 - The team page read and its browser parity against DDF.find ship in part 2 (same ticket, next PR).
 - Consumers (JEG-1559, JEG-1561) were told the signature; their use is not checked here.
+
+### Review fixes (independent review on 2b81e4336)
+- computeTeam is async now. Any error rejects its promise, so the page never stays on "Sizing" (`test_compute_team_never_hangs_on_error`).
+- The trade search leaves out skipped teams and held players, as find.html does. Each move counts above its own noise floor.
+- A "none" read now says why:
+  - a counted gain under 3%: "too small to be worth chasing";
+  - nothing beat its floor: "already sharp";
+  - nothing to check;
+  - too few priced players (no move named).
+  Test: `test_none_reasons_are_honest`.
+- Tiers and bands read the same truncated percent the page shows, so they always agree (`test_shown_and_tier_always_agree`). No −0 (`test_no_negative_zero`).
