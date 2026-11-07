@@ -189,7 +189,10 @@
     // Hidden until the link is read, so the front door does not flash; any failure falls back to the plain route.
     var html = document.documentElement;
     html.style.visibility = "hidden";
+    var done = false;   // the first redirect wins (a late translate() after the timeout does not redirect again)
     var fallback = function () {
+      if (done) return;
+      done = true;
       html.style.visibility = "";
       var plain = resolve(location.hash, {atRoot: atRoot, root: root});
       if (plain && plain !== location.href) { try { location.replace(plain); } catch (e) { /* stays */ } }
@@ -198,6 +201,8 @@
     translate(carried, root).then(function (url) {
       clearTimeout(timer);
       if (!url) return fallback();
+      if (done) return;
+      done = true;
       location.replace(url);
     }, function (e) { clearTimeout(timer); console.warn(e); fallback(); });
     return;

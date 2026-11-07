@@ -76,6 +76,27 @@ class LegacyLeagueLinks(unittest.TestCase):
         self.assertEqual(lg["me"], 0)
         self.assertEqual(lg["settings"], {"scoring": "standard", "teams": 10, "superflex": True, "slots": [1, 2, 2, 1, 1, 6]})
 
+    def test_link_settings_apply_for_the_visit_only(self):
+        """Review of PR #1345: a link's league applies on the page but never overwrites the reader's saved settings."""
+        a, b, c = self.p[:3]
+        page, lg = self.land(f"/#find-trade?mine={a['key']},{b['key']}&theirs={c['key']}&scoring=standard&teams=10", r"/find\.html#s=")
+        page.wait_for_function("() => window.DDF && DDF.league && DDF.engine.controls() && DDF.league.current()", timeout=90000)
+        page.wait_for_timeout(1500)
+        got = page.evaluate("() => [DDF.engine.settings().scoring, DDF.engine.settings().teams, localStorage.getItem('ddf.v2.league-settings')]")
+        self.assertEqual(got, ["standard", 10, None])
+
+    def test_plain_route_league_settings(self):
+        """#risers-fallers?scoring=&teams=&roster= (chat site_url, no rosters): values.html prices that league for the visit."""
+        ctx = self.browser.new_context()
+        self.addCleanup(ctx.close)
+        page = ctx.new_page()
+        page.add_init_script(CLEAR)
+        page.goto(self.base + "/#risers-fallers?scoring=standard&teams=10&roster=QB1.RB2.WR3.TE1.FLEX1.SF1.BN6", wait_until="load", timeout=60000)
+        page.wait_for_url(re.compile(r"/values\.html#\?scoring=standard"), timeout=30000)
+        page.wait_for_function("() => window.DDF && DDF.engine && DDF.engine.controls()", timeout=90000)
+        got = page.evaluate("() => { const s = DDF.engine.settings(); return [s.scoring, s.teams, s.roster.SUPERFLEX, s.roster.WR, localStorage.getItem('ddf.v2.league-settings')]; }")
+        self.assertEqual(got, ["standard", 10, 1, 3, None])
+
     def test_trade_targets_target(self):
         a, c = self.p[0], self.p[3]
         page, lg = self.land(f"/#trade-targets?target={c['key']}&mine={a['key']}&scoring=half_ppr&teams=12", r"/values\.html#s=.*&buy-sell")

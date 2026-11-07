@@ -164,7 +164,7 @@ function paint(save){
 function render(c){
  const tiers=c?DDF.league.positionTiers():null;
  const me=c&&c.me!==null?tiers.teams.find(t=>t.index===c.me):null;
- teams=DDF.league.opponents().map(team=>{const p=DDF.league.partnerTags(team);return {index:team.index,name:team.name,ddf:p.ddf,analyst:p.analyst,live:p.live,tags:p.tags,tiers:tiers.teams.find(x=>x.index===team.index)}})
+ teams=DDF.league.opponents().map(team=>{const p=DDF.league.partnerTags(team);return {index:team.index,name:team.name,ddf:p.ddf,analyst:p.analystComplete?p.analyst:null,live:p.liveComplete?p.live:null,tags:p.tags,tiers:tiers.teams.find(x=>x.index===team.index)}})
    .sort((a,b)=>b.ddf-a.ddf||a.index-b.index);
  const skipped=new Set(DDF.league.skipped());
  included=teams.map(t=>!skipped.has(t.name));
@@ -176,7 +176,7 @@ function render(c){
  [['h-ddf','edge','DDF edge'],['h-mkt','analyst','Analyst premium']].forEach(([id,k,label])=>{const ex=teams.find(t=>t.tags.includes(k));if(ex)$(id).insertAdjacentHTML('beforeend',info(k,ex,label))});
  const ex=teams.find(t=>t.tags.includes('live'));
  const max=Math.max(1,...teams.map(t=>Math.max(t.ddf,t.analyst)));
- $('team-list').innerHTML=teams.map((t,i)=>{const s=me?strategy(t,me):'Compare complete returns';return '<div class="pt-row" role="listitem" data-i="'+i+'"><div class="who"><span class="tn">'+esc(t.name)+'</span>'+tagHtml(t)+(t.tags.includes('live')&&t===ex?info('live',t,'Live market premium'):'')+'</div><div class="stat d"><span class="lbl">DDF</span><span class="val">'+fx(t.ddf)+'</span><span class="bar" aria-hidden="true"><i style="width:'+(t.ddf/max*100).toFixed(1)+'%"></i></span></div><div class="stat m"><span class="lbl">Analyst</span><span class="val">'+fx(t.analyst)+'</span><span class="bar" aria-hidden="true"><i style="width:'+(t.analyst/max*100).toFixed(1)+'%"></i></span></div><div class="strat" title="'+esc(s)+'">'+esc(s)+'</div><div class="act"><button type="button" class="sw" role="switch" aria-checked="true" data-team="'+i+'" aria-label="Include '+esc(t.name)+' in the search"><span class="swt">Include</span><span class="trk" aria-hidden="true"></span></button></div></div>'}).join('');
+ $('team-list').innerHTML=teams.map((t,i)=>{const s=me?strategy(t,me):'Compare complete returns';return '<div class="pt-row" role="listitem" data-i="'+i+'"><div class="who"><span class="tn">'+esc(t.name)+'</span>'+tagHtml(t)+(t.tags.includes('live')&&t===ex?info('live',t,'Live market premium'):'')+'</div><div class="stat d"><span class="lbl">DDF</span><span class="val">'+fx(t.ddf)+'</span><span class="bar" aria-hidden="true"><i style="width:'+(t.ddf/max*100).toFixed(1)+'%"></i></span></div><div class="stat m"><span class="lbl">Analyst</span><span class="val">'+fx(t.analyst)+'</span><span class="bar" aria-hidden="true"><i style="width:'+((t.analyst||0)/max*100).toFixed(1)+'%"></i></span></div><div class="strat" title="'+esc(s)+'">'+esc(s)+'</div><div class="act"><button type="button" class="sw" role="switch" aria-checked="true" data-team="'+i+'" aria-label="Include '+esc(t.name)+' in the search"><span class="swt">Include</span><span class="trk" aria-hidden="true"></span></button></div></div>'}).join('');
  paint(false);
 }
 $('waivers-switch').checked=DDF.league.waiversOn();

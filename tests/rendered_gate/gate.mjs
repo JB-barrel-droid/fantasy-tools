@@ -26,7 +26,7 @@ const SCORINGS = ["Standard", "Half", "Full"];
 const TEAMS = ["8", "10", "12", "14"];
 // JEG-1539 step 5: redesigned root pages to sweep for page errors (no league context).
 const ROOT_PAGES = ["/", "/values.html", "/learn.html", "/team.html", "/explore.html",
-  "/partners.html", "/find.html", "/waivers.html", "/settings.html", "/ai.html"];
+  "/partners.html", "/find.html", "/waivers.html", "/settings.html", "/ai.html", "/build.html", "/compare.html"];
 const MIME = { ".html": "text/html", ".js": "text/javascript", ".json": "application/json",
   ".css": "text/css", ".jpg": "image/jpeg", ".png": "image/png", ".svg": "image/svg+xml" };
 const INJECT_FILE = "assets/comparison-dashboard.js";

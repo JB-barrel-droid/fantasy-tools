@@ -166,7 +166,7 @@ function render(c) {
   document.querySelector('.roster-table').hidden = !mine;
   if (!mine) {
     body.innerHTML = ''; rows = []; $('kd').textContent = '';
-    $('no-league').innerHTML = c ? 'Your team is not picked yet. <a href="setup.html">Pick your team</a> to choose which players we can trade.' : 'Add your league to choose which players we can trade. <a href="connect.html">Add your league</a>';
+    $('no-league').innerHTML = c ? 'Your team is not picked yet. <a href="setup.html">Pick your team</a> to confirm which players we can trade.' : 'Add your league to confirm which players we can trade. <a href="connect.html">Add your league</a>';
     $('team-label').textContent = 'My team'; update(false); return;
   }
   const L = DDF.league.lineup(mine);

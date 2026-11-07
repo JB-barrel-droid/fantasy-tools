@@ -205,6 +205,27 @@
     return settings();
   }
 
+  // JEG-1539: an old v2 link's league (#route?scoring=..&teams=..&roster=.., chat site_url; legacy-routes.js carries the
+  // query after the page's own hash) applies for this visit, as v2 applied a link's league. Build a Trade and Learn read
+  // the same parameters themselves; applying them twice gives the same state. Weeks and advanced settings: build.html only.
+  var HASH_ROSTER = {QB: "QB", RB: "RB", WR: "WR", TE: "TE", FLEX: "FLEX", SF: "SUPERFLEX", BN: "BENCH"};
+  function hashLeague() {
+    var at = location.hash.indexOf("?");
+    if (at < 0 || /^#s=/.test(location.hash)) return null;
+    var q = new URLSearchParams(location.hash.slice(at + 1)), out = {};
+    if (["standard", "half_ppr", "ppr"].indexOf(q.get("scoring")) < 0) return null;
+    out.scoring = q.get("scoring");
+    var teams = Number(q.get("teams"));
+    if ([8, 10, 12, 14].indexOf(teams) >= 0) out.teams = teams;
+    var roster = {};
+    String(q.get("roster") || "").split(".").forEach(function (part) {
+      var m = /^([A-Z]+)(\d+)$/.exec(part);
+      if (m && HASH_ROSTER[m[1]]) roster[HASH_ROSTER[m[1]]] = Number(m[2]);
+    });
+    if (Object.keys(roster).length) out.roster = roster;
+    return out;
+  }
+
   /* ---- basis and overrides (shared with the live Overrides tab) ---- */
   function engineBasis() { return !state.basis || state.basis.mode === "default" ? null : state.basis; }
   function cleanBasis(rec) {
@@ -406,6 +427,8 @@
   }).then(function (c) {
     defaults = JSON.stringify(snapshot());
     applySaved(readJSON(localStorage, LEAGUE_KEY));
+    var visit = hashLeague();
+    if (visit) applyVisit(visit);
     load();
     applyLinkContext();
     if (LINK_TOKEN.test(location.hash)) importLinked();

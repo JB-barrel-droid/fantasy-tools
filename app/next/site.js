@@ -45,7 +45,10 @@ document.querySelectorAll('[data-slideshow]').forEach(function(slideshow){
       var pasted = JSON.parse(sessionStorage.getItem('ddf:pasted') || 'null');
       if(pasted && Array.isArray(pasted.teams) && pasted.teams.length) return true;
       var saved = JSON.parse(localStorage.getItem('ddf.v2.workspaces') || 'null');
-      return !!(saved && Array.isArray(saved.workspaces) && saved.workspaces.some(function(w){ return w && Array.isArray(w.teams) && w.teams.length; }));
+      if(!saved || saved.v !== 1 || !Array.isArray(saved.workspaces)) return false;
+      /* The active saved league only, as DDF.engine.league() reads it. */
+      var ws = saved.workspaces.filter(function(w){ return w && w.id === saved.activeId; })[0] || saved.workspaces[0];
+      return !!(ws && Array.isArray(ws.teams) && ws.teams.length);
     }
     catch(e){ return false; }
   }

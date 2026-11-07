@@ -31,8 +31,35 @@ Durable notes
   testing (otherwise every DDF Value reads missing).
 - The root build's link rewrite (`rewrite_links`) also runs over copied `.js`; a JS string containing `\"` breaks.
 
+Independent review (separate Opus agent, diff only, head 7a74beea): CHANGES NEEDED, fixed in the next commit:
+- a chat link's league settings were saved over the reader's own (DDF.engine.apply): now `applyVisit` (visit only);
+- `tests/rendered_gate/live.mjs` (daily live synthetic) still expected the v2 tabs at / and /v2/: now renders every
+  root page (200, build tag, <main> with text, no page error) and checks the old addresses redirect;
+- a plain old route's league (`#risers-fallers?scoring=&teams=&roster=`, chat site_url without rosters) was ignored:
+  `ddf-engine.js` applies a hash query league for the visit (`hashLeague`);
+- partner tags judged lineups with a starter the charts do not list (missing counted as 0): now only complete lineups
+  are tagged and partners.html shows "—" for an incomplete chart total;
+- nav league check reads the active saved league only; "choose" on explore.html; a late link translation after the
+  15 s fallback no longer redirects twice; build.html and compare.html added to the rendered gate's root sweep.
+- Recorded, not changed: the D4 storage bridge in ddf-engine.js stays (localStorage `ddf.v2.league-settings` and
+  `ddf-v2-value-overrides` are now the one persistent store for settings and overrides; the `ddf:overrides` mirror
+  feeds site.js link encoding). Converted links drop league extras (weeks, bench share, injury, confidence).
+
 ### Verified (check named)
-(filled in below as each check runs on the PR head)
+- Local, head 7a74beea plus the review fixes, after `make sync` (Python 3.12, Chrome):
+  `tests.test_validate_shards`, `test_build_root_pages`, `test_legacy_routes`, `test_legacy_links_state` (6 tests,
+  incl. visit-only settings and the plain-route league), `test_build_swap_routes`, `test_values_swap_routes`,
+  `test_learn_engine_parity`, `test_launch_front_door`, `test_team_engine_parity`, `test_find_engine_parity`,
+  `test_build_page_engine_parity`, `test_values_page_engine_parity`, `test_next_preview`, `test_verify_live`,
+  `test_build_v2_page`, `test_main_table_engine_parity`, `test_asset_load_retry`: OK.
+- Parity: team / explore / partners (`test_team_engine_parity`) and find / waivers (`test_find_engine_parity`) equal
+  independent engine and Finder reads at 3 scorings x 10/12 teams x superflex on/off; each has a drift test.
+- Rendered gate `node tests/rendered_gate/gate.mjs dist`: passed (12/12 shapes, 0 page errors, 12 root pages clean).
+- QA sweep (scratch `qa1539.py`, Chrome, served dist): 13 pages x 1440/390 x no league / pasted 12-team league =
+  52 views, 0 console errors (Google Fonts blocked by the hermetic browser excluded), 0 page errors, 0 failed
+  same-host requests, 0 horizontal overflow, 35 same-host link targets, 0 broken.
+- `live.mjs` against a local Pages-like server (/fantasy-tools/ prefix): every root page and redirect passes except
+  connect.html, which is JEG-1538's page and not yet on main.
 
 ### Claimed, not confirmed
 - CI (`make validate`, test-core shards, rendered gate) on the PR head: see the PR checks.

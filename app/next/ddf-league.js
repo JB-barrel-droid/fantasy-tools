@@ -213,7 +213,9 @@
     if (!cur || cur.source !== "link" || !cur.settings) return false;
     var want = toEngine(cur.settings);
     if (!differs(want)) return false;
-    try { DDF.engine.apply(want); } catch (e) { console.error(e); return false; }
+    // A chat link's league applies for the visit (the tab's ddf:league re-applies it on every page); only a reader's
+    // own confirm on settings.html saves settings (review of PR #1345: links must not overwrite saved settings).
+    try { (DDF.engine.applyVisit || DDF.engine.apply)(want); } catch (e) { console.error(e); return false; }
     return true;
   }
   function setSettings(s) {
@@ -301,12 +303,15 @@
   function partnerTags(team) {
     var L = lineup(team);
     var ddf = L.starterValue, analyst = L.analyst.starterValue, live = L.live.starterValue;
-    var ra = analyst > 0 ? ddf / analyst : null, rl = live > 0 ? ddf / live : null;
+    // A starter a chart does not list has no chart value, so an incomplete lineup is not judged against that chart
+    // (missing is never 0: it would shrink the chart total and fake an edge). Review of PR #1345.
+    var ra = L.analyst.complete && analyst > 0 ? ddf / analyst : null, rl = L.live.complete && live > 0 ? ddf / live : null;
     var tags = [];
     if (ra !== null && ra >= EDGE) tags.push("edge");
     if (ra !== null && ra < 1) tags.push("analyst");
     if (rl !== null && rl < 1) tags.push("live");
-    return {ddf: ddf, analyst: analyst, live: live, ratioAnalyst: ra, ratioLive: rl, tags: tags, lineup: L};
+    return {ddf: ddf, analyst: analyst, live: live, ratioAnalyst: ra, ratioLive: rl, tags: tags, lineup: L,
+      analystComplete: Boolean(L.analyst.complete), liveComplete: Boolean(L.live.complete)};
   }
 
   /* ---- workspace choices (session store, shared with find.html / waivers.html) ---- */

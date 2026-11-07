@@ -96,10 +96,12 @@ ORACLE = r"""(league) => {
   const partners = {};
   teams.filter(t => t !== mine).forEach(t => {
     const d = t.L.starterValue, an = t.A.starterValue, lv = t.V.starterValue, tags = [];
-    if (an > 0 && d / an >= 1.15) tags.push('DDF edge');
-    if (an > 0 && d / an < 1) tags.push('Analyst premium');
-    if (lv > 0 && d / lv < 1) tags.push('Live market premium');
-    partners[t.name] = {ddf: fx(d), analyst: fx(an), tags};
+    // An incomplete chart lineup (a starter the charts do not list) is not judged and shows no chart total.
+    const aOk = t.A.unvalued.length === 0, lOk = t.V.unvalued.length === 0;
+    if (aOk && an > 0 && d / an >= 1.15) tags.push('DDF edge');
+    if (aOk && an > 0 && d / an < 1) tags.push('Analyst premium');
+    if (lOk && lv > 0 && d / lv < 1) tags.push('Live market premium');
+    partners[t.name] = {ddf: fx(d), analyst: aOk ? fx(an) : '—', tags};
   });
   return {starter: fx(mine.L.starterValue), roster: fx(mine.L.total), posTiers, table, explore, partners};
 }"""
