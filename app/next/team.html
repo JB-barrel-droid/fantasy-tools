@@ -160,6 +160,21 @@ body.league-pending .team-page{visibility:hidden}
 .team-page .pos-table .players.full{font-size:14px;line-height:1.5;white-space:normal}
 .team-page .pos-table tbody th[scope=row]{white-space:normal}
 @media(max-width:760px){.team-page .stat-value.np-value{font-size:19px}}
+.team-page .opp{margin:24px 0}
+.team-page .opp h2{margin:0 0 10px}
+.team-page .opp-body{display:grid;grid-template-columns:minmax(0,1fr);column-gap:28px}
+@media(min-width:900px){.team-page .opp-body{grid-template-columns:minmax(0,1.2fr) minmax(0,1fr)}.team-page .opp-body>.opp-look{grid-column:2;grid-row:1/span 3;align-self:start;margin-top:0}.team-page .opp-body>:not(.opp-look){grid-column:1}}
+.team-page .opp-tier{margin:0;font-family:"Archivo",system-ui,sans-serif;font-weight:700;font-size:22px;color:#0d120e}
+.team-page .opp-tier[data-tier]::before{content:"";display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:10px;vertical-align:middle;background:#8a958f}
+.team-page .opp-tier[data-tier="big"]::before{background:#176c4d}
+.team-page .opp-tier[data-tier="medium"]::before{background:#3f9a6f}
+.team-page .opp-tier[data-tier="marginal"]::before{background:#c9a227}
+.team-page .opp-line{margin:8px 0 0;max-width:68ch;line-height:1.55}
+.team-page .opp-look{margin:12px 0 0;padding:10px 14px;background:#f4f6f2;border-radius:10px;max-width:68ch;line-height:1.5}
+.team-page .opp-look b{font-weight:700}
+.team-page .opp-waivers{margin:10px 0 0;color:#4a5560;font-size:15px}
+.team-page .opp-note{display:block;margin-top:6px;color:#4a5560;font-size:14px}
+@media(max-width:760px){.team-page .opp-tier{font-size:19px}}
 </style><link rel="stylesheet" href="actionbar.css"><script src="actionbar.js"></script></head><body class="team-shell"><header><div class="header-inner"><div class="brand">DDF<small>DATA DRIVEN FOOTBALL</small></div><nav aria-label="Main navigation"><a href="index.html">Home</a><a href="build.html">Build a Trade</a><a href="find.html">Trade &amp; Waiver Recommendations</a><a href="values.html">Values</a><div class="morewrap"><button type="button" aria-expanded="false" aria-controls="team-more">More ▾</button><div class="menu" id="team-more"><a href="build.html">Build a Trade</a><a href="find.html">Trade &amp; Waiver Recommendations</a><a href="waivers.html">Waivers</a><a href="team.html">Team assessment</a><a href="explore.html">Pick players</a><a href="partners.html">Pick trading partners</a><a href="values.html">Values</a><a href="values.html#buy-sell">Buy / Sell</a><a href="values.html#overrides">Overrides</a><a href="learn.html">Learn</a><a href="learn.html#numbers/pie">How we get our numbers</a><a href="ai.html">Use DDF with AI</a><a href="connect.html">Paste my league</a><a href="setup.html">Your team</a><a href="settings.html">League settings</a></div></div></nav></div></header><div class="ctx-strip"><span></span><a href="settings.html">Edit league</a></div><main class="team-page">
 <section class="card empty-league" id="no-league" hidden aria-labelledby="no-league-title">
 <h1 id="no-league-title">Add your league to see your team</h1>
@@ -173,6 +188,14 @@ body.league-pending .team-page{visibility:hidden}
 <div class="next-step next-top"><span class="next-label" id="next-top-label">Next: pick players.</span><a class="button primary" href="explore.html">Next: pick players</a></div>
 <div class="team-stats"><div class="card ddf-lift"><div class="stat-top"><h2>Your starters</h2><span class="rank-pill" id="rank-starter"></span></div><p class="stat-value" id="val-starter">—</p><p class="stat-sub" id="sub-starter"></p></div><div class="card ddf-lift"><div class="stat-top"><h2>Your roster</h2><span class="rank-pill" id="rank-roster"></span></div><p class="stat-value" id="val-roster">—</p><p class="stat-sub" id="sub-roster"></p></div></div>
 <p class="team-context" id="team-context"></p>
+
+<section class="card opp" id="opportunity" aria-labelledby="opp-title">
+<h2 id="opp-title">Your best move right now <details class="info"><summary aria-label="How this is sized">ⓘ</summary><span>We look for the biggest gain from one waiver pickup or one trade of one or two players a side that fits both rosters. The gain is in DDF Value, with your starters in full and your bench at its weight, and it is shown as a share of your team's value. A gain inside the normal noise of the values counts as no move. Under 3% is no meaningful move, 3 to 6% a small edge, 6 to 10% a real opportunity, 10% or more a big one. One place in a league's value ranking is often about 4 to 6%. Teams you skip on Pick trading partners and players you hold are left out, as on Trade &amp; Waiver Recommendations. Where to look compares each of your starting slots with the typical player in that slot across your league on the analyst charts (CBS Sports, USA Today and FantasyPros), so it can point somewhere the DDF read does not. These lines were set from one week of three 12-team half-PPR leagues, so treat them as a guide, especially in superflex or full-PPR leagues. The other team always decides what it accepts.</span></details></h2>
+<div class="opp-body" aria-live="polite"><p class="opp-tier" id="opp-tier">Sizing your best move…</p>
+<p class="opp-line" id="opp-line"></p>
+<p class="opp-look" id="opp-look" hidden></p>
+<p class="opp-waivers" id="opp-waivers" hidden></p></div>
+</section>
 
 <section class="pos-table" id="positions" aria-labelledby="pos-title">
 <h2 id="pos-title">Your roster by position <details class="info"><summary aria-label="About position strength">ⓘ</summary><span>Strength compares each starter slot with the league median for that slot, taken from every team's best lineup on DDF Value. A star counts for at most 125% of the median, so one great player cannot hide a thin slot. Strong is 110% or more of the league median, Average is 90% to 109%, Weak is under 90%. The dark line on each bar marks the league median.</span></details></h2>
@@ -202,6 +225,11 @@ body.league-pending .team-page{visibility:hidden}
 <script src="v2/team-summary.js" defer></script>
 <script src="ddf-engine.js" defer></script>
 <script src="ddf-league.js" defer></script>
+<script src="v2/nfl-byes.js" defer></script>
+<script src="v2/player-status.js" defer></script>
+<script src="v2/waivers.js" defer></script>
+<script src="find-engine.js" defer></script>
+<script src="ddf-opportunity.js" defer></script>
 <script type="module">
 /* Team assessment on the live engine (JEG-1539). Every number is a DDF.league read: TradeValueFinder lineups on engine rows,
    the league's real per-slot medians (positionTiers) and the league table ranks. A value the engine does not price reads
@@ -285,6 +313,46 @@ body.league-pending .team-page{visibility:hidden}
     if (DDF.actionBar && DDF.actionBar.setSummary) DDF.actionBar.setSummary(summary);
   }
 
+  // JEG-1558: opportunity size (DDFOpportunity.computeTeam: the find.html trade search and the Waivers tab's pickups).
+  let oppRun = 0;
+  const SLOT_WORD = {QB: 'quarterback', RB: 'running back', WR: 'receiver', TE: 'tight end', FLEX: 'flex', SUPERFLEX: 'superflex'};
+  function slotText(slot) {
+    const m = /^([A-Z]+)(\d+)$/.exec(slot) || [slot, slot, '1'];
+    const n = {1: 'first', 2: 'second', 3: 'third', 4: 'fourth'}[m[2]] || m[2] + 'th';
+    return `${slot}, your ${n} ${SLOT_WORD[m[1]] || m[1]} slot`;
+  }
+  // The JEG-1557 caveats note carries the best-move caveat in its slot (one line, set once a read exists).
+  function oppCaveat(on) {
+    const slot = document.querySelector('[data-ddf-caveats="assessment"] .ddf-caveats__slot');
+    if (slot) slot.textContent = on ? 'Best move size: a guide set from one week of three 12-team half-PPR leagues. The other team decides what it accepts.' : '';
+  }
+  function renderOpportunity(c, mine) {
+    const run = ++oppRun, box = $('opportunity');
+    const tier = $('opp-tier'), line = $('opp-line'), look = $('opp-look'), wv = $('opp-waivers');
+    box.hidden = false;
+    tier.removeAttribute('data-tier'); tier.textContent = 'Sizing your best move…'; line.textContent = ''; look.hidden = true; wv.hidden = true;
+    if (!window.DDFOpportunity || !DDF.find) { tier.textContent = 'Your best move could not be sized here.'; return; }
+    DDFOpportunity.computeTeam(c, mine, () => run !== oppRun).then(o => {
+      if (run !== oppRun) return;
+      if (!o) { tier.textContent = 'Your best move could not be sized yet.'; line.textContent = 'The values are still loading. Reload the page if this stays.'; return; }
+      tier.dataset.tier = o.tier;
+      oppCaveat(true);
+      tier.textContent = o.headline;
+      const where = o.source === 'trade' ? ' <a href="find.html">See trade ideas</a>' : o.source === 'waiver' ? ' <a href="waivers.html">See waiver pickups</a>' : '';
+      line.innerHTML = esc(o.line) + where;
+      if (o.hole) {
+        look.innerHTML = `<b>Where to look:</b> ${esc(slotText(o.hole.slot))}. On the analyst charts your player there is about ${o.hole.gap.toFixed(1)} value below the typical player in that slot across your league. A gap is a place to look, not a move we found.`;
+        look.hidden = false;
+      }
+      const wvText = !window.TradeValueWaivers || o.reason === 'unsized' ? '' : !o.candidates ? 'Waivers: no available players to check yet. Add them on the Waivers page.'
+        : !o.waiver || o.waiver.gain <= 0.05 ? 'Waivers: nothing available beats your bench right now.'
+        : o.waiversEmpty ? `Waivers: the best pickup adds about ${o.waiver.gain.toFixed(1)} value, within the normal noise of the values.`
+        : o.source === 'waiver' ? '' : `Waivers: the best pickup adds about ${o.waiver.gain.toFixed(1)} value, less than the trade.`;
+      wv.textContent = wvText; wv.hidden = !wvText;
+      if (o.skipped > 0 || o.held > 0) line.insertAdjacentHTML('beforeend', ` <span class="opp-note">Teams you skipped on Pick trading partners and players you hold are left out, as on Trade &amp; Waiver Recommendations.</span>`);
+    }, e => { console.error(e); if (run === oppRun) tier.textContent = 'Your best move could not be sized here.'; });
+  }
+
   function renderNoMe(c) {
     ['val-starter', 'val-roster'].forEach(id => { $(id).textContent = '—'; });
     ['rank-starter', 'rank-roster'].forEach(id => { $(id).textContent = ''; });
@@ -331,7 +399,7 @@ body.league-pending .team-page{visibility:hidden}
     table = DDF.league.leagueTable();
     tiers = DDF.league.positionTiers();
     const mine = DDF.league.myTeam();
-    if (mine) renderMine(c, mine); else renderNoMe(c);
+    if (mine) { renderMine(c, mine); renderOpportunity(c, mine); } else { renderNoMe(c); oppRun++; $('opportunity').hidden = true; oppCaveat(false); }
     const s = c.settings;
     $('fact-format').textContent = DDF.link && DDF.link.settingsLabel ? DDF.link.settingsLabel(s) : s.scoring + ' · ' + s.teams + ' teams';
     $('fact-lineup').textContent = lineupText(s);
