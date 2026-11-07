@@ -319,9 +319,11 @@ class Session:
             posts = build_v2_page.load_posts()
             # The build places the Research page inside #v2App (JEG-543), so the embedded
             # shell is compose_shell(shell.html, posts), not shell.html itself.
-            original = build_v2_page.compose_shell(SHELL.read_text(encoding="utf-8"), posts)
+            # The build-only shell is the root variant, whose "v2/#view" links read "#view" (build_v2_html at_root).
+            at_root = lambda text: text.replace('href="v2/#', 'href="#')
+            original = build_v2_page.compose_shell(at_root(SHELL.read_text(encoding="utf-8")), posts)
             assert original in built, "the built page no longer embeds shell.html verbatim"
-            html = built.replace(original, build_v2_page.compose_shell(ov["shell"], posts), 1)
+            html = built.replace(original, build_v2_page.compose_shell(at_root(ov["shell"]), posts), 1)
             page.route(lambda u: urlparse(u).path in ("/v2/", "/v2/index.html", "/v2-app.html"),
                        functools.partial(_fulfill, html, "text/html"))
         if "v2.js" in ov:
