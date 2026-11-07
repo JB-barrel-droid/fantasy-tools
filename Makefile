@@ -762,6 +762,7 @@ test-core:
 	# JEG-1535: values.html engine parity, swap routes, and build_root_pages unit tests.
 	python3 -m unittest tests.test_values_page_engine_parity
 	python3 -m unittest tests.test_values_swap_routes
+	python3 -m unittest tests.test_values_zero_override
 	python3 -m unittest tests.test_build_root_pages
 	python3 -m unittest tests.test_math_inspector
 	python3 -m unittest tests.test_view_invariants
@@ -900,6 +901,7 @@ test-core-shard-3:
 	# JEG-1535: values.html engine parity, swap routes, and build_root_pages unit tests.
 	python3 -m unittest tests.test_values_page_engine_parity
 	python3 -m unittest tests.test_values_swap_routes
+	python3 -m unittest tests.test_values_zero_override
 	python3 -m unittest tests.test_build_root_pages
 	python3 -m unittest tests.test_espn_listed_rows
 	python3 -m unittest tests.test_page_load_no_404
