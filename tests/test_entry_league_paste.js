@@ -106,10 +106,45 @@ test("unreadable and empty pastes", () => {
 test("record: the ddf:pasted shape setup.html reads", () => {
   const res = LP.read(fs.readFileSync(path.join(DIR, "03-espn.txt"), "utf8"), TABLE_ROWS, {table: TABLE});
   const rec = LP.record(res, "paste");
-  assert.deepStrictEqual(Object.keys(rec).sort(), ["me", "site", "source", "teams", "v"]);
+  assert.deepStrictEqual(Object.keys(rec).sort(), ["enteredAt", "leagueId", "me", "platform", "site", "source", "suggestedName", "teams", "v"]);
+  assert.ok(/^\d{4}-\d{2}-\d{2}$/.test(rec.enteredAt), "enteredAt is a local date");
   assert.strictEqual(rec.me, null);
   assert.deepStrictEqual(Object.keys(rec.teams[0]).sort(), ["name", "players", "unmatched"]);
   assert.deepStrictEqual(Object.keys(rec.teams[0].players[0]).sort(), ["id", "key", "line", "name", "pos", "slot", "team"]);
+});
+
+// 4. League name, ID and platform from the page header (JEG-1564)
+const LEAGUE_CASES = [
+  ["entry_paste/02-yahoo-markdown.txt", {leagueName: "Sample League", leagueId: "123456", platform: "yahoo"}],
+  ["entry_paste/01-yahoo-iphone.txt", {leagueName: null, leagueId: null}],
+  ["entry_paste/03-espn.txt", {leagueName: null, leagueId: null}],
+  ["league_paste/espn-league-rosters.txt", {leagueName: "Test Skeeper League", platform: "espn"}],
+  ["league_paste/sleeper-league-rosters.txt", {leagueName: null, platform: "sleeper"}],
+  ["roster_paste/yahoo-team.txt", {leagueName: "Test League Name", leagueId: "000000", platform: "yahoo"}],
+  ["roster_paste/espn-team.txt", {leagueName: null, platform: "espn"}],
+];
+LEAGUE_CASES.forEach(([f, want]) => test(`league header: ${f}`, () => {
+  const text = fs.readFileSync(path.join(ROOT, "tests", "fixtures", f), "utf8");
+  const got = window.DDF.rosterParse.league(text, {teams: window.DDF.rosterParse.teams(text, {players: TABLE})});
+  Object.keys(want).forEach(k => assert.strictEqual(got[k], want[k], k));
+}));
+test("league header: section headings and team names are never the league name", () => {
+  const rp = window.DDF.rosterParse;
+  assert.strictEqual(rp.league("Starting Rosters\nTeam\nWeek 9\n").leagueName, null);
+  assert.strictEqual(rp.league("League Rosters\nSettings\n").leagueName, null);
+  assert.strictEqual(rp.league("League Rosters\nGridiron Gurus\nQB Josh Allen BUF\n", {teams: [{name: "Gridiron Gurus"}]}).leagueName, null);
+  assert.strictEqual(rp.league("League Rosters\nTeam Alpha (5-1-0)\n").leagueName, null);
+  const info = rp.league("League Info\nBasic Settings\nLeague ID\n806463\n");
+  assert.strictEqual(info.leagueId, "806463");
+  assert.strictEqual(info.leagueName, null);
+  assert.strictEqual(rp.league("https://fantasy.espn.com/football/league?leagueId=4455\n").leagueId, "4455");
+});
+test("record carries the suggestion, never a saved name", () => {
+  const res = LP.read(fs.readFileSync(path.join(DIR, "02-yahoo-markdown.txt"), "utf8"), TABLE_ROWS, {table: TABLE});
+  const rec = LP.record(res, "paste");
+  assert.strictEqual(rec.suggestedName, "Sample League");
+  assert.strictEqual(rec.leagueId, "123456");
+  assert.ok(!("name" in rec));
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);
