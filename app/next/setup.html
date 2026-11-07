@@ -63,6 +63,8 @@ header :focus-visible,.entry-head :focus-visible{outline-color:#fff}
 <div class="setup-options">
 </div>
 </fieldset>
+<div class="setup-name" id="setup-name-box" hidden><label for="league-name"><strong>Name this league</strong> <span class="muted">(optional)</span></label><input id="league-name" type="text" maxlength="40" autocomplete="off" spellcheck="false" placeholder="My league" aria-describedby="league-name-note"><p id="league-name-note" class="muted"></p></div>
+<style>.setup .setup-name{margin:24px 0 8px;max-width:520px}.setup .setup-name label{display:block;margin-bottom:8px}.setup .setup-name input{width:100%;padding:11px 12px;border:1px solid #bec8c1;border-radius:8px;font:inherit}.setup .setup-name p{margin:6px 0 0;font-size:14px}</style>
 <div id="bridge-ask" class="card" role="region" aria-label="Saved league" hidden><p>This browser already has a saved league on the Find a trade page. Replace it with these rosters?</p><div class="cluster"><button type="button" class="primary" id="bridge-replace">Replace it</button><button type="button" id="bridge-keep">Keep the saved league</button></div><p id="bridge-status" role="status" class="muted"></p></div>
 <p id="setup-empty" class="notice" hidden>No rosters added yet. <a href="connect.html">Add your league rosters</a> first.</p>
 <div class="row setup-actions"><a class="button" href="connect.html">Back</a><a class="button primary" id="continue-btn" href="settings.html" data-sticky-next data-back-href="connect.html" data-back-label="Back" data-next-label="Next: confirm league settings" data-summary="Confirm your team">Next: confirm league settings →</a></div>

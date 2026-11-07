@@ -90,8 +90,13 @@ document.querySelectorAll('[data-slideshow]').forEach(function(slideshow){
       if(st && st.settings){ src = 'My league · From your chat'; set = DDF.link.settingsLabel(st.settings); }
       else if(DDF.league && DDF.league.current && DDF.league.current()){ var lg = DDF.league.current(); src = lg.name; set = DDF.link.settingsLabel(lg.settings); }
     }
+    var M = window.DDF && DDF.leagueMeta, info = M ? M.info() : null;
+    if(info && info.named) src = info.name + (info.team ? ' · ' + info.team : '');
     wrap.querySelector('.ddf-cm-src').textContent = src;
     var p = wrap.querySelector('.ddf-cm-set'); p.textContent = set; p.hidden = !set;
+    /* JEG-1564: the same age line as the page banner (DDF.leagueMeta.ageLine) */
+    var age = wrap.querySelector('.ddf-cm-age'), line = M ? M.ageLine() : '';
+    if(age){ age.textContent = line; age.hidden = !line; }
   }
   window.DDF = window.DDF || {}; window.DDF.fillChipMenu = fillChipMenu;
   document.addEventListener('click', function(e){
@@ -121,9 +126,10 @@ document.querySelectorAll('[data-slideshow]').forEach(function(slideshow){
     var x = document.createElement(loaded ? 'span' : 'a');
     if(loaded){
       x.className = 'ddf-chipwrap';
-      x.innerHTML = '<button type="button" class="ddf-chip" aria-haspopup="true" aria-expanded="false" aria-controls="ddf-chip-menu"><i aria-hidden="true"></i>Your league<span class="ddf-caret" aria-hidden="true">&#9662;</span></button>' +
-        '<div class="ddf-chipmenu" id="ddf-chip-menu"><p class="ddf-cm-src"></p><p class="ddf-cm-set"></p><a href="settings.html">Edit league</a></div>';
+      x.innerHTML = '<button type="button" class="ddf-chip" aria-haspopup="true" aria-expanded="false" aria-controls="ddf-chip-menu"><i aria-hidden="true"></i><span class="ddf-chip-t">Your league</span><span class="ddf-caret" aria-hidden="true">&#9662;</span></button>' +
+        '<div class="ddf-chipmenu" id="ddf-chip-menu"><p class="ddf-cm-src"></p><p class="ddf-cm-set"></p><p class="ddf-cm-age" hidden></p><a href="settings.html">Edit league</a></div>';
       fillChipMenu(x);
+      setTimeout(function(){ if(window.DDF && DDF.fitLeagueChip) DDF.fitLeagueChip(); }, 0);
     }
     else { x.className = 'ddf-gs'; x.href = 'connect.html'; x.innerHTML = 'Get started'; }
     host.appendChild(x);
@@ -477,7 +483,22 @@ document.querySelectorAll('[data-slideshow]').forEach(function(slideshow){
     }
     return out;
   }
+  /* League name and roster input date (JEG-1564), JSON body only: name = 1-40 chars, enteredAt = 'YYYY-MM-DD'.
+     Readers drop a bad value; writers reject it. Header and ID stream unchanged; old decoders keep them as unknown keys. */
+  var DATE_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
+  function cleanName(n){ if(typeof n !== 'string') return null; n = n.replace(/[\u0000-\u001f]/g, ' ').replace(/\s+/g, ' ').trim(); return n && Array.from(n).length <= 40 ? n : null; }
+  function cleanDate(d){
+    var m = typeof d === 'string' && DATE_RE.exec(d); if(!m) return null;
+    var t = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]));
+    return t.getUTCFullYear() === +m[1] && t.getUTCMonth() === +m[2] - 1 && t.getUTCDate() === +m[3] ? d : null;
+  }
+  function normalizeMeta(st, strict){
+    if('name' in st){ var n = cleanName(st.name); if(n) st.name = n; else if(strict) throw new Error('format'); else delete st.name; }
+    if('enteredAt' in st){ var d = cleanDate(st.enteredAt); if(d) st.enteredAt = d; else if(strict) throw new Error('format'); else delete st.enteredAt; }
+    return st;
+  }
   function normalizeContext(st, strict){
+    normalizeMeta(st, strict);
     if('overrides' in st){ var o = cleanOverrides(st.overrides, strict); if(o) st.overrides = o; else delete st.overrides; }
     if('basis' in st){ var b = cleanBasis(st.basis, strict); if(b) st.basis = b; else delete st.basis; }
     var ex = st.settings && st.settings.extras;
@@ -582,7 +603,8 @@ document.querySelectorAll('[data-slideshow]').forEach(function(slideshow){
 
   /* ---- reader context stores: DDF.overrides (names as keys), 'ddf:basis', 'ddf:posweights' ---- */
   function readOverrides(){ var o = DDF.overrides ? DDF.overrides.get() : DDF.state.get('overrides', {}); return isObj(o) ? o : {}; }
-  function writeOverrides(o){ if(DDF.overrides && DDF.overrides.replace) DDF.overrides.replace(o); else DDF.state.set('overrides', o); }
+  /* _fromLink: the bookmark prompt (JEG-1564) does not count a link's overrides as the reader's own edits */
+  function writeOverrides(o){ if(DDF.overrides && DDF.overrides.replace){ DDF.overrides._fromLink = true; try{ DDF.overrides.replace(o); } finally { DDF.overrides._fromLink = false; } } else DDF.state.set('overrides', o); }
   /* ID keys -> table names (unresolvable IDs are dropped: the site keys overrides by name). */
   function overridesByName(o, v){
     var out = {};
@@ -1018,6 +1040,168 @@ document.querySelectorAll('[data-slideshow]').forEach(function(slideshow){
   });
 })();
 
+/* ===== League meta (JEG-1564): league name, team, roster input date, freshness, page title =====
+   One helper so every surface agrees: the header chip, the banner at the top of each workspace page (Team, Build a Trade,
+   Explore, ...) and document.title all read DDF.leagueMeta.
+   League read order (same as ddf-league.js): a chat link with teams (sessionStorage ddf:league), the pasted league
+   (ddf:pasted), the saved league (localStorage ddf.v2.workspaces). Default name "My league".
+   Freshness: calendar days since the roster was entered (local dates), banded by FRESHNESS below. Dismissing a band hides
+   that band for the session (ddf:freshdismiss:<band>); a later, stronger band still shows. */
+(function(){
+  var DDF = window.DDF = window.DDF || {};
+  var DEFAULT_NAME = 'My league';
+  /* Rosters change daily (waivers, injuries); the NFL week is the natural cycle. 0-1 day: current. 2-3: a quiet note.
+     4-6: most of a week of moves, a gentle prompt. 7+: a full week or more, values and lineup effects may be off. */
+  var FRESHNESS = {bands: [
+    {id: 'fresh', maxDays: 1},
+    {id: 'note', maxDays: 3},
+    {id: 'prompt', maxDays: 6},
+    {id: 'stale', maxDays: Infinity}
+  ]};
+  var DISMISS = 'ddf:freshdismiss:';
+  function json(store, key){ try{ return JSON.parse(store.getItem(key) || 'null'); }catch(e){ return null; } }
+  function today(now){ var d = now || new Date(); return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
+  function ageDays(iso, now){
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); if(!m) return null;
+    var n = now || new Date();
+    var a = Date.UTC(+m[1], +m[2] - 1, +m[3]), b = Date.UTC(n.getFullYear(), n.getMonth(), n.getDate());
+    var d = Math.round((b - a) / 864e5);
+    return d < 0 ? 0 : d;
+  }
+  function ageWords(d){ return d === 0 ? 'today' : d === 1 ? 'yesterday' : d + ' days ago'; }
+  function band(d){
+    if(d === null || d === undefined) return null;
+    for(var i = 0; i < FRESHNESS.bands.length; i++) if(d <= FRESHNESS.bands[i].maxDays) return FRESHNESS.bands[i].id;
+    return null;
+  }
+  function savedLeague(){
+    var data = json(localStorage, 'ddf.v2.workspaces');
+    if(!data || data.v !== 1 || !Array.isArray(data.workspaces)) return null;
+    var ws = data.workspaces.filter(function(w){ return w && w.id === data.activeId; })[0] || data.workspaces[0];
+    return ws && Array.isArray(ws.teams) && ws.teams.length ? ws : null;
+  }
+  function info(){
+    var out = null;
+    try{
+      var link = DDF.link && DDF.link.current && DDF.link.current();
+      if(link && Array.isArray(link.teams) && link.teams.length){
+        out = {source: 'link', name: link.name, enteredAt: link.enteredAt, team: link.teams[link.me] && link.teams[link.me].name};
+      }
+      var pasted = !out && DDF.state && DDF.state.get('pasted', null);
+      if(pasted && Array.isArray(pasted.teams) && pasted.teams.length){
+        out = {source: 'pasted', name: pasted.name, enteredAt: pasted.enteredAt, leagueId: pasted.leagueId, team: pasted.teams[pasted.me] && pasted.teams[pasted.me].name};
+      }
+      var ws = !out && savedLeague();
+      if(ws){
+        var mine = ws.teams.filter(function(t){ return t && t.id === ws.myTeamId; })[0];
+        out = {source: 'saved', name: ws.name && ws.name !== DEFAULT_NAME ? ws.name : null, enteredAt: ws.enteredAt, leagueId: ws.leagueId, team: mine && mine.name};
+      }
+    }catch(e){ out = null; }
+    if(!out) return null;
+    out.named = !!out.name;
+    out.name = out.name || DEFAULT_NAME;
+    out.days = ageDays(out.enteredAt);
+    out.band = band(out.days);
+    return out;
+  }
+  function ageLine(i){ i = i === undefined ? info() : i; return i && i.days !== null ? 'Roster entered ' + ageWords(i.days) : ''; }
+  var MESSAGES = {
+    note: function(w){ return 'Roster entered ' + w + '.'; },
+    prompt: function(w){ return 'Roster entered ' + w + '. Rosters change during the week, so check it is still current.'; },
+    stale: function(w){ return 'Roster entered ' + w + '. Rosters have likely changed since then, so trade values and lineup effects on these pages may be off.'; }
+  };
+  function workspacePage(){ return !!document.querySelector('header nav[aria-label="Main navigation"]') && document.documentElement.getAttribute('data-league') === 'loaded'; }
+  function dismissed(b){ try{ return sessionStorage.getItem(DISMISS + b) === '1'; }catch(e){ return false; } }
+  function renderBanner(){
+    var main = document.querySelector('main'); if(!main) return;
+    var el = document.getElementById('ddf-fresh'), i = workspacePage() ? info() : null;
+    var b = i && i.band, show = b && b !== 'fresh' && MESSAGES[b] && !dismissed(b);
+    if(!show){ if(el) el.remove(); return; }
+    if(!el){ el = document.createElement('div'); el.id = 'ddf-fresh'; el.setAttribute('role', 'status'); main.insertBefore(el, main.firstChild); }
+    if(el.getAttribute('data-band') === b && el.getAttribute('data-days') === String(i.days)) return;
+    el.className = 'ddf-fresh ddf-fresh-' + b; el.setAttribute('data-band', b); el.setAttribute('data-days', String(i.days));
+    var action = b === 'note' ? '' : '<a class="ddf-fresh-go" href="connect.html">' + (b === 'stale' ? 'Paste rosters again' : 'Update rosters') + '</a>';
+    el.innerHTML = '<p class="ddf-fresh-t"></p>' + action + '<button type="button" class="ddf-fresh-x" aria-label="Dismiss this note">&times;</button>';
+    el.querySelector('.ddf-fresh-t').textContent = MESSAGES[b](ageWords(i.days));
+    el.querySelector('.ddf-fresh-x').addEventListener('click', function(){ try{ sessionStorage.setItem(DISMISS + b, '1'); }catch(e){} el.remove(); });
+  }
+  var BASE_TITLE = 'Data Driven Football';
+  function cut(s, n){ s = String(s || ''); return s.length > n ? s.slice(0, n - 1).trim() + '…' : s; }
+  function title(i){
+    i = i === undefined ? info() : i; if(!i) return null;
+    var week = null;
+    try{ var m = DDF.engine && DDF.engine.meta && DDF.engine.meta(); week = m && m.week; }catch(e){ week = null; }
+    return [cut(i.name, 28), i.team ? cut(i.team, 22) : null, Number.isInteger(week) ? 'Week ' + week : null, BASE_TITLE].filter(Boolean).join(' – ');
+  }
+  function applyTitle(){
+    if(!workspacePage() && !/(^|\/)settings\.html$/.test(location.pathname)) return;
+    var t = title(); if(t && document.title !== t) document.title = t;
+  }
+  /* A big input (rosters read, team confirmed, settings confirmed, a batch of overrides) asks for a bookmark once:
+     sessionStorage ddf:bmwant {reason, sig}; the Bookmark button shows the prompt when it is visible and sig is new. */
+  function want(reason, sig){ try{ sessionStorage.setItem('ddf:bmwant', JSON.stringify({reason: reason, sig: reason + ':' + sig})); }catch(e){} document.dispatchEvent(new CustomEvent('ddf:bmwant')); }
+  /* Header chip (JEG-1564): the league's name, shortened to fit. Candidates, longest first: the full name; acronyms,
+     numbers and roman numerals kept with other words cut to an initial ("USO Season XVIII" -> "USO S. XVIII"); then
+     whole words with an ellipsis. The first that fits wins; never wider than "Your league" on a phone, 200px otherwise,
+     and never wider than the header has room for. No name: "Your league". Full name in the tooltip and aria-label. */
+  var KEEP_WORD = /^(?:[A-Z0-9&]{2,}|[IVXLC]+|\d.*|.*\d.*)$/;
+  function chipCandidates(name){
+    var words = String(name).split(/\s+/).filter(Boolean), out = [String(name)];
+    if(words.length > 1){
+      /* only when a later word is worth keeping (acronym, number, roman numeral): "USO S. XVIII", not "The E. L. N." */
+      if(words.slice(1).some(function(w){ return KEEP_WORD.test(w); })){
+        var smart = words.map(function(w, i){ return KEEP_WORD.test(w) || i === 0 ? w : (Array.from(w)[0] || '') + '.'; }).join(' ');
+        if(smart !== name) out.push(smart);
+      }
+      for(var k = words.length - 1; k >= 1; k--) out.push(words.slice(0, k).join(' ') + '…');
+    }
+    var chars = Array.from(String(name));
+    for(var n = Math.min(chars.length - 1, 14); n >= 4; n--) out.push(chars.slice(0, n).join('').trim() + '…');
+    return out;
+  }
+  var canvas;
+  function textWidth(text, el){
+    canvas = canvas || document.createElement('canvas');
+    var ctx = canvas.getContext('2d'), cs = getComputedStyle(el);
+    ctx.font = cs.fontWeight + ' ' + cs.fontSize + ' ' + cs.fontFamily;
+    return ctx.measureText(text).width;
+  }
+  function fitLeagueChip(){
+    var chip = document.querySelector('header .ddf-chip'), t = chip && chip.querySelector('.ddf-chip-t');
+    if(!t) return;
+    var i = info(), full = i && i.named ? i.name : null;
+    if(!full){ t.textContent = 'Your league'; chip.removeAttribute('title'); chip.setAttribute('aria-label', 'Your league. Open the league menu'); return; }
+    chip.title = full + (i.team ? ' · ' + i.team : '');
+    chip.setAttribute('aria-label', 'Your league: ' + full + '. Open the league menu');
+    var max = window.innerWidth < 768 ? 120 : 200;
+    var list = chipCandidates(full), pick = list[list.length - 1];
+    for(var k = 0; k < list.length; k++){ if(textWidth(list[k], t) <= max){ pick = list[k]; break; } }
+    t.textContent = pick;
+    /* the header itself must not overflow (Menu and Bookmark keep their place) */
+    var host = chip.closest('.header-inner') || chip.parentNode.parentNode, at = list.indexOf(pick);
+    while(host && host.scrollWidth > host.clientWidth + 1 && at < list.length - 1){ at++; t.textContent = list[at]; }
+  }
+  window.addEventListener('resize', function(){ clearTimeout(fitLeagueChip._t); fitLeagueChip._t = setTimeout(fitLeagueChip, 100); });
+  try{ if(document.fonts && document.fonts.ready) document.fonts.ready.then(function(){ fitLeagueChip(); }); }catch(e){}
+  function refresh(){ renderBanner(); applyTitle(); fitLeagueChip(); }
+  var t0;
+  function soon(){ clearTimeout(t0); t0 = setTimeout(refresh, 60); }
+  ['ddf:link', 'ddf:pasted', 'ddf:overrides', 'pageshow', 'focus'].forEach(function(ev){ (ev === 'pageshow' || ev === 'focus' ? window : document).addEventListener(ev, soon); });
+  window.addEventListener('storage', soon);
+  function init(){
+    refresh();
+    if(DDF.engine && DDF.engine.ready && DDF.engine.ready.then) DDF.engine.ready.then(soon, function(){});
+    if(DDF.league && DDF.league.ready && DDF.league.ready.then) DDF.league.ready.then(soon, function(){});
+    if(DDF.link && DDF.link.ready && DDF.link.ready.then) DDF.link.ready.then(soon, function(){});
+    if(window.MutationObserver) new MutationObserver(soon).observe(document.documentElement, {attributes: true, attributeFilter: ['data-league']});
+  }
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
+  DDF.leagueMeta = {FRESHNESS: FRESHNESS, DEFAULT_NAME: DEFAULT_NAME, info: info, ageDays: ageDays, ageWords: ageWords, band: band,
+    ageLine: ageLine, message: function(b, d){ return MESSAGES[b] ? MESSAGES[b](ageWords(d)) : ''; }, title: title, today: today,
+    want: want, refresh: refresh, savedLeague: savedLeague, chipCandidates: chipCandidates};
+  DDF.fitLeagueChip = fitLeagueChip;
+})();
+
 /* ===== Bookmark button (Jeremy, 2026-11-06) =====
    Header right slot, next to the "Your league" chip. Shown once a league is loaded and its settings are confirmed
    (workspace pages: league loaded; settings.html: after Looks right, continue / Settings saved). Click = fresh #s= token for
@@ -1027,7 +1211,19 @@ document.querySelectorAll('[data-slideshow]').forEach(function(slideshow){
   var DDF = window.DDF = window.DDF || {};
   var BM_KEY = 'ddf:bookmarked', HINT_KEY = 'ddf:bmhint', OK_KEY = 'ddf:settingsok';
   var ICON = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4.5L5 21V4a1 1 0 0 1 1-1z"/></svg>';
-  var wrap, btn, pop, popText, live, hint, timer, hintTimer, checkSeq = 0, changed = false, visible = false;
+  var wrap, btn, pop, popText, live, hint, keep, timer, hintTimer, checkSeq = 0, changed = false, visible = false;
+  var WANT_KEY = 'ddf:bmwant', DONE_KEY = 'ddf:bmdone';
+  var WANT_TEXT = {
+    rosters: 'Rosters added. Bookmark this page to come back to your league.',
+    team: 'Team confirmed. Bookmark this page to come back to your league.',
+    settings: 'Settings confirmed. Bookmark this page to keep your league and settings.',
+    overrides: 'Your values changed. Bookmark again to keep them.'
+  };
+  function wantNow(){ try{ var w = JSON.parse(sessionStorage.getItem(WANT_KEY) || 'null'); return w && w.sig && w.sig !== sget(DONE_KEY) ? w : null; }catch(e){ return null; } }
+  function markWantDone(){ var w = wantNow(); if(w) sset(DONE_KEY, w.sig); }
+  function keyHint(p){
+    return p === 'mac' ? 'Press ⌘D.' : p === 'ios' ? 'Tap Share, then Add Bookmark.' : p === 'android' ? 'Open the browser menu, then tap the star.' : 'Press Ctrl+D.';
+  }
 
   function sget(k){ try{ return sessionStorage.getItem(k); }catch(e){ return null; } }
   function sset(k, v){ try{ sessionStorage.setItem(k, v); }catch(e){} }
@@ -1055,8 +1251,56 @@ document.querySelectorAll('[data-slideshow]').forEach(function(slideshow){
     var nav = document.querySelector('header nav[aria-label="Main navigation"]');
     return nav && nav.parentNode;
   }
+  /* The league's settings for the link: the link's own, else the reader's saved engine settings (a pasted or saved league). */
+  function cleanLeagueName(n){
+    if(typeof n !== 'string') return null;
+    var c = Array.from(n.replace(/[\u0000-\u001f]/g, ' ').replace(/\s+/g, ' ').trim());
+    return c.length ? c.slice(0, 40).join('').trim() : null;
+  }
+  function linkSettings(){
+    var st = DDF.link && DDF.link.settings && DDF.link.settings();
+    if(st) return st;
+    try{
+      var e = DDF.engine && DDF.engine.controls && DDF.engine.controls() && DDF.engine.settings(), r = e && e.roster;
+      if(!r) return null;
+      return {scoring: e.scoring, teams: e.teams, superflex: (r.SUPERFLEX || 0) > 0, slots: [r.QB, r.RB, r.WR, r.TE, r.FLEX, r.BENCH].map(function(n){ return Number(n) || 0; })};
+    }catch(err){ return null; }
+  }
+  /* JEG-1564: what the Bookmark link carries. The chat league when it has teams; otherwise the pasted or saved league's
+     teams, your team, name and roster date go into the link with the settings, so a bookmark reopens the whole league. */
+  function linkState(){
+    var cur = DDF.link && DDF.link.current && DDF.link.current(), settings = linkSettings();
+    if(!settings) return null;
+    var st = cur ? JSON.parse(JSON.stringify(cur)) : {v: 1};
+    st.settings = Object.assign({}, cur && cur.settings, settings);
+    if(!st.view) st.view = 'team';
+    if(Array.isArray(st.teams) && st.teams.length) return st;
+    delete st.name; delete st.enteredAt; delete st.me;   /* a settings-only chat state lends no name, date or team */
+    var table = (DDF.link.table && DDF.link.table(1)) || [], idByKey = {};
+    table.forEach(function(row, i){ var k = String(row).split('|')[3]; if(k && idByKey[k] === undefined) idByKey[k] = i; });
+    var entry = function(p){ return Number.isInteger(p.id) ? p.id : (p.key && idByKey[String(p.key)] !== undefined ? idByKey[String(p.key)] : p.name); };
+    var pasted = DDF.state.get('pasted', null), ws = DDF.leagueMeta && DDF.leagueMeta.savedLeague();
+    var teams = null, me = null, name = null, at = null;
+    if(pasted && Array.isArray(pasted.teams) && pasted.teams.length){
+      teams = pasted.teams.map(function(t){ return {name: t.name, players: (Array.isArray(t.players) ? t.players : []).map(entry).filter(function(x){ return x !== undefined && x !== null && x !== ''; })}; });
+      me = pasted.me; name = pasted.name; at = pasted.enteredAt;
+    } else if(ws){
+      teams = ws.teams.map(function(t){ return {name: t.name, players: (t.entries || []).map(function(e){ return entry({key: e.key, name: e.name}); }).filter(function(x){ return x !== undefined && x !== null && x !== ''; })}; });
+      ws.teams.forEach(function(t, i){ if(t.id === ws.myTeamId) me = i; });
+      name = ws.name && ws.name !== 'My league' ? ws.name : null; at = ws.enteredAt;
+    }
+    if(teams){
+      st.teams = teams.map(function(t){ return {name: String(t.name || '').slice(0, 60), players: t.players}; });
+      if(Number.isInteger(me) && st.teams[me]) st.me = me;
+      if(st.teams.some(function(t){ return t.players.some(Number.isInteger); })) st.table = 1;
+      var nm = cleanLeagueName(name), dt = /^\d{4}-\d{2}-\d{2}$/.test(at || '') ? at : null;
+      if(nm) st.name = nm;
+      if(dt) st.enteredAt = dt;
+    }
+    return st;
+  }
   function shouldShow(){
-    if(!DDF.link || !DDF.link.settings || !DDF.link.settings()) return false;
+    if(!linkSettings()) return false;
     if(isEntry()) return /(^|\/)settings\.html$/.test(location.pathname) && sget(OK_KEY) === '1';
     return !!document.querySelector('header nav[aria-label="Main navigation"]') && document.documentElement.getAttribute('data-league') === 'loaded';
   }
@@ -1073,11 +1317,23 @@ document.querySelectorAll('[data-slideshow]').forEach(function(slideshow){
     var x = document.createElement('button'); x.type = 'button'; x.className = 'ddf-bm-x'; x.setAttribute('aria-label', 'Close'); x.innerHTML = '&times;';
     x.addEventListener('click', function(){ closePop(true); });
     pop.appendChild(popText); pop.appendChild(x);
-    hint = document.createElement('div'); hint.className = 'ddf-bm-hint'; hint.hidden = true;
-    var ht = document.createElement('span'); ht.textContent = 'Bookmark this page to come back to your league';
+    hint = document.createElement('div'); hint.className = 'ddf-bm-hint'; hint.hidden = true; hint.setAttribute('role', 'status');
+    var ht = document.createElement('span'); ht.className = 'ddf-bm-ht'; ht.textContent = 'Bookmark this page to come back to your league';
+    var hgo = document.createElement('button'); hgo.type = 'button'; hgo.className = 'ddf-bm-go'; hgo.textContent = 'Bookmark'; hgo.hidden = true;
+    hgo.addEventListener('click', function(){ closeHint(); onClick(); });
     var hx = document.createElement('button'); hx.type = 'button'; hx.className = 'ddf-bm-x'; hx.setAttribute('aria-label', 'Dismiss this tip'); hx.innerHTML = '&times;';
-    hx.addEventListener('click', function(){ sset(HINT_KEY, 'done'); closeHint(); });
-    hint.appendChild(ht); hint.appendChild(hx);
+    hx.addEventListener('click', function(){ sset(HINT_KEY, 'done'); markWantDone(); closeHint(); });
+    hint.appendChild(ht); hint.appendChild(hgo); hint.appendChild(hx);
+    /* one bookmark on this device: the page address without the link, which opens the latest saved league here */
+    keep = document.createElement('button'); keep.type = 'button'; keep.className = 'ddf-bm-keep'; keep.hidden = true;
+    keep.textContent = 'Keep one bookmark on this device instead';
+    keep.addEventListener('click', function(){
+      try{ history.replaceState(history.state, '', location.pathname + location.search); }catch(e){}
+      keep.hidden = true;
+      popText.textContent = 'The address bar now shows this page without the link. Bookmark it once: on this device it always opens your latest saved league, so there is no old bookmark to replace. ' + keyHint(platform());
+    });
+    var popBody = document.createElement('div'); popBody.className = 'ddf-bm-popbody'; popBody.style.flex = '1';
+    pop.insertBefore(popBody, popText); popBody.appendChild(popText); popBody.appendChild(keep);
     wrap.appendChild(btn); wrap.appendChild(live); wrap.appendChild(pop); wrap.appendChild(hint);
   }
   function place(){
@@ -1105,8 +1361,23 @@ document.querySelectorAll('[data-slideshow]').forEach(function(slideshow){
     closeHint(); popText.textContent = text; anchor(pop); pop.hidden = false;
     clearTimeout(timer); timer = setTimeout(function(){ closePop(false); }, 10000);
   }
+  /* After a big input: one prompt per change (sig), shown when the button is visible; never blocks, closes itself. */
+  function showWant(){
+    var w = wantNow();
+    if(!w || !hint || !visible || !pop.hidden) return false;
+    if(w.reason === 'settings' && /(^|\/)settings\.html$/.test(location.pathname)) return false;   /* this page moves on; the next one asks */
+    sset(DONE_KEY, w.sig);
+    hint.querySelector('.ddf-bm-ht').textContent = WANT_TEXT[w.reason] || WANT_TEXT.rosters;
+    hint.querySelector('.ddf-bm-go').hidden = false;
+    hint.setAttribute('data-reason', w.reason);
+    anchor(hint); hint.hidden = false;
+    clearTimeout(hintTimer); hintTimer = setTimeout(closeHint, 20000);
+    return true;
+  }
   function showHint(){
-    if(!hint || !visible || sget(HINT_KEY) || sget(BM_KEY) || !pop.hidden) return;
+    if(!hint || !visible || !hint.hidden || sget(HINT_KEY) || sget(BM_KEY) || !pop.hidden) return;
+    hint.querySelector('.ddf-bm-ht').textContent = 'Bookmark this page to come back to your league';
+    hint.querySelector('.ddf-bm-go').hidden = true; hint.removeAttribute('data-reason');
     sset(HINT_KEY, 'seen'); anchor(hint); hint.hidden = false;
     clearTimeout(hintTimer); hintTimer = setTimeout(closeHint, 15000);
   }
@@ -1118,7 +1389,7 @@ document.querySelectorAll('[data-slideshow]').forEach(function(slideshow){
     wrap.hidden = false;
     var was = visible; visible = true;
     paint();
-    if(!was) { check(); showHint(); }
+    if(!was) { check(); if(!showWant() && !(sget(OK_KEY) === '1' && /(^|\/)settings\.html$/.test(location.pathname) && wantNow())) showHint(); }
   }
   function paint(){
     var label = changed ? 'Bookmark again' : 'Bookmark';
@@ -1129,19 +1400,25 @@ document.querySelectorAll('[data-slideshow]').forEach(function(slideshow){
     btn.classList.toggle('is-changed', changed);
   }
   function freshUrl(){
-    var st = DDF.link.current();
+    var st = linkState();
     if(!st) return Promise.reject(new Error('settings'));
     return DDF.link.encode(st, {page: pageName() + location.search});
   }
   function onClick(){
-    if(!(DDF.link && DDF.link.current())) return;
+    if(!linkState()) return;
+    markWantDone();
     freshUrl().then(function(url){
       try{ history.replaceState(history.state, '', url); }catch(e){}
       sset(BM_KEY, tokenOfUrl(url) || '');
       changed = false; paint(); closeHint();
       btn._ddfCopied = true;
       return DDF.copyText(url).then(function(ok){ showPop(howTo(platform(), ok === true)); }, function(){ showPop(howTo(platform(), false)); })
-        .then(function(){ setTimeout(function(){ btn._ddfCopied = false; }, 2000); });
+        .then(function(){
+          var M = DDF.leagueMeta, i = M && M.info();
+          var ws = M && M.savedLeague();
+          keep.hidden = !(ws && i && (i.source === 'saved' || (i.source === 'pasted' && sget('ddf:bridgedWs') === JSON.stringify(ws.id))));
+          setTimeout(function(){ btn._ddfCopied = false; }, 2000);
+        });
     }).catch(function(){});
   }
   /* Compare the current state's token with the one at the last bookmark. Cheap: debounced, skipped until a bookmark exists. */
@@ -1175,6 +1452,7 @@ document.querySelectorAll('[data-slideshow]').forEach(function(slideshow){
       else { DDF.state.set('league', Object.assign({v:1}, cur || {}, {settings:Object.assign({}, cur && cur.settings, form)})); DDF.state.set('link', {source:'manual', at:Date.now()}); }
     }catch(e){}
     sset(OK_KEY, '1');
+    if(DDF.leagueMeta) DDF.leagueMeta.want('settings', JSON.stringify(form));
     soon();
   }
   function init(){
@@ -1183,18 +1461,28 @@ document.querySelectorAll('[data-slideshow]').forEach(function(slideshow){
       if(f) f.addEventListener('submit', confirmSettings);
       if(fin) fin.addEventListener('click', confirmSettings, true);
     }
+    if(sget('ddf:bmovbase') === null && DDF.overrides) sset('ddf:bmovbase', String(DDF.overrides.count()));
     render();
     if(DDF.link && DDF.link.ready) DDF.link.ready.then(function(){ setTimeout(render, 0); });
   }
   document.addEventListener('ddf:link', function(){ setTimeout(function(){ render(); check(); }, 0); });
   ['ddf:overrides','ddf:posweights','ddf:trade'].forEach(function(n){ document.addEventListener(n, soon); });
+  /* a page that navigates right after the input (settings: Looks right, continue) never shows it; the next page does */
+  document.addEventListener('ddf:bmwant', function(){ setTimeout(showWant, 1200); });
+  /* A batch of override edits (3 or more since the last prompt) asks for a bookmark once. */
+  var OV_BASE = 'ddf:bmovbase', OV_BATCH = 3;
+  document.addEventListener('ddf:overrides', function(){
+    var n = DDF.overrides ? DDF.overrides.count() : 0, base = Number(sget(OV_BASE));
+    if(sget(OV_BASE) === null || DDF.overrides._fromLink){ sset(OV_BASE, String(n)); return; }
+    if(Math.abs(n - base) >= OV_BATCH){ sset(OV_BASE, String(n)); if(DDF.leagueMeta) DDF.leagueMeta.want('overrides', n + '@' + Date.now()); }
+  });
   window.addEventListener('pageshow', soon); window.addEventListener('focus', soon);
   window.addEventListener('hashchange', soon);
   window.addEventListener('resize', function(){ if(pop && !pop.hidden) anchor(pop); if(hint && !hint.hidden) anchor(hint); });
   document.addEventListener('keydown', function(e){ if(e.key === 'Escape'){ if(pop && !pop.hidden) closePop(true); else if(hint && !hint.hidden){ closeHint(); } } });
   /* Pages write state straight to the session stores; watch those writes instead of polling. */
   if(DDF.state && DDF.state.set && !DDF.state._bmWrapped){
-    var set = DDF.state.set, rm = DDF.state.remove, WATCH = {league:1, basis:1, posweights:1, overrides:1, trade:1};
+    var set = DDF.state.set, rm = DDF.state.remove, WATCH = {league:1, basis:1, posweights:1, overrides:1, trade:1, pasted:1};
     DDF.state.set = function(k){ var r = set.apply(this, arguments); if(WATCH[k] && visible) soon(); return r; };
     DDF.state.remove = function(k){ var r = rm.apply(this, arguments); if(WATCH[k] && visible) soon(); return r; };
     DDF.state._bmWrapped = true;
