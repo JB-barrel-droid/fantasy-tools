@@ -32,6 +32,13 @@ checked before it entered the queue, so the check passes. Any API doubt fails
 closed.
 
     python3 -m pipelines.review_receipt check
+    python3 -m pipelines.review_receipt find-run   # workflow_run: run id to re-run
+
+A review does not start `pull_request_target`, so `review-receipt-trigger.yml`
+records it and `review-receipt.yml` (on workflow_run, from main) re-runs the
+PR's trusted receipt run. That run's head_sha is main's commit, not the PR's,
+so `find-run` locates it by the PR itself: the run's linked pull requests,
+then the `review-receipt` check run on the PR head, then the PR's branch.
 """
 
 from __future__ import annotations
@@ -249,9 +256,77 @@ def check(environ=None, fetch_api=None):
     return evaluate(pr, files, found, same_change)
 
 
+RUN_ID_RE = re.compile(r"/actions/runs/(\d+)")
+RECEIPT_WORKFLOW = "review-receipt.yml"
+
+
+def receipt_pr_numbers(event, fetch_api):
+    """PR numbers behind a workflow_run of the review trigger."""
+    run = event.get("workflow_run") or {}
+    numbers = [p.get("number") for p in run.get("pull_requests") or [] if p.get("number")]
+    if not numbers and run.get("head_sha"):
+        numbers = [p.get("number") for p in fetch_api(f"commits/{run['head_sha']}/pulls") or []
+                   if p.get("number")]
+    return numbers
+
+
+def find_receipt_run(event, fetch_api):
+    """Id of the newest trusted review-receipt run for the reviewed PR, or None.
+
+    A pull_request_target run records main's commit as its head_sha, so it is
+    found by the PR: linked pull requests, then the check run on the PR head,
+    then the PR's head branch.
+    """
+    runs = (fetch_api(f"actions/workflows/{RECEIPT_WORKFLOW}/runs"
+                      "?event=pull_request_target&per_page=100") or {}).get("workflow_runs") or []
+    runs = sorted(runs, key=lambda r: r.get("created_at") or "", reverse=True)
+    for number in receipt_pr_numbers(event, fetch_api):
+        for run in runs:
+            if any(p.get("number") == number for p in run.get("pull_requests") or []):
+                return run.get("id")
+        pr = fetch_api(f"pulls/{number}") or {}
+        head = pr.get("head") or {}
+        if head.get("sha"):
+            checks = (fetch_api(f"commits/{head['sha']}/check-runs?check_name=review-receipt&per_page=100")
+                      or {}).get("check_runs") or []
+            checks = sorted(checks, key=lambda c: c.get("started_at") or "", reverse=True)
+            for check in checks:
+                match = RUN_ID_RE.search(check.get("details_url") or check.get("html_url") or "")
+                if match and any(str(r.get("id")) == match.group(1) for r in runs):
+                    return int(match.group(1))
+        for run in runs:
+            if head.get("ref") and run.get("head_branch") == head["ref"]:
+                return run.get("id")
+    return None
+
+
+def _event_and_api(environ):
+    payload = {}
+    path = environ.get("GITHUB_EVENT_PATH")
+    if path and os.path.exists(path):
+        with open(path, encoding="utf-8") as handle:
+            payload = json.load(handle)
+    repo, token = environ.get("GITHUB_REPOSITORY"), environ.get("GH_TOKEN")
+
+    def fetch_api(api_path):
+        if not repo or not token:
+            raise ValueError("repository or token unavailable")
+        return _api(f"repos/{repo}/{api_path}", token)
+
+    return payload, fetch_api
+
+
 def main(argv):
+    if argv[1:] == ["find-run"]:
+        payload, fetch_api = _event_and_api(os.environ)
+        run_id = find_receipt_run(payload, fetch_api)
+        if run_id:
+            print(run_id)
+            return 0
+        print("no trusted review-receipt run found for this review", file=sys.stderr)
+        return 1
     if argv[1:] != ["check"]:
-        print("usage: python3 -m pipelines.review_receipt check", file=sys.stderr)
+        print("usage: python3 -m pipelines.review_receipt check|find-run", file=sys.stderr)
         return 2
     ok, reasons = check()
     lines = [("review-receipt: PASS" if ok else "review-receipt: not yet")] + \

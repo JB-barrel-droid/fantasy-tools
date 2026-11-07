@@ -263,6 +263,12 @@ class WorkflowWiringTest(unittest.TestCase):
         self.assertIn('workflows: ["Review receipt trigger"]', on)
         self.assertEqual(1, len(re.findall(r"(?m)^    name: review-receipt$", text)))
         self.assertIn("*,merge_queue,*) gh pr merge --auto --squash", text)
+        rerun = text[text.index("  rerun-after-review:"):]
+        # A pull_request_target run records main's SHA, so the rerun finds it
+        # by the PR, never by the reviewed head SHA.
+        self.assertIn("python3 -m pipelines.review_receipt find-run", rerun)
+        self.assertNotIn("head_sha", rerun)
+        self.assertNotRegex(rerun, r"ref: ")
         trigger = self.read("review-receipt-trigger.yml")
         self.assertIn("name: Review receipt trigger", trigger)
         self.assertIn("permissions: {}", trigger)
@@ -274,7 +280,9 @@ class WorkflowWiringTest(unittest.TestCase):
         for old, new in (("  pull_request_target:\n    types:", "  pull_request:\n    types:"),
                          ("      - uses: actions/checkout@v4\n",
                           "      - uses: actions/checkout@v4\n        with:\n"
-                          "          ref: ${{ github.event.pull_request.head.sha }}\n")):
+                          "          ref: ${{ github.event.pull_request.head.sha }}\n"),
+                         ("run_id=\"$(python3 -m pipelines.review_receipt find-run)\"",
+                          "run_id=\"$(gh api \"actions/runs?head_sha=$HEAD_SHA\")\"")):
             broken = text.replace(old, new, 1)
             self.assertNotEqual(text, broken)
             with self.subTest(mutation=new), mock.patch.object(self, "read", lambda n, b=broken: b
@@ -478,6 +486,74 @@ class ReviewReceiptTest(unittest.TestCase):
         def broken(path):
             raise OSError("down")
         self.assertFalse(review_receipt.check(self.event(), broken)[0])
+
+
+PR_HEAD = "c" * 40
+MAIN_SHA = "a" * 40
+
+
+def receipt_api(runs_list, pulls_for_sha=(), checks=(), pr_ref="claude/x"):
+    calls = []
+
+    def fetch(path):
+        calls.append(path)
+        if path.startswith("actions/workflows/review-receipt.yml/runs"):
+            return {"workflow_runs": list(runs_list)}
+        if path == f"commits/{PR_HEAD}/pulls":
+            return [{"number": n} for n in pulls_for_sha]
+        if path.startswith("pulls/"):
+            return {"head": {"sha": PR_HEAD, "ref": pr_ref}}
+        if path.startswith(f"commits/{PR_HEAD}/check-runs"):
+            return {"check_runs": list(checks)}
+        raise AssertionError(path)
+    fetch.calls = calls
+    return fetch
+
+
+def trigger_event(pull_requests=(5,)):
+    return {"workflow_run": {"head_sha": PR_HEAD,
+                             "pull_requests": [{"number": n} for n in pull_requests]}}
+
+
+def target_run(rid, prs=(), branch="main", at="2026-11-07T12:00:00Z"):
+    # A pull_request_target run records main's commit as its head SHA.
+    return {"id": rid, "head_sha": MAIN_SHA, "head_branch": branch, "created_at": at,
+            "pull_requests": [{"number": n} for n in prs]}
+
+
+class FindReceiptRunTest(unittest.TestCase):
+    def test_finds_the_run_by_pr_although_its_sha_is_mains(self):
+        api = receipt_api([target_run(11, prs=(4,)), target_run(12, prs=(5,))])
+        self.assertEqual(12, review_receipt.find_receipt_run(trigger_event(), api))
+        self.assertFalse(any(f"head_sha={PR_HEAD}" in c for c in api.calls))
+
+    def test_newest_run_for_the_pr_wins(self):
+        api = receipt_api([target_run(12, prs=(5,), at="2026-11-07T10:00:00Z"),
+                           target_run(13, prs=(5,), at="2026-11-07T12:00:00Z")])
+        self.assertEqual(13, review_receipt.find_receipt_run(trigger_event(), api))
+
+    def test_pr_number_from_the_commit_when_the_event_has_none(self):
+        api = receipt_api([target_run(12, prs=(5,))], pulls_for_sha=(5,))
+        self.assertEqual(12, review_receipt.find_receipt_run(trigger_event(()), api))
+
+    def test_check_run_on_the_pr_head_when_runs_list_no_pr(self):
+        checks = [{"started_at": "2026-11-07T12:00:00Z",
+                   "details_url": "https://github.com/o/r/actions/runs/21/job/99"}]
+        api = receipt_api([target_run(21), target_run(22)], checks=checks)
+        self.assertEqual(21, review_receipt.find_receipt_run(trigger_event(), api))
+
+    def test_check_run_from_another_workflow_is_not_rerun(self):
+        checks = [{"details_url": "https://github.com/o/r/actions/runs/77/job/1"}]
+        api = receipt_api([target_run(21, branch="other")], checks=checks)
+        self.assertIsNone(review_receipt.find_receipt_run(trigger_event(), api))
+
+    def test_head_branch_as_last_resort(self):
+        api = receipt_api([target_run(31, branch="claude/x")])
+        self.assertEqual(31, review_receipt.find_receipt_run(trigger_event(), api))
+
+    def test_nothing_found(self):
+        self.assertIsNone(review_receipt.find_receipt_run(trigger_event(), receipt_api([])))
+        self.assertIsNone(review_receipt.find_receipt_run({}, receipt_api([target_run(1, prs=(5,))])))
 
 
 if __name__ == "__main__":

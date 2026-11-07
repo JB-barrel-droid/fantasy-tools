@@ -11,7 +11,8 @@ name: Review receipt
 # cannot edit the check into passing. Nothing from the PR is checked out or
 # run here. A review does not start pull_request_target, so "Review receipt
 # trigger" (review-receipt-trigger.yml) fires on reviews and the
-# `rerun-after-review` job below re-runs the trusted check for that head.
+# `rerun-after-review` job below re-runs the PR's trusted check, found by the
+# PR rather than by head SHA (a pull_request_target run records main's SHA).
 
 on:
   merge_group:
@@ -75,21 +76,28 @@ jobs:
 
   rerun-after-review:
     # Not named review-receipt: its own result never counts as the check.
+    # workflow_run always runs main's file and checks out main.
     if: github.event_name == 'workflow_run'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
       actions: write
+      contents: read
+      pull-requests: read
+      checks: read
     steps:
-      - name: Re-run the trusted check for the reviewed head
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Re-run the trusted check for the reviewed PR
         env:
           GH_TOKEN: ${{ github.token }}
-          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
-          run_id="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/review-receipt.yml/runs?event=pull_request_target&head_sha=$HEAD_SHA&per_page=1" --jq '.workflow_runs[0].id // empty')"
-          if [ -z "$run_id" ]; then
-            echo "No review-receipt run for $HEAD_SHA yet; the next PR event runs it." | tee -a "$GITHUB_STEP_SUMMARY"
-            exit 0
-          fi
+          # A pull_request_target run records main's commit, not the PR head,
+          # so the run is found by the PR (pipelines/review_receipt.py).
+          run_id="$(python3 -m pipelines.review_receipt find-run)" || {
+            echo "No trusted review-receipt run for this review; the next PR event runs it." | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 1
+          }
           gh run rerun "$run_id" --repo "$GITHUB_REPOSITORY" \
             || echo "Run $run_id is still going; it reads the reviews when it checks." | tee -a "$GITHUB_STEP_SUMMARY"
