@@ -53,6 +53,17 @@ page in the tab (`ddf-engine.js` chatLeague, visit only); live.mjs requires 10+ 
 Merged main at c892bf97 (JEG-1538): connect.html and setup.html join ROOT_PAGES; v2.js keeps no redirect code;
 test_entry_pages drops ?swapped=1 and a team view link now lands on team.html (live since this PR).
 
+Later findings (2026-11-07):
+- get-values (supabase/functions/get-values/index.ts) and the MCP tools parse the players-data island from the root
+  page. The front door now carries that island alone (`DATA_ISLAND_PAGES`, about 1.1 MB inert JSON; the v2 front door
+  was 1.4 MB); contract test in test_build_root_pages. Follow-up: have get-values read a data file and drop it.
+- `build_v2_page.build(site=True)` (make sync only) writes the /v2/ stub and the shared build-only shell; harness copies
+  (`build(tmp_dist)`, site=False) keep the shell at / and /v2/ of their copy as before, so the v2 suites run unchanged.
+  `build(DIST)` without site=True raises.
+- v2 suites that serve the real dist moved to /v2-app.html (lane tests); the league journey suite needed no change
+  once harness copies kept /v2/.
+- Final delta review (93bd70fc): APPROVE after the shared-shell fix (8bd688a2).
+
 ### Verified (check named)
 - Local, head 7a74beea plus the review fixes, after `make sync` (Python 3.12, Chrome):
   `tests.test_validate_shards`, `test_build_root_pages`, `test_legacy_routes`, `test_legacy_links_state` (6 tests,
