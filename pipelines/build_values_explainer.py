@@ -92,6 +92,88 @@ def math_review_items() -> list[dict]:
     return items
 
 
+# Read after extract.js has put the page back at the default setting (JEG-1393):
+#  - each DDF Value version's composite inputs and display series, so the page
+#    can say which sources a version holds back (inputs minus series);
+#  - each source's raw surplus total and value-above-waivers factor in every
+#    allocation of the fractional-seat mix, so the page can show the division
+#    that is true per allocation (the final factor is their weighted average,
+#    not pie / the averaged surplus). Read-only: runPipelineWith reruns the
+#    engine on the page's own natives and changes nothing on the page.
+EXTRA_JS = """() => {
+  const C = window.TradeValueCurveControls, H = window.TradeValueCurveHarness;
+  const clone = x => JSON.parse(JSON.stringify(x ?? null));
+  const versions = {};
+  for (const v of ["ddf_value", "ddf_value_charts", "ddf_value_projections"]) {
+    try { versions[v] = clone(C.getCompositeInputs(v)); } catch (e) { versions[v] = null; }
+  }
+  let runs = null;
+  try {
+    const mix = (H && H.pipeline && H.pipeline().allocationMix) || [];
+    if (mix.length > 1) {
+      runs = mix.map(m => {
+        const res = H.runPipelineWith({seatAllocation: m.allocation});
+        const src = {};
+        Object.entries(res.sources || {}).forEach(([k, s]) => { src[k] = [s.surplusTotal, s.vorpFactor]; });
+        return {weight: m.weight, sources: src};
+      });
+    }
+  } catch (e) { runs = null; }
+  return {compositeByVersion: versions, vorpRuns: runs};
+}"""
+VERSION_OF = {"ddf_value": "blended", "ddf_value_charts": "charts", "ddf_value_projections": "projections"}
+RUN_TOL = 1e-6  # relative: the weighted per-allocation factors must give the engine's factor
+
+
+def vorp_runs(raw: dict) -> dict:
+    """Per source: [[weight, raw surplus total, factor], ...] across the
+    allocation mix, kept only when the weighted factors reproduce the
+    engine's blended factor (else the page falls back to saying it is a blend)."""
+    runs = (raw.get("extra") or {}).get("vorpRuns") or []
+    vp_sources = raw["inspection"]["valuePipeline"]["sources"]
+    out = {}
+    if len(runs) < 2:
+        return out
+    tot = sum(run["weight"] for run in runs)
+    for k, s in vp_sources.items():
+        rows = [[run["weight"], *((run["sources"].get(k) or [None, None])[:2])] for run in runs]
+        if any(x[1] is None or x[2] is None for x in rows):
+            continue
+        blended = sum(w * f for w, _, f in rows) / tot
+        target = s.get("vorpFactor") or 0
+        if target and abs(blended - target) <= RUN_TOL * abs(target):
+            out[k] = [[r(w / tot, 6), r(st, 6), r(f, 9)] for w, st, f in rows]
+    return out
+
+
+def hidden_sources(raw: dict) -> list[dict]:
+    """The sources the engine runs (allocation, weights, pie) but leaves out of
+    every DDF Value blend: red holds and divergence excludes (curve-widget.js
+    eligibilityReason, `hidden: true`)."""
+    keys = set(raw["inspection"]["valuePipeline"]["sources"])
+    seen, out = set(), []
+    for e in (raw.get("diagnostics") or {}).get("excluded") or []:
+        if e.get("hidden") and e.get("key") in keys and e["key"] not in seen:
+            seen.add(e["key"])
+            out.append({"key": e["key"], "reason": e.get("reason"), "level": e.get("holdLevel")})
+    return out
+
+
+def version_sources(raw: dict) -> dict:
+    """Per DDF Value version: the composite inputs, the display series and the
+    sources that actually price at least one player (from the engine rows)."""
+    comp = (raw.get("extra") or {}).get("compositeByVersion") or {}
+    used = {v: set() for v in VERSION_OF.values()}
+    for row in raw["inspection"]["rows"].values():
+        for ver, b in (row.get("ddfByVersion") or {}).items():
+            used.setdefault(ver, set()).update(b.get("sources") or [])
+    out = {}
+    for key, ver in VERSION_OF.items():
+        c = comp.get(key) or {}
+        out[ver] = {"inputs": c.get("inputs"), "series": c.get("series"), "used": sorted(used.get(ver, ()))}
+    return out
+
+
 def extract() -> dict:
     from playwright.sync_api import sync_playwright
 
@@ -111,6 +193,7 @@ def extract() -> dict:
             page.wait_for_function(
                 "window.TradeValueCurveControls && window.TradeValueCurveControls.isReady()", timeout=120000)
             data = page.evaluate(script, {"settings": SETTINGS})
+            data["extra"] = page.evaluate(EXTRA_JS)
             browser.close()
     finally:
         srv.shutdown()
@@ -144,7 +227,7 @@ def trim_estimate(e: dict) -> dict:
 def trim_pipeline(vp: dict, full: bool = True) -> dict:
     sources = {}
     for k, s in (vp.get("sources") or {}).items():
-        row = {f: s.get(f) for f in ("family", "included", "totalVorp", "groups", "weights", "starterMix",
+        row = {f: s.get(f) for f in ("family", "included", "totalVorp", "surplusTotal", "groups", "weights", "starterMix",
                                        "benchMix", "rates", "unfundedGroups", "unfundedMoved",
                                        "vorpFactor", "indexedFactor")}
         if full:
@@ -232,6 +315,7 @@ def trim(raw: dict) -> dict:
                                          "available", "paused")} for s in raw["info"]],
         "composite": raw["composite"], "positionWeights": raw["positionWeights"], "zones": raw["zones"],
         "sensitivity": raw["sensitivity"], "restored": raw["restored"],
+        "hidden": hidden_sources(raw), "versionSources": version_sources(raw), "vorpRuns": vorp_runs(raw),
         "reconstruction": {"tolerance": CHECK_TOL, "worst": {k: r(v, 6) for k, v in worst.items()}, "off": off},
     }
 
