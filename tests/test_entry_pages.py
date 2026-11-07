@@ -30,7 +30,7 @@ FIXTURES = ROOT / "tests" / "fixtures" / "entry_paste"
 IPHONE_UA = ("Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) "
              "Version/18.0 Mobile/15E148 Safari/604.1")
 ENGINE_READY = "() => window.DDF && DDF.engine && DDF.engine.controls && DDF.engine.controls() && DDF.leaguePaste"
-STATIC_SAMPLE = "12 teams found. 164 players matched"
+STATIC_SAMPLE = "Found 12 teams and 164 players"
 
 # LINK-FORMAT.md section 6 (Chrome bytes) and 6.1 (with reader context).
 VECTOR_6 = ("LAECAwEBBgMBf_AwHclLCoAgFAXQrcRt6sSavSVEmzC7qPRFxAixtUed6SnIEK2QAy8IrKddoJDMtPKPFM1MSIELmRC03TMwcgu38c14ZELBMX2joXCa"

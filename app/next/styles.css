@@ -460,7 +460,8 @@ a[href],button,input,select,textarea,summary,label,[role=button],[role=tab],[rol
 /* Chart and value curve: we handle horizontal drag ourselves (pointer events); vertical scroll and pinch-zoom still work */
 #vchart{touch-action:pan-y pinch-zoom!important}
 /* Menus, panels and scrollers: scroll stays inside them instead of chaining to the page behind */
-.menu-panel,.ddf-chipmenu,.morewrap .menu,.valmenu,.table-wrap,.player-scroll,.ws-steps,.car-viewport{overscroll-behavior:contain}
+.menu-panel,.ddf-chipmenu,.morewrap .menu,.valmenu,.player-scroll{overscroll-behavior:contain}
+.table-wrap,.ws-steps,.car-viewport{overscroll-behavior-x:contain}
 /* iOS zooms the page when a field under 16px takes focus */
 @media(max-width:760px){
   input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=hidden]):not([type=file]):not([type=button]):not([type=submit]),textarea,select{font-size:16px!important}

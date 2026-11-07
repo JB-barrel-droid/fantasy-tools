@@ -170,7 +170,7 @@ class MobileConnectTest(_RenderBase):
         page = self.page(390)
         self.go(page, "connect.html", engine=True)
         page.fill("#rosters", (FIXTURES / "02-yahoo-markdown.txt").read_text(encoding="utf-8"))
-        page.click("#recognize-button")
+        page.evaluate("() => document.getElementById('rosters').dispatchEvent(new Event('paste', {bubbles: true}))")  # how phones enter rosters: paste, no submit
         page.wait_for_selector("#recognized:not([hidden])", timeout=20000)
         page.wait_for_timeout(500)
         self.assertTrue(page.text_content("#recognition-summary").startswith("Found 3 teams and "), page.text_content("#recognition-summary"))
@@ -208,6 +208,7 @@ class MobileConnectTest(_RenderBase):
                     for phrase in ("Snapshot week", "Value above waivers", "Estimated chart values", "Your league settings", "Pasted rosters", "Not advice"):
                         self.assertIn(phrase, body)
                     self.assertNotIn("Player pool", body)
+                    self.assertIn("News since then is not in them", body)
                     self.assertEqual(page.evaluate("document.documentElement.scrollWidth - innerWidth"), 0)
 
     def test_entry_flow_shows_one_line_note_when_the_league_loads(self):
@@ -262,7 +263,7 @@ class TouchBehaviorTest(_RenderBase):
         page = self.page(390)
         self.go(page, "values.html")
         self.assertEqual(page.eval_on_selector("#vchart", "e => getComputedStyle(e).touchAction"), "pan-y pinch-zoom")
-        self.assertEqual(page.eval_on_selector(".table-wrap, #rows", "e => getComputedStyle(e.closest('.table-wrap') || e).overscrollBehaviorY"), "contain")
+        self.assertEqual(page.eval_on_selector(".table-wrap, #rows", "e => getComputedStyle(e.closest('.table-wrap') || e).overscrollBehaviorX"), "contain")
 
 
 if __name__ == "__main__":

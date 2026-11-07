@@ -133,7 +133,7 @@
 
   /* ---------- reading ---------- */
   var busy = false;
-  function check(focus) {
+  function check(focus, scroll) {
     var text = $("rosters").value;
     var oneTeam = $("one-team-error");
     oneTeam.hidden = true;
@@ -150,7 +150,7 @@
         showResult(res);
         save(DDF.leaguePaste.record(res, "paste"));
         status("Check the list below, then confirm your team.", "ok");
-        $("recognized").scrollIntoView({block: "start"});
+        if (scroll) $("recognized").scrollIntoView({block: "start"});
         if (focus) $("recognition-title").focus({preventScroll: true});
         return res;
       }
@@ -249,9 +249,9 @@
   function init() {
     var form = $("roster-form");
     if (!form || !DDF.leaguePaste) return;
-    form.addEventListener("submit", function (e) { e.preventDefault(); check(true); });
+    form.addEventListener("submit", function (e) { e.preventDefault(); check(true, true); });
     var ta = $("rosters");
-    ta.addEventListener("paste", function () { setTimeout(function () { check(false); }, 0); });
+    ta.addEventListener("paste", function () { setTimeout(function () { check(false, true); }, 0); });
     ta.addEventListener("input", function () {
       var p = kept();
       if (p && p.source === "paste") drop();
