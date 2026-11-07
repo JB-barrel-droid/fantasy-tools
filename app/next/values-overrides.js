@@ -166,17 +166,17 @@ function renderEditor(keepField){
     else if(typeof p.cbs==='number'&&isFinite(p.cbs)&&typeof p.fc==='number'&&isFinite(p.fc))mktEl.textContent=f1((p.cbs+p.fc)/2);
     else mktEl.textContent='—';
   }
-  const e=E();const curEntry=e&&e.overrides.get(String(cur));
+  const e=E();const curEntry=e?e.overrides.get(String(cur)):null;const hasEntry=curEntry!==null&&curEntry!==undefined;
   if(curEl){
-    if(!curEntry)curEl.textContent='= DDF';
+    if(!hasEntry)curEl.textContent='= DDF';
     else if(isAdj(curEntry))curEl.textContent=sg(curEntry.delta)+' adj.';
     else curEl.textContent=f1(Number(curEntry));
-    curEl.className=curEntry?'yours':'';
+    curEl.className=hasEntry?'yours':'';
   }
   const mAbs=$('ov-mode-abs'),mAdj=$('ov-mode-adj');
   const lbl=$('ov-num-lbl'),range=$('ov-range'),num=$('ov-num');
   if(!keepField){
-    if(curEntry){
+    if(hasEntry){
       if(isAdj(curEntry)){mode='adjustment';if(mAdj)mAdj.checked=true;if(mAbs)mAbs.checked=false}
       else{mode='absolute';if(mAbs)mAbs.checked=true;if(mAdj)mAdj.checked=false}
     }else{mode='absolute';if(mAbs)mAbs.checked=true;if(mAdj)mAdj.checked=false}
@@ -186,12 +186,12 @@ function renderEditor(keepField){
   if(range){range.min=mode==='adjustment'?'-100':'0';range.max='100';range.step='0.1'}
   if(num){num.min=mode==='adjustment'?'-100':'0';num.max='100';num.step='0.1'}
   if(!keepField){
-    const initV=curEntry?(isAdj(curEntry)?Number(curEntry.delta):Number(curEntry)):(mode==='absolute'?(base||0):0);
+    const initV=hasEntry?(isAdj(curEntry)?Number(curEntry.delta):Number(curEntry)):(mode==='absolute'?(base||0):0);
     if(range)range.value=initV;if(num)num.value=+initV.toFixed(2);
   }
   const ap=$('ov-apply'),rs=$('ov-reset');
-  if(ap)ap.textContent=curEntry?'Update override':'Set override';
-  if(rs)rs.disabled=!curEntry;
+  if(ap)ap.textContent=hasEntry?'Update override':'Set override';
+  if(rs)rs.disabled=!hasEntry;
   preview();
 }
 
@@ -201,9 +201,9 @@ function updateMode(m){
   const lbl=$('ov-num-lbl'),range=$('ov-range'),num=$('ov-num');
   if(lbl)lbl.textContent=m==='absolute'?'Your value (0 to 100)':'Adjust by (−100 to +100)';
   if(range)range.min=m==='adjustment'?'-100':'0';if(num)num.min=m==='adjustment'?'-100':'0';
-  const e=E();const curEntry=e&&e.overrides.get(String(cur));
+  const e=E();const curEntry=e?e.overrides.get(String(cur)):null;const hasEntry=curEntry!==null&&curEntry!==undefined;
   const base=p.base!=null?p.base:p.ddf;
-  if(!curEntry){const dfl=m==='absolute'?(base||0):0;if(range)range.value=dfl;if(num)num.value=+dfl.toFixed(2)}
+  if(!hasEntry){const dfl=m==='absolute'?(base||0):0;if(range)range.value=dfl;if(num)num.value=+dfl.toFixed(2)}
   preview();
 }
 if(mAbsEl)mAbsEl.addEventListener('change',()=>{if(mAbsEl.checked)updateMode('absolute')});
