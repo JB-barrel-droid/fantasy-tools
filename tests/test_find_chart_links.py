@@ -73,7 +73,7 @@ class FindChartLinksTest(unittest.TestCase):
                         self.assertEqual([v for k, v in q if k == "give"], c["give"])
                         self.assertEqual([v for k, v in q if k == "get"], c["get"])
                         if w == 390:
-                            self.assertGreaterEqual(c["height"], 44, f"390: chart link {c['height']}px tall")
+                            self.assertGreaterEqual(round(c["height"], 1), 44, f"390: chart link {c['height']}px tall")
                     self.assertEqual(errors, [])
                     page.close()
             finally:

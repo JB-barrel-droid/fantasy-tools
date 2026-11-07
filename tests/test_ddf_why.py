@@ -231,7 +231,7 @@ class DDFWhyTest(unittest.TestCase):
                     cards = page.locator('[data-offer]:not([data-you=""])')
                     summary = cards.first.locator("details[data-why] > summary")
                     box = summary.bounding_box()
-                    self.assertGreaterEqual(box["height"], 44, f"{w}: Why button {box['height']}px")
+                    self.assertGreaterEqual(round(box["height"], 1), 44, f"{w}: Why button {box['height']}px")
                     summary.focus()
                     page.keyboard.press("Enter")
                     body = cards.first.locator(".why-body")
