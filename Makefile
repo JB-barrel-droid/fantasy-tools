@@ -765,6 +765,8 @@ test-core:
 	python3 -m unittest tests.test_values_page_engine_parity
 	# JEG-1539: team.html and find.html engine parity (same pattern as values page).
 	python3 -m unittest tests.test_team_engine_parity
+	# JEG-1560: partners.html ranking, reasons and copy rules on the engine.
+	python3 -m unittest tests.test_partners_rank_parity
 	python3 -m unittest tests.test_find_engine_parity
 	python3 -m unittest tests.test_values_swap_routes
 	# JEG-1539 step 5: redesigned front door legacy-routes.js coverage.
@@ -917,6 +919,8 @@ test-core-shard-3:
 	python3 -m unittest tests.test_values_page_engine_parity
 	# JEG-1539: team.html and find.html engine parity (same pattern as values page).
 	python3 -m unittest tests.test_team_engine_parity
+	# JEG-1560: partners.html ranking, reasons and copy rules on the engine.
+	python3 -m unittest tests.test_partners_rank_parity
 	python3 -m unittest tests.test_find_engine_parity
 	python3 -m unittest tests.test_values_swap_routes
 	# JEG-1539 step 5: redesigned front door legacy-routes.js coverage.
