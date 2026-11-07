@@ -2,6 +2,7 @@
    Vanilla JS, inline SVG, no external code. Motion only when the reader allows it. */
 (function () {
   'use strict';
+  document.documentElement.classList.add('js');
   var REDUCE = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   var NS = 'http://www.w3.org/2000/svg';
   var CHARTS = ['cbs', 'usatoday', 'fantasypros', 'fantasycalc'];
@@ -10,9 +11,10 @@
     espn: 'ESPN', cbsros: 'CBS rest-of-season', razzball: 'Razzball', ddf: 'Our model (DDF Value)',
     proj: 'Projections (our model)', analyst: 'Analyst charts' };
   var POS = ['QB', 'RB', 'WR', 'TE'];
+  var SHORT = { dynastyprocess: 'DynastyProc.', cbsros: 'CBS ROS', fantasycalc: 'FantasyCalc', fantasypros: 'FantasyPros' };
   var DIMS = ['balance', 'scoring', 'superflex', 'league_size', 'depth', 'freshness', 'consolidation'];
   var DIM_NAME = { balance: 'Position balance', scoring: 'Scoring formats', superflex: 'Superflex', league_size: 'League size',
-    depth: 'Depth', freshness: 'Freshness', consolidation: '2-for-1 sense' };
+    depth: 'Depth', freshness: 'Weekly change', consolidation: '2-for-1 sense' };
   var D = null;
 
   function $(sel, root) { return (root || document).querySelector(sel); }
@@ -94,7 +96,7 @@
   }
   function scorecard() {
     var fig = $('#scorecard'), tb = $('tbody', fig);
-    GRADED.concat(['espn', 'cbsros', 'razzball']).forEach(function (k) {
+    GRADED.concat(['espn', 'cbsros', 'razzball', 'ddf']).forEach(function (k) {
       var tr = el('tr');
       tr.appendChild(el('th', { scope: 'row' }, NAME[k] + (k === 'fantasycalc' ? ' (Live market)' : '')));
       DIMS.forEach(function (dname) { var td = el('td'); td.appendChild(badge(D.scorecard[k][dname])); tr.appendChild(td); });
@@ -155,7 +157,7 @@
     }
     $all('[data-case]', fig).forEach(function (b) {
       b.addEventListener('click', function () {
-        cur = b.getAttribute('data-case');
+        cur = b.getAttribute('data-case'); host.setAttribute('aria-live', 'polite');
         $all('[data-case]', fig).forEach(function (x) { x.setAttribute('aria-pressed', String(x === b)); });
         draw();
       });
@@ -334,9 +336,10 @@
   function scoringRace() {
     var h = D.headline.reorder_avg_pct;
     var ks = Object.keys(h).sort(function (a, b) { return h[b] - h[a] || (a < b ? -1 : 1); });
+    function cell(k, p) { return D.scoring[k] ? fmt(D.scoring[k][p].order_changed_pct) : (k === 'dynastyprocess' ? '0 (one value set)' : 'n/a'); }
     race($('#fig-race .race'), ks.map(function (k) {
       return { name: NAME[k], text: fmt(h[k]) + '%', label: NAME[k] + ': ' + fmt(h[k]) + '% change places',
-        bars: [{ value: h[k], color: color(k) }], cells: [NAME[k]].concat(['RB', 'WR', 'TE'].map(function (p) { return fmt(D.scoring[k][p].order_changed_pct); }), [fmt(h[k])]) };
+        bars: [{ value: h[k], color: color(k) }], cells: [NAME[k]].concat(['RB', 'WR', 'TE'].map(function (p) { return cell(k, p); }), [fmt(h[k])]) };
     }), 100, $('[data-table=race]'), ['Source', 'RB %', 'WR %', 'TE %', 'Average %']);
   }
   function pairsRace() {
@@ -366,7 +369,7 @@
       });
       ks.forEach(function (k, i) {
         var y = 18 + i * rowH, a = D.superflex[k].qb_share_1qb, b = D.superflex[k].qb_share_sf;
-        var t = svg('text', { x: 0, y: y + 4, class: 'lbl' }); t.textContent = NAME[k]; s.appendChild(t);
+        var t = svg('text', { x: 0, y: y + 4, class: 'lbl' }); t.textContent = w < 500 ? (SHORT[k] || NAME[k]) : NAME[k]; s.appendChild(t);
         var stem = svg('line', { class: 'stem', x1: x(a), x2: x(started ? b : a), y1: y, y2: y, 'stroke-width': 4, style: 'stroke:' + color(k), opacity: .45 });
         s.appendChild(stem);
         s.appendChild(svg('circle', { cx: x(a), cy: y, r: 7, fill: 'var(--surface)', 'stroke-width': 2.5, style: 'stroke:' + color(k) }));
@@ -409,14 +412,19 @@
       s.appendChild(svg('line', { x1: lx, x2: lx, y1: g.t, y2: h - g.b, 'stroke-width': 2, 'stroke-dasharray': '5 4', style: 'stroke:var(--ink)' }));
       var wl = svg('text', { x: lx + 6, y: g.t + 12, class: 'lbl' }); wl.textContent = 'Waiver line'; s.appendChild(wl);
       GRADED.forEach(function (k, idx) {
-        var c = dv.sources[k]['12'][pos].curve, n = dv.sources[k][teams][pos].listed;
+        var c = dv.sources[k]['12'][pos].curve.slice(0, maxX), n = dv.sources[k][teams][pos].listed;
         var d = c.map(function (v, i) { return (i ? 'L' : 'M') + x(i + 1).toFixed(1) + ' ' + y(v).toFixed(1); }).join('');
         var p = svg('path', { d: d, fill: 'none', 'stroke-width': 2, style: 'stroke:' + color(k) });
         s.appendChild(p);
-        var endRank = Math.min(n, maxX), endV = c[Math.min(n, c.length) - 1];
-        var dot = svg('circle', { cx: x(endRank), cy: y(endV), r: started ? 6 : 0, style: 'fill:' + color(k) + ';transition:r .5s ' + (idx * 120) + 'ms', stroke: 'var(--surface)', 'stroke-width': 2 });
-        s.appendChild(dot);
-        if (n > maxX) { var t = svg('text', { x: w - g.r, y: y(endV) - 8, 'text-anchor': 'end', style: 'fill:' + color(k) }); t.textContent = '→ ' + n; s.appendChild(t); }
+        if (n <= maxX) {
+          /* the last listed player is in view: mark him */
+          var endV = dv.sources[k][teams][pos].last_pct_of_top;
+          s.appendChild(svg('circle', { cx: x(n), cy: y(endV), r: started ? 6 : 0, style: 'fill:' + color(k) + ';transition:r .5s ' + (idx * 120) + 'ms', stroke: 'var(--surface)', 'stroke-width': 2 }));
+        } else {
+          /* the list continues past the right edge: an open arrowhead, count in the cards below */
+          var yy = y(c[c.length - 1]), xx = w - g.r;
+          s.appendChild(svg('path', { d: 'M' + (xx - 7) + ' ' + (yy - 5) + 'L' + xx + ' ' + yy + 'L' + (xx - 7) + ' ' + (yy + 5), fill: 'none', 'stroke-width': 2, style: 'stroke:' + color(k) }));
+        }
         if (!started) {
           var L = p.getTotalLength(); p.style.strokeDasharray = L + ' ' + L; p.style.strokeDashoffset = L;
         }
@@ -471,7 +479,7 @@
     function idx(name) { for (var i = 0; i < P.length; i++) if (P[i].name === name) return i; return 0; }
     give.value = idx('Puka Nacua'); g1.value = idx('George Pickens'); g2.value = idx('Zay Flowers');
     function val(k, p) {
-      var v = p.published[k];
+      var v = p.pct_of_top[k];  /* percent of that chart's own #1: same ratios as the chart's numbers */
       if (v == null) return null;
       return sub.checked ? Math.max(0, v - D.waiver_line[k][p.pos]) : v;
     }
@@ -487,7 +495,7 @@
         fill.style.background = c;
         fill.style.left = (capped < 0 ? 50 + capped / 2 : 50) + '%';
         fill.style.width = Math.abs(capped) / 2 + '%';
-        text = Math.abs(pct) <= 5 ? 'Even' : (pct > 0 ? 'You win by ' : 'You lose by ') + Math.round(Math.abs(pct)) + '%';
+        text = Math.abs(pct) <= 5 ? 'About even' : (pct > 0 ? 'Your side ahead by ' : 'Your side behind by ') + Math.round(Math.abs(pct)) + '%';
       }
       row.appendChild(m);
       row.appendChild(el('div', { class: 'vtext' }, text));
@@ -522,20 +530,26 @@
       if (CHARTS.some(function (k) { return rk[k] == null; })) return;
       pts.push(p);
     });
+    function axisMax() {
+      var m = MAXR;
+      pts.forEach(function (p) { var md = med(p, src), r = p.pos_rank[src]; if (Math.min(r, md) <= MAXR) m = Math.max(m, r, md); });
+      return Math.ceil(m / 6) * 6;
+    }
     function med(p, k) { var o = CHARTS.filter(function (x) { return x !== k; }).map(function (x) { return p.pos_rank[x]; }).sort(function (a, b) { return a - b; }); return o[1]; }
     var g;
     function render() {
       var w = width(host), size = Math.min(w, 560);
       g = { w: size, h: size, l: 40, r: 12, t: 10, b: 34 };
-      var sx = function (v) { return g.l + (Math.min(v, MAXR + 4) - 1) / (MAXR + 3) * (g.w - g.l - g.r); };
-      var sy = function (v) { return g.t + (Math.min(v, MAXR + 4) - 1) / (MAXR + 3) * (g.h - g.t - g.b); };
+      var top = axisMax();
+      var sx = function (v) { return g.l + (v - 1) / (top - 1) * (g.w - g.l - g.r); };
+      var sy = function (v) { return g.t + (v - 1) / (top - 1) * (g.h - g.t - g.b); };
       g.sx = sx; g.sy = sy;
       host.innerHTML = '';
       host.appendChild(tip);
       var s = svg('svg', { viewBox: '0 0 ' + g.w + ' ' + g.h, width: g.w, height: g.h, tabindex: '0', role: 'img',
         'aria-label': 'Scatter of position ranks. Use the left and right arrow keys to step through players, biggest disagreements first.', style: 'max-width:560px' });
-      s.appendChild(svg('line', { x1: sx(1), y1: sy(1), x2: sx(MAXR + 4), y2: sy(MAXR + 4), style: 'stroke:var(--muted)', 'stroke-dasharray': '4 4' }));
-      [1, 12, 24, 36].forEach(function (v) {
+      s.appendChild(svg('line', { x1: sx(1), y1: sy(1), x2: sx(top), y2: sy(top), style: 'stroke:var(--muted)', 'stroke-dasharray': '4 4' }));
+      [1, 12, 24, 36, 48, 60, 72].filter(function (v) { return v <= top; }).forEach(function (v) {
         var t = svg('text', { x: sx(v), y: g.h - 16, 'text-anchor': 'middle' }); t.textContent = v; s.appendChild(t);
         var u = svg('text', { x: g.l - 8, y: sy(v) + 4, 'text-anchor': 'end' }); u.textContent = v; s.appendChild(u);
       });
@@ -582,7 +596,9 @@
     }
     $all('[data-src]', $('#fig-scatter')).forEach(function (b) {
       b.addEventListener('click', function () {
-        src = b.getAttribute('data-src'); focusI = -1; tip.classList.remove('on');
+        src = b.getAttribute('data-src'); focusI = -1; tip.classList.remove('on'); read.textContent = '';
+        circles.forEach(function (x) { x.style.stroke = ''; });
+        render();
         $all('[data-src]', $('#fig-scatter')).forEach(function (x) { x.setAttribute('aria-pressed', String(x === b)); });
         if (g.ylab) g.ylab.textContent = '\u2191 ' + NAME[src] + ' rank (1 = best)';
         place();
@@ -608,6 +624,7 @@
     Object.keys(D.curves).forEach(function (sc) { D.curves[sc][k] = dp.curve; });
     Object.keys(D.curve_players).forEach(function (sc) { D.curve_players[sc][k] = dp.curve_players; });
     D.superflex[k] = dp.superflex;
+    D.headline.reorder_avg_pct.ddf = D.ddf_card.reorder_avg_pct;
     D.sources[k] = { listed: dp.listed, rostered: dp.rostered, filled_in: dp.filled_in };
     D.consolidation[k] = dp.consolidation;
     D.weekly[k] = { snapshot_dates: dp.weekly.snapshot_dates, rank_move: dp.weekly.rank_move, unchanged_pct: dp.weekly.unchanged_pct };

@@ -132,6 +132,15 @@ class AuditData(unittest.TestCase):
         past = {k: v["12"]["value_past_line_pct"] for k, v in dv["sources"].items()}
         self.assertEqual("usatoday", max(past, key=past.get))
 
+    def test_page_data_carries_no_chart_tables(self):
+        """The article publishes derived measures (shares, ranks, percent of each chart's #1), not the charts' tables."""
+        text = DATA.read_text(encoding="utf-8")
+        self.assertNotIn('"published"', text)
+        self.assertNotIn('"last_value"', text)
+        for row in self.fresh["players"]:
+            for v in row["pct_of_top"].values():
+                self.assertTrue(v is None or 0 <= v <= 100)
+
     def test_curve_readout_names_line_up_with_values(self):
         for sc, lines in self.fresh["curves"].items():
             for k, vals in lines.items():

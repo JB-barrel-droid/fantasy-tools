@@ -154,6 +154,7 @@ def position_weighting(inp) -> dict:
             "analyst_charts_mean": pct(mean_shares([shares[k] for k in ("cbs", "usatoday", "fantasypros")])),
             "charts_mean": pct(chart_mean),
             "gap_vs_projections": {k: r(l1_points(shares[k], proj_mean), 1) for k in CHARTS},
+            "gap_vs_each_projection": {k: {j: r(l1_points(shares[k], shares[j]), 1) for j in PROJ} for k in CHARTS},
         }
     return out
 
@@ -318,28 +319,42 @@ def agreement(inp) -> dict:
     return {"n_common": len(common), "overall": matrix, "by_position": by_pos}
 
 
+def avg_pos_ranks(values: dict, pos_of: dict) -> dict:
+    """Rank at his position, 1 = best, with tied values sharing their average rank."""
+    out = {}
+    for p in POS:
+        order = sorted((i for i in values if pos_of.get(i) == p), key=lambda i: (-values[i], i))
+        n = 0
+        while n < len(order):
+            m = n
+            while m + 1 < len(order) and values[order[m + 1]] == values[order[n]]:
+                m += 1
+            for j in range(n, m + 1):
+                out[order[j]] = (n + m) / 2 + 1
+            n = m + 1
+    return out
+
+
 def player_rows(inp) -> tuple[list, dict]:
     """Top TRADE_POOL players by DDF Value at half PPR / 12 teams, with each
-    chart's published number and his rank at his position on each chart."""
+    chart's number as a percent of that chart's own #1 player (the article
+    publishes derived measures, not the charts' tables) and his rank at his
+    position on each chart (ties share their average rank)."""
     s = setting(inp)
     diag = s.diagnostics()
     pos_of = s.pos_of
     nat = {k: s.natives(k) for k in CHARTS}
-    pos_rank = {}
-    for k in CHARTS:
-        pos_rank[k] = {}
-        for p in POS:
-            order = sorted((i for i in nat[k] if pos_of.get(i) == p), key=lambda i: (-nat[k][i], i))
-            pos_rank[k].update({i: n + 1 for n, i in enumerate(order)})
+    top = {k: max(nat[k].values()) for k in CHARTS}
+    pos_rank = {k: avg_pos_ranks(nat[k], pos_of) for k in CHARTS}
     waiver = {k: {p: diag["sources"][k]["positions"][p]["waiver"] for p in POS} for k in CHARTS}
     ddf = ddf_values(s)
     ranked = sorted(ddf, key=lambda i: (-ddf[i], i))[:TRADE_POOL]
     rows = []
     for i in ranked:
         rows.append({"key": i, "name": inp.players[i]["name"], "pos": pos_of[i], "ddf": r(ddf[i], 1),
-                     "published": {k: nat[k].get(i) for k in CHARTS},
+                     "pct_of_top": {k: (r(100 * nat[k][i] / top[k], 2) if i in nat[k] else None) for k in CHARTS},
                      "pos_rank": {k: pos_rank[k].get(i) for k in CHARTS}})
-    return rows, {k: {p: r(waiver[k][p], 2) for p in POS} for k in CHARTS}
+    return rows, {k: {p: r(100 * waiver[k][p] / top[k], 2) for p in POS} for k in CHARTS}
 
 
 def outliers(rows: list) -> list:
@@ -357,7 +372,7 @@ def outliers(rows: list) -> list:
             if min(rk[k], med) > OUTLIER_DEPTH:
                 continue
             out.append({"name": row["name"], "pos": row["pos"], "source": k, "rank": rk[k],
-                        "others_median_rank": med, "gap": rk[k] - med})
+                        "others_median_rank": med, "gap": r(rk[k] - med, 1)})
     out.sort(key=lambda x: (-abs(x["gap"]), x["name"], x["source"]))
     return out
 
@@ -419,12 +434,12 @@ def weekly(inp) -> dict:
 # ---------------------------------------------------------------------------
 
 RULES = {
-    "balance": "Position balance: share of value that would have to move between positions to match the projections (ESPN, CBS rest-of-season, Razzball run through our model), Half PPR, 12 teams. Strong up to 5 points, OK up to 10, Weak above 10.",
+    "balance": "Position balance: share of value that would have to move between positions to match the projections (ESPN, CBS rest-of-season, Razzball run through our model, averaged), Half PPR, 12 teams. Strong up to 5 points, OK up to 10, Weak above 10. Section 1 shows the range against each projection set alone.",
     "scoring": "Scoring formats: compare Standard with Full PPR for the top 36 at RB, WR and TE. Strong when at least 20% of those players change places on average; OK when the numbers change but fewer change places; Weak when the numbers do not change. For ESPN the formats are our scoring of its projected stats, for CBS rest-of-season we add points per catch to its Standard total; Razzball publishes its own columns.",
     "superflex": "Superflex: Strong with superflex values for 24 or more QBs (two per team); OK with fewer; Weak with none.",
     "league_size": "League size: Strong when the source offers its own numbers by team count; Weak with one table for every league size.",
-    "depth": "Depth: the thinnest position's listed players as a share of the players a 12-team league rosters there. Strong at 100% or more, OK at 70% or more, Weak below.",
-    "freshness": "Freshness: Strong when each of the four week-to-week changes from week 5 to 9 is a new publication and moves last week's top 24 per position by at least a quarter of a rank on average; OK when one week did not; Weak otherwise.",
+    "depth": "Depth: the thinnest position's listed players as a share of the players a 12-team league with our lineup rosters there (the waiver line). Strong at 100% or more, OK at 70% or more, Weak below. Lists that reach past the line are reported in section 5, not graded.",
+    "freshness": "Weekly change: Strong when each of the four week-to-week changes in our saved weekly snapshots (weeks 5 to 9) is a distinct capture and moves last week's top 24 per position by at least a quarter of a rank on average; OK when one week did not; Weak otherwise.",
     "consolidation": "2-for-1 sense: the share of mid-tier pairs (ranks 25-60) that the raw chart says beat a top-12 player, minus the share once each player's waiver-level value is subtracted. Strong up to 10 points of difference, OK up to 25, Weak above 25.",
 }
 LEVEL = {3: "Strong", 2: "OK", 1: "Weak", None: "Not measured"}
@@ -619,7 +634,6 @@ def dynastyprocess(inp, data: dict) -> dict:
     out["listed"] = {p: det["positions"][p]["listed"] for p in POS}
     out["rostered"] = {p: det["positions"][p]["rostered"] for p in POS}
     out["filled_in"] = {p: len(det["positions"][p]["imputation_ratios"] or {}) for p in POS}
-    out["waiver_line"] = {p: r(waiver[p], 2) for p in POS}
     out["top50_mix"] = {p: sum(1 for i in order[:TOP_N] if pos_of[i] == p) for p in POS}
     out["curve"] = [r(100 * nat[i] / top, 1) for i in order[:CURVE_N]]
     out["curve_players"] = [[inp.players[i]["name"], pos_of[i]] for i in order[:CURVE_N]]
@@ -691,11 +705,11 @@ def dynastyprocess(inp, data: dict) -> dict:
     out["scoring_note"] = "one value set for every scoring format"
     # Trade box rows.
     for row in data["players"]:
-        row["published"][DP] = nat.get(row["key"])
-    dp_rank = prank(nat, list(nat))
+        row["pct_of_top"][DP] = r(100 * nat[row["key"]] / top, 2) if row["key"] in nat else None
+    dp_rank = avg_pos_ranks(nat, pos_of)
     for row in data["players"]:
         row["pos_rank"][DP] = dp_rank.get(row["key"])
-    data["waiver_line"][DP] = out["waiver_line"]
+    data["waiver_line"][DP] = {p: r(100 * waiver[p] / top, 2) for p in POS}
     # Scorecard (balance not graded: dynasty values price future seasons, our yardstick is this season).
     depth = min(out["listed"][p] / out["rostered"][p] for p in POS)
     fresh_weeks = sum(1 for m in moves if m >= 0.25)
@@ -761,7 +775,7 @@ def depth_vs_waiver(inp, data: dict) -> dict:
                 row[p] = {"listed": len(order), "rostered": ros, "gap": len(order) - ros,
                           "unpriced": max(0, ros - len(order)), "beyond": max(0, len(order) - ros),
                           "class": depth_class(len(order), ros),
-                          "last_name": inp.players[last]["name"], "last_value": nat[last],
+                          "last_name": inp.players[last]["name"],
                           "last_pct_of_top": r(100 * nat[last] / top, 1),
                           "waiver_pct_of_top": r(100 * waiver / top, 1)}
                 if t == 12:
@@ -780,8 +794,43 @@ def depth_vs_waiver(inp, data: dict) -> dict:
         for p in POS:
             order = sorted((i for i in ddf if pos_of.get(i) == p), key=lambda i: (-ddf[i], i))
             past += sum(max(0.0, ddf[i]) for i in order[out["rostered"][t][p]:])
-        drow["value_past_line_pct"] = r(100 * past / tot, 1)
+        drow["value_past_line_pct"] = r(100 * past / tot, 3)
     out["filled_in_12"] = {k: sum(data["sources"][k]["filled_in"].values()) for k in CHARTS}
+    return out
+
+
+def ddf_scorecard(inp, data: dict) -> dict:
+    """Our model (DDF Value) on the same rows, where the row can be measured
+    without grading the model against itself."""
+    pos_of = {k: p["pos"] for k, p in inp.players.items()}
+    out = {}
+    shares = {}
+    for cid, (sc, sf) in {"half_ppr/12/1qb": ("half_ppr", 0), "half_ppr/12/sf": ("half_ppr", 1)}.items():
+        ddf = ddf_values(setting(inp, sc, 12, sf))
+        tot = sum(max(0.0, v) for v in ddf.values())
+        shares[cid] = {p: sum(max(0.0, v) for i, v in ddf.items() if pos_of.get(i) == p) / tot for p in POS}
+    proj = {p: data["position_weighting"]["half_ppr/12/1qb"]["projections_mean"][p] / 100 for p in POS}
+    gap = r(l1_points(shares["half_ppr/12/1qb"], proj), 1)
+    a, b = ddf_values(setting(inp, "standard")), ddf_values(setting(inp, "ppr"))
+    reo = _reorder(a, b, pos_of)
+    moved = sum(reo[p]["reordered"] / reo[p]["n"] for p in FLEX) / 3 * 100
+    dv = data["depth_vs_waiver"]["ddf"][12]
+    depth = min(dv[p]["valued"] / dv[p]["rostered"] for p in POS)
+    card = {
+        "balance": {"level": grade(gap, 5, 10), "value": gap},
+        "scoring": {"level": 3 if moved >= 20 else 2, "value": r(moved, 0)},
+        "superflex": {"level": None},
+        "league_size": {"level": 3},
+        "depth": {"level": grade(100 * depth, 100, 70, True), "value": r(100 * depth, 0)},
+        "freshness": {"level": None},
+        "consolidation": {"level": None},
+    }
+    for dim in card.values():
+        dim["label"] = LEVEL[dim["level"]]
+    out["card"] = card
+    out["shares"] = {cid: pct(v) for cid, v in shares.items()}
+    out["reorder_avg_pct"] = r(moved, 0)
+    data["scorecard"]["ddf"] = card
     return out
 
 
@@ -868,7 +917,14 @@ def build() -> dict:
     data["dynastyprocess"] = dynastyprocess(inp, data)
     data["scoring_provenance"] = scoring_provenance(inp)
     data["depth_vs_waiver"] = depth_vs_waiver(inp, data)
+    data["ddf_card"] = ddf_scorecard(inp, data)
     data["headline"] = headline(data)
+    data["headline"]["reorder_avg_pct"][DP] = r(sum(_reorder(
+        {k: v["v1"] for k, v in dp_snapshot(inp, DP_CURRENT)["players"].items()},
+        {k: v["v1"] for k, v in dp_snapshot(inp, DP_CURRENT)["players"].items()},
+        {k: p["pos"] for k, p in inp.players.items()})[p]["reordered"] for p in FLEX) / 3, 0)  # one value set
+    cbs_top = max(setting(inp).natives("cbs").values())
+    data["cbs_four_points_pct"] = r(100 * 4 / cbs_top, 1)
     return data
 
 

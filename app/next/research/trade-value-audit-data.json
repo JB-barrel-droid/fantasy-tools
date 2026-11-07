@@ -62,6 +62,7 @@
   "superflex": 0,
   "teams": 12
  },
+ "cbs_four_points_pct": 7.1,
  "consolidation": {
   "cbs": {
    "after_waiver_beats_star_pct": 2.0,
@@ -9180,6 +9181,56 @@
    ]
   }
  },
+ "ddf_card": {
+  "card": {
+   "balance": {
+    "label": "Strong",
+    "level": 3,
+    "value": 3.7
+   },
+   "consolidation": {
+    "label": "Not measured",
+    "level": null
+   },
+   "depth": {
+    "label": "OK",
+    "level": 2,
+    "value": 85.0
+   },
+   "freshness": {
+    "label": "Not measured",
+    "level": null
+   },
+   "league_size": {
+    "label": "Strong",
+    "level": 3
+   },
+   "scoring": {
+    "label": "Strong",
+    "level": 3,
+    "value": 37.0
+   },
+   "superflex": {
+    "label": "Not measured",
+    "level": null
+   }
+  },
+  "reorder_avg_pct": 37.0,
+  "shares": {
+   "half_ppr/12/1qb": {
+    "QB": 8.3,
+    "RB": 47.1,
+    "TE": 7.8,
+    "WR": 36.8
+   },
+   "half_ppr/12/sf": {
+    "QB": 34.9,
+    "RB": 32.7,
+    "TE": 5.2,
+    "WR": 27.2
+   }
+  }
+ },
  "ddf_value_inputs": [
   "usatoday",
   "fantasycalc",
@@ -9209,7 +9260,7 @@
      "rostered": 48,
      "valued": 50
     },
-    "value_past_line_pct": 0.1
+    "value_past_line_pct": 0.068
    },
    "12": {
     "QB": {
@@ -9232,7 +9283,7 @@
      "rostered": 62,
      "valued": 63
     },
-    "value_past_line_pct": 0.0
+    "value_past_line_pct": 0.013
    },
    "14": {
     "QB": {
@@ -9255,7 +9306,7 @@
      "rostered": 73,
      "valued": 73
     },
-    "value_past_line_pct": 0.0
+    "value_past_line_pct": 0.019
    }
   },
   "filled_in_12": {
@@ -9293,7 +9344,6 @@
       "gap": -5,
       "last_name": "C.J. Stroud",
       "last_pct_of_top": 28.6,
-      "last_value": 6.0,
       "listed": 13,
       "rostered": 18,
       "unpriced": 5,
@@ -9305,7 +9355,6 @@
       "gap": -16,
       "last_name": "Devin Singletary",
       "last_pct_of_top": 8.8,
-      "last_value": 5.0,
       "listed": 43,
       "rostered": 59,
       "unpriced": 16,
@@ -9317,7 +9366,6 @@
       "gap": -4,
       "last_name": "T.J. Hockenson",
       "last_pct_of_top": 25.0,
-      "last_value": 6.0,
       "listed": 11,
       "rostered": 15,
       "unpriced": 4,
@@ -9329,7 +9377,6 @@
       "gap": -5,
       "last_name": "Jordyn Tyson",
       "last_pct_of_top": 9.8,
-      "last_value": 5.0,
       "listed": 43,
       "rostered": 48,
       "unpriced": 5,
@@ -9359,7 +9406,6 @@
       "gap": -7,
       "last_name": "C.J. Stroud",
       "last_pct_of_top": 28.6,
-      "last_value": 6.0,
       "listed": 13,
       "rostered": 20,
       "unpriced": 7,
@@ -9416,7 +9462,6 @@
       "gap": -22,
       "last_name": "Devin Singletary",
       "last_pct_of_top": 8.8,
-      "last_value": 5.0,
       "listed": 43,
       "rostered": 65,
       "unpriced": 22,
@@ -9441,7 +9486,6 @@
       "gap": -10,
       "last_name": "T.J. Hockenson",
       "last_pct_of_top": 25.0,
-      "last_value": 6.0,
       "listed": 11,
       "rostered": 21,
       "unpriced": 10,
@@ -9498,7 +9542,6 @@
       "gap": -19,
       "last_name": "Jordyn Tyson",
       "last_pct_of_top": 9.8,
-      "last_value": 5.0,
       "listed": 43,
       "rostered": 62,
       "unpriced": 19,
@@ -9513,7 +9556,6 @@
       "gap": -11,
       "last_name": "C.J. Stroud",
       "last_pct_of_top": 28.6,
-      "last_value": 6.0,
       "listed": 13,
       "rostered": 24,
       "unpriced": 11,
@@ -9525,7 +9567,6 @@
       "gap": -31,
       "last_name": "Devin Singletary",
       "last_pct_of_top": 8.8,
-      "last_value": 5.0,
       "listed": 43,
       "rostered": 74,
       "unpriced": 31,
@@ -9537,7 +9578,6 @@
       "gap": -14,
       "last_name": "T.J. Hockenson",
       "last_pct_of_top": 25.0,
-      "last_value": 6.0,
       "listed": 11,
       "rostered": 25,
       "unpriced": 14,
@@ -9549,7 +9589,6 @@
       "gap": -30,
       "last_name": "Jordyn Tyson",
       "last_pct_of_top": 9.8,
-      "last_value": 5.0,
       "listed": 43,
       "rostered": 73,
       "unpriced": 30,
@@ -9566,7 +9605,6 @@
       "gap": 72,
       "last_name": "Case Keenum",
       "last_pct_of_top": 0.0,
-      "last_value": 1.0,
       "listed": 90,
       "rostered": 18,
       "unpriced": 0,
@@ -9578,7 +9616,6 @@
       "gap": 113,
       "last_name": "Chase Edmonds",
       "last_pct_of_top": 0.0,
-      "last_value": 0.0,
       "listed": 172,
       "rostered": 59,
       "unpriced": 0,
@@ -9590,7 +9627,6 @@
       "gap": 103,
       "last_name": "John Bates",
       "last_pct_of_top": 0.0,
-      "last_value": 1.0,
       "listed": 118,
       "rostered": 15,
       "unpriced": 0,
@@ -9602,7 +9638,6 @@
       "gap": 176,
       "last_name": "Mecole Hardman",
       "last_pct_of_top": 0.0,
-      "last_value": 0.0,
       "listed": 224,
       "rostered": 48,
       "unpriced": 0,
@@ -9709,7 +9744,6 @@
       "gap": 70,
       "last_name": "Case Keenum",
       "last_pct_of_top": 0.0,
-      "last_value": 1.0,
       "listed": 90,
       "rostered": 20,
       "unpriced": 0,
@@ -9853,7 +9887,6 @@
       "gap": 107,
       "last_name": "Chase Edmonds",
       "last_pct_of_top": 0.0,
-      "last_value": 0.0,
       "listed": 172,
       "rostered": 65,
       "unpriced": 0,
@@ -9985,7 +10018,6 @@
       "gap": 97,
       "last_name": "John Bates",
       "last_pct_of_top": 0.0,
-      "last_value": 1.0,
       "listed": 118,
       "rostered": 21,
       "unpriced": 0,
@@ -10129,7 +10161,6 @@
       "gap": 162,
       "last_name": "Mecole Hardman",
       "last_pct_of_top": 0.0,
-      "last_value": 0.0,
       "listed": 224,
       "rostered": 62,
       "unpriced": 0,
@@ -10144,7 +10175,6 @@
       "gap": 66,
       "last_name": "Case Keenum",
       "last_pct_of_top": 0.0,
-      "last_value": 1.0,
       "listed": 90,
       "rostered": 24,
       "unpriced": 0,
@@ -10156,7 +10186,6 @@
       "gap": 98,
       "last_name": "Chase Edmonds",
       "last_pct_of_top": 0.0,
-      "last_value": 0.0,
       "listed": 172,
       "rostered": 74,
       "unpriced": 0,
@@ -10168,7 +10197,6 @@
       "gap": 93,
       "last_name": "John Bates",
       "last_pct_of_top": 0.0,
-      "last_value": 1.0,
       "listed": 118,
       "rostered": 25,
       "unpriced": 0,
@@ -10180,7 +10208,6 @@
       "gap": 151,
       "last_name": "Mecole Hardman",
       "last_pct_of_top": 0.0,
-      "last_value": 0.0,
       "listed": 224,
       "rostered": 73,
       "unpriced": 0,
@@ -10197,7 +10224,6 @@
       "gap": 18,
       "last_name": "Fernando Mendoza",
       "last_pct_of_top": 0.2,
-      "last_value": 14.0,
       "listed": 36,
       "rostered": 18,
       "unpriced": 0,
@@ -10209,7 +10235,6 @@
       "gap": 1,
       "last_name": "Tyjae Spears",
       "last_pct_of_top": 0.0,
-      "last_value": 1.0,
       "listed": 60,
       "rostered": 59,
       "unpriced": 0,
@@ -10221,7 +10246,6 @@
       "gap": 12,
       "last_name": "Greg Dulcich",
       "last_pct_of_top": 0.0,
-      "last_value": 1.0,
       "listed": 27,
       "rostered": 15,
       "unpriced": 0,
@@ -10233,7 +10257,6 @@
       "gap": 25,
       "last_name": "Treylon Burks",
       "last_pct_of_top": 0.0,
-      "last_value": 1.0,
       "listed": 73,
       "rostered": 48,
       "unpriced": 0,
@@ -10286,7 +10309,6 @@
       "gap": 16,
       "last_name": "Fernando Mendoza",
       "last_pct_of_top": 0.2,
-      "last_value": 14.0,
       "listed": 36,
       "rostered": 20,
       "unpriced": 0,
@@ -10360,7 +10382,6 @@
       "gap": -5,
       "last_name": "Tyjae Spears",
       "last_pct_of_top": 0.0,
-      "last_value": 1.0,
       "listed": 60,
       "rostered": 65,
       "unpriced": 5,
@@ -10401,7 +10422,6 @@
       "gap": 6,
       "last_name": "Greg Dulcich",
       "last_pct_of_top": 0.0,
-      "last_value": 1.0,
       "listed": 27,
       "rostered": 21,
       "unpriced": 0,
@@ -10488,7 +10508,6 @@
       "gap": 11,
       "last_name": "Treylon Burks",
       "last_pct_of_top": 0.0,
-      "last_value": 1.0,
       "listed": 73,
       "rostered": 62,
       "unpriced": 0,
@@ -10503,7 +10522,6 @@
       "gap": 12,
       "last_name": "Fernando Mendoza",
       "last_pct_of_top": 0.2,
-      "last_value": 14.0,
       "listed": 36,
       "rostered": 24,
       "unpriced": 0,
@@ -10515,7 +10533,6 @@
       "gap": -14,
       "last_name": "Tyjae Spears",
       "last_pct_of_top": 0.0,
-      "last_value": 1.0,
       "listed": 60,
       "rostered": 74,
       "unpriced": 14,
@@ -10527,7 +10544,6 @@
       "gap": 2,
       "last_name": "Greg Dulcich",
       "last_pct_of_top": 0.0,
-      "last_value": 1.0,
       "listed": 27,
       "rostered": 25,
       "unpriced": 0,
@@ -10539,7 +10555,6 @@
       "gap": 0,
       "last_name": "Treylon Burks",
       "last_pct_of_top": 0.0,
-      "last_value": 1.0,
       "listed": 73,
       "rostered": 73,
       "unpriced": 0,
@@ -10556,7 +10571,6 @@
       "gap": 14,
       "last_name": "Daniel Jones",
       "last_pct_of_top": 3.4,
-      "last_value": 1.0,
       "listed": 32,
       "rostered": 18,
       "unpriced": 0,
@@ -10568,7 +10582,6 @@
       "gap": -7,
       "last_name": "RJ Harvey",
       "last_pct_of_top": 1.3,
-      "last_value": 1.0,
       "listed": 52,
       "rostered": 59,
       "unpriced": 7,
@@ -10580,7 +10593,6 @@
       "gap": 5,
       "last_name": "Pat Freiermuth",
       "last_pct_of_top": 3.6,
-      "last_value": 1.0,
       "listed": 20,
       "rostered": 15,
       "unpriced": 0,
@@ -10592,7 +10604,6 @@
       "gap": 26,
       "last_name": "Rashod Bateman",
       "last_pct_of_top": 1.8,
-      "last_value": 1.0,
       "listed": 74,
       "rostered": 48,
       "unpriced": 0,
@@ -10641,7 +10652,6 @@
       "gap": 12,
       "last_name": "Daniel Jones",
       "last_pct_of_top": 3.4,
-      "last_value": 1.0,
       "listed": 32,
       "rostered": 20,
       "unpriced": 0,
@@ -10707,7 +10717,6 @@
       "gap": -13,
       "last_name": "RJ Harvey",
       "last_pct_of_top": 1.3,
-      "last_value": 1.0,
       "listed": 52,
       "rostered": 65,
       "unpriced": 13,
@@ -10741,7 +10750,6 @@
       "gap": -1,
       "last_name": "Pat Freiermuth",
       "last_pct_of_top": 3.6,
-      "last_value": 1.0,
       "listed": 20,
       "rostered": 21,
       "unpriced": 1,
@@ -10829,7 +10837,6 @@
       "gap": 12,
       "last_name": "Rashod Bateman",
       "last_pct_of_top": 1.8,
-      "last_value": 1.0,
       "listed": 74,
       "rostered": 62,
       "unpriced": 0,
@@ -10844,7 +10851,6 @@
       "gap": 8,
       "last_name": "Daniel Jones",
       "last_pct_of_top": 3.4,
-      "last_value": 1.0,
       "listed": 32,
       "rostered": 24,
       "unpriced": 0,
@@ -10856,7 +10862,6 @@
       "gap": -22,
       "last_name": "RJ Harvey",
       "last_pct_of_top": 1.3,
-      "last_value": 1.0,
       "listed": 52,
       "rostered": 74,
       "unpriced": 22,
@@ -10868,7 +10873,6 @@
       "gap": -5,
       "last_name": "Pat Freiermuth",
       "last_pct_of_top": 3.6,
-      "last_value": 1.0,
       "listed": 20,
       "rostered": 25,
       "unpriced": 5,
@@ -10880,7 +10884,6 @@
       "gap": 1,
       "last_name": "Rashod Bateman",
       "last_pct_of_top": 1.8,
-      "last_value": 1.0,
       "listed": 74,
       "rostered": 73,
       "unpriced": 0,
@@ -10897,7 +10900,6 @@
       "gap": 20,
       "last_name": "Daniel Jones",
       "last_pct_of_top": 0.0,
-      "last_value": 0.0,
       "listed": 38,
       "rostered": 18,
       "unpriced": 0,
@@ -10909,7 +10911,6 @@
       "gap": 27,
       "last_name": "James Conner",
       "last_pct_of_top": 1.3,
-      "last_value": 1.0,
       "listed": 86,
       "rostered": 59,
       "unpriced": 0,
@@ -10921,7 +10922,6 @@
       "gap": 23,
       "last_name": "Gunnar Helm",
       "last_pct_of_top": 1.6,
-      "last_value": 1.0,
       "listed": 38,
       "rostered": 15,
       "unpriced": 0,
@@ -10933,7 +10933,6 @@
       "gap": 61,
       "last_name": "Jalen Royals",
       "last_pct_of_top": 1.3,
-      "last_value": 1.0,
       "listed": 109,
       "rostered": 48,
       "unpriced": 0,
@@ -10988,7 +10987,6 @@
       "gap": 18,
       "last_name": "Daniel Jones",
       "last_pct_of_top": 0.0,
-      "last_value": 0.0,
       "listed": 38,
       "rostered": 20,
       "unpriced": 0,
@@ -11088,7 +11086,6 @@
       "gap": 21,
       "last_name": "James Conner",
       "last_pct_of_top": 1.3,
-      "last_value": 1.0,
       "listed": 86,
       "rostered": 65,
       "unpriced": 0,
@@ -11140,7 +11137,6 @@
       "gap": 17,
       "last_name": "Gunnar Helm",
       "last_pct_of_top": 1.6,
-      "last_value": 1.0,
       "listed": 38,
       "rostered": 21,
       "unpriced": 0,
@@ -11263,7 +11259,6 @@
       "gap": 47,
       "last_name": "Jalen Royals",
       "last_pct_of_top": 1.3,
-      "last_value": 1.0,
       "listed": 109,
       "rostered": 62,
       "unpriced": 0,
@@ -11278,7 +11273,6 @@
       "gap": 14,
       "last_name": "Daniel Jones",
       "last_pct_of_top": 0.0,
-      "last_value": 0.0,
       "listed": 38,
       "rostered": 24,
       "unpriced": 0,
@@ -11290,7 +11284,6 @@
       "gap": 12,
       "last_name": "James Conner",
       "last_pct_of_top": 1.3,
-      "last_value": 1.0,
       "listed": 86,
       "rostered": 74,
       "unpriced": 0,
@@ -11302,7 +11295,6 @@
       "gap": 13,
       "last_name": "Gunnar Helm",
       "last_pct_of_top": 1.6,
-      "last_value": 1.0,
       "listed": 38,
       "rostered": 25,
       "unpriced": 0,
@@ -11314,7 +11306,6 @@
       "gap": 36,
       "last_name": "Jalen Royals",
       "last_pct_of_top": 1.3,
-      "last_value": 1.0,
       "listed": 109,
       "rostered": 73,
       "unpriced": 0,
@@ -12057,12 +12048,6 @@
   },
   "unmatched": 9,
   "unmatched_max_pct": 0.0,
-  "waiver_line": {
-   "QB": 481.0,
-   "RB": 26.86,
-   "TE": 282.64,
-   "WR": 375.32
-  },
   "weekly": {
    "rank_move": [
     1.25,
@@ -12161,6 +12146,7 @@
   "reorder_avg_pct": {
    "cbs": 32.0,
    "cbsros": 78.0,
+   "dynastyprocess": 0.0,
    "espn": 83.0,
    "fantasycalc": 0.0,
    "fantasypros": 0.0,
@@ -12197,195 +12183,195 @@
  },
  "outliers": [
   {
-   "gap": 38,
+   "gap": -23.5,
    "name": "Davante Adams",
-   "others_median_rank": 35,
+   "others_median_rank": 56.5,
    "pos": "WR",
-   "rank": 73,
-   "source": "fantasypros"
-  },
-  {
-   "gap": -23,
-   "name": "Davante Adams",
-   "others_median_rank": 56,
-   "pos": "WR",
-   "rank": 33,
+   "rank": 33.0,
    "source": "fantasycalc"
   },
   {
-   "gap": -21,
-   "name": "Davante Adams",
-   "others_median_rank": 56,
-   "pos": "WR",
-   "rank": 35,
-   "source": "cbs"
-  },
-  {
-   "gap": 21,
-   "name": "Davante Adams",
-   "others_median_rank": 35,
-   "pos": "WR",
-   "rank": 56,
-   "source": "usatoday"
-  },
-  {
-   "gap": 17,
+   "gap": 17.0,
    "name": "Deebo Samuel Sr.",
-   "others_median_rank": 35,
+   "others_median_rank": 35.0,
    "pos": "WR",
-   "rank": 52,
+   "rank": 52.0,
    "source": "fantasypros"
   },
   {
-   "gap": 17,
+   "gap": 17.0,
    "name": "Jeremiyah Love",
-   "others_median_rank": 30,
+   "others_median_rank": 30.0,
    "pos": "RB",
-   "rank": 47,
+   "rank": 47.0,
    "source": "usatoday"
   },
   {
-   "gap": -16,
+   "gap": -16.5,
    "name": "Jeremiyah Love",
-   "others_median_rank": 38,
+   "others_median_rank": 38.5,
    "pos": "RB",
-   "rank": 22,
+   "rank": 22.0,
    "source": "fantasycalc"
   },
   {
-   "gap": 13,
+   "gap": 13.0,
    "name": "Tyler Allgeier",
-   "others_median_rank": 31,
+   "others_median_rank": 31.0,
    "pos": "RB",
-   "rank": 44,
+   "rank": 44.0,
    "source": "fantasypros"
   },
   {
-   "gap": 12,
+   "gap": 12.5,
    "name": "Jordan Mason",
-   "others_median_rank": 30,
+   "others_median_rank": 29.5,
    "pos": "RB",
-   "rank": 42,
+   "rank": 42.0,
    "source": "fantasycalc"
   },
   {
-   "gap": 11,
-   "name": "Jadarian Price",
-   "others_median_rank": 32,
+   "gap": -11.5,
+   "name": "Tyler Allgeier",
+   "others_median_rank": 41.5,
    "pos": "RB",
-   "rank": 43,
+   "rank": 30.0,
+   "source": "fantasycalc"
+  },
+  {
+   "gap": 11.0,
+   "name": "Jadarian Price",
+   "others_median_rank": 32.0,
+   "pos": "RB",
+   "rank": 43.0,
    "source": "fantasypros"
   },
   {
-   "gap": -10,
+   "gap": 10.5,
+   "name": "Tyler Allgeier",
+   "others_median_rank": 31.0,
+   "pos": "RB",
+   "rank": 41.5,
+   "source": "cbs"
+  },
+  {
+   "gap": -10.5,
+   "name": "Tyler Allgeier",
+   "others_median_rank": 41.5,
+   "pos": "RB",
+   "rank": 31.0,
+   "source": "usatoday"
+  },
+  {
+   "gap": -9.5,
    "name": "Kyle Monangai",
-   "others_median_rank": 36,
+   "others_median_rank": 35.5,
    "pos": "RB",
-   "rank": 26,
+   "rank": 26.0,
    "source": "fantasypros"
   },
   {
-   "gap": -10,
-   "name": "Tyler Allgeier",
-   "others_median_rank": 40,
+   "gap": -9.0,
+   "name": "Jadarian Price",
+   "others_median_rank": 40.0,
    "pos": "RB",
-   "rank": 30,
-   "source": "fantasycalc"
+   "rank": 31.0,
+   "source": "cbs"
   },
   {
-   "gap": -9,
+   "gap": -8.5,
    "name": "DK Metcalf",
-   "others_median_rank": 34,
+   "others_median_rank": 33.0,
    "pos": "WR",
-   "rank": 25,
+   "rank": 24.5,
    "source": "usatoday"
   },
   {
-   "gap": -9,
-   "name": "Jadarian Price",
-   "others_median_rank": 40,
-   "pos": "RB",
-   "rank": 31,
-   "source": "cbs"
-  },
-  {
-   "gap": -9,
-   "name": "Jordan Mason",
-   "others_median_rank": 36,
-   "pos": "RB",
-   "rank": 27,
-   "source": "fantasypros"
-  },
-  {
-   "gap": 9,
-   "name": "Tyler Allgeier",
-   "others_median_rank": 31,
-   "pos": "RB",
-   "rank": 40,
-   "source": "cbs"
-  },
-  {
-   "gap": -9,
-   "name": "Tyler Allgeier",
-   "others_median_rank": 40,
-   "pos": "RB",
-   "rank": 31,
-   "source": "usatoday"
-  },
-  {
-   "gap": 8,
-   "name": "Ashton Jeanty",
-   "others_median_rank": 16,
-   "pos": "RB",
-   "rank": 24,
-   "source": "cbs"
-  },
-  {
-   "gap": 8,
-   "name": "Cam Skattebo",
-   "others_median_rank": 20,
-   "pos": "RB",
-   "rank": 28,
-   "source": "fantasypros"
-  },
-  {
-   "gap": 8,
-   "name": "Chase Brown",
-   "others_median_rank": 16,
-   "pos": "RB",
-   "rank": 24,
-   "source": "usatoday"
-  },
-  {
-   "gap": -8,
+   "gap": -8.5,
    "name": "David Montgomery",
-   "others_median_rank": 41,
+   "others_median_rank": 41.5,
    "pos": "RB",
-   "rank": 33,
+   "rank": 33.0,
    "source": "fantasycalc"
   },
   {
-   "gap": -8,
-   "name": "Jadarian Price",
-   "others_median_rank": 40,
+   "gap": 8.5,
+   "name": "Jeremiyah Love",
+   "others_median_rank": 30.0,
    "pos": "RB",
-   "rank": 32,
-   "source": "fantasycalc"
+   "rank": 38.5,
+   "source": "cbs"
   },
   {
-   "gap": 8,
-   "name": "Jadarian Price",
-   "others_median_rank": 32,
+   "gap": -8.5,
+   "name": "Jeremiyah Love",
+   "others_median_rank": 38.5,
    "pos": "RB",
-   "rank": 40,
+   "rank": 30.0,
+   "source": "fantasypros"
+  },
+  {
+   "gap": -8.5,
+   "name": "Jordan Mason",
+   "others_median_rank": 35.5,
+   "pos": "RB",
+   "rank": 27.0,
+   "source": "fantasypros"
+  },
+  {
+   "gap": -8.5,
+   "name": "Michael Wilson",
+   "others_median_rank": 29.0,
+   "pos": "WR",
+   "rank": 20.5,
    "source": "usatoday"
   },
   {
-   "gap": 8,
-   "name": "Jeremiyah Love",
-   "others_median_rank": 30,
+   "gap": -8.0,
+   "name": "Jadarian Price",
+   "others_median_rank": 40.0,
    "pos": "RB",
-   "rank": 38,
+   "rank": 32.0,
+   "source": "fantasycalc"
+  },
+  {
+   "gap": 8.0,
+   "name": "Jadarian Price",
+   "others_median_rank": 32.0,
+   "pos": "RB",
+   "rank": 40.0,
+   "source": "usatoday"
+  },
+  {
+   "gap": -8.0,
+   "name": "Jordyn Tyson",
+   "others_median_rank": 43.0,
+   "pos": "WR",
+   "rank": 35.0,
+   "source": "fantasycalc"
+  },
+  {
+   "gap": 8.0,
+   "name": "Kaelon Black",
+   "others_median_rank": 35.0,
+   "pos": "RB",
+   "rank": 43.0,
+   "source": "fantasycalc"
+  },
+  {
+   "gap": 8.0,
+   "name": "Rhamondre Stevenson",
+   "others_median_rank": 17.0,
+   "pos": "RB",
+   "rank": 25.0,
+   "source": "usatoday"
+  },
+  {
+   "gap": 7.5,
+   "name": "Ashton Jeanty",
+   "others_median_rank": 16.0,
+   "pos": "RB",
+   "rank": 23.5,
    "source": "cbs"
   }
  ],
@@ -12395,2299 +12381,2299 @@
    "ddf": 83.3,
    "key": 2227,
    "name": "Jahmyr Gibbs",
+   "pct_of_top": {
+    "cbs": 100.0,
+    "dynastyprocess": 91.67,
+    "fantasycalc": 100.0,
+    "fantasypros": 100.0,
+    "usatoday": 100.0
+   },
    "pos": "RB",
    "pos_rank": {
-    "cbs": 1,
-    "dynastyprocess": 2,
-    "fantasycalc": 1,
-    "fantasypros": 1,
-    "usatoday": 1
-   },
-   "published": {
-    "cbs": 56.5,
-    "dynastyprocess": 9336.0,
-    "fantasycalc": 10640.0,
-    "fantasypros": 75.1,
-    "usatoday": 79.0
+    "cbs": 1.0,
+    "dynastyprocess": 2.0,
+    "fantasycalc": 1.0,
+    "fantasypros": 1.0,
+    "usatoday": 1.0
    }
   },
   {
    "ddf": 72.3,
    "key": 1095,
    "name": "Kenneth Walker III",
+   "pct_of_top": {
+    "cbs": 91.15,
+    "dynastyprocess": 78.87,
+    "fantasycalc": 86.0,
+    "fantasypros": 78.96,
+    "usatoday": 92.41
+   },
    "pos": "RB",
    "pos_rank": {
-    "cbs": 2,
-    "dynastyprocess": 3,
-    "fantasycalc": 3,
-    "fantasypros": 4,
-    "usatoday": 2
-   },
-   "published": {
-    "cbs": 51.5,
-    "dynastyprocess": 8032.0,
-    "fantasycalc": 9150.0,
-    "fantasypros": 59.3,
-    "usatoday": 73.0
+    "cbs": 2.0,
+    "dynastyprocess": 3.0,
+    "fantasycalc": 3.0,
+    "fantasypros": 4.0,
+    "usatoday": 2.0
    }
   },
   {
    "ddf": 71.2,
    "key": 217,
    "name": "Bijan Robinson",
+   "pct_of_top": {
+    "cbs": 80.53,
+    "dynastyprocess": 94.29,
+    "fantasycalc": 89.11,
+    "fantasypros": 89.88,
+    "usatoday": 86.08
+   },
    "pos": "RB",
    "pos_rank": {
-    "cbs": 3,
-    "dynastyprocess": 1,
-    "fantasycalc": 2,
-    "fantasypros": 2,
-    "usatoday": 3
-   },
-   "published": {
-    "cbs": 45.5,
-    "dynastyprocess": 9603.0,
-    "fantasycalc": 9481.0,
-    "fantasypros": 67.5,
-    "usatoday": 68.0
+    "cbs": 3.0,
+    "dynastyprocess": 1.0,
+    "fantasycalc": 2.0,
+    "fantasypros": 2.0,
+    "usatoday": 3.0
    }
   },
   {
    "ddf": 62.7,
    "key": 3247,
    "name": "Jaxon Smith-Njigba",
+   "pct_of_top": {
+    "cbs": 90.27,
+    "dynastyprocess": 100.0,
+    "fantasycalc": 93.52,
+    "fantasypros": 76.03,
+    "usatoday": 100.0
+   },
    "pos": "WR",
    "pos_rank": {
-    "cbs": 1,
-    "dynastyprocess": 1,
-    "fantasycalc": 1,
-    "fantasypros": 1,
-    "usatoday": 1
-   },
-   "published": {
-    "cbs": 51.0,
-    "dynastyprocess": 10184.0,
-    "fantasycalc": 9951.0,
-    "fantasypros": 57.1,
-    "usatoday": 79.0
+    "cbs": 1.0,
+    "dynastyprocess": 1.0,
+    "fantasycalc": 1.0,
+    "fantasypros": 1.0,
+    "usatoday": 1.0
    }
   },
   {
    "ddf": 61.2,
    "key": 1110,
    "name": "James Cook",
+   "pct_of_top": {
+    "cbs": 69.91,
+    "dynastyprocess": 73.85,
+    "fantasycalc": 68.1,
+    "fantasypros": 81.09,
+    "usatoday": 82.28
+   },
    "pos": "RB",
    "pos_rank": {
-    "cbs": 4,
-    "dynastyprocess": 5,
-    "fantasycalc": 5,
-    "fantasypros": 3,
-    "usatoday": 4
-   },
-   "published": {
-    "cbs": 39.5,
-    "dynastyprocess": 7521.0,
-    "fantasycalc": 7246.0,
-    "fantasypros": 60.9,
-    "usatoday": 65.0
+    "cbs": 4.0,
+    "dynastyprocess": 5.0,
+    "fantasycalc": 5.0,
+    "fantasypros": 3.0,
+    "usatoday": 4.0
    }
   },
   {
    "ddf": 59.5,
    "key": 1370,
    "name": "Puka Nacua",
+   "pct_of_top": {
+    "cbs": 89.38,
+    "dynastyprocess": 87.06,
+    "fantasycalc": 85.1,
+    "fantasypros": 73.77,
+    "usatoday": 94.94
+   },
    "pos": "WR",
    "pos_rank": {
-    "cbs": 2,
-    "dynastyprocess": 4,
-    "fantasycalc": 2,
-    "fantasypros": 2,
-    "usatoday": 2
-   },
-   "published": {
-    "cbs": 50.5,
-    "dynastyprocess": 8866.0,
-    "fantasycalc": 9055.0,
-    "fantasypros": 55.4,
-    "usatoday": 75.0
+    "cbs": 2.0,
+    "dynastyprocess": 4.0,
+    "fantasycalc": 2.0,
+    "fantasypros": 2.0,
+    "usatoday": 2.0
    }
   },
   {
    "ddf": 57.1,
    "key": 3189,
    "name": "Christian McCaffrey",
+   "pct_of_top": {
+    "cbs": 60.18,
+    "dynastyprocess": 44.25,
+    "fantasycalc": 75.23,
+    "fantasypros": 67.24,
+    "usatoday": 79.75
+   },
    "pos": "RB",
    "pos_rank": {
-    "cbs": 5,
-    "dynastyprocess": 10,
-    "fantasycalc": 4,
-    "fantasypros": 6,
-    "usatoday": 5
-   },
-   "published": {
-    "cbs": 34.0,
-    "dynastyprocess": 4506.0,
-    "fantasycalc": 8005.0,
-    "fantasypros": 50.5,
-    "usatoday": 63.0
+    "cbs": 5.0,
+    "dynastyprocess": 10.0,
+    "fantasycalc": 4.0,
+    "fantasypros": 6.0,
+    "usatoday": 5.0
    }
   },
   {
    "ddf": 53.1,
    "key": 2730,
    "name": "Ja'Marr Chase",
+   "pct_of_top": {
+    "cbs": 72.57,
+    "dynastyprocess": 98.37,
+    "fantasycalc": 79.8,
+    "fantasypros": 71.9,
+    "usatoday": 86.08
+   },
    "pos": "WR",
    "pos_rank": {
-    "cbs": 4,
-    "dynastyprocess": 2,
-    "fantasycalc": 3,
-    "fantasypros": 3,
-    "usatoday": 3
-   },
-   "published": {
-    "cbs": 41.0,
-    "dynastyprocess": 10018.0,
-    "fantasycalc": 8491.0,
-    "fantasypros": 54.0,
-    "usatoday": 68.0
+    "cbs": 4.0,
+    "dynastyprocess": 2.0,
+    "fantasycalc": 3.0,
+    "fantasypros": 3.0,
+    "usatoday": 3.0
    }
   },
   {
    "ddf": 51.0,
    "key": 547,
    "name": "Jonathan Taylor",
+   "pct_of_top": {
+    "cbs": 53.98,
+    "dynastyprocess": 64.74,
+    "fantasycalc": 66.47,
+    "fantasypros": 61.12,
+    "usatoday": 73.42
+   },
    "pos": "RB",
    "pos_rank": {
-    "cbs": 7,
-    "dynastyprocess": 7,
-    "fantasycalc": 6,
-    "fantasypros": 9,
-    "usatoday": 6
-   },
-   "published": {
-    "cbs": 30.5,
-    "dynastyprocess": 6593.0,
-    "fantasycalc": 7072.0,
-    "fantasypros": 45.9,
-    "usatoday": 58.0
+    "cbs": 7.0,
+    "dynastyprocess": 7.0,
+    "fantasycalc": 6.0,
+    "fantasypros": 9.0,
+    "usatoday": 6.0
    }
   },
   {
    "ddf": 47.9,
    "key": 303,
    "name": "CeeDee Lamb",
+   "pct_of_top": {
+    "cbs": 75.22,
+    "dynastyprocess": 86.04,
+    "fantasycalc": 75.08,
+    "fantasypros": 54.99,
+    "usatoday": 81.01
+   },
    "pos": "WR",
    "pos_rank": {
-    "cbs": 3,
-    "dynastyprocess": 5,
-    "fantasycalc": 4,
-    "fantasypros": 5,
-    "usatoday": 4
-   },
-   "published": {
-    "cbs": 42.5,
-    "dynastyprocess": 8762.0,
-    "fantasycalc": 7989.0,
-    "fantasypros": 41.3,
-    "usatoday": 64.0
+    "cbs": 3.0,
+    "dynastyprocess": 5.0,
+    "fantasycalc": 4.0,
+    "fantasypros": 5.0,
+    "usatoday": 4.0
    }
   },
   {
    "ddf": 47.7,
    "key": 3289,
    "name": "Amon-Ra St. Brown",
+   "pct_of_top": {
+    "cbs": 63.72,
+    "dynastyprocess": 89.96,
+    "fantasycalc": 73.56,
+    "fantasypros": 68.31,
+    "usatoday": 77.22
+   },
    "pos": "WR",
    "pos_rank": {
-    "cbs": 6,
-    "dynastyprocess": 3,
-    "fantasycalc": 5,
-    "fantasypros": 4,
-    "usatoday": 6
-   },
-   "published": {
-    "cbs": 36.0,
-    "dynastyprocess": 9162.0,
-    "fantasycalc": 7827.0,
-    "fantasypros": 51.3,
-    "usatoday": 61.0
+    "cbs": 6.0,
+    "dynastyprocess": 3.0,
+    "fantasycalc": 5.0,
+    "fantasypros": 4.0,
+    "usatoday": 6.0
    }
   },
   {
    "ddf": 47.1,
    "key": 1063,
    "name": "Kyren Williams",
+   "pct_of_top": {
+    "cbs": 49.56,
+    "dynastyprocess": 35.06,
+    "fantasycalc": 53.73,
+    "fantasypros": 69.64,
+    "usatoday": 65.82
+   },
    "pos": "RB",
    "pos_rank": {
-    "cbs": 9,
-    "dynastyprocess": 12,
-    "fantasycalc": 7,
-    "fantasypros": 5,
-    "usatoday": 8
-   },
-   "published": {
-    "cbs": 28.0,
-    "dynastyprocess": 3571.0,
-    "fantasycalc": 5717.0,
-    "fantasypros": 52.3,
-    "usatoday": 52.0
+    "cbs": 9.0,
+    "dynastyprocess": 12.0,
+    "fantasycalc": 7.0,
+    "fantasypros": 5.0,
+    "usatoday": 8.5
    }
   },
   {
    "ddf": 45.4,
    "key": 4048,
    "name": "Chuba Hubbard",
+   "pct_of_top": {
+    "cbs": 56.64,
+    "dynastyprocess": 12.53,
+    "fantasycalc": 48.93,
+    "fantasypros": 58.19,
+    "usatoday": 65.82
+   },
    "pos": "RB",
    "pos_rank": {
-    "cbs": 6,
-    "dynastyprocess": 26,
-    "fantasycalc": 8,
-    "fantasypros": 10,
-    "usatoday": 9
-   },
-   "published": {
-    "cbs": 32.0,
-    "dynastyprocess": 1276.0,
-    "fantasycalc": 5206.0,
-    "fantasypros": 43.7,
-    "usatoday": 52.0
+    "cbs": 6.0,
+    "dynastyprocess": 26.0,
+    "fantasycalc": 8.0,
+    "fantasypros": 10.0,
+    "usatoday": 8.5
    }
   },
   {
    "ddf": 45.3,
    "key": 2606,
    "name": "D'Andre Swift",
+   "pct_of_top": {
+    "cbs": 46.9,
+    "dynastyprocess": 21.05,
+    "fantasycalc": 48.32,
+    "fantasypros": 65.11,
+    "usatoday": 70.89
+   },
    "pos": "RB",
    "pos_rank": {
-    "cbs": 10,
-    "dynastyprocess": 20,
-    "fantasycalc": 9,
-    "fantasypros": 7,
-    "usatoday": 7
-   },
-   "published": {
-    "cbs": 26.5,
-    "dynastyprocess": 2144.0,
-    "fantasycalc": 5141.0,
-    "fantasypros": 48.9,
-    "usatoday": 56.0
+    "cbs": 10.0,
+    "dynastyprocess": 20.0,
+    "fantasycalc": 9.0,
+    "fantasypros": 7.0,
+    "usatoday": 7.0
    }
   },
   {
    "ddf": 44.1,
    "key": 807,
    "name": "Javonte Williams",
+   "pct_of_top": {
+    "cbs": 53.1,
+    "dynastyprocess": 26.89,
+    "fantasycalc": 48.15,
+    "fantasypros": 62.32,
+    "usatoday": 60.76
+   },
    "pos": "RB",
    "pos_rank": {
-    "cbs": 8,
-    "dynastyprocess": 16,
-    "fantasycalc": 10,
-    "fantasypros": 8,
-    "usatoday": 13
-   },
-   "published": {
-    "cbs": 30.0,
-    "dynastyprocess": 2738.0,
-    "fantasycalc": 5123.0,
-    "fantasypros": 46.8,
-    "usatoday": 48.0
+    "cbs": 8.0,
+    "dynastyprocess": 16.0,
+    "fantasycalc": 10.0,
+    "fantasypros": 8.0,
+    "usatoday": 13.0
    }
   },
   {
    "ddf": 41.9,
    "key": 2279,
    "name": "Malik Nabers",
+   "pct_of_top": {
+    "cbs": 69.03,
+    "dynastyprocess": 79.06,
+    "fantasycalc": 53.05,
+    "fantasypros": 53.79,
+    "usatoday": 79.75
+   },
    "pos": "WR",
    "pos_rank": {
-    "cbs": 5,
-    "dynastyprocess": 7,
-    "fantasycalc": 6,
-    "fantasypros": 7,
-    "usatoday": 5
-   },
-   "published": {
-    "cbs": 39.0,
-    "dynastyprocess": 8051.0,
-    "fantasycalc": 5644.0,
-    "fantasypros": 40.4,
-    "usatoday": 63.0
+    "cbs": 5.0,
+    "dynastyprocess": 7.0,
+    "fantasycalc": 6.0,
+    "fantasypros": 7.0,
+    "usatoday": 5.0
    }
   },
   {
    "ddf": 39.6,
    "key": 4589,
    "name": "Jaylen Warren",
+   "pct_of_top": {
+    "cbs": 43.36,
+    "dynastyprocess": 16.37,
+    "fantasycalc": 40.79,
+    "fantasypros": 56.46,
+    "usatoday": 64.56
+   },
    "pos": "RB",
    "pos_rank": {
-    "cbs": 11,
-    "dynastyprocess": 23,
-    "fantasycalc": 14,
-    "fantasypros": 11,
-    "usatoday": 12
-   },
-   "published": {
-    "cbs": 24.5,
-    "dynastyprocess": 1667.0,
-    "fantasycalc": 4340.0,
-    "fantasypros": 42.4,
-    "usatoday": 51.0
+    "cbs": 11.0,
+    "dynastyprocess": 23.0,
+    "fantasycalc": 14.0,
+    "fantasypros": 11.0,
+    "usatoday": 11.0
    }
   },
   {
    "ddf": 39.2,
    "key": 337,
    "name": "Bucky Irving",
+   "pct_of_top": {
+    "cbs": 39.82,
+    "dynastyprocess": 35.81,
+    "fantasycalc": 45.58,
+    "fantasypros": 53.66,
+    "usatoday": 64.56
+   },
    "pos": "RB",
    "pos_rank": {
-    "cbs": 12,
-    "dynastyprocess": 11,
-    "fantasycalc": 11,
-    "fantasypros": 14,
-    "usatoday": 11
-   },
-   "published": {
-    "cbs": 22.5,
-    "dynastyprocess": 3647.0,
-    "fantasycalc": 4850.0,
-    "fantasypros": 40.3,
-    "usatoday": 51.0
+    "cbs": 12.0,
+    "dynastyprocess": 11.0,
+    "fantasycalc": 11.0,
+    "fantasypros": 14.0,
+    "usatoday": 11.0
    }
   },
   {
    "ddf": 38.4,
    "key": 319,
    "name": "Bhayshul Tuten",
+   "pct_of_top": {
+    "cbs": 38.05,
+    "dynastyprocess": 33.53,
+    "fantasycalc": 42.44,
+    "fantasypros": 55.39,
+    "usatoday": 64.56
+   },
    "pos": "RB",
    "pos_rank": {
-    "cbs": 13,
-    "dynastyprocess": 13,
-    "fantasycalc": 13,
-    "fantasypros": 12,
-    "usatoday": 10
-   },
-   "published": {
-    "cbs": 21.5,
-    "dynastyprocess": 3415.0,
-    "fantasycalc": 4516.0,
-    "fantasypros": 41.6,
-    "usatoday": 51.0
+    "cbs": 13.0,
+    "dynastyprocess": 13.0,
+    "fantasycalc": 13.0,
+    "fantasypros": 12.0,
+    "usatoday": 11.0
    }
   },
   {
    "ddf": 36.7,
    "key": 869,
    "name": "Josh Allen",
+   "pct_of_top": {
+    "cbs": 37.17,
+    "dynastyprocess": 68.66,
+    "fantasycalc": 63.46,
+    "fantasypros": 38.75,
+    "usatoday": 53.16
+   },
    "pos": "QB",
    "pos_rank": {
-    "cbs": 1,
-    "dynastyprocess": 1,
-    "fantasycalc": 1,
-    "fantasypros": 1,
-    "usatoday": 1
-   },
-   "published": {
-    "cbs": 21.0,
-    "dynastyprocess": 6992.0,
-    "fantasycalc": 6752.0,
-    "fantasypros": 29.1,
-    "usatoday": 42.0
+    "cbs": 1.0,
+    "dynastyprocess": 1.0,
+    "fantasycalc": 1.0,
+    "fantasypros": 1.0,
+    "usatoday": 1.0
    }
   },
   {
    "ddf": 34.9,
    "key": 51,
    "name": "Brock Bowers",
+   "pct_of_top": {
+    "cbs": 42.48,
+    "dynastyprocess": 60.76,
+    "fantasycalc": 63.01,
+    "fantasypros": 37.28,
+    "usatoday": 79.75
+   },
    "pos": "TE",
    "pos_rank": {
-    "cbs": 1,
-    "dynastyprocess": 1,
-    "fantasycalc": 1,
-    "fantasypros": 1,
-    "usatoday": 1
-   },
-   "published": {
-    "cbs": 24.0,
-    "dynastyprocess": 6188.0,
-    "fantasycalc": 6704.0,
-    "fantasypros": 28.0,
-    "usatoday": 63.0
+    "cbs": 1.0,
+    "dynastyprocess": 1.0,
+    "fantasycalc": 1.0,
+    "fantasypros": 1.0,
+    "usatoday": 1.0
    }
   },
   {
    "ddf": 34.6,
    "key": 560,
    "name": "Derrick Henry",
+   "pct_of_top": {
+    "cbs": 30.09,
+    "dynastyprocess": 15.58,
+    "fantasycalc": 44.61,
+    "fantasypros": 54.33,
+    "usatoday": 55.7
+   },
    "pos": "RB",
    "pos_rank": {
-    "cbs": 15,
-    "dynastyprocess": 24,
-    "fantasycalc": 12,
-    "fantasypros": 13,
-    "usatoday": 15
-   },
-   "published": {
-    "cbs": 17.0,
-    "dynastyprocess": 1587.0,
-    "fantasycalc": 4747.0,
-    "fantasypros": 40.8,
-    "usatoday": 44.0
+    "cbs": 15.0,
+    "dynastyprocess": 24.0,
+    "fantasycalc": 12.0,
+    "fantasypros": 13.0,
+    "usatoday": 15.0
    }
   },
   {
    "ddf": 33.9,
    "key": 4474,
    "name": "Tee Higgins",
+   "pct_of_top": {
+    "cbs": 47.79,
+    "dynastyprocess": 35.06,
+    "fantasycalc": 50.24,
+    "fantasypros": 51.0,
+    "usatoday": 65.82
+   },
    "pos": "WR",
    "pos_rank": {
-    "cbs": 7,
-    "dynastyprocess": 25,
-    "fantasycalc": 8,
-    "fantasypros": 9,
-    "usatoday": 7
-   },
-   "published": {
-    "cbs": 27.0,
-    "dynastyprocess": 3571.0,
-    "fantasycalc": 5346.0,
-    "fantasypros": 38.3,
-    "usatoday": 52.0
+    "cbs": 7.0,
+    "dynastyprocess": 25.0,
+    "fantasycalc": 8.0,
+    "fantasypros": 9.0,
+    "usatoday": 7.0
    }
   },
   {
    "ddf": 33.4,
    "key": 4614,
    "name": "Josh Jacobs",
+   "pct_of_top": {
+    "cbs": 31.86,
+    "dynastyprocess": 7.52,
+    "fantasycalc": 35.0,
+    "fantasypros": 52.73,
+    "usatoday": 59.49
+   },
    "pos": "RB",
    "pos_rank": {
-    "cbs": 14,
-    "dynastyprocess": 30,
-    "fantasycalc": 17,
-    "fantasypros": 15,
-    "usatoday": 14
-   },
-   "published": {
-    "cbs": 18.0,
-    "dynastyprocess": 766.0,
-    "fantasycalc": 3724.0,
-    "fantasypros": 39.6,
-    "usatoday": 47.0
+    "cbs": 14.0,
+    "dynastyprocess": 30.0,
+    "fantasycalc": 17.0,
+    "fantasypros": 15.0,
+    "usatoday": 14.0
    }
   },
   {
    "ddf": 32.0,
    "key": 3993,
    "name": "Chris Olave",
+   "pct_of_top": {
+    "cbs": 46.02,
+    "dynastyprocess": 66.91,
+    "fantasycalc": 45.68,
+    "fantasypros": 49.53,
+    "usatoday": 64.56
+   },
    "pos": "WR",
    "pos_rank": {
-    "cbs": 8,
-    "dynastyprocess": 9,
-    "fantasycalc": 10,
-    "fantasypros": 10,
-    "usatoday": 10
-   },
-   "published": {
-    "cbs": 26.0,
-    "dynastyprocess": 6814.0,
-    "fantasycalc": 4860.0,
-    "fantasypros": 37.2,
-    "usatoday": 51.0
+    "cbs": 8.0,
+    "dynastyprocess": 9.0,
+    "fantasycalc": 10.0,
+    "fantasypros": 10.0,
+    "usatoday": 9.0
    }
   },
   {
    "ddf": 31.7,
    "key": 471,
    "name": "Drake London",
+   "pct_of_top": {
+    "cbs": 40.71,
+    "dynastyprocess": 71.97,
+    "fantasycalc": 46.48,
+    "fantasypros": 52.06,
+    "usatoday": 64.56
+   },
    "pos": "WR",
    "pos_rank": {
-    "cbs": 9,
-    "dynastyprocess": 8,
-    "fantasycalc": 9,
-    "fantasypros": 8,
-    "usatoday": 8
-   },
-   "published": {
-    "cbs": 23.0,
-    "dynastyprocess": 7329.0,
-    "fantasycalc": 4946.0,
-    "fantasypros": 39.1,
-    "usatoday": 51.0
+    "cbs": 9.0,
+    "dynastyprocess": 8.0,
+    "fantasycalc": 9.0,
+    "fantasypros": 8.0,
+    "usatoday": 9.0
    }
   },
   {
    "ddf": 30.7,
    "key": 3843,
    "name": "Christian Watson",
+   "pct_of_top": {
+    "cbs": 38.05,
+    "dynastyprocess": 40.56,
+    "fantasycalc": 44.14,
+    "fantasypros": 53.93,
+    "usatoday": 62.03
+   },
    "pos": "WR",
    "pos_rank": {
-    "cbs": 10,
-    "dynastyprocess": 20,
-    "fantasycalc": 11,
-    "fantasypros": 6,
-    "usatoday": 12
-   },
-   "published": {
-    "cbs": 21.5,
-    "dynastyprocess": 4131.0,
-    "fantasycalc": 4696.0,
-    "fantasypros": 40.5,
-    "usatoday": 49.0
+    "cbs": 10.5,
+    "dynastyprocess": 20.0,
+    "fantasycalc": 11.0,
+    "fantasypros": 6.0,
+    "usatoday": 11.5
    }
   },
   {
    "ddf": 29.9,
    "key": 3133,
    "name": "Trey McBride",
+   "pct_of_top": {
+    "cbs": 31.86,
+    "dynastyprocess": 58.8,
+    "fantasycalc": 56.5,
+    "fantasypros": 34.89,
+    "usatoday": 73.42
+   },
    "pos": "TE",
    "pos_rank": {
-    "cbs": 2,
-    "dynastyprocess": 2,
-    "fantasycalc": 2,
-    "fantasypros": 2,
-    "usatoday": 2
-   },
-   "published": {
-    "cbs": 18.0,
-    "dynastyprocess": 5988.0,
-    "fantasycalc": 6012.0,
-    "fantasypros": 26.2,
-    "usatoday": 58.0
+    "cbs": 2.0,
+    "dynastyprocess": 2.0,
+    "fantasycalc": 2.0,
+    "fantasypros": 2.0,
+    "usatoday": 2.0
    }
   },
   {
    "ddf": 29.0,
    "key": 3892,
    "name": "Justin Jefferson",
+   "pct_of_top": {
+    "cbs": 38.05,
+    "dynastyprocess": 81.71,
+    "fantasycalc": 51.56,
+    "fantasypros": 44.61,
+    "usatoday": 56.96
+   },
    "pos": "WR",
    "pos_rank": {
-    "cbs": 11,
-    "dynastyprocess": 6,
-    "fantasycalc": 7,
-    "fantasypros": 14,
-    "usatoday": 13
-   },
-   "published": {
-    "cbs": 21.5,
-    "dynastyprocess": 8321.0,
-    "fantasycalc": 5486.0,
-    "fantasypros": 33.5,
-    "usatoday": 45.0
+    "cbs": 10.5,
+    "dynastyprocess": 6.0,
+    "fantasycalc": 7.0,
+    "fantasypros": 14.0,
+    "usatoday": 13.0
    }
   },
   {
    "ddf": 27.9,
    "key": 3862,
    "name": "Chase Brown",
+   "pct_of_top": {
+    "cbs": 26.55,
+    "dynastyprocess": 30.81,
+    "fantasycalc": 38.56,
+    "fantasypros": 51.4,
+    "usatoday": 39.24
+   },
    "pos": "RB",
    "pos_rank": {
-    "cbs": 17,
-    "dynastyprocess": 14,
-    "fantasycalc": 15,
-    "fantasypros": 16,
-    "usatoday": 24
-   },
-   "published": {
-    "cbs": 15.0,
-    "dynastyprocess": 3138.0,
-    "fantasycalc": 4103.0,
-    "fantasypros": 38.6,
-    "usatoday": 31.0
+    "cbs": 17.0,
+    "dynastyprocess": 14.0,
+    "fantasycalc": 15.0,
+    "fantasypros": 16.0,
+    "usatoday": 22.5
    }
   },
   {
    "ddf": 27.4,
    "key": 1311,
    "name": "Joe Burrow",
+   "pct_of_top": {
+    "cbs": 30.09,
+    "dynastyprocess": 41.53,
+    "fantasycalc": 35.02,
+    "fantasypros": 38.08,
+    "usatoday": 44.3
+   },
    "pos": "QB",
    "pos_rank": {
-    "cbs": 2,
-    "dynastyprocess": 5,
-    "fantasycalc": 2,
-    "fantasypros": 2,
-    "usatoday": 2
-   },
-   "published": {
-    "cbs": 17.0,
-    "dynastyprocess": 4229.0,
-    "fantasycalc": 3726.0,
-    "fantasypros": 28.6,
-    "usatoday": 35.0
+    "cbs": 2.0,
+    "dynastyprocess": 5.0,
+    "fantasycalc": 2.0,
+    "fantasypros": 2.0,
+    "usatoday": 2.0
    }
   },
   {
    "ddf": 26.3,
    "key": 2126,
    "name": "Matthew Golden",
+   "pct_of_top": {
+    "cbs": 32.74,
+    "dynastyprocess": 44.98,
+    "fantasycalc": 35.08,
+    "fantasypros": 48.07,
+    "usatoday": 62.03
+   },
    "pos": "WR",
    "pos_rank": {
-    "cbs": 12,
-    "dynastyprocess": 18,
-    "fantasycalc": 14,
-    "fantasypros": 12,
-    "usatoday": 11
-   },
-   "published": {
-    "cbs": 18.5,
-    "dynastyprocess": 4581.0,
-    "fantasycalc": 3732.0,
-    "fantasypros": 36.1,
-    "usatoday": 49.0
+    "cbs": 12.0,
+    "dynastyprocess": 18.0,
+    "fantasycalc": 14.0,
+    "fantasypros": 12.0,
+    "usatoday": 11.5
    }
   },
   {
    "ddf": 24.9,
    "key": 3364,
    "name": "Ashton Jeanty",
+   "pct_of_top": {
+    "cbs": 16.81,
+    "dynastyprocess": 76.14,
+    "fantasycalc": 38.03,
+    "fantasypros": 44.07,
+    "usatoday": 45.57
+   },
    "pos": "RB",
    "pos_rank": {
-    "cbs": 24,
-    "dynastyprocess": 4,
-    "fantasycalc": 16,
-    "fantasypros": 21,
-    "usatoday": 16
-   },
-   "published": {
-    "cbs": 9.5,
-    "dynastyprocess": 7754.0,
-    "fantasycalc": 4046.0,
-    "fantasypros": 33.1,
-    "usatoday": 36.0
+    "cbs": 23.5,
+    "dynastyprocess": 4.0,
+    "fantasycalc": 16.0,
+    "fantasypros": 20.5,
+    "usatoday": 16.0
    }
   },
   {
    "ddf": 24.7,
    "key": 4493,
    "name": "Nico Collins",
+   "pct_of_top": {
+    "cbs": 29.2,
+    "dynastyprocess": 55.18,
+    "fantasycalc": 41.23,
+    "fantasypros": 45.01,
+    "usatoday": 54.43
+   },
    "pos": "WR",
    "pos_rank": {
-    "cbs": 16,
-    "dynastyprocess": 12,
-    "fantasycalc": 12,
-    "fantasypros": 13,
-    "usatoday": 14
-   },
-   "published": {
-    "cbs": 16.5,
-    "dynastyprocess": 5620.0,
-    "fantasycalc": 4387.0,
-    "fantasypros": 33.8,
-    "usatoday": 43.0
+    "cbs": 15.0,
+    "dynastyprocess": 12.0,
+    "fantasycalc": 12.0,
+    "fantasypros": 13.0,
+    "usatoday": 14.0
    }
   },
   {
    "ddf": 24.3,
    "key": 2140,
    "name": "Luther Burden III",
+   "pct_of_top": {
+    "cbs": 31.86,
+    "dynastyprocess": 50.82,
+    "fantasycalc": 31.04,
+    "fantasypros": 41.94,
+    "usatoday": 64.56
+   },
    "pos": "WR",
    "pos_rank": {
-    "cbs": 13,
-    "dynastyprocess": 15,
-    "fantasycalc": 17,
-    "fantasypros": 16,
-    "usatoday": 9
-   },
-   "published": {
-    "cbs": 18.0,
-    "dynastyprocess": 5176.0,
-    "fantasycalc": 3303.0,
-    "fantasypros": 31.5,
-    "usatoday": 51.0
+    "cbs": 13.0,
+    "dynastyprocess": 15.0,
+    "fantasycalc": 17.0,
+    "fantasypros": 16.0,
+    "usatoday": 9.0
    }
   },
   {
    "ddf": 23.4,
    "key": 243,
    "name": "Parker Washington",
+   "pct_of_top": {
+    "cbs": 29.2,
+    "dynastyprocess": 39.62,
+    "fantasycalc": 33.12,
+    "fantasypros": 48.74,
+    "usatoday": 50.63
+   },
    "pos": "WR",
    "pos_rank": {
-    "cbs": 14,
-    "dynastyprocess": 21,
-    "fantasycalc": 15,
-    "fantasypros": 11,
-    "usatoday": 15
-   },
-   "published": {
-    "cbs": 16.5,
-    "dynastyprocess": 4035.0,
-    "fantasycalc": 3524.0,
-    "fantasypros": 36.6,
-    "usatoday": 40.0
+    "cbs": 15.0,
+    "dynastyprocess": 21.0,
+    "fantasycalc": 15.0,
+    "fantasypros": 11.0,
+    "usatoday": 15.5
    }
   },
   {
    "ddf": 23.1,
    "key": 1730,
    "name": "Drake Maye",
+   "pct_of_top": {
+    "cbs": 28.32,
+    "dynastyprocess": 56.76,
+    "fantasycalc": 25.42,
+    "fantasypros": 32.89,
+    "usatoday": 40.51
+   },
    "pos": "QB",
    "pos_rank": {
-    "cbs": 3,
-    "dynastyprocess": 2,
-    "fantasycalc": 3,
-    "fantasypros": 3,
-    "usatoday": 3
-   },
-   "published": {
-    "cbs": 16.0,
-    "dynastyprocess": 5780.0,
-    "fantasycalc": 2705.0,
-    "fantasypros": 24.7,
-    "usatoday": 32.0
+    "cbs": 3.0,
+    "dynastyprocess": 2.0,
+    "fantasycalc": 3.0,
+    "fantasypros": 3.0,
+    "usatoday": 3.0
    }
   },
   {
    "ddf": 22.8,
    "key": 751,
    "name": "Rhamondre Stevenson",
+   "pct_of_top": {
+    "cbs": 27.43,
+    "dynastyprocess": 5.07,
+    "fantasycalc": 19.96,
+    "fantasypros": 50.07,
+    "usatoday": 36.71
+   },
    "pos": "RB",
    "pos_rank": {
-    "cbs": 16,
-    "dynastyprocess": 32,
-    "fantasycalc": 21,
-    "fantasypros": 17,
-    "usatoday": 25
-   },
-   "published": {
-    "cbs": 15.5,
-    "dynastyprocess": 516.0,
-    "fantasycalc": 2124.0,
-    "fantasypros": 37.6,
-    "usatoday": 29.0
+    "cbs": 16.0,
+    "dynastyprocess": 32.0,
+    "fantasycalc": 21.0,
+    "fantasypros": 17.0,
+    "usatoday": 25.0
    }
   },
   {
    "ddf": 22.6,
    "key": 1107,
    "name": "Breece Hall",
+   "pct_of_top": {
+    "cbs": 18.58,
+    "dynastyprocess": 61.19,
+    "fantasycalc": 25.21,
+    "fantasypros": 48.74,
+    "usatoday": 41.77
+   },
    "pos": "RB",
    "pos_rank": {
-    "cbs": 22,
-    "dynastyprocess": 8,
-    "fantasycalc": 19,
-    "fantasypros": 18,
-    "usatoday": 17
-   },
-   "published": {
-    "cbs": 10.5,
-    "dynastyprocess": 6232.0,
-    "fantasycalc": 2682.0,
-    "fantasypros": 36.6,
-    "usatoday": 33.0
+    "cbs": 22.0,
+    "dynastyprocess": 8.0,
+    "fantasycalc": 19.0,
+    "fantasypros": 18.0,
+    "usatoday": 17.5
    }
   },
   {
    "ddf": 22.4,
    "key": 1381,
    "name": "Zay Flowers",
+   "pct_of_top": {
+    "cbs": 29.2,
+    "dynastyprocess": 53.27,
+    "fantasycalc": 36.89,
+    "fantasypros": 42.61,
+    "usatoday": 49.37
+   },
    "pos": "WR",
    "pos_rank": {
-    "cbs": 15,
-    "dynastyprocess": 13,
-    "fantasycalc": 13,
-    "fantasypros": 15,
-    "usatoday": 18
-   },
-   "published": {
-    "cbs": 16.5,
-    "dynastyprocess": 5425.0,
-    "fantasycalc": 3925.0,
-    "fantasypros": 32.0,
-    "usatoday": 39.0
+    "cbs": 15.0,
+    "dynastyprocess": 13.0,
+    "fantasycalc": 13.0,
+    "fantasypros": 15.0,
+    "usatoday": 17.5
    }
   },
   {
    "ddf": 21.4,
    "key": 313,
    "name": "Saquon Barkley",
+   "pct_of_top": {
+    "cbs": 23.89,
+    "dynastyprocess": 26.63,
+    "fantasycalc": 30.86,
+    "fantasypros": 34.22,
+    "usatoday": 39.24
+   },
    "pos": "RB",
    "pos_rank": {
-    "cbs": 19,
-    "dynastyprocess": 17,
-    "fantasycalc": 18,
-    "fantasypros": 25,
-    "usatoday": 21
-   },
-   "published": {
-    "cbs": 13.5,
-    "dynastyprocess": 2712.0,
-    "fantasycalc": 3283.0,
-    "fantasypros": 25.7,
-    "usatoday": 31.0
+    "cbs": 19.0,
+    "dynastyprocess": 17.0,
+    "fantasycalc": 18.0,
+    "fantasypros": 25.0,
+    "usatoday": 22.5
    }
   },
   {
    "ddf": 21.1,
    "key": 1891,
    "name": "Ollie Gordon II",
+   "pct_of_top": {
+    "cbs": 24.78,
+    "dynastyprocess": 1.99,
+    "fantasycalc": 15.84,
+    "fantasypros": 46.21,
+    "usatoday": 40.51
+   },
    "pos": "RB",
    "pos_rank": {
-    "cbs": 18,
-    "dynastyprocess": 47,
-    "fantasycalc": 26,
-    "fantasypros": 19,
-    "usatoday": 19
-   },
-   "published": {
-    "cbs": 14.0,
-    "dynastyprocess": 203.0,
-    "fantasycalc": 1685.0,
-    "fantasypros": 34.7,
-    "usatoday": 32.0
+    "cbs": 18.0,
+    "dynastyprocess": 47.0,
+    "fantasycalc": 26.0,
+    "fantasypros": 19.0,
+    "usatoday": 19.5
    }
   },
   {
    "ddf": 20.2,
    "key": 2795,
    "name": "George Kittle",
+   "pct_of_top": {
+    "cbs": 27.43,
+    "dynastyprocess": 12.82,
+    "fantasycalc": 32.56,
+    "fantasypros": 25.83,
+    "usatoday": 53.16
+   },
    "pos": "TE",
    "pos_rank": {
-    "cbs": 3,
-    "dynastyprocess": 12,
-    "fantasycalc": 3,
-    "fantasypros": 3,
-    "usatoday": 3
-   },
-   "published": {
-    "cbs": 15.5,
-    "dynastyprocess": 1306.0,
-    "fantasycalc": 3464.0,
-    "fantasypros": 19.4,
-    "usatoday": 42.0
+    "cbs": 3.0,
+    "dynastyprocess": 12.0,
+    "fantasycalc": 3.0,
+    "fantasypros": 3.0,
+    "usatoday": 3.0
    }
   },
   {
    "ddf": 20.0,
    "key": 4023,
    "name": "Jonah Coleman",
+   "pct_of_top": {
+    "cbs": 20.35,
+    "dynastyprocess": 9.86,
+    "fantasycalc": 18.65,
+    "fantasypros": 42.21,
+    "usatoday": 41.77
+   },
    "pos": "RB",
    "pos_rank": {
-    "cbs": 21,
-    "dynastyprocess": 27,
-    "fantasycalc": 23,
-    "fantasypros": 22,
-    "usatoday": 18
-   },
-   "published": {
-    "cbs": 11.5,
-    "dynastyprocess": 1004.0,
-    "fantasycalc": 1984.0,
-    "fantasypros": 31.7,
-    "usatoday": 33.0
+    "cbs": 20.5,
+    "dynastyprocess": 27.0,
+    "fantasycalc": 23.0,
+    "fantasypros": 22.0,
+    "usatoday": 17.5
    }
   },
   {
    "ddf": 19.2,
    "key": 2862,
    "name": "Garrett Wilson",
+   "pct_of_top": {
+    "cbs": 26.55,
+    "dynastyprocess": 59.5,
+    "fantasycalc": 32.16,
+    "fantasypros": 41.81,
+    "usatoday": 40.51
+   },
    "pos": "WR",
    "pos_rank": {
-    "cbs": 19,
-    "dynastyprocess": 11,
-    "fantasycalc": 16,
-    "fantasypros": 17,
-    "usatoday": 22
-   },
-   "published": {
-    "cbs": 15.0,
-    "dynastyprocess": 6059.0,
-    "fantasycalc": 3422.0,
-    "fantasypros": 31.4,
-    "usatoday": 32.0
+    "cbs": 18.5,
+    "dynastyprocess": 11.0,
+    "fantasycalc": 16.0,
+    "fantasypros": 17.0,
+    "usatoday": 22.0
    }
   },
   {
    "ddf": 19.0,
    "key": 3070,
    "name": "Tony Pollard",
+   "pct_of_top": {
+    "cbs": 15.93,
+    "dynastyprocess": 4.05,
+    "fantasycalc": 20.59,
+    "fantasypros": 44.07,
+    "usatoday": 39.24
+   },
    "pos": "RB",
    "pos_rank": {
-    "cbs": 26,
-    "dynastyprocess": 34,
-    "fantasycalc": 20,
-    "fantasypros": 20,
-    "usatoday": 22
-   },
-   "published": {
-    "cbs": 9.0,
-    "dynastyprocess": 412.0,
-    "fantasycalc": 2191.0,
-    "fantasypros": 33.1,
-    "usatoday": 31.0
+    "cbs": 25.5,
+    "dynastyprocess": 34.0,
+    "fantasycalc": 20.0,
+    "fantasypros": 20.5,
+    "usatoday": 22.5
    }
   },
   {
    "ddf": 18.9,
    "key": 885,
    "name": "George Pickens",
+   "pct_of_top": {
+    "cbs": 26.55,
+    "dynastyprocess": 44.45,
+    "fantasycalc": 25.2,
+    "fantasypros": 39.81,
+    "usatoday": 49.37
+   },
    "pos": "WR",
    "pos_rank": {
-    "cbs": 18,
-    "dynastyprocess": 19,
-    "fantasycalc": 20,
-    "fantasypros": 19,
-    "usatoday": 17
-   },
-   "published": {
-    "cbs": 15.0,
-    "dynastyprocess": 4527.0,
-    "fantasycalc": 2681.0,
-    "fantasypros": 29.9,
-    "usatoday": 39.0
+    "cbs": 18.5,
+    "dynastyprocess": 19.0,
+    "fantasycalc": 20.0,
+    "fantasypros": 19.0,
+    "usatoday": 17.5
    }
   },
   {
    "ddf": 17.8,
    "key": 3716,
    "name": "Rashee Rice",
+   "pct_of_top": {
+    "cbs": 24.78,
+    "dynastyprocess": 28.99,
+    "fantasycalc": 26.78,
+    "fantasypros": 34.89,
+    "usatoday": 50.63
+   },
    "pos": "WR",
    "pos_rank": {
-    "cbs": 23,
-    "dynastyprocess": 28,
-    "fantasycalc": 19,
-    "fantasypros": 23,
-    "usatoday": 16
-   },
-   "published": {
-    "cbs": 14.0,
-    "dynastyprocess": 2952.0,
-    "fantasycalc": 2849.0,
-    "fantasypros": 26.2,
-    "usatoday": 40.0
+    "cbs": 23.0,
+    "dynastyprocess": 28.0,
+    "fantasycalc": 19.0,
+    "fantasypros": 23.0,
+    "usatoday": 15.5
    }
   },
   {
    "ddf": 17.6,
    "key": 3225,
    "name": "Trevor Lawrence",
+   "pct_of_top": {
+    "cbs": 24.78,
+    "dynastyprocess": 36.58,
+    "fantasycalc": 19.85,
+    "fantasypros": 25.3,
+    "usatoday": 30.38
+   },
    "pos": "QB",
    "pos_rank": {
-    "cbs": 4,
-    "dynastyprocess": 7,
-    "fantasycalc": 5,
-    "fantasypros": 5,
-    "usatoday": 6
-   },
-   "published": {
-    "cbs": 14.0,
-    "dynastyprocess": 3725.0,
-    "fantasycalc": 2112.0,
-    "fantasypros": 19.0,
-    "usatoday": 24.0
+    "cbs": 4.0,
+    "dynastyprocess": 7.0,
+    "fantasycalc": 5.0,
+    "fantasypros": 5.0,
+    "usatoday": 5.5
    }
   },
   {
    "ddf": 17.3,
    "key": 4561,
    "name": "Brock Purdy",
+   "pct_of_top": {
+    "cbs": 19.47,
+    "dynastyprocess": 33.53,
+    "fantasycalc": 18.72,
+    "fantasypros": 32.62,
+    "usatoday": 29.11
+   },
    "pos": "QB",
    "pos_rank": {
-    "cbs": 6,
-    "dynastyprocess": 9,
-    "fantasycalc": 6,
-    "fantasypros": 4,
-    "usatoday": 7
-   },
-   "published": {
-    "cbs": 11.0,
-    "dynastyprocess": 3415.0,
-    "fantasycalc": 1992.0,
-    "fantasypros": 24.5,
-    "usatoday": 23.0
+    "cbs": 5.5,
+    "dynastyprocess": 9.0,
+    "fantasycalc": 6.0,
+    "fantasypros": 4.0,
+    "usatoday": 7.0
    }
   },
   {
    "ddf": 17.3,
    "key": 4573,
    "name": "Tetairoa McMillan",
+   "pct_of_top": {
+    "cbs": 25.66,
+    "dynastyprocess": 64.29,
+    "fantasycalc": 27.68,
+    "fantasypros": 39.28,
+    "usatoday": 39.24
+   },
    "pos": "WR",
    "pos_rank": {
-    "cbs": 21,
-    "dynastyprocess": 10,
-    "fantasycalc": 18,
-    "fantasypros": 20,
-    "usatoday": 26
-   },
-   "published": {
-    "cbs": 14.5,
-    "dynastyprocess": 6547.0,
-    "fantasycalc": 2945.0,
-    "fantasypros": 29.5,
-    "usatoday": 31.0
+    "cbs": 20.5,
+    "dynastyprocess": 10.0,
+    "fantasycalc": 18.0,
+    "fantasypros": 20.0,
+    "usatoday": 24.5
    }
   },
   {
    "ddf": 17.0,
    "key": 2756,
    "name": "Jameson Williams",
+   "pct_of_top": {
+    "cbs": 23.01,
+    "dynastyprocess": 29.88,
+    "fantasycalc": 23.74,
+    "fantasypros": 41.28,
+    "usatoday": 43.04
+   },
    "pos": "WR",
    "pos_rank": {
-    "cbs": 25,
-    "dynastyprocess": 27,
-    "fantasycalc": 22,
-    "fantasypros": 18,
-    "usatoday": 19
-   },
-   "published": {
-    "cbs": 13.0,
-    "dynastyprocess": 3043.0,
-    "fantasycalc": 2526.0,
-    "fantasypros": 31.0,
-    "usatoday": 34.0
+    "cbs": 25.0,
+    "dynastyprocess": 27.0,
+    "fantasycalc": 22.0,
+    "fantasypros": 18.0,
+    "usatoday": 19.0
    }
   },
   {
    "ddf": 16.6,
    "key": 3664,
    "name": "Cam Skattebo",
+   "pct_of_top": {
+    "cbs": 20.35,
+    "dynastyprocess": 15.26,
+    "fantasycalc": 15.77,
+    "fantasypros": 32.22,
+    "usatoday": 40.51
+   },
    "pos": "RB",
    "pos_rank": {
-    "cbs": 20,
-    "dynastyprocess": 25,
-    "fantasycalc": 27,
-    "fantasypros": 28,
-    "usatoday": 20
-   },
-   "published": {
-    "cbs": 11.5,
-    "dynastyprocess": 1554.0,
-    "fantasycalc": 1678.0,
-    "fantasypros": 24.2,
-    "usatoday": 32.0
+    "cbs": 20.5,
+    "dynastyprocess": 25.0,
+    "fantasycalc": 27.0,
+    "fantasypros": 28.0,
+    "usatoday": 19.5
    }
   },
   {
    "ddf": 16.3,
    "key": 325,
    "name": "DJ Moore",
+   "pct_of_top": {
+    "cbs": 27.43,
+    "dynastyprocess": 22.86,
+    "fantasycalc": 19.06,
+    "fantasypros": 38.88,
+    "usatoday": 41.77
+   },
    "pos": "WR",
    "pos_rank": {
-    "cbs": 17,
-    "dynastyprocess": 33,
-    "fantasycalc": 23,
-    "fantasypros": 21,
-    "usatoday": 20
-   },
-   "published": {
-    "cbs": 15.5,
-    "dynastyprocess": 2328.0,
-    "fantasycalc": 2028.0,
-    "fantasypros": 29.2,
-    "usatoday": 33.0
+    "cbs": 17.0,
+    "dynastyprocess": 33.0,
+    "fantasycalc": 23.0,
+    "fantasypros": 21.0,
+    "usatoday": 20.5
    }
   },
   {
    "ddf": 15.9,
    "key": 3082,
    "name": "Mike Evans",
+   "pct_of_top": {
+    "cbs": 25.66,
+    "dynastyprocess": 9.6,
+    "fantasycalc": 24.44,
+    "fantasypros": 36.22,
+    "usatoday": 39.24
+   },
    "pos": "WR",
    "pos_rank": {
-    "cbs": 20,
-    "dynastyprocess": 44,
-    "fantasycalc": 21,
-    "fantasypros": 22,
-    "usatoday": 24
-   },
-   "published": {
-    "cbs": 14.5,
-    "dynastyprocess": 978.0,
-    "fantasycalc": 2600.0,
-    "fantasypros": 27.2,
-    "usatoday": 31.0
+    "cbs": 20.5,
+    "dynastyprocess": 44.0,
+    "fantasycalc": 21.0,
+    "fantasypros": 22.0,
+    "usatoday": 24.5
    }
   },
   {
    "ddf": 15.4,
    "key": 3167,
    "name": "Quinshon Judkins",
+   "pct_of_top": {
+    "cbs": 14.16,
+    "dynastyprocess": 27.92,
+    "fantasycalc": 17.42,
+    "fantasypros": 34.35,
+    "usatoday": 39.24
+   },
    "pos": "RB",
    "pos_rank": {
-    "cbs": 29,
-    "dynastyprocess": 15,
-    "fantasycalc": 24,
-    "fantasypros": 24,
-    "usatoday": 23
-   },
-   "published": {
-    "cbs": 8.0,
-    "dynastyprocess": 2843.0,
-    "fantasycalc": 1853.0,
-    "fantasypros": 25.8,
-    "usatoday": 31.0
+    "cbs": 29.0,
+    "dynastyprocess": 15.0,
+    "fantasycalc": 24.0,
+    "fantasypros": 24.0,
+    "usatoday": 22.5
    }
   },
   {
    "ddf": 14.2,
    "key": 1760,
    "name": "Caleb Williams",
+   "pct_of_top": {
+    "cbs": 19.47,
+    "dynastyprocess": 41.33,
+    "fantasycalc": 20.01,
+    "fantasypros": 15.98,
+    "usatoday": 30.38
+   },
    "pos": "QB",
    "pos_rank": {
-    "cbs": 5,
-    "dynastyprocess": 6,
-    "fantasycalc": 4,
-    "fantasypros": 7,
-    "usatoday": 5
-   },
-   "published": {
-    "cbs": 11.0,
-    "dynastyprocess": 4209.0,
-    "fantasycalc": 2129.0,
-    "fantasypros": 12.0,
-    "usatoday": 24.0
+    "cbs": 5.5,
+    "dynastyprocess": 6.0,
+    "fantasycalc": 4.0,
+    "fantasypros": 7.0,
+    "usatoday": 5.5
    }
   },
   {
    "ddf": 13.9,
    "key": 1663,
    "name": "Blake Corum",
+   "pct_of_top": {
+    "cbs": 15.93,
+    "dynastyprocess": 8.32,
+    "fantasycalc": 12.91,
+    "fantasypros": 37.55,
+    "usatoday": 32.91
+   },
    "pos": "RB",
    "pos_rank": {
-    "cbs": 25,
-    "dynastyprocess": 28,
-    "fantasycalc": 29,
-    "fantasypros": 23,
-    "usatoday": 28
-   },
-   "published": {
-    "cbs": 9.0,
-    "dynastyprocess": 847.0,
-    "fantasycalc": 1374.0,
-    "fantasypros": 28.2,
-    "usatoday": 26.0
+    "cbs": 25.5,
+    "dynastyprocess": 28.0,
+    "fantasycalc": 29.0,
+    "fantasypros": 23.0,
+    "usatoday": 27.5
    }
   },
   {
    "ddf": 13.4,
    "key": 3871,
    "name": "Colston Loveland",
+   "pct_of_top": {
+    "cbs": 16.81,
+    "dynastyprocess": 48.15,
+    "fantasycalc": 22.01,
+    "fantasypros": 21.04,
+    "usatoday": 43.04
+   },
    "pos": "TE",
    "pos_rank": {
-    "cbs": 5,
-    "dynastyprocess": 3,
-    "fantasycalc": 4,
-    "fantasypros": 4,
-    "usatoday": 4
-   },
-   "published": {
-    "cbs": 9.5,
-    "dynastyprocess": 4904.0,
-    "fantasycalc": 2342.0,
-    "fantasypros": 15.8,
-    "usatoday": 34.0
+    "cbs": 5.0,
+    "dynastyprocess": 3.0,
+    "fantasycalc": 4.0,
+    "fantasypros": 4.0,
+    "usatoday": 4.0
    }
   },
   {
    "ddf": 12.7,
    "key": 3942,
    "name": "Emeka Egbuka",
+   "pct_of_top": {
+    "cbs": 24.78,
+    "dynastyprocess": 51.42,
+    "fantasycalc": 16.35,
+    "fantasypros": 33.56,
+    "usatoday": 35.44
+   },
    "pos": "WR",
    "pos_rank": {
-    "cbs": 24,
-    "dynastyprocess": 14,
-    "fantasycalc": 26,
-    "fantasypros": 27,
-    "usatoday": 27
-   },
-   "published": {
-    "cbs": 14.0,
-    "dynastyprocess": 5237.0,
-    "fantasycalc": 1740.0,
-    "fantasypros": 25.2,
-    "usatoday": 28.0
+    "cbs": 23.0,
+    "dynastyprocess": 14.0,
+    "fantasycalc": 26.0,
+    "fantasypros": 27.0,
+    "usatoday": 27.5
    }
   },
   {
    "ddf": 12.7,
    "key": 2853,
    "name": "Braelon Allen",
+   "pct_of_top": {
+    "cbs": 16.81,
+    "dynastyprocess": 3.15,
+    "fantasycalc": 12.04,
+    "fantasypros": 31.03,
+    "usatoday": 34.18
+   },
    "pos": "RB",
    "pos_rank": {
-    "cbs": 23,
-    "dynastyprocess": 38,
-    "fantasycalc": 31,
-    "fantasypros": 29,
-    "usatoday": 26
-   },
-   "published": {
-    "cbs": 9.5,
-    "dynastyprocess": 321.0,
-    "fantasycalc": 1281.0,
-    "fantasypros": 23.3,
-    "usatoday": 27.0
+    "cbs": 23.5,
+    "dynastyprocess": 38.0,
+    "fantasycalc": 31.0,
+    "fantasypros": 29.0,
+    "usatoday": 26.0
    }
   },
   {
    "ddf": 12.6,
    "key": 764,
    "name": "DeVonta Smith",
+   "pct_of_top": {
+    "cbs": 24.78,
+    "dynastyprocess": 45.51,
+    "fantasycalc": 16.16,
+    "fantasypros": 34.49,
+    "usatoday": 34.18
+   },
    "pos": "WR",
    "pos_rank": {
-    "cbs": 22,
-    "dynastyprocess": 17,
-    "fantasycalc": 27,
-    "fantasypros": 24,
-    "usatoday": 29
-   },
-   "published": {
-    "cbs": 14.0,
-    "dynastyprocess": 4635.0,
-    "fantasycalc": 1719.0,
-    "fantasypros": 25.9,
-    "usatoday": 27.0
+    "cbs": 23.0,
+    "dynastyprocess": 17.0,
+    "fantasycalc": 27.0,
+    "fantasypros": 24.0,
+    "usatoday": 29.0
    }
   },
   {
    "ddf": 11.9,
    "key": 306,
    "name": "Jared Goff",
+   "pct_of_top": {
+    "cbs": 15.93,
+    "dynastyprocess": 14.02,
+    "fantasycalc": 11.78,
+    "fantasypros": 17.04,
+    "usatoday": 31.65
+   },
    "pos": "QB",
    "pos_rank": {
-    "cbs": 8,
-    "dynastyprocess": 14,
-    "fantasycalc": 11,
-    "fantasypros": 6,
-    "usatoday": 4
-   },
-   "published": {
-    "cbs": 9.0,
-    "dynastyprocess": 1428.0,
-    "fantasycalc": 1253.0,
-    "fantasypros": 12.8,
-    "usatoday": 25.0
+    "cbs": 8.0,
+    "dynastyprocess": 14.0,
+    "fantasycalc": 11.0,
+    "fantasypros": 6.0,
+    "usatoday": 4.0
    }
   },
   {
    "ddf": 11.9,
    "key": 1205,
    "name": "Michael Wilson",
+   "pct_of_top": {
+    "cbs": 17.7,
+    "dynastyprocess": 16.41,
+    "fantasycalc": 17.83,
+    "fantasypros": 31.03,
+    "usatoday": 41.77
+   },
    "pos": "WR",
    "pos_rank": {
-    "cbs": 29,
-    "dynastyprocess": 35,
-    "fantasycalc": 25,
-    "fantasypros": 29,
-    "usatoday": 21
-   },
-   "published": {
-    "cbs": 10.0,
-    "dynastyprocess": 1671.0,
-    "fantasycalc": 1897.0,
-    "fantasypros": 23.3,
-    "usatoday": 33.0
+    "cbs": 29.0,
+    "dynastyprocess": 35.0,
+    "fantasycalc": 25.0,
+    "fantasypros": 29.0,
+    "usatoday": 20.5
    }
   },
   {
    "ddf": 11.6,
    "key": 4035,
    "name": "Carnell Tate",
+   "pct_of_top": {
+    "cbs": 19.47,
+    "dynastyprocess": 48.61,
+    "fantasycalc": 16.11,
+    "fantasypros": 34.22,
+    "usatoday": 35.44
+   },
    "pos": "WR",
    "pos_rank": {
-    "cbs": 27,
-    "dynastyprocess": 16,
-    "fantasycalc": 28,
-    "fantasypros": 26,
-    "usatoday": 28
-   },
-   "published": {
-    "cbs": 11.0,
-    "dynastyprocess": 4950.0,
-    "fantasycalc": 1714.0,
-    "fantasypros": 25.7,
-    "usatoday": 28.0
+    "cbs": 27.0,
+    "dynastyprocess": 16.0,
+    "fantasycalc": 28.0,
+    "fantasypros": 26.0,
+    "usatoday": 27.5
    }
   },
   {
    "ddf": 11.5,
    "key": 3593,
    "name": "Isaiah Likely",
+   "pct_of_top": {
+    "cbs": 19.47,
+    "dynastyprocess": 14.32,
+    "fantasycalc": 17.99,
+    "fantasypros": 17.31,
+    "usatoday": 35.44
+   },
    "pos": "TE",
    "pos_rank": {
-    "cbs": 4,
-    "dynastyprocess": 10,
-    "fantasycalc": 5,
-    "fantasypros": 7,
-    "usatoday": 6
-   },
-   "published": {
-    "cbs": 11.0,
-    "dynastyprocess": 1458.0,
-    "fantasycalc": 1914.0,
-    "fantasypros": 13.0,
-    "usatoday": 28.0
+    "cbs": 4.0,
+    "dynastyprocess": 10.0,
+    "fantasycalc": 5.0,
+    "fantasypros": 7.0,
+    "usatoday": 6.0
    }
   },
   {
    "ddf": 11.4,
    "key": 1354,
    "name": "Tucker Kraft",
+   "pct_of_top": {
+    "cbs": 14.16,
+    "dynastyprocess": 29.81,
+    "fantasycalc": 17.59,
+    "fantasypros": 20.24,
+    "usatoday": 40.51
+   },
    "pos": "TE",
    "pos_rank": {
-    "cbs": 6,
-    "dynastyprocess": 6,
-    "fantasycalc": 6,
-    "fantasypros": 5,
-    "usatoday": 5
-   },
-   "published": {
-    "cbs": 8.0,
-    "dynastyprocess": 3036.0,
-    "fantasycalc": 1872.0,
-    "fantasypros": 15.2,
-    "usatoday": 32.0
+    "cbs": 7.0,
+    "dynastyprocess": 6.0,
+    "fantasycalc": 6.0,
+    "fantasypros": 5.5,
+    "usatoday": 5.0
    }
   },
   {
    "ddf": 11.3,
    "key": 810,
    "name": "Travis Etienne",
+   "pct_of_top": {
+    "cbs": 15.04,
+    "dynastyprocess": 21.46,
+    "fantasycalc": 13.38,
+    "fantasypros": 27.7,
+    "usatoday": 32.91
+   },
    "pos": "RB",
    "pos_rank": {
-    "cbs": 27,
-    "dynastyprocess": 19,
-    "fantasycalc": 28,
-    "fantasypros": 31,
-    "usatoday": 27
-   },
-   "published": {
-    "cbs": 8.5,
-    "dynastyprocess": 2185.0,
-    "fantasycalc": 1424.0,
-    "fantasypros": 20.8,
-    "usatoday": 26.0
+    "cbs": 27.0,
+    "dynastyprocess": 19.0,
+    "fantasycalc": 28.0,
+    "fantasypros": 31.0,
+    "usatoday": 27.5
    }
   },
   {
    "ddf": 10.9,
    "key": 71,
    "name": "Stefon Diggs",
+   "pct_of_top": {
+    "cbs": 19.47,
+    "dynastyprocess": 3.89,
+    "fantasycalc": 12.27,
+    "fantasypros": 32.22,
+    "usatoday": 39.24
+   },
    "pos": "WR",
    "pos_rank": {
-    "cbs": 26,
-    "dynastyprocess": 60,
-    "fantasycalc": 31,
-    "fantasypros": 28,
-    "usatoday": 23
-   },
-   "published": {
-    "cbs": 11.0,
-    "dynastyprocess": 396.0,
-    "fantasycalc": 1306.0,
-    "fantasypros": 24.2,
-    "usatoday": 31.0
+    "cbs": 27.0,
+    "dynastyprocess": 60.0,
+    "fantasycalc": 31.0,
+    "fantasypros": 28.0,
+    "usatoday": 24.5
    }
   },
   {
    "ddf": 10.9,
    "key": 1761,
    "name": "Jayden Daniels",
+   "pct_of_top": {
+    "cbs": 17.7,
+    "dynastyprocess": 35.98,
+    "fantasycalc": 14.28,
+    "fantasypros": 10.65,
+    "usatoday": 27.85
+   },
    "pos": "QB",
    "pos_rank": {
-    "cbs": 7,
-    "dynastyprocess": 8,
-    "fantasycalc": 10,
-    "fantasypros": 10,
-    "usatoday": 8
-   },
-   "published": {
-    "cbs": 10.0,
-    "dynastyprocess": 3664.0,
-    "fantasycalc": 1519.0,
-    "fantasypros": 8.0,
-    "usatoday": 22.0
+    "cbs": 7.0,
+    "dynastyprocess": 8.0,
+    "fantasycalc": 10.0,
+    "fantasypros": 10.0,
+    "usatoday": 8.0
    }
   },
   {
    "ddf": 9.8,
    "key": 4581,
    "name": "Jalen Coker",
+   "pct_of_top": {
+    "cbs": 19.47,
+    "dynastyprocess": 14.77,
+    "fantasycalc": 11.74,
+    "fantasypros": 34.35,
+    "usatoday": 30.38
+   },
    "pos": "WR",
    "pos_rank": {
-    "cbs": 28,
-    "dynastyprocess": 37,
-    "fantasycalc": 32,
-    "fantasypros": 25,
-    "usatoday": 33
-   },
-   "published": {
-    "cbs": 11.0,
-    "dynastyprocess": 1504.0,
-    "fantasycalc": 1249.0,
-    "fantasypros": 25.8,
-    "usatoday": 24.0
+    "cbs": 27.0,
+    "dynastyprocess": 37.0,
+    "fantasycalc": 32.0,
+    "fantasypros": 25.0,
+    "usatoday": 32.0
    }
   },
   {
    "ddf": 9.7,
    "key": 3672,
    "name": "Sam LaPorta",
+   "pct_of_top": {
+    "cbs": 12.39,
+    "dynastyprocess": 37.35,
+    "fantasycalc": 15.1,
+    "fantasypros": 20.24,
+    "usatoday": 34.18
+   },
    "pos": "TE",
    "pos_rank": {
-    "cbs": 9,
-    "dynastyprocess": 5,
-    "fantasycalc": 8,
-    "fantasypros": 6,
-    "usatoday": 8
-   },
-   "published": {
-    "cbs": 7.0,
-    "dynastyprocess": 3804.0,
-    "fantasycalc": 1607.0,
-    "fantasypros": 15.2,
-    "usatoday": 27.0
+    "cbs": 9.0,
+    "dynastyprocess": 5.0,
+    "fantasycalc": 8.0,
+    "fantasypros": 5.5,
+    "usatoday": 7.5
    }
   },
   {
    "ddf": 9.4,
    "key": 468,
    "name": "A.J. Brown",
+   "pct_of_top": {
+    "cbs": 14.16,
+    "dynastyprocess": 36.74,
+    "fantasycalc": 18.18,
+    "fantasypros": 30.36,
+    "usatoday": 32.91
+   },
    "pos": "WR",
    "pos_rank": {
-    "cbs": 32,
-    "dynastyprocess": 23,
-    "fantasycalc": 24,
-    "fantasypros": 31,
-    "usatoday": 30
-   },
-   "published": {
-    "cbs": 8.0,
-    "dynastyprocess": 3742.0,
-    "fantasycalc": 1934.0,
-    "fantasypros": 22.8,
-    "usatoday": 26.0
+    "cbs": 33.0,
+    "dynastyprocess": 23.0,
+    "fantasycalc": 24.0,
+    "fantasypros": 31.0,
+    "usatoday": 30.0
    }
   },
   {
    "ddf": 9.1,
    "key": 1285,
    "name": "Dak Prescott",
+   "pct_of_top": {
+    "cbs": 12.39,
+    "dynastyprocess": 17.69,
+    "fantasycalc": 14.9,
+    "fantasypros": 10.12,
+    "usatoday": 26.58
+   },
    "pos": "QB",
    "pos_rank": {
-    "cbs": 10,
-    "dynastyprocess": 12,
-    "fantasycalc": 9,
-    "fantasypros": 11,
-    "usatoday": 9
-   },
-   "published": {
-    "cbs": 7.0,
-    "dynastyprocess": 1802.0,
-    "fantasycalc": 1585.0,
-    "fantasypros": 7.6,
-    "usatoday": 21.0
+    "cbs": 10.0,
+    "dynastyprocess": 12.0,
+    "fantasycalc": 9.0,
+    "fantasypros": 11.0,
+    "usatoday": 9.0
    }
   },
   {
    "ddf": 9.0,
    "key": 2821,
    "name": "Jordan Mason",
+   "pct_of_top": {
+    "cbs": 10.62,
+    "dynastyprocess": 2.07,
+    "fantasycalc": 4.9,
+    "fantasypros": 33.16,
+    "usatoday": 31.65
+   },
    "pos": "RB",
    "pos_rank": {
-    "cbs": 36,
-    "dynastyprocess": 46,
-    "fantasycalc": 42,
-    "fantasypros": 27,
-    "usatoday": 30
-   },
-   "published": {
-    "cbs": 6.0,
-    "dynastyprocess": 211.0,
-    "fantasycalc": 521.0,
-    "fantasypros": 24.9,
-    "usatoday": 25.0
+    "cbs": 35.5,
+    "dynastyprocess": 46.0,
+    "fantasycalc": 42.0,
+    "fantasypros": 27.0,
+    "usatoday": 29.5
    }
   },
   {
    "ddf": 8.9,
    "key": 3442,
    "name": "Jordan Love",
+   "pct_of_top": {
+    "cbs": 14.16,
+    "dynastyprocess": 17.62,
+    "fantasycalc": 15.16,
+    "fantasypros": 13.32,
+    "usatoday": 18.99
+   },
    "pos": "QB",
    "pos_rank": {
-    "cbs": 9,
-    "dynastyprocess": 13,
-    "fantasycalc": 8,
-    "fantasypros": 8,
-    "usatoday": 10
-   },
-   "published": {
-    "cbs": 8.0,
-    "dynastyprocess": 1794.0,
-    "fantasycalc": 1613.0,
-    "fantasypros": 10.0,
-    "usatoday": 15.0
+    "cbs": 9.0,
+    "dynastyprocess": 13.0,
+    "fantasycalc": 8.0,
+    "fantasypros": 8.0,
+    "usatoday": 10.0
    }
   },
   {
    "ddf": 8.5,
    "key": 171,
    "name": "Jeremiyah Love",
+   "pct_of_top": {
+    "cbs": 9.73,
+    "dynastyprocess": 72.48,
+    "fantasycalc": 18.92,
+    "fantasypros": 30.63,
+    "usatoday": 15.19
+   },
    "pos": "RB",
    "pos_rank": {
-    "cbs": 38,
-    "dynastyprocess": 6,
-    "fantasycalc": 22,
-    "fantasypros": 30,
-    "usatoday": 47
-   },
-   "published": {
-    "cbs": 5.5,
-    "dynastyprocess": 7381.0,
-    "fantasycalc": 2013.0,
-    "fantasypros": 23.0,
-    "usatoday": 12.0
+    "cbs": 38.5,
+    "dynastyprocess": 6.0,
+    "fantasycalc": 22.0,
+    "fantasypros": 30.0,
+    "usatoday": 47.0
    }
   },
   {
    "ddf": 8.5,
    "key": 1860,
    "name": "Tyler Warren",
+   "pct_of_top": {
+    "cbs": 14.16,
+    "dynastyprocess": 37.62,
+    "fantasycalc": 16.69,
+    "fantasypros": 12.38,
+    "usatoday": 32.91
+   },
    "pos": "TE",
    "pos_rank": {
-    "cbs": 7,
-    "dynastyprocess": 4,
-    "fantasycalc": 7,
-    "fantasypros": 12,
-    "usatoday": 9
-   },
-   "published": {
-    "cbs": 8.0,
-    "dynastyprocess": 3831.0,
-    "fantasycalc": 1776.0,
-    "fantasypros": 9.3,
-    "usatoday": 26.0
+    "cbs": 7.0,
+    "dynastyprocess": 4.0,
+    "fantasycalc": 7.0,
+    "fantasypros": 12.0,
+    "usatoday": 9.5
    }
   },
   {
    "ddf": 8.3,
    "key": 3482,
    "name": "Kyle Monangai",
+   "pct_of_top": {
+    "cbs": 10.62,
+    "dynastyprocess": 8.27,
+    "fantasycalc": 8.2,
+    "fantasypros": 33.95,
+    "usatoday": 25.32
+   },
    "pos": "RB",
    "pos_rank": {
-    "cbs": 37,
-    "dynastyprocess": 29,
-    "fantasycalc": 36,
-    "fantasypros": 26,
-    "usatoday": 34
-   },
-   "published": {
-    "cbs": 6.0,
-    "dynastyprocess": 842.0,
-    "fantasycalc": 872.0,
-    "fantasypros": 25.5,
-    "usatoday": 20.0
+    "cbs": 35.5,
+    "dynastyprocess": 29.0,
+    "fantasycalc": 36.0,
+    "fantasypros": 26.0,
+    "usatoday": 33.5
    }
   },
   {
    "ddf": 8.3,
    "key": 4379,
    "name": "DK Metcalf",
+   "pct_of_top": {
+    "cbs": 14.16,
+    "dynastyprocess": 19.99,
+    "fantasycalc": 7.34,
+    "fantasypros": 30.49,
+    "usatoday": 39.24
+   },
    "pos": "WR",
    "pos_rank": {
-    "cbs": 34,
-    "dynastyprocess": 34,
-    "fantasycalc": 36,
-    "fantasypros": 30,
-    "usatoday": 25
-   },
-   "published": {
-    "cbs": 8.0,
-    "dynastyprocess": 2036.0,
-    "fantasycalc": 781.0,
-    "fantasypros": 22.9,
-    "usatoday": 31.0
+    "cbs": 33.0,
+    "dynastyprocess": 34.0,
+    "fantasycalc": 36.0,
+    "fantasypros": 30.0,
+    "usatoday": 24.5
    }
   },
   {
    "ddf": 7.9,
    "key": 1934,
    "name": "Rachaad White",
+   "pct_of_top": {
+    "cbs": 11.5,
+    "dynastyprocess": 2.57,
+    "fantasycalc": 7.69,
+    "fantasypros": 25.43,
+    "usatoday": 31.65
+   },
    "pos": "RB",
    "pos_rank": {
-    "cbs": 32,
-    "dynastyprocess": 42,
-    "fantasycalc": 37,
-    "fantasypros": 32,
-    "usatoday": 29
-   },
-   "published": {
-    "cbs": 6.5,
-    "dynastyprocess": 262.0,
-    "fantasycalc": 818.0,
-    "fantasypros": 19.1,
-    "usatoday": 25.0
+    "cbs": 32.5,
+    "dynastyprocess": 42.0,
+    "fantasycalc": 37.0,
+    "fantasypros": 32.0,
+    "usatoday": 29.5
    }
   },
   {
    "ddf": 7.6,
    "key": 3594,
    "name": "Patrick Mahomes",
+   "pct_of_top": {
+    "cbs": 10.62,
+    "dynastyprocess": 46.27,
+    "fantasycalc": 17.41,
+    "fantasypros": 12.25,
+    "usatoday": 16.46
+   },
    "pos": "QB",
    "pos_rank": {
-    "cbs": 12,
-    "dynastyprocess": 4,
-    "fantasycalc": 7,
-    "fantasypros": 9,
-    "usatoday": 12
-   },
-   "published": {
-    "cbs": 6.0,
-    "dynastyprocess": 4712.0,
-    "fantasycalc": 1852.0,
-    "fantasypros": 9.2,
-    "usatoday": 13.0
+    "cbs": 12.0,
+    "dynastyprocess": 4.0,
+    "fantasycalc": 7.0,
+    "fantasypros": 9.0,
+    "usatoday": 12.5
    }
   },
   {
    "ddf": 7.5,
    "key": 3279,
    "name": "Dalton Kincaid",
+   "pct_of_top": {
+    "cbs": 11.5,
+    "dynastyprocess": 27.2,
+    "fantasycalc": 7.83,
+    "fantasypros": 16.91,
+    "usatoday": 34.18
+   },
    "pos": "TE",
    "pos_rank": {
-    "cbs": 10,
-    "dynastyprocess": 7,
-    "fantasycalc": 11,
-    "fantasypros": 8,
-    "usatoday": 7
-   },
-   "published": {
-    "cbs": 6.5,
-    "dynastyprocess": 2770.0,
-    "fantasycalc": 833.0,
-    "fantasypros": 12.7,
-    "usatoday": 27.0
+    "cbs": 10.0,
+    "dynastyprocess": 7.0,
+    "fantasycalc": 11.0,
+    "fantasypros": 8.0,
+    "usatoday": 7.5
    }
   },
   {
    "ddf": 7.2,
    "key": 3253,
    "name": "Jaylen Waddle",
+   "pct_of_top": {
+    "cbs": 15.93,
+    "dynastyprocess": 37.1,
+    "fantasycalc": 12.29,
+    "fantasypros": 26.36,
+    "usatoday": 30.38
+   },
    "pos": "WR",
    "pos_rank": {
-    "cbs": 31,
-    "dynastyprocess": 22,
-    "fantasycalc": 30,
-    "fantasypros": 34,
-    "usatoday": 32
-   },
-   "published": {
-    "cbs": 9.0,
-    "dynastyprocess": 3778.0,
-    "fantasycalc": 1308.0,
-    "fantasypros": 19.8,
-    "usatoday": 24.0
+    "cbs": 30.5,
+    "dynastyprocess": 22.0,
+    "fantasycalc": 30.0,
+    "fantasypros": 34.0,
+    "usatoday": 32.0
    }
   },
   {
    "ddf": 7.2,
    "key": 2634,
    "name": "Ladd McConkey",
+   "pct_of_top": {
+    "cbs": 15.93,
+    "dynastyprocess": 35.89,
+    "fantasycalc": 12.52,
+    "fantasypros": 26.1,
+    "usatoday": 30.38
+   },
    "pos": "WR",
    "pos_rank": {
-    "cbs": 30,
-    "dynastyprocess": 24,
-    "fantasycalc": 29,
-    "fantasypros": 35,
-    "usatoday": 31
-   },
-   "published": {
-    "cbs": 9.0,
-    "dynastyprocess": 3655.0,
-    "fantasycalc": 1332.0,
-    "fantasypros": 19.6,
-    "usatoday": 24.0
+    "cbs": 30.5,
+    "dynastyprocess": 24.0,
+    "fantasycalc": 29.0,
+    "fantasypros": 35.0,
+    "usatoday": 32.0
    }
   },
   {
    "ddf": 6.8,
    "key": 2113,
    "name": "Harold Fannin Jr.",
+   "pct_of_top": {
+    "cbs": null,
+    "dynastyprocess": 23.35,
+    "fantasycalc": 10.23,
+    "fantasypros": 15.98,
+    "usatoday": 29.11
+   },
    "pos": "TE",
    "pos_rank": {
     "cbs": null,
-    "dynastyprocess": 8,
-    "fantasycalc": 10,
-    "fantasypros": 9,
-    "usatoday": 12
-   },
-   "published": {
-    "cbs": null,
-    "dynastyprocess": 2378.0,
-    "fantasycalc": 1089.0,
-    "fantasypros": 12.0,
-    "usatoday": 23.0
+    "dynastyprocess": 8.0,
+    "fantasycalc": 10.0,
+    "fantasypros": 9.0,
+    "usatoday": 12.0
    }
   },
   {
    "ddf": 6.6,
    "key": 4192,
    "name": "Travis Kelce",
+   "pct_of_top": {
+    "cbs": null,
+    "dynastyprocess": 3.17,
+    "fantasycalc": 13.2,
+    "fantasypros": 14.91,
+    "usatoday": 25.32
+   },
    "pos": "TE",
    "pos_rank": {
     "cbs": null,
-    "dynastyprocess": 22,
-    "fantasycalc": 9,
-    "fantasypros": 11,
-    "usatoday": 14
-   },
-   "published": {
-    "cbs": null,
-    "dynastyprocess": 323.0,
-    "fantasycalc": 1404.0,
-    "fantasypros": 11.2,
-    "usatoday": 20.0
+    "dynastyprocess": 22.0,
+    "fantasycalc": 9.0,
+    "fantasypros": 11.0,
+    "usatoday": 14.0
    }
   },
   {
    "ddf": 6.2,
    "key": 1970,
    "name": "Kyle Pitts",
+   "pct_of_top": {
+    "cbs": 14.16,
+    "dynastyprocess": 22.59,
+    "fantasycalc": 5.36,
+    "fantasypros": 10.65,
+    "usatoday": 32.91
+   },
    "pos": "TE",
    "pos_rank": {
-    "cbs": 8,
-    "dynastyprocess": 9,
-    "fantasycalc": 13,
-    "fantasypros": 14,
-    "usatoday": 10
-   },
-   "published": {
-    "cbs": 8.0,
-    "dynastyprocess": 2301.0,
-    "fantasycalc": 570.0,
-    "fantasypros": 8.0,
-    "usatoday": 26.0
+    "cbs": 7.0,
+    "dynastyprocess": 9.0,
+    "fantasycalc": 13.0,
+    "fantasypros": 14.0,
+    "usatoday": 9.5
    }
   },
   {
    "ddf": 6.0,
    "key": 4617,
    "name": "Zach Charbonnet",
+   "pct_of_top": {
+    "cbs": 14.16,
+    "dynastyprocess": 3.9,
+    "fantasycalc": 8.98,
+    "fantasypros": 22.1,
+    "usatoday": 21.52
+   },
    "pos": "RB",
    "pos_rank": {
-    "cbs": 30,
-    "dynastyprocess": 36,
-    "fantasycalc": 34,
-    "fantasypros": 36,
-    "usatoday": 39
-   },
-   "published": {
-    "cbs": 8.0,
-    "dynastyprocess": 397.0,
-    "fantasycalc": 955.0,
-    "fantasypros": 16.6,
-    "usatoday": 17.0
+    "cbs": 29.0,
+    "dynastyprocess": 36.0,
+    "fantasycalc": 34.0,
+    "fantasypros": 36.0,
+    "usatoday": 38.5
    }
   },
   {
    "ddf": 5.9,
    "key": 2677,
    "name": "Rome Odunze",
+   "pct_of_top": {
+    "cbs": 9.73,
+    "dynastyprocess": 33.45,
+    "fantasycalc": 9.21,
+    "fantasypros": 30.23,
+    "usatoday": 29.11
+   },
    "pos": "WR",
    "pos_rank": {
-    "cbs": 40,
-    "dynastyprocess": 26,
-    "fantasycalc": 34,
-    "fantasypros": 33,
-    "usatoday": 34
-   },
-   "published": {
-    "cbs": 5.5,
-    "dynastyprocess": 3407.0,
-    "fantasycalc": 980.0,
-    "fantasypros": 22.7,
-    "usatoday": 23.0
+    "cbs": 38.5,
+    "dynastyprocess": 26.0,
+    "fantasycalc": 34.0,
+    "fantasypros": 32.5,
+    "usatoday": 34.0
    }
   },
   {
    "ddf": 5.9,
    "key": 2105,
    "name": "Omarion Hampton",
+   "pct_of_top": {
+    "cbs": null,
+    "dynastyprocess": 23.52,
+    "fantasycalc": 16.64,
+    "fantasypros": 21.17,
+    "usatoday": 18.99
+   },
    "pos": "RB",
    "pos_rank": {
     "cbs": null,
-    "dynastyprocess": 18,
-    "fantasycalc": 25,
-    "fantasypros": 38,
-    "usatoday": 42
-   },
-   "published": {
-    "cbs": null,
-    "dynastyprocess": 2395.0,
-    "fantasycalc": 1771.0,
-    "fantasypros": 15.9,
-    "usatoday": 15.0
+    "dynastyprocess": 18.0,
+    "fantasycalc": 25.0,
+    "fantasypros": 38.0,
+    "usatoday": 41.5
    }
   },
   {
    "ddf": 5.7,
    "key": 2181,
    "name": "Mike Washington Jr.",
+   "pct_of_top": {
+    "cbs": 14.16,
+    "dynastyprocess": 2.26,
+    "fantasycalc": 5.06,
+    "fantasypros": 23.44,
+    "usatoday": 22.78
+   },
    "pos": "RB",
    "pos_rank": {
-    "cbs": 28,
-    "dynastyprocess": 45,
-    "fantasycalc": 41,
-    "fantasypros": 34,
-    "usatoday": 36
-   },
-   "published": {
-    "cbs": 8.0,
-    "dynastyprocess": 230.0,
-    "fantasycalc": 538.0,
-    "fantasypros": 17.6,
-    "usatoday": 18.0
+    "cbs": 29.0,
+    "dynastyprocess": 45.0,
+    "fantasycalc": 41.0,
+    "fantasypros": 34.0,
+    "usatoday": 36.5
    }
   },
   {
    "ddf": 5.6,
    "key": 917,
    "name": "Tyler Allgeier",
+   "pct_of_top": {
+    "cbs": 8.85,
+    "dynastyprocess": 2.34,
+    "fantasycalc": 12.45,
+    "fantasypros": 10.65,
+    "usatoday": 29.11
+   },
    "pos": "RB",
    "pos_rank": {
-    "cbs": 40,
-    "dynastyprocess": 43,
-    "fantasycalc": 30,
-    "fantasypros": 44,
-    "usatoday": 31
-   },
-   "published": {
-    "cbs": 5.0,
-    "dynastyprocess": 238.0,
-    "fantasycalc": 1325.0,
-    "fantasypros": 8.0,
-    "usatoday": 23.0
+    "cbs": 41.5,
+    "dynastyprocess": 43.0,
+    "fantasycalc": 30.0,
+    "fantasypros": 44.0,
+    "usatoday": 31.0
    }
   },
   {
    "ddf": 5.5,
    "key": 2901,
    "name": "Woody Marks",
+   "pct_of_top": {
+    "cbs": 11.5,
+    "dynastyprocess": 2.85,
+    "fantasycalc": 7.45,
+    "fantasypros": 25.17,
+    "usatoday": 21.52
+   },
    "pos": "RB",
    "pos_rank": {
-    "cbs": 33,
-    "dynastyprocess": 41,
-    "fantasycalc": 39,
-    "fantasypros": 33,
-    "usatoday": 38
-   },
-   "published": {
-    "cbs": 6.5,
-    "dynastyprocess": 290.0,
-    "fantasycalc": 793.0,
-    "fantasypros": 18.9,
-    "usatoday": 17.0
+    "cbs": 32.5,
+    "dynastyprocess": 41.0,
+    "fantasycalc": 39.0,
+    "fantasypros": 33.0,
+    "usatoday": 38.5
    }
   },
   {
    "ddf": 5.4,
    "key": 536,
    "name": "Rico Dowdle",
+   "pct_of_top": {
+    "cbs": null,
+    "dynastyprocess": 3.43,
+    "fantasycalc": 8.32,
+    "fantasypros": 21.44,
+    "usatoday": 27.85
+   },
    "pos": "RB",
    "pos_rank": {
     "cbs": null,
-    "dynastyprocess": 37,
-    "fantasycalc": 35,
-    "fantasypros": 37,
-    "usatoday": 32
-   },
-   "published": {
-    "cbs": null,
-    "dynastyprocess": 349.0,
-    "fantasycalc": 885.0,
-    "fantasypros": 16.1,
-    "usatoday": 22.0
+    "dynastyprocess": 37.0,
+    "fantasycalc": 35.0,
+    "fantasypros": 37.0,
+    "usatoday": 32.0
    }
   },
   {
    "ddf": 5.0,
    "key": 2575,
    "name": "T.J. Hockenson",
+   "pct_of_top": {
+    "cbs": 10.62,
+    "dynastyprocess": 3.57,
+    "fantasycalc": 5.89,
+    "fantasypros": 9.72,
+    "usatoday": 31.65
+   },
    "pos": "TE",
    "pos_rank": {
-    "cbs": 11,
-    "dynastyprocess": 21,
-    "fantasycalc": 12,
-    "fantasypros": 15,
-    "usatoday": 11
-   },
-   "published": {
-    "cbs": 6.0,
-    "dynastyprocess": 364.0,
-    "fantasycalc": 627.0,
-    "fantasypros": 7.3,
-    "usatoday": 25.0
+    "cbs": 11.0,
+    "dynastyprocess": 21.0,
+    "fantasycalc": 12.0,
+    "fantasypros": 15.0,
+    "usatoday": 11.0
    }
   },
   {
    "ddf": 4.4,
    "key": 2275,
    "name": "Denzel Boston",
+   "pct_of_top": {
+    "cbs": 9.73,
+    "dynastyprocess": 24.47,
+    "fantasycalc": 6.55,
+    "fantasypros": 30.23,
+    "usatoday": 22.78
+   },
    "pos": "WR",
    "pos_rank": {
-    "cbs": 38,
-    "dynastyprocess": 31,
-    "fantasycalc": 38,
-    "fantasypros": 32,
-    "usatoday": 44
-   },
-   "published": {
-    "cbs": 5.5,
-    "dynastyprocess": 2492.0,
-    "fantasycalc": 697.0,
-    "fantasypros": 22.7,
-    "usatoday": 18.0
+    "cbs": 38.5,
+    "dynastyprocess": 31.0,
+    "fantasycalc": 38.0,
+    "fantasypros": 32.5,
+    "usatoday": 43.0
    }
   },
   {
    "ddf": 4.1,
    "key": 2261,
    "name": "Kaelon Black",
+   "pct_of_top": {
+    "cbs": 8.85,
+    "dynastyprocess": 1.36,
+    "fantasycalc": 4.57,
+    "fantasypros": 22.5,
+    "usatoday": 24.05
+   },
    "pos": "RB",
    "pos_rank": {
-    "cbs": 41,
-    "dynastyprocess": 51,
-    "fantasycalc": 43,
-    "fantasypros": 35,
-    "usatoday": 35
-   },
-   "published": {
-    "cbs": 5.0,
-    "dynastyprocess": 139.0,
-    "fantasycalc": 486.0,
-    "fantasypros": 16.9,
-    "usatoday": 19.0
+    "cbs": 41.5,
+    "dynastyprocess": 50.5,
+    "fantasycalc": 43.0,
+    "fantasypros": 35.0,
+    "usatoday": 35.0
    }
   },
   {
    "ddf": 4.1,
    "key": 2461,
    "name": "Jadarian Price",
+   "pct_of_top": {
+    "cbs": 12.39,
+    "dynastyprocess": 16.53,
+    "fantasycalc": 9.45,
+    "fantasypros": 11.19,
+    "usatoday": 20.25
+   },
    "pos": "RB",
    "pos_rank": {
-    "cbs": 31,
-    "dynastyprocess": 22,
-    "fantasycalc": 32,
-    "fantasypros": 43,
-    "usatoday": 40
-   },
-   "published": {
-    "cbs": 7.0,
-    "dynastyprocess": 1683.0,
-    "fantasycalc": 1006.0,
-    "fantasypros": 8.4,
-    "usatoday": 16.0
+    "cbs": 31.0,
+    "dynastyprocess": 22.0,
+    "fantasycalc": 32.0,
+    "fantasypros": 43.0,
+    "usatoday": 40.0
    }
   },
   {
    "ddf": 3.8,
    "key": 480,
    "name": "Deebo Samuel Sr.",
+   "pct_of_top": {
+    "cbs": 14.16,
+    "dynastyprocess": 2.01,
+    "fantasycalc": 6.27,
+    "fantasypros": 18.11,
+    "usatoday": 27.85
+   },
    "pos": "WR",
    "pos_rank": {
-    "cbs": 33,
-    "dynastyprocess": 73,
-    "fantasycalc": 40,
-    "fantasypros": 52,
-    "usatoday": 35
-   },
-   "published": {
-    "cbs": 8.0,
-    "dynastyprocess": 205.0,
-    "fantasycalc": 667.0,
-    "fantasypros": 13.6,
-    "usatoday": 22.0
+    "cbs": 33.0,
+    "dynastyprocess": 73.0,
+    "fantasycalc": 40.0,
+    "fantasypros": 52.0,
+    "usatoday": 35.0
    }
   },
   {
    "ddf": 3.8,
    "key": 4158,
    "name": "C.J. Stroud",
+   "pct_of_top": {
+    "cbs": 10.62,
+    "dynastyprocess": 22.12,
+    "fantasycalc": 8.19,
+    "fantasypros": 7.46,
+    "usatoday": 12.66
+   },
    "pos": "QB",
    "pos_rank": {
-    "cbs": 13,
-    "dynastyprocess": 11,
-    "fantasycalc": 12,
-    "fantasypros": 12,
-    "usatoday": 15
-   },
-   "published": {
-    "cbs": 6.0,
-    "dynastyprocess": 2253.0,
-    "fantasycalc": 871.0,
-    "fantasypros": 5.6,
-    "usatoday": 10.0
+    "cbs": 12.0,
+    "dynastyprocess": 11.0,
+    "fantasycalc": 12.0,
+    "fantasypros": 12.0,
+    "usatoday": 15.0
    }
   },
   {
    "ddf": 3.7,
    "key": 2534,
    "name": "Matthew Stafford",
+   "pct_of_top": {
+    "cbs": 10.62,
+    "dynastyprocess": 3.83,
+    "fantasycalc": 6.77,
+    "fantasypros": 4.79,
+    "usatoday": 17.72
+   },
    "pos": "QB",
    "pos_rank": {
-    "cbs": 11,
-    "dynastyprocess": 23,
-    "fantasycalc": 13,
-    "fantasypros": 13,
-    "usatoday": 11
-   },
-   "published": {
-    "cbs": 6.0,
-    "dynastyprocess": 390.0,
-    "fantasycalc": 720.0,
-    "fantasypros": 3.6,
-    "usatoday": 14.0
+    "cbs": 12.0,
+    "dynastyprocess": 23.0,
+    "fantasycalc": 13.0,
+    "fantasypros": 13.0,
+    "usatoday": 11.0
    }
   },
   {
    "ddf": 3.7,
    "key": 2468,
    "name": "KC Concepcion",
+   "pct_of_top": {
+    "cbs": null,
+    "dynastyprocess": 25.53,
+    "fantasycalc": 6.29,
+    "fantasypros": 25.17,
+    "usatoday": 26.58
+   },
    "pos": "WR",
    "pos_rank": {
     "cbs": null,
-    "dynastyprocess": 30,
-    "fantasycalc": 39,
-    "fantasypros": 36,
-    "usatoday": 37
-   },
-   "published": {
-    "cbs": null,
-    "dynastyprocess": 2600.0,
-    "fantasycalc": 669.0,
-    "fantasypros": 18.9,
-    "usatoday": 21.0
+    "dynastyprocess": 30.0,
+    "fantasycalc": 39.0,
+    "fantasypros": 36.0,
+    "usatoday": 37.0
    }
   },
   {
    "ddf": 3.5,
    "key": 482,
    "name": "David Montgomery",
+   "pct_of_top": {
+    "cbs": 10.62,
+    "dynastyprocess": 3.97,
+    "fantasycalc": 8.99,
+    "fantasypros": 15.58,
+    "usatoday": 18.99
+   },
    "pos": "RB",
    "pos_rank": {
-    "cbs": 35,
-    "dynastyprocess": 35,
-    "fantasycalc": 33,
-    "fantasypros": 42,
-    "usatoday": 41
-   },
-   "published": {
-    "cbs": 6.0,
-    "dynastyprocess": 404.0,
-    "fantasycalc": 957.0,
-    "fantasypros": 11.7,
-    "usatoday": 15.0
+    "cbs": 35.5,
+    "dynastyprocess": 35.0,
+    "fantasycalc": 33.0,
+    "fantasypros": 42.0,
+    "usatoday": 41.5
    }
   },
   {
    "ddf": 3.5,
    "key": 164,
    "name": "Aaron Jones",
+   "pct_of_top": {
+    "cbs": 10.62,
+    "dynastyprocess": 1.36,
+    "fantasycalc": 7.56,
+    "fantasypros": 20.37,
+    "usatoday": 15.19
+   },
    "pos": "RB",
    "pos_rank": {
-    "cbs": 34,
-    "dynastyprocess": 50,
-    "fantasycalc": 38,
-    "fantasypros": 40,
-    "usatoday": 46
-   },
-   "published": {
-    "cbs": 6.0,
-    "dynastyprocess": 139.0,
-    "fantasycalc": 804.0,
-    "fantasypros": 15.3,
-    "usatoday": 12.0
+    "cbs": 35.5,
+    "dynastyprocess": 50.5,
+    "fantasycalc": 38.0,
+    "fantasypros": 40.0,
+    "usatoday": 47.0
    }
   },
   {
    "ddf": 3.3,
    "key": 3802,
    "name": "Brenton Strange",
+   "pct_of_top": {
+    "cbs": null,
+    "dynastyprocess": 8.09,
+    "fantasycalc": 3.98,
+    "fantasypros": 15.05,
+    "usatoday": 16.46
+   },
    "pos": "TE",
    "pos_rank": {
     "cbs": null,
-    "dynastyprocess": 13,
-    "fantasycalc": 15,
-    "fantasypros": 10,
-    "usatoday": 17
-   },
-   "published": {
-    "cbs": null,
-    "dynastyprocess": 824.0,
-    "fantasycalc": 423.0,
-    "fantasypros": 11.3,
-    "usatoday": 13.0
+    "dynastyprocess": 13.0,
+    "fantasycalc": 15.0,
+    "fantasypros": 10.0,
+    "usatoday": 17.0
    }
   },
   {
    "ddf": 3.2,
    "key": 2269,
    "name": "Jordyn Tyson",
+   "pct_of_top": {
+    "cbs": 8.85,
+    "dynastyprocess": 26.44,
+    "fantasycalc": 9.02,
+    "fantasypros": 23.44,
+    "usatoday": 22.78
+   },
    "pos": "WR",
    "pos_rank": {
-    "cbs": 43,
-    "dynastyprocess": 29,
-    "fantasycalc": 35,
-    "fantasypros": 38,
-    "usatoday": 43
-   },
-   "published": {
-    "cbs": 5.0,
-    "dynastyprocess": 2693.0,
-    "fantasycalc": 960.0,
-    "fantasypros": 17.6,
-    "usatoday": 18.0
+    "cbs": 43.0,
+    "dynastyprocess": 29.0,
+    "fantasycalc": 35.0,
+    "fantasypros": 38.0,
+    "usatoday": 43.0
    }
   },
   {
    "ddf": 3.1,
    "key": 1338,
    "name": "Antonio Williams",
+   "pct_of_top": {
+    "cbs": 9.73,
+    "dynastyprocess": 8.32,
+    "fantasycalc": 4.73,
+    "fantasypros": 23.57,
+    "usatoday": 25.32
+   },
    "pos": "WR",
    "pos_rank": {
-    "cbs": 36,
-    "dynastyprocess": 47,
-    "fantasycalc": 46,
-    "fantasypros": 37,
-    "usatoday": 39
-   },
-   "published": {
-    "cbs": 5.5,
-    "dynastyprocess": 847.0,
-    "fantasycalc": 503.0,
-    "fantasypros": 17.7,
-    "usatoday": 20.0
+    "cbs": 38.5,
+    "dynastyprocess": 47.0,
+    "fantasycalc": 46.0,
+    "fantasypros": 37.0,
+    "usatoday": 39.0
    }
   },
   {
    "ddf": 3.1,
    "key": 3116,
    "name": "Tre Tucker",
+   "pct_of_top": {
+    "cbs": 9.73,
+    "dynastyprocess": 2.83,
+    "fantasycalc": 4.93,
+    "fantasypros": 22.24,
+    "usatoday": 26.58
+   },
    "pos": "WR",
    "pos_rank": {
-    "cbs": 41,
-    "dynastyprocess": 67,
-    "fantasycalc": 43,
-    "fantasypros": 41,
-    "usatoday": 38
-   },
-   "published": {
-    "cbs": 5.5,
-    "dynastyprocess": 288.0,
-    "fantasycalc": 525.0,
-    "fantasypros": 16.7,
-    "usatoday": 21.0
+    "cbs": 38.5,
+    "dynastyprocess": 67.0,
+    "fantasycalc": 43.0,
+    "fantasypros": 41.0,
+    "usatoday": 37.0
    }
   },
   {
    "ddf": 3.0,
    "key": 2467,
    "name": "Omar Cooper Jr.",
+   "pct_of_top": {
+    "cbs": 9.73,
+    "dynastyprocess": 12.26,
+    "fantasycalc": 6.64,
+    "fantasypros": 22.9,
+    "usatoday": 24.05
+   },
    "pos": "WR",
    "pos_rank": {
-    "cbs": 39,
-    "dynastyprocess": 41,
-    "fantasycalc": 37,
-    "fantasypros": 39,
-    "usatoday": 41
-   },
-   "published": {
-    "cbs": 5.5,
-    "dynastyprocess": 1249.0,
-    "fantasycalc": 707.0,
-    "fantasypros": 17.2,
-    "usatoday": 19.0
+    "cbs": 38.5,
+    "dynastyprocess": 41.0,
+    "fantasycalc": 37.0,
+    "fantasypros": 39.0,
+    "usatoday": 40.5
    }
   },
   {
    "ddf": 2.9,
    "key": 3536,
    "name": "Emmett Johnson",
+   "pct_of_top": {
+    "cbs": null,
+    "dynastyprocess": 3.09,
+    "fantasycalc": 3.24,
+    "fantasypros": 18.91,
+    "usatoday": 22.78
+   },
    "pos": "RB",
    "pos_rank": {
     "cbs": null,
-    "dynastyprocess": 39,
-    "fantasycalc": 48,
-    "fantasypros": 41,
-    "usatoday": 37
-   },
-   "published": {
-    "cbs": null,
-    "dynastyprocess": 315.0,
-    "fantasycalc": 345.0,
-    "fantasypros": 14.2,
-    "usatoday": 18.0
+    "dynastyprocess": 39.0,
+    "fantasycalc": 48.0,
+    "fantasypros": 41.0,
+    "usatoday": 36.5
    }
   },
   {
    "ddf": 2.6,
    "key": 1342,
    "name": "Josh Downs",
+   "pct_of_top": {
+    "cbs": null,
+    "dynastyprocess": 9.65,
+    "fantasycalc": 5.1,
+    "fantasypros": 20.24,
+    "usatoday": 26.58
+   },
    "pos": "WR",
    "pos_rank": {
     "cbs": null,
-    "dynastyprocess": 43,
-    "fantasycalc": 41,
-    "fantasypros": 47,
-    "usatoday": 36
-   },
-   "published": {
-    "cbs": null,
-    "dynastyprocess": 983.0,
-    "fantasycalc": 543.0,
-    "fantasypros": 15.2,
-    "usatoday": 21.0
+    "dynastyprocess": 43.0,
+    "fantasycalc": 41.0,
+    "fantasypros": 47.0,
+    "usatoday": 37.0
    }
   },
   {
    "ddf": 2.5,
    "key": 2463,
    "name": "Germie Bernard",
+   "pct_of_top": {
+    "cbs": null,
+    "dynastyprocess": 5.68,
+    "fantasycalc": 4.17,
+    "fantasypros": 22.77,
+    "usatoday": 24.05
+   },
    "pos": "WR",
    "pos_rank": {
     "cbs": null,
-    "dynastyprocess": 54,
-    "fantasycalc": 48,
-    "fantasypros": 40,
-    "usatoday": 40
-   },
-   "published": {
-    "cbs": null,
-    "dynastyprocess": 578.0,
-    "fantasycalc": 444.0,
-    "fantasypros": 17.1,
-    "usatoday": 19.0
+    "dynastyprocess": 54.0,
+    "fantasycalc": 48.0,
+    "fantasypros": 40.0,
+    "usatoday": 40.5
    }
   },
   {
    "ddf": 2.5,
    "key": 2580,
    "name": "TreVeyon Henderson",
+   "pct_of_top": {
+    "cbs": 8.85,
+    "dynastyprocess": 19.94,
+    "fantasycalc": 4.3,
+    "fantasypros": 20.51,
+    "usatoday": 16.46
+   },
    "pos": "RB",
    "pos_rank": {
-    "cbs": 42,
-    "dynastyprocess": 21,
-    "fantasycalc": 45,
-    "fantasypros": 39,
-    "usatoday": 44
-   },
-   "published": {
-    "cbs": 5.0,
-    "dynastyprocess": 2031.0,
-    "fantasycalc": 458.0,
-    "fantasypros": 15.4,
-    "usatoday": 13.0
+    "cbs": 41.5,
+    "dynastyprocess": 21.0,
+    "fantasycalc": 45.0,
+    "fantasypros": 39.0,
+    "usatoday": 44.5
    }
   },
   {
    "ddf": 2.2,
    "key": 4485,
    "name": "Dallas Goedert",
+   "pct_of_top": {
+    "cbs": null,
+    "dynastyprocess": 4.38,
+    "fantasycalc": 4.84,
+    "fantasypros": 7.86,
+    "usatoday": 20.25
+   },
    "pos": "TE",
    "pos_rank": {
     "cbs": null,
-    "dynastyprocess": 16,
-    "fantasycalc": 14,
-    "fantasypros": 16,
-    "usatoday": 16
-   },
-   "published": {
-    "cbs": null,
-    "dynastyprocess": 446.0,
-    "fantasycalc": 515.0,
-    "fantasypros": 5.9,
+    "dynastyprocess": 16.0,
+    "fantasycalc": 14.0,
+    "fantasypros": 16.0,
     "usatoday": 16.0
    }
   },
@@ -14695,477 +14681,477 @@
    "ddf": 2.0,
    "key": 3139,
    "name": "Hunter Henry",
+   "pct_of_top": {
+    "cbs": null,
+    "dynastyprocess": 2.15,
+    "fantasycalc": 1.89,
+    "fantasypros": 6.39,
+    "usatoday": 26.58
+   },
    "pos": "TE",
    "pos_rank": {
     "cbs": null,
-    "dynastyprocess": 25,
-    "fantasycalc": 18,
-    "fantasypros": 18,
-    "usatoday": 13
-   },
-   "published": {
-    "cbs": null,
-    "dynastyprocess": 219.0,
-    "fantasycalc": 201.0,
-    "fantasypros": 4.8,
-    "usatoday": 21.0
+    "dynastyprocess": 25.0,
+    "fantasycalc": 18.0,
+    "fantasypros": 18.0,
+    "usatoday": 13.0
    }
   },
   {
    "ddf": 2.0,
    "key": 4437,
    "name": "Makai Lemon",
+   "pct_of_top": {
+    "cbs": 9.73,
+    "dynastyprocess": 22.92,
+    "fantasycalc": 4.85,
+    "fantasypros": 21.97,
+    "usatoday": 18.99
+   },
    "pos": "WR",
    "pos_rank": {
-    "cbs": 42,
-    "dynastyprocess": 32,
-    "fantasycalc": 44,
-    "fantasypros": 42,
-    "usatoday": 45
-   },
-   "published": {
-    "cbs": 5.5,
-    "dynastyprocess": 2334.0,
-    "fantasycalc": 516.0,
-    "fantasypros": 16.5,
-    "usatoday": 15.0
+    "cbs": 38.5,
+    "dynastyprocess": 32.0,
+    "fantasycalc": 44.0,
+    "fantasypros": 42.0,
+    "usatoday": 45.0
    }
   },
   {
    "ddf": 2.0,
    "key": 3242,
    "name": "Seth McGowan",
+   "pct_of_top": {
+    "cbs": null,
+    "dynastyprocess": 0.27,
+    "fantasycalc": 3.37,
+    "fantasypros": 8.26,
+    "usatoday": 25.32
+   },
    "pos": "RB",
    "pos_rank": {
     "cbs": null,
-    "dynastyprocess": 65,
-    "fantasycalc": 47,
-    "fantasypros": 45,
-    "usatoday": 33
-   },
-   "published": {
-    "cbs": null,
-    "dynastyprocess": 28.0,
-    "fantasycalc": 359.0,
-    "fantasypros": 6.2,
-    "usatoday": 20.0
+    "dynastyprocess": 65.0,
+    "fantasycalc": 47.0,
+    "fantasypros": 45.0,
+    "usatoday": 33.5
    }
   },
   {
    "ddf": 2.0,
    "key": 2142,
    "name": "Terrance Ferguson",
+   "pct_of_top": {
+    "cbs": null,
+    "dynastyprocess": 4.36,
+    "fantasycalc": 0.62,
+    "fantasypros": 11.05,
+    "usatoday": 21.52
+   },
    "pos": "TE",
    "pos_rank": {
     "cbs": null,
-    "dynastyprocess": 17,
-    "fantasycalc": 23,
-    "fantasypros": 13,
-    "usatoday": 15
-   },
-   "published": {
-    "cbs": null,
-    "dynastyprocess": 444.0,
-    "fantasycalc": 66.0,
-    "fantasypros": 8.3,
-    "usatoday": 17.0
+    "dynastyprocess": 17.0,
+    "fantasycalc": 23.0,
+    "fantasypros": 13.0,
+    "usatoday": 15.0
    }
   },
   {
    "ddf": 1.9,
    "key": 1726,
    "name": "Marvin Harrison Jr.",
+   "pct_of_top": {
+    "cbs": 9.73,
+    "dynastyprocess": 14.09,
+    "fantasycalc": 4.41,
+    "fantasypros": 18.51,
+    "usatoday": 22.78
+   },
    "pos": "WR",
    "pos_rank": {
-    "cbs": 37,
-    "dynastyprocess": 38,
-    "fantasycalc": 47,
-    "fantasypros": 51,
-    "usatoday": 42
-   },
-   "published": {
-    "cbs": 5.5,
-    "dynastyprocess": 1435.0,
-    "fantasycalc": 469.0,
-    "fantasypros": 13.9,
-    "usatoday": 18.0
+    "cbs": 38.5,
+    "dynastyprocess": 38.0,
+    "fantasycalc": 47.0,
+    "fantasypros": 51.0,
+    "usatoday": 43.0
    }
   },
   {
    "ddf": 1.6,
    "key": 3803,
    "name": "Tyler Shough",
+   "pct_of_top": {
+    "cbs": null,
+    "dynastyprocess": 8.91,
+    "fantasycalc": 5.28,
+    "fantasypros": 1.33,
+    "usatoday": 16.46
+   },
    "pos": "QB",
    "pos_rank": {
     "cbs": null,
-    "dynastyprocess": 18,
-    "fantasycalc": 15,
-    "fantasypros": 29,
-    "usatoday": 13
-   },
-   "published": {
-    "cbs": null,
-    "dynastyprocess": 907.0,
-    "fantasycalc": 562.0,
-    "fantasypros": 1.0,
-    "usatoday": 13.0
+    "dynastyprocess": 18.0,
+    "fantasycalc": 15.0,
+    "fantasypros": 23.0,
+    "usatoday": 12.5
    }
   },
   {
    "ddf": 1.6,
    "key": 66,
    "name": "Davante Adams",
+   "pct_of_top": {
+    "cbs": 9.73,
+    "dynastyprocess": 9.53,
+    "fantasycalc": 9.73,
+    "fantasypros": 1.33,
+    "usatoday": 10.13
+   },
    "pos": "WR",
    "pos_rank": {
-    "cbs": 35,
-    "dynastyprocess": 45,
-    "fantasycalc": 33,
-    "fantasypros": 73,
-    "usatoday": 56
-   },
-   "published": {
-    "cbs": 5.5,
-    "dynastyprocess": 971.0,
-    "fantasycalc": 1035.0,
-    "fantasypros": 1.0,
-    "usatoday": 8.0
+    "cbs": 38.5,
+    "dynastyprocess": 45.0,
+    "fantasycalc": 33.0,
+    "fantasypros": 73.5,
+    "usatoday": 56.5
    }
   },
   {
    "ddf": 1.6,
    "key": 203,
    "name": "Alvin Kamara",
+   "pct_of_top": {
+    "cbs": 9.73,
+    "dynastyprocess": 0.71,
+    "fantasycalc": 5.19,
+    "fantasypros": 2.26,
+    "usatoday": 13.92
+   },
    "pos": "RB",
    "pos_rank": {
-    "cbs": 39,
-    "dynastyprocess": 58,
-    "fantasycalc": 40,
-    "fantasypros": 49,
-    "usatoday": 49
-   },
-   "published": {
-    "cbs": 5.5,
-    "dynastyprocess": 72.0,
-    "fantasycalc": 552.0,
-    "fantasypros": 1.7,
-    "usatoday": 11.0
+    "cbs": 38.5,
+    "dynastyprocess": 58.0,
+    "fantasycalc": 40.0,
+    "fantasypros": 49.0,
+    "usatoday": 49.0
    }
   },
   {
    "ddf": 1.4,
    "key": 2614,
    "name": "Devin Singletary",
+   "pct_of_top": {
+    "cbs": 8.85,
+    "dynastyprocess": 0.07,
+    "fantasycalc": 4.51,
+    "fantasypros": null,
+    "usatoday": 16.46
+   },
    "pos": "RB",
    "pos_rank": {
-    "cbs": 43,
-    "dynastyprocess": 86,
-    "fantasycalc": 44,
+    "cbs": 41.5,
+    "dynastyprocess": 86.5,
+    "fantasycalc": 44.0,
     "fantasypros": null,
-    "usatoday": 45
-   },
-   "published": {
-    "cbs": 5.0,
-    "dynastyprocess": 7.0,
-    "fantasycalc": 480.0,
-    "fantasypros": null,
-    "usatoday": 13.0
+    "usatoday": 44.5
    }
   },
   {
    "ddf": 1.3,
    "key": 2807,
    "name": "Keenan Allen",
+   "pct_of_top": {
+    "cbs": null,
+    "dynastyprocess": 0.4,
+    "fantasycalc": 4.96,
+    "fantasypros": 21.04,
+    "usatoday": 16.46
+   },
    "pos": "WR",
    "pos_rank": {
     "cbs": null,
-    "dynastyprocess": 102,
-    "fantasycalc": 42,
-    "fantasypros": 45,
-    "usatoday": 49
-   },
-   "published": {
-    "cbs": null,
-    "dynastyprocess": 41.0,
-    "fantasycalc": 528.0,
-    "fantasypros": 15.8,
-    "usatoday": 13.0
+    "dynastyprocess": 102.0,
+    "fantasycalc": 42.0,
+    "fantasypros": 44.5,
+    "usatoday": 48.0
    }
   },
   {
    "ddf": 1.0,
    "key": 3965,
    "name": "Bryce Young",
+   "pct_of_top": {
+    "cbs": null,
+    "dynastyprocess": 7.25,
+    "fantasycalc": 3.29,
+    "fantasypros": 1.33,
+    "usatoday": 15.19
+   },
    "pos": "QB",
    "pos_rank": {
     "cbs": null,
-    "dynastyprocess": 20,
-    "fantasycalc": 17,
-    "fantasypros": 30,
-    "usatoday": 14
-   },
-   "published": {
-    "cbs": null,
-    "dynastyprocess": 738.0,
-    "fantasycalc": 350.0,
-    "fantasypros": 1.0,
-    "usatoday": 12.0
+    "dynastyprocess": 20.0,
+    "fantasycalc": 17.0,
+    "fantasypros": 23.0,
+    "usatoday": 14.0
    }
   },
   {
    "ddf": 1.0,
    "key": 1833,
    "name": "Malik Washington",
+   "pct_of_top": {
+    "cbs": null,
+    "dynastyprocess": 1.51,
+    "fantasycalc": 4.75,
+    "fantasypros": 19.44,
+    "usatoday": 16.46
+   },
    "pos": "WR",
    "pos_rank": {
     "cbs": null,
-    "dynastyprocess": 78,
-    "fantasycalc": 45,
-    "fantasypros": 49,
-    "usatoday": 47
-   },
-   "published": {
-    "cbs": null,
-    "dynastyprocess": 154.0,
-    "fantasycalc": 505.0,
-    "fantasypros": 14.6,
-    "usatoday": 13.0
+    "dynastyprocess": 78.5,
+    "fantasycalc": 45.0,
+    "fantasypros": 49.0,
+    "usatoday": 48.0
    }
   },
   {
    "ddf": 1.0,
    "key": 2457,
    "name": "Caleb Douglas",
+   "pct_of_top": {
+    "cbs": null,
+    "dynastyprocess": 4.18,
+    "fantasycalc": 3.36,
+    "fantasypros": 21.04,
+    "usatoday": 15.19
+   },
    "pos": "WR",
    "pos_rank": {
     "cbs": null,
-    "dynastyprocess": 58,
-    "fantasycalc": 56,
-    "fantasypros": 44,
-    "usatoday": 52
-   },
-   "published": {
-    "cbs": null,
-    "dynastyprocess": 426.0,
-    "fantasycalc": 357.0,
-    "fantasypros": 15.8,
-    "usatoday": 12.0
+    "dynastyprocess": 58.0,
+    "fantasycalc": 56.0,
+    "fantasypros": 44.5,
+    "usatoday": 51.0
    }
   },
   {
    "ddf": 0.9,
    "key": 2028,
    "name": "Khalil Shakir",
+   "pct_of_top": {
+    "cbs": null,
+    "dynastyprocess": 5.96,
+    "fantasycalc": 4.02,
+    "fantasypros": 19.17,
+    "usatoday": 16.46
+   },
    "pos": "WR",
    "pos_rank": {
     "cbs": null,
-    "dynastyprocess": 53,
-    "fantasycalc": 49,
-    "fantasypros": 50,
-    "usatoday": 48
-   },
-   "published": {
-    "cbs": null,
-    "dynastyprocess": 607.0,
-    "fantasycalc": 428.0,
-    "fantasypros": 14.4,
-    "usatoday": 13.0
+    "dynastyprocess": 53.0,
+    "fantasycalc": 49.0,
+    "fantasypros": 50.0,
+    "usatoday": 48.0
    }
   },
   {
    "ddf": 0.9,
    "key": 3874,
    "name": "Jakobi Meyers",
+   "pct_of_top": {
+    "cbs": null,
+    "dynastyprocess": 6.41,
+    "fantasycalc": 2.56,
+    "fantasypros": 21.84,
+    "usatoday": 11.39
+   },
    "pos": "WR",
    "pos_rank": {
     "cbs": null,
-    "dynastyprocess": 50,
-    "fantasycalc": 57,
-    "fantasypros": 43,
-    "usatoday": 55
-   },
-   "published": {
-    "cbs": null,
-    "dynastyprocess": 653.0,
-    "fantasycalc": 272.0,
-    "fantasypros": 16.4,
-    "usatoday": 9.0
+    "dynastyprocess": 50.0,
+    "fantasycalc": 57.0,
+    "fantasypros": 43.0,
+    "usatoday": 55.0
    }
   },
   {
    "ddf": 0.8,
    "key": 1344,
    "name": "Jordan Addison",
+   "pct_of_top": {
+    "cbs": null,
+    "dynastyprocess": 12.53,
+    "fantasycalc": 3.99,
+    "fantasypros": 20.77,
+    "usatoday": 8.86
+   },
    "pos": "WR",
    "pos_rank": {
     "cbs": null,
-    "dynastyprocess": 40,
-    "fantasycalc": 51,
-    "fantasypros": 46,
-    "usatoday": 58
-   },
-   "published": {
-    "cbs": null,
-    "dynastyprocess": 1276.0,
-    "fantasycalc": 425.0,
-    "fantasypros": 15.6,
-    "usatoday": 7.0
+    "dynastyprocess": 40.0,
+    "fantasycalc": 51.0,
+    "fantasypros": 46.0,
+    "usatoday": 60.5
    }
   },
   {
    "ddf": 0.8,
    "key": 1742,
    "name": "Adonai Mitchell",
+   "pct_of_top": {
+    "cbs": null,
+    "dynastyprocess": 3.73,
+    "fantasycalc": 3.82,
+    "fantasypros": 19.57,
+    "usatoday": 15.19
+   },
    "pos": "WR",
    "pos_rank": {
     "cbs": null,
-    "dynastyprocess": 62,
-    "fantasycalc": 52,
-    "fantasypros": 48,
-    "usatoday": 51
-   },
-   "published": {
-    "cbs": null,
-    "dynastyprocess": 380.0,
-    "fantasycalc": 406.0,
-    "fantasypros": 14.7,
-    "usatoday": 12.0
+    "dynastyprocess": 62.0,
+    "fantasycalc": 52.0,
+    "fantasypros": 48.0,
+    "usatoday": 51.0
    }
   },
   {
    "ddf": 0.8,
    "key": 1502,
    "name": "Ryan Flournoy",
+   "pct_of_top": {
+    "cbs": null,
+    "dynastyprocess": 1.34,
+    "fantasycalc": 3.61,
+    "fantasypros": 17.18,
+    "usatoday": 17.72
+   },
    "pos": "WR",
    "pos_rank": {
     "cbs": null,
-    "dynastyprocess": 81,
-    "fantasycalc": 53,
-    "fantasypros": 54,
-    "usatoday": 46
-   },
-   "published": {
-    "cbs": null,
-    "dynastyprocess": 136.0,
-    "fantasycalc": 384.0,
-    "fantasypros": 12.9,
-    "usatoday": 14.0
+    "dynastyprocess": 81.0,
+    "fantasycalc": 53.0,
+    "fantasypros": 54.0,
+    "usatoday": 46.0
    }
   },
   {
    "ddf": 0.6,
    "key": 1666,
    "name": "Bo Nix",
+   "pct_of_top": {
+    "cbs": null,
+    "dynastyprocess": 13.04,
+    "fantasycalc": 6.6,
+    "fantasypros": 1.33,
+    "usatoday": 5.06
+   },
    "pos": "QB",
    "pos_rank": {
     "cbs": null,
-    "dynastyprocess": 15,
-    "fantasycalc": 14,
-    "fantasypros": 21,
-    "usatoday": 21
-   },
-   "published": {
-    "cbs": null,
-    "dynastyprocess": 1328.0,
-    "fantasycalc": 702.0,
-    "fantasypros": 1.0,
-    "usatoday": 4.0
+    "dynastyprocess": 15.0,
+    "fantasycalc": 14.0,
+    "fantasypros": 23.0,
+    "usatoday": 20.0
    }
   },
   {
    "ddf": 0.5,
    "key": 868,
    "name": "Bam Knight",
+   "pct_of_top": {
+    "cbs": null,
+    "dynastyprocess": 0.04,
+    "fantasycalc": null,
+    "fantasypros": null,
+    "usatoday": 17.72
+   },
    "pos": "RB",
    "pos_rank": {
     "cbs": null,
-    "dynastyprocess": 99,
+    "dynastyprocess": 101.5,
     "fantasycalc": null,
     "fantasypros": null,
-    "usatoday": 43
-   },
-   "published": {
-    "cbs": null,
-    "dynastyprocess": 4.0,
-    "fantasycalc": null,
-    "fantasypros": null,
-    "usatoday": 14.0
+    "usatoday": 43.0
    }
   },
   {
    "ddf": 0.5,
    "key": 2791,
    "name": "Mike Gesicki",
+   "pct_of_top": {
+    "cbs": null,
+    "dynastyprocess": 0.27,
+    "fantasycalc": 3.55,
+    "fantasypros": null,
+    "usatoday": 12.66
+   },
    "pos": "TE",
    "pos_rank": {
     "cbs": null,
-    "dynastyprocess": 40,
-    "fantasycalc": 16,
+    "dynastyprocess": 40.0,
+    "fantasycalc": 16.0,
     "fantasypros": null,
-    "usatoday": 18
-   },
-   "published": {
-    "cbs": null,
-    "dynastyprocess": 28.0,
-    "fantasycalc": 378.0,
-    "fantasypros": null,
-    "usatoday": 10.0
+    "usatoday": 18.0
    }
   },
   {
    "ddf": 0.5,
    "key": 4247,
    "name": "Chig Okonkwo",
+   "pct_of_top": {
+    "cbs": null,
+    "dynastyprocess": 4.2,
+    "fantasycalc": 0.74,
+    "fantasypros": 7.06,
+    "usatoday": 8.86
+   },
    "pos": "TE",
    "pos_rank": {
     "cbs": null,
-    "dynastyprocess": 18,
-    "fantasycalc": 22,
-    "fantasypros": 17,
-    "usatoday": 23
-   },
-   "published": {
-    "cbs": null,
-    "dynastyprocess": 428.0,
-    "fantasycalc": 79.0,
-    "fantasypros": 5.3,
-    "usatoday": 7.0
+    "dynastyprocess": 18.0,
+    "fantasycalc": 22.0,
+    "fantasypros": 17.0,
+    "usatoday": 22.5
    }
   },
   {
    "ddf": 0.4,
    "key": 535,
    "name": "J.K. Dobbins",
+   "pct_of_top": {
+    "cbs": null,
+    "dynastyprocess": 1.81,
+    "fantasycalc": 4.05,
+    "fantasypros": 2.53,
+    "usatoday": 12.66
+   },
    "pos": "RB",
    "pos_rank": {
     "cbs": null,
-    "dynastyprocess": 48,
-    "fantasycalc": 46,
-    "fantasypros": 48,
-    "usatoday": 50
-   },
-   "published": {
-    "cbs": null,
-    "dynastyprocess": 184.0,
-    "fantasycalc": 431.0,
-    "fantasypros": 1.9,
-    "usatoday": 10.0
+    "dynastyprocess": 48.0,
+    "fantasycalc": 46.0,
+    "fantasypros": 48.0,
+    "usatoday": 51.0
    }
   },
   {
    "ddf": 0.4,
    "key": 525,
    "name": "Mack Hollins",
-   "pos": "WR",
-   "pos_rank": {
+   "pct_of_top": {
     "cbs": null,
-    "dynastyprocess": 112,
+    "dynastyprocess": 0.16,
     "fantasycalc": null,
     "fantasypros": null,
     "usatoday": null
    },
-   "published": {
+   "pos": "WR",
+   "pos_rank": {
     "cbs": null,
-    "dynastyprocess": 16.0,
+    "dynastyprocess": 112.5,
     "fantasycalc": null,
     "fantasypros": null,
     "usatoday": null
@@ -15175,220 +15161,220 @@
    "ddf": 0.4,
    "key": 3580,
    "name": "Dylan Sampson",
+   "pct_of_top": {
+    "cbs": null,
+    "dynastyprocess": 1.51,
+    "fantasycalc": 2.42,
+    "fantasypros": null,
+    "usatoday": 15.19
+   },
    "pos": "RB",
    "pos_rank": {
     "cbs": null,
-    "dynastyprocess": 49,
-    "fantasycalc": 50,
+    "dynastyprocess": 49.0,
+    "fantasycalc": 50.0,
     "fantasypros": null,
-    "usatoday": 48
-   },
-   "published": {
-    "cbs": null,
-    "dynastyprocess": 154.0,
-    "fantasycalc": 257.0,
-    "fantasypros": null,
-    "usatoday": 12.0
+    "usatoday": 47.0
    }
   },
   {
    "ddf": 0.3,
    "key": 1513,
    "name": "Devaughn Vele",
+   "pct_of_top": {
+    "cbs": null,
+    "dynastyprocess": 0.95,
+    "fantasycalc": 4.01,
+    "fantasypros": 15.18,
+    "usatoday": 10.13
+   },
    "pos": "WR",
    "pos_rank": {
     "cbs": null,
-    "dynastyprocess": 84,
-    "fantasycalc": 50,
-    "fantasypros": 58,
-    "usatoday": 57
-   },
-   "published": {
-    "cbs": null,
-    "dynastyprocess": 97.0,
-    "fantasycalc": 427.0,
-    "fantasypros": 11.4,
-    "usatoday": 8.0
+    "dynastyprocess": 84.0,
+    "fantasycalc": 50.0,
+    "fantasypros": 58.0,
+    "usatoday": 56.5
    }
   },
   {
    "ddf": 0.3,
    "key": 3541,
    "name": "Kirk Cousins",
+   "pct_of_top": {
+    "cbs": null,
+    "dynastyprocess": 0.63,
+    "fantasycalc": 5.21,
+    "fantasypros": 1.33,
+    "usatoday": 6.33
+   },
    "pos": "QB",
    "pos_rank": {
     "cbs": null,
-    "dynastyprocess": 34,
-    "fantasycalc": 16,
-    "fantasypros": 27,
-    "usatoday": 18
-   },
-   "published": {
-    "cbs": null,
-    "dynastyprocess": 64.0,
-    "fantasycalc": 554.0,
-    "fantasypros": 1.0,
-    "usatoday": 5.0
+    "dynastyprocess": 34.0,
+    "fantasycalc": 16.0,
+    "fantasypros": 23.0,
+    "usatoday": 17.5
    }
   },
   {
    "ddf": 0.3,
    "key": 4021,
    "name": "Wan'Dale Robinson",
+   "pct_of_top": {
+    "cbs": null,
+    "dynastyprocess": 9.14,
+    "fantasycalc": 3.55,
+    "fantasypros": 16.25,
+    "usatoday": 8.86
+   },
    "pos": "WR",
    "pos_rank": {
     "cbs": null,
-    "dynastyprocess": 46,
-    "fantasycalc": 54,
-    "fantasypros": 55,
-    "usatoday": 61
-   },
-   "published": {
-    "cbs": null,
-    "dynastyprocess": 931.0,
-    "fantasycalc": 378.0,
-    "fantasypros": 12.2,
-    "usatoday": 7.0
+    "dynastyprocess": 46.0,
+    "fantasycalc": 54.0,
+    "fantasypros": 55.0,
+    "usatoday": 60.5
    }
   },
   {
    "ddf": 0.2,
    "key": 1214,
    "name": "Demario Douglas",
+   "pct_of_top": {
+    "cbs": null,
+    "dynastyprocess": 0.59,
+    "fantasycalc": 3.52,
+    "fantasypros": 11.19,
+    "usatoday": 15.19
+   },
    "pos": "WR",
    "pos_rank": {
     "cbs": null,
-    "dynastyprocess": 91,
-    "fantasycalc": 55,
-    "fantasypros": 62,
-    "usatoday": 50
-   },
-   "published": {
-    "cbs": null,
-    "dynastyprocess": 60.0,
-    "fantasycalc": 374.0,
-    "fantasypros": 8.4,
-    "usatoday": 12.0
+    "dynastyprocess": 91.0,
+    "fantasycalc": 55.0,
+    "fantasypros": 62.0,
+    "usatoday": 51.0
    }
   },
   {
    "ddf": 0.2,
    "key": 270,
    "name": "Courtland Sutton",
+   "pct_of_top": {
+    "cbs": null,
+    "dynastyprocess": 4.12,
+    "fantasycalc": 1.01,
+    "fantasypros": 17.44,
+    "usatoday": 7.59
+   },
    "pos": "WR",
    "pos_rank": {
     "cbs": null,
-    "dynastyprocess": 59,
-    "fantasycalc": 62,
-    "fantasypros": 53,
-    "usatoday": 64
-   },
-   "published": {
-    "cbs": null,
-    "dynastyprocess": 420.0,
-    "fantasycalc": 107.0,
-    "fantasypros": 13.1,
-    "usatoday": 6.0
+    "dynastyprocess": 59.0,
+    "fantasycalc": 62.0,
+    "fantasypros": 53.0,
+    "usatoday": 66.0
    }
   },
   {
    "ddf": 0.2,
    "key": 4368,
    "name": "Juwan Johnson",
+   "pct_of_top": {
+    "cbs": null,
+    "dynastyprocess": 3.79,
+    "fantasycalc": 1.92,
+    "fantasypros": 3.99,
+    "usatoday": 8.86
+   },
    "pos": "TE",
    "pos_rank": {
     "cbs": null,
-    "dynastyprocess": 20,
-    "fantasycalc": 17,
-    "fantasypros": 19,
-    "usatoday": 24
-   },
-   "published": {
-    "cbs": null,
-    "dynastyprocess": 386.0,
-    "fantasycalc": 204.0,
-    "fantasypros": 3.0,
-    "usatoday": 7.0
+    "dynastyprocess": 20.0,
+    "fantasycalc": 17.0,
+    "fantasypros": 19.0,
+    "usatoday": 22.5
    }
   },
   {
    "ddf": 0.1,
    "key": 3662,
    "name": "Mason Taylor",
+   "pct_of_top": {
+    "cbs": null,
+    "dynastyprocess": 1.14,
+    "fantasycalc": null,
+    "fantasypros": null,
+    "usatoday": 10.13
+   },
    "pos": "TE",
    "pos_rank": {
     "cbs": null,
-    "dynastyprocess": 30,
+    "dynastyprocess": 30.0,
     "fantasycalc": null,
     "fantasypros": null,
-    "usatoday": 20
-   },
-   "published": {
-    "cbs": null,
-    "dynastyprocess": 116.0,
-    "fantasycalc": null,
-    "fantasypros": null,
-    "usatoday": 8.0
+    "usatoday": 19.5
    }
   },
   {
    "ddf": 0.1,
    "key": 1032,
    "name": "Brian Robinson",
+   "pct_of_top": {
+    "cbs": null,
+    "dynastyprocess": 0.93,
+    "fantasycalc": 0.38,
+    "fantasypros": 4.93,
+    "usatoday": 12.66
+   },
    "pos": "RB",
    "pos_rank": {
     "cbs": null,
-    "dynastyprocess": 56,
-    "fantasycalc": 57,
-    "fantasypros": 46,
-    "usatoday": 52
-   },
-   "published": {
-    "cbs": null,
-    "dynastyprocess": 95.0,
-    "fantasycalc": 40.0,
-    "fantasypros": 3.7,
-    "usatoday": 10.0
+    "dynastyprocess": 56.0,
+    "fantasycalc": 57.0,
+    "fantasypros": 46.0,
+    "usatoday": 51.0
    }
   },
   {
    "ddf": 0.1,
    "key": 1218,
    "name": "Chris Rodriguez Jr.",
+   "pct_of_top": {
+    "cbs": null,
+    "dynastyprocess": 1.24,
+    "fantasycalc": 3.05,
+    "fantasypros": 1.73,
+    "usatoday": 8.86
+   },
    "pos": "RB",
    "pos_rank": {
     "cbs": null,
-    "dynastyprocess": 52,
-    "fantasycalc": 49,
-    "fantasypros": 51,
-    "usatoday": 54
-   },
-   "published": {
-    "cbs": null,
-    "dynastyprocess": 126.0,
-    "fantasycalc": 324.0,
-    "fantasypros": 1.3,
-    "usatoday": 7.0
+    "dynastyprocess": 52.0,
+    "fantasycalc": 49.0,
+    "fantasypros": 51.0,
+    "usatoday": 55.0
    }
   },
   {
    "ddf": 0.1,
    "key": 785,
    "name": "Kenneth Gainwell",
+   "pct_of_top": {
+    "cbs": null,
+    "dynastyprocess": 2.29,
+    "fantasycalc": 1.56,
+    "fantasypros": 1.86,
+    "usatoday": 12.66
+   },
    "pos": "RB",
    "pos_rank": {
     "cbs": null,
-    "dynastyprocess": 44,
-    "fantasycalc": 53,
-    "fantasypros": 50,
-    "usatoday": 51
-   },
-   "published": {
-    "cbs": null,
-    "dynastyprocess": 233.0,
-    "fantasycalc": 166.0,
-    "fantasypros": 1.4,
-    "usatoday": 10.0
+    "dynastyprocess": 44.0,
+    "fantasycalc": 53.0,
+    "fantasypros": 50.0,
+    "usatoday": 51.0
    }
   }
  ],
@@ -15405,6 +15391,28 @@
     "RB": 44.3,
     "TE": 8.1,
     "WR": 39.3
+   },
+   "gap_vs_each_projection": {
+    "cbs": {
+     "cbsros": 8.7,
+     "espn": 9.8,
+     "razzball": 10.8
+    },
+    "fantasycalc": {
+     "cbsros": 7.5,
+     "espn": 10.5,
+     "razzball": 11.5
+    },
+    "fantasypros": {
+     "cbsros": 5.5,
+     "espn": 1.4,
+     "razzball": 2.5
+    },
+    "usatoday": {
+     "cbsros": 8.0,
+     "espn": 11.3,
+     "razzball": 12.3
+    }
    },
    "gap_vs_projections": {
     "cbs": 8.5,
@@ -15476,6 +15484,28 @@
     "TE": 6.4,
     "WR": 32.3
    },
+   "gap_vs_each_projection": {
+    "cbs": {
+     "cbsros": 28.1,
+     "espn": 22.5,
+     "razzball": 17.9
+    },
+    "fantasycalc": {
+     "cbsros": 23.8,
+     "espn": 18.7,
+     "razzball": 17.1
+    },
+    "fantasypros": {
+     "cbsros": 15.7,
+     "espn": 10.0,
+     "razzball": 5.5
+    },
+    "usatoday": {
+     "cbsros": 24.2,
+     "espn": 18.6,
+     "razzball": 15.7
+    }
+   },
    "gap_vs_projections": {
     "cbs": 22.9,
     "fantasycalc": 18.5,
@@ -15545,6 +15575,28 @@
     "RB": 40.8,
     "TE": 8.1,
     "WR": 43.2
+   },
+   "gap_vs_each_projection": {
+    "cbs": {
+     "cbsros": 4.9,
+     "espn": 4.2,
+     "razzball": 2.8
+    },
+    "fantasycalc": {
+     "cbsros": 2.6,
+     "espn": 4.0,
+     "razzball": 3.8
+    },
+    "fantasypros": {
+     "cbsros": 6.4,
+     "espn": 2.8,
+     "razzball": 6.0
+    },
+    "usatoday": {
+     "cbsros": 4.3,
+     "espn": 6.5,
+     "razzball": 4.6
+    }
    },
    "gap_vs_projections": {
     "cbs": 2.7,
@@ -15616,6 +15668,28 @@
     "TE": 7.9,
     "WR": 33.8
    },
+   "gap_vs_each_projection": {
+    "cbs": {
+     "cbsros": 14.6,
+     "espn": 17.8,
+     "razzball": 20.1
+    },
+    "fantasycalc": {
+     "cbsros": 15.3,
+     "espn": 19.1,
+     "razzball": 21.3
+    },
+    "fantasypros": {
+     "cbsros": 4.1,
+     "espn": 6.8,
+     "razzball": 9.0
+    },
+    "usatoday": {
+     "cbsros": 14.3,
+     "espn": 17.7,
+     "razzball": 19.9
+    }
+   },
    "gap_vs_projections": {
     "cbs": 16.2,
     "fantasycalc": 17.5,
@@ -15675,10 +15749,10 @@
   }
  },
  "rules": {
-  "balance": "Position balance: share of value that would have to move between positions to match the projections (ESPN, CBS rest-of-season, Razzball run through our model), Half PPR, 12 teams. Strong up to 5 points, OK up to 10, Weak above 10.",
+  "balance": "Position balance: share of value that would have to move between positions to match the projections (ESPN, CBS rest-of-season, Razzball run through our model, averaged), Half PPR, 12 teams. Strong up to 5 points, OK up to 10, Weak above 10. Section 1 shows the range against each projection set alone.",
   "consolidation": "2-for-1 sense: the share of mid-tier pairs (ranks 25-60) that the raw chart says beat a top-12 player, minus the share once each player's waiver-level value is subtracted. Strong up to 10 points of difference, OK up to 25, Weak above 25.",
-  "depth": "Depth: the thinnest position's listed players as a share of the players a 12-team league rosters there. Strong at 100% or more, OK at 70% or more, Weak below.",
-  "freshness": "Freshness: Strong when each of the four week-to-week changes from week 5 to 9 is a new publication and moves last week's top 24 per position by at least a quarter of a rank on average; OK when one week did not; Weak otherwise.",
+  "depth": "Depth: the thinnest position's listed players as a share of the players a 12-team league with our lineup rosters there (the waiver line). Strong at 100% or more, OK at 70% or more, Weak below. Lists that reach past the line are reported in section 5, not graded.",
+  "freshness": "Weekly change: Strong when each of the four week-to-week changes in our saved weekly snapshots (weeks 5 to 9) is a distinct capture and moves last week's top 24 per position by at least a quarter of a rank on average; OK when one week did not; Weak otherwise.",
   "league_size": "League size: Strong when the source offers its own numbers by team count; Weak with one table for every league size.",
   "scoring": "Scoring formats: compare Standard with Full PPR for the top 36 at RB, WR and TE. Strong when at least 20% of those players change places on average; OK when the numbers change but fewer change places; Weak when the numbers do not change. For ESPN the formats are our scoring of its projected stats, for CBS rest-of-season we add points per catch to its Standard total; Razzball publishes its own columns.",
   "superflex": "Superflex: Strong with superflex values for 24 or more QBs (two per team); OK with fewer; Weak with none."
@@ -15744,6 +15818,39 @@
    "scoring": {
     "label": "Strong",
     "level": 3
+   },
+   "superflex": {
+    "label": "Not measured",
+    "level": null
+   }
+  },
+  "ddf": {
+   "balance": {
+    "label": "Strong",
+    "level": 3,
+    "value": 3.7
+   },
+   "consolidation": {
+    "label": "Not measured",
+    "level": null
+   },
+   "depth": {
+    "label": "OK",
+    "level": 2,
+    "value": 85.0
+   },
+   "freshness": {
+    "label": "Not measured",
+    "level": null
+   },
+   "league_size": {
+    "label": "Strong",
+    "level": 3
+   },
+   "scoring": {
+    "label": "Strong",
+    "level": 3,
+    "value": 37.0
    },
    "superflex": {
     "label": "Not measured",
@@ -16608,34 +16715,34 @@
  },
  "waiver_line": {
   "cbs": {
-   "QB": 0.78,
-   "RB": 0.34,
-   "TE": 0.45,
-   "WR": 1.54
+   "QB": 1.39,
+   "RB": 0.6,
+   "TE": 0.8,
+   "WR": 2.73
   },
   "dynastyprocess": {
-   "QB": 481.0,
-   "RB": 26.86,
-   "TE": 282.64,
-   "WR": 375.32
+   "QB": 4.72,
+   "RB": 0.26,
+   "TE": 2.78,
+   "WR": 3.69
   },
   "fantasycalc": {
-   "QB": 172.0,
-   "RB": 1.0,
-   "TE": 71.79,
-   "WR": 106.7
+   "QB": 1.62,
+   "RB": 0.01,
+   "TE": 0.67,
+   "WR": 1.0
   },
   "fantasypros": {
-   "QB": 1.0,
-   "RB": 0.3,
-   "TE": 1.0,
-   "WR": 8.28
+   "QB": 1.33,
+   "RB": 0.4,
+   "TE": 1.33,
+   "WR": 11.02
   },
   "usatoday": {
-   "QB": 4.0,
-   "RB": 3.88,
-   "TE": 7.0,
-   "WR": 7.0
+   "QB": 5.06,
+   "RB": 4.91,
+   "TE": 8.86,
+   "WR": 8.86
   }
  },
  "weekly": {
