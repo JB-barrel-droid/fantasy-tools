@@ -595,6 +595,13 @@ def dynastyprocess(inp, data: dict) -> dict:
         other = base.natives(k)
         common = [i for i in nat if i in other]
         out["rank_corr_with"][k] = r(spearman([nat[i] for i in common], [other[i] for i in common]), 3)
+    # Like for like: the players all four redraft charts list (the set behind agreement()).
+    four = {k: base.natives(k) for k in CHARTS}
+    common4 = [i for i in four["cbs"] if all(i in four[k] for k in CHARTS) and i in nat]
+    out["rank_corr_common"] = {"n": len(common4), **{
+        k: r(spearman([nat[i] for i in common4], [four[k][i] for i in common4]), 3) for k in CHARTS}}
+    out["rank_corr_common_min"] = min(out["rank_corr_common"][k] for k in CHARTS)
+    out["rank_corr_common_max"] = max(out["rank_corr_common"][k] for k in CHARTS)
     # Age: position rank on DynastyProcess against position rank by our (redraft) DDF Value.
     ddf = ddf_values(base)
     pool = sorted(ddf, key=lambda i: (-ddf[i], i))[:TRADE_POOL]
@@ -612,6 +619,7 @@ def dynastyprocess(inp, data: dict) -> dict:
         moves = [rd[i] - rp[i] for i in ks]
         bands.append({"band": label, "n": len(ks), "mean_rank_gain": r(sum(moves) / len(moves), 1) if moves else None})
     out["age_bands"] = bands
+    out["age_pool"] = len(pool)
     # Week to week, same rule as the other sources.
     snaps = [dp_snapshot(inp, d)["players"] for d in DP_DATES]
     moves, same = [], []
