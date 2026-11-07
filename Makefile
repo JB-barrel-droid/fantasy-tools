@@ -669,6 +669,7 @@ test-core:
 	python3 -m unittest tests.test_fractional_seats_stability
 	# JEG-1152: engine promotion model part-for-part with the reference.
 	python3 -m unittest tests.test_promotion_model_parity
+	python3 -m unittest tests.test_values_explainer_arithmetic
 	python3 -m unittest tests.test_static_export
 	python3 -m unittest tests.test_seeded_hold_build
 	python3 -m unittest tests.test_isolate_post_validate
@@ -962,6 +963,7 @@ test-core-shard-3:
 	python3 -m unittest tests.test_razzball_outlier_guard
 
 test-core-shard-4:
+	python3 -m unittest tests.test_values_explainer_arithmetic
 	python3 -m unittest tests.test_static_export
 	python3 -m unittest tests.test_rank_guard
 	python3 -m unittest tests.test_kdst_removed

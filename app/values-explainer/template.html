@@ -425,7 +425,7 @@ const SRC_KEYS = [...PROJ, ...CHARTS];
 // excluded, stays in the pipeline (allocation, weights, pie) but is hidden
 // from DDF Value, the Indexed basis and the bench-share readout. The engine's
 // composite inputs list it; its display series do not.
-const HIDDEN = new Set((D.composite?.inputs || []).filter(k => !(D.composite?.series || D.composite?.inputs || []).includes(k)));
+const HIDDEN = new Set(Object.values(D.compositeByVersion).flatMap(c => c.inputs.filter(k => !c.series.includes(k))));
 const COUNTED = (VP.included || []).filter(k => !HIDDEN.has(k));
 const hiddenTxt = k => { const r = (D.info || []).find(x => x.key === k)?.excludedReason; return esc(nameOf(k)) + (r ? ` (${esc(r)})` : ""); };
 const DDF = [["blended", "ddf_value"], ["charts", "ddf_value_charts"], ["projections", "ddf_value_projections"]];
@@ -743,9 +743,9 @@ const isEst = (k, pk) => !!SRC[k]?.[pk]?.[1];
       <ol class="recipe">
         <li><div><b>${chart ? (isObserved(k) ? "Take the observed-trade value" : "Take the published trade value") : "Take the per-game projection"}</b><p class="muted small">${chart ? (isObserved(k) ? `The source's own trade values, estimated from completed fantasy trades, from its saved 12-team ${SCORING[S.scoring]} list, in its own units.` : `The publisher's own trade values from its saved 12-team ${SCORING[S.scoring]} list, in its own units.`) : `Rest-of-season points per game for ${SCORING[S.scoring]}, at full precision.`}${chart ? " Rosterable players it doesn't list get an estimate (list below)." : ""}</p></div></li>
         <li><div><b>Read the waiver and starter lines at the league's counts</b><p class="muted small">Counts come from the one league allocation (by mean projected points), not from this source. Waiver line = ${chart ? "this source's own value at the first rank past the rostered count" : "the average of this source's 7 players around the first rank past the rostered count"}; starter line = the midpoint of its last starter and first non-starter, in ${unit}.</p></div></li>
-        <li><div><b>${ES ? "Split by expected starts and group" : "Slice and group"}</b><p class="muted small">Total value above waivers ${fmtN(s.totalVorp)} ${unit}, in eight groups below.</p></div></li>
+        <li><div><b>${ES ? "Split by expected starts and group" : "Slice and group"}</b><p class="muted small">Raw positive surplus ${fmtN(s.surplusTotal)} ${unit}; ${ES ? "expected-start-weighted group total" : "group total"} ${fmtN(s.totalVorp)} ${unit}, in eight groups below.${MIX.length > 1 ? " These totals are weighted averages across the seat allocations." : ""}</p></div></li>
         <li><div><b>Pay the pie on the DDF weights</b><div class="formula">rate[group] = pie × W[group] ÷ group total\nAdjusted = rate[pos, bench] × ${ES ? "fill-in part" : "bench slice"} + rate[pos, starter] × ${ES ? "start-worthy part" : "starter slice"}</div></div></li>
-        <li><div><b>Value above waivers</b><div class="formula">v × ${sig(s.vorpFactor, 5)}   (${fmt(PIE, 0)} ÷ ${fmtN(s.totalVorp)})</div></div></li>
+        <li><div><b>Value above waivers</b><div class="formula" data-vorp-division>v × ${sig(s.vorpFactor, 5)}\n${MIX.length > 1 ? `multiplier = weighted mean(${fmt(PIE, 0)} ÷ raw positive surplus per allocation)` : `multiplier = ${fmt(PIE, 0)} ÷ ${fmtN(s.surplusTotal)}`}</div><p class="muted small">The divisor is the raw positive surplus, before expected-start weighting.${MIX.length > 1 ? ` The engine averages the ${MIX.length} allocations' multipliers using their seat weights; dividing by the averaged surplus above would give a different number. The player's v is restated at this averaged multiplier so v × multiplier matches the engine.` : ""}</p></div></li>
         ${chart ? `<li><div><b>Indexed</b><div class="formula">${ownValue(k)} × ${sig(s.indexedFactor, 5)}</div></div></li>` : ""}
       </ol>
       <div class="tablewrap"><table><thead><tr><th>Pos</th><th class="r">Listed${chart ? " + estimated" : ""}</th><th class="r">Starters / rostered</th><th class="r">Starter line</th><th class="r">Waiver line</th><th>Waiver player</th><th class="r">Starter group</th><th class="r">Bench group</th><th class="r">Starter rate</th><th class="r">Bench rate</th></tr></thead><tbody>${rows}</tbody></table></div>
@@ -763,8 +763,8 @@ const isEst = (k, pk) => !!SRC[k]?.[pk]?.[1];
       <h3>DDF Value</h3>
       <div class="formula">DDF Value = mean(Adjusted value of each included, non-hidden source that prices the player)</div>
       <p>Inputs in use: ${(c.inputs || []).map(label).join(" ")}.</p>
-      <p class="muted small">${c.isDefault ? "These are the defaults: every included source; hidden ones are then left out of the mean." : "The reader changed the inputs."} The reader's selection only narrows the averaging; it never changes the weights or any source's values. A source that does not price a player is left out of that player's mean; a chart that skips a player below rosterable depth counts as 0. One number in every view.</p>
-      <div class="tablewrap"><table><thead><tr><th>Version</th><th>Sources</th><th class="r">Players with a value</th><th class="r">At 0</th><th class="r">One source only</th></tr></thead><tbody>${DDF.map(([v, k]) => `<tr><td>${label(k)}</td><td class="small">${(v === "blended" ? COUNTED : v === "charts" ? CHARTS.filter(x => COUNTED.includes(x)) : PROJ.filter(x => COUNTED.includes(x))).map(nameOf).join(", ")}</td><td class="r num">${counts[v].n}</td><td class="r num">${counts[v].zero}</td><td class="r num">${counts[v].low}</td></tr>`).join("")}</tbody></table></div>
+      <p class="muted small">${c.isDefault ? "These are the defaults: DDF Value averages the included trade charts; the projections version averages the included projections. Hidden sources are left out of each mean." : "The reader changed the inputs."} The reader's selection only narrows the averaging; it never changes the weights or any source's values. A source that does not price a player is left out of that player's mean; a chart that skips a player below rosterable depth counts as 0. One number in every view.</p>
+      <div class="tablewrap"><table><thead><tr><th>Version</th><th>Sources</th><th class="r">Players with a value</th><th class="r">At 0</th><th class="r">One source only</th></tr></thead><tbody>${DDF.map(([v, k]) => `<tr><td>${label(k)}</td><td class="small" data-membership="${v}">${D.compositeByVersion[v].series.map(s => `<span data-source="${s}">${esc(nameOf(s))}</span>`).join(", ")}</td><td class="r num">${counts[v].n}</td><td class="r num">${counts[v].zero}</td><td class="r num">${counts[v].low}</td></tr>`).join("")}</tbody></table></div>
       <p class="muted small">Tiers: within a position, rank by blended DDF Value; the first ${POS.map(p => `${ALLOC[p]?.starters} ${p}`).join(", ")} are starters, then bench to the rostered count; DDF Value 0 is waiver. Tiers follow seats, not the sign of the value: a player past the rostered count is waiver even with a small positive DDF Value.</p>
       <p class="codepath">value-model.js · compositeValue · curve-widget.js · getCompositeInputs, getCompositeValues</p>
     </div>`;
@@ -796,7 +796,6 @@ const isEst = (k, pk) => !!SRC[k]?.[pk]?.[1];
     const b = p.ddf?.blended || [];
     const blocks = [];
     blocks.push(`<div class="panel"><h3>${esc(p.n)} <span class="muted small">${pos}${p.t ? " · " + esc(p.t) : ""} · mean projection ${fmt(p.m, 2)} ppg · tier ${esc(p.tier || "—")} · DDF Value <b class="num">${fmt(b[0])}</b> from ${b[1] ?? 0} sources${isFinite(b[3]) && b[3] !== null ? ` · last week ${fmt(b[3])}` : ""}</span></h3></div>`);
-    const adjs = [];
     SRC_KEYS.forEach(src => {
       const s = VP.sources[src], x = s.positions?.[pos] || {};
       const a = SRC[src]?.[k];
@@ -814,13 +813,14 @@ const isEst = (k, pk) => !!SRC[k]?.[pk]?.[1];
           + step("Value above waivers", fmt(Vd), true) + (isChart(src) ? step("Indexed", fmt(Ix), true) : "");
         if (est) chain += `<span class="muted small">${esc(p.est?.[src] || "estimated")}</span>`;
       }
-      const av = valueOf("adj", src, k);
-      if (COUNTED.includes(src) && av !== null && isFinite(av)) adjs.push([src, av]);
       blocks.push(`<div class="panel"><div class="steps">${label(src)}</div><div class="steps">${chain}</div></div>`);
     });
-    const mean = adjs.length ? adjs.reduce((s, [, v]) => s + v, 0) / adjs.length : null;
-    blocks.push(`<div class="panel"><div class="steps">${label("ddf_value")}</div><div class="steps">${adjs.map(([s, v]) => step(nameOf(s), fmt(v))).join(op("+"))}${op("÷ " + adjs.length + " =")}${step("DDF Value", fmt(mean), true)}${mean !== null && Math.abs(mean - (b[0] ?? NaN)) > 0.05 ? ` <span class="pill bad">engine shows ${fmt(b[0])}</span>` : ""}</div>
-      <div class="steps">${DDF.slice(1).map(([v, kk]) => step(nameOf(kk), fmt(p.ddf?.[v]?.[0]), true)).join("")}</div></div>`);
+    DDF.forEach(([version, series]) => {
+      const adjs = (p.sources[version] || []).map(src => [src, valueOf("adj", src, k)]);
+      const mean = adjs.length ? adjs.reduce((sum, [, v]) => sum + v, 0) / adjs.length : null;
+      const engine = p.ddf?.[version]?.[0];
+      blocks.push(`<div class="panel" data-ddf-version="${version}"><div class="steps">${label(series)}</div><div class="steps">${adjs.map(([src, v]) => `<span data-source="${src}">${step(nameOf(src), fmt(v))}</span>`).join(op("+"))}<span data-aggregate-divisor>${op("÷ " + adjs.length + " =")}</span><span data-aggregate-value>${step(nameOf(series), fmt(mean), true)}</span>${mean !== null && Math.abs(mean - (engine ?? NaN)) > 0.05 ? ` <span class="pill bad">engine shows ${fmt(engine)}</span>` : ""}</div></div>`);
+    });
     $("traceBody").innerHTML = blocks.join("");
   }
   show(store.get("player", null) && P[store.get("player")] ? store.get("player") : quick[0]);
@@ -965,7 +965,7 @@ const isEst = (k, pk) => !!SRC[k]?.[pk]?.[1];
   const files = Object.entries(m.logic_hashes || {}).map(([f, h]) => `<tr><td class="mono">${esc(f)}</td><td class="mono">${esc(h)}</td><td>${(m.logic_changed || []).includes(f) ? `<span class="pill warn">changed since review</span>` : `<span class="pill good">reviewed</span>`}</td></tr>`).join("");
   const off = Object.keys(D.reconstruction?.off || {}).length;
   $("prov").innerHTML = `<div class="eyebrow">Provenance</div>
-    <p>Built by <span class="mono">pipelines/build_values_explainer.py</span> (<span class="mono">make values-explainer</span>) from commit <span class="mono">${esc(m.commit)}</span> (${esc(m.commit_subject)}). Every value is read from the chart engine running headless on the built site. The per-source numbers on this page were checked against the values the chart draws in all three views: ${off ? `<b>${off} series off</b> by more than ${D.reconstruction.tolerance}` : `all within ${D.reconstruction?.tolerance}`}. Engine: ${Object.entries(D.versions || {}).map(([k, v]) => `${esc(k)} <span class="mono">${esc(v)}</span>`).join(" · ")}. Spec: <span class="mono">docs/methodology.md</span>, "Value Pipeline".</p>
+    <p>Built by <span class="mono">pipelines/build_values_explainer.py</span> (<span class="mono">make values-explainer</span>) from commit <span class="mono">${esc(m.commit)}</span> (${esc(m.commit_subject)}). Every value is read from the chart engine running headless on the built site. The per-source numbers on this page were checked against the values the chart draws in all three views: ${off ? `<b>${off} series off</b> by more than ${D.reconstruction.tolerance}` : `all within ${D.reconstruction?.tolerance}`}. The build also checks every player's rendered DDF aggregate and contributing sources in all three versions (${D.reconstruction?.rendered?.checked ?? 0} aggregates, within ${D.reconstruction?.rendered?.tolerance ?? 0.051} at one decimal). Engine: ${Object.entries(D.versions || {}).map(([k, v]) => `${esc(k)} <span class="mono">${esc(v)}</span>`).join(" · ")}. Spec: <span class="mono">docs/methodology.md</span>, "Value Pipeline".</p>
     <details class="fold"><summary>Logic files and review status</summary><div class="tablewrap"><table><thead><tr><th>File</th><th>Hash</th><th>Status</th></tr></thead><tbody>${files}</tbody></table></div></details>`;
 })();
 })();

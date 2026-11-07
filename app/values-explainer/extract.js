@@ -28,6 +28,7 @@ async (opts) => {
     state: clone(C.getState()),
     info: clone(C.getSourceInfo({includeComposite: true})),
     composite: clone(C.getCompositeInputs()),
+    compositeByVersion: Object.fromEntries(["blended", "charts", "projections"].map(v => [v, clone(C.getCompositeInputs(v))])),
     positionWeights: clone(C.getPositionWeights()),
     zones: clone(C.getZones()),
     inspection: clone(C.getInspection()),
