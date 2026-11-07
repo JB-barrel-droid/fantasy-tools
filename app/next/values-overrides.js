@@ -250,7 +250,7 @@ function renderActive(){
   const ch=$('ov-chat');if(ch)ch.hidden=!(n&&L&&typeof L.copyForChat==='function'&&L.current&&L.current());
   const tb=$('ov-tabn');if(tb){tb.hidden=!n;tb.textContent=n;tb.setAttribute('aria-label',n+(n===1?' override':' overrides'))}
   const sn=$('ov-session-note');
-  if(sn){if(e&&e.overrides.session()){sn.textContent='These overrides came from a link and apply for this visit only. Confirm one to save it.';sn.hidden=false}else sn.hidden=true}
+  if(sn){if(e&&e.overrides.session()){sn.textContent='These overrides came from a link and apply for this visit. Any change you make here saves them as your own.';sn.hidden=false}else sn.hidden=true}
   const ov=$('ov-active');if(!ov)return;
   if(!n){ov.innerHTML='<li class="ov-empty">None yet. Pick a player and set your value; every tab then uses it in place of DDF Value.</li>';return}
   ov.innerHTML=keys.map(key=>{

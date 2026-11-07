@@ -154,7 +154,7 @@ READ_TABLE_JS = """() => {
 }"""
 
 # Read first 5 Buy rows from the Buy / Sell tab.
-READ_BUYSELL_JS = """() => {
+READ_BUYSELL_JS = r"""() => {
   /* activate the Buy/Sell tab */
   const tab = document.getElementById('tab-bs');
   if (tab && tab.getAttribute('aria-selected') !== 'true') tab.click();
@@ -391,7 +391,7 @@ class ValuesPageEngineParityTest(unittest.TestCase):
         # E().on()).  The anchor is the unique end of the push-forEach in load().
         ANCHOR = "chg:null,was:null}))"
         if ANCHOR not in src:
-            self.skipTest('injection anchor not found in values-chart.js')
+            self.fail('injection anchor not found in values-chart.js')
 
         patched = src.replace(
             ANCHOR,

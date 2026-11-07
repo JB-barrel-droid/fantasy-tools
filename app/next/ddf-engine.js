@@ -134,15 +134,35 @@
       if (s && C.setPositionWeights && POSITIONS.every(function (p) { return finite(s[p]); })) C.setPositionWeights(s);
     });
   }
+  // The same record v2.js leagueSnapshot() writes, read from the engine's current state (so weeks, advanced and
+  // position shares are what the engine now uses, never a stale copy); equal to the site defaults = not kept.
   var defaults = null;
-  function saveSettings() {
-    var saved = readJSON(localStorage, LEAGUE_KEY);
+  function snapshot() {
     var cur = settings();
-    var rec = Object.assign({}, saved && saved.v === 1 ? saved : {}, {v: 1, scoring: cur.scoring, teams: cur.teams, roster: cur.roster});
-    var plain = JSON.stringify({scoring: cur.scoring, teams: cur.teams, roster: cur.roster}) === defaults && !rec.weeks && !rec.adv && !rec.shares;
+    var snap = {v: 1, scoring: cur.scoring, teams: cur.teams, roster: cur.roster};
     try {
-      if (plain) localStorage.removeItem(LEAGUE_KEY);
-      else localStorage.setItem(LEAGUE_KEY, JSON.stringify(Object.assign(rec, {savedAt: Date.now()})));
+      var build = C.getBuildContentWeek ? C.getBuildContentWeek() : null;
+      if (Number.isInteger(build) && C.getLeagueWeeks && C.getContentWeek && C.getOptimizeFor) {
+        var w = C.getLeagueWeeks();
+        snap.weeks = {build: build, content: C.getContentWeek(), regularEnd: w.regularSeasonEnd, playoffLo: w.playoffWeeks[0], playoffHi: w.playoffWeeks[1], optimize: C.getOptimizeFor()};
+      }
+      if (C.getLineupSettings && C.setLineupSettings) {
+        var a = C.getLineupSettings();
+        snap.adv = {injuryHistory: a.injuryHistory, projectionConfidence: a.projectionConfidence, benchShareOverride: a.benchShareOverride};
+      }
+      var shares = C.getPositionWeights ? C.getPositionWeights() : null, base = C.getDefaultPositionWeights ? C.getDefaultPositionWeights() : null;
+      if (shares && base && POSITIONS.some(function (p) { return Math.abs(Number(shares[p]) - Number(base[p])) > 5e-4; })) {
+        snap.shares = {};
+        POSITIONS.forEach(function (p) { snap.shares[p] = Number(Number(shares[p]).toFixed(4)); });
+      }
+    } catch (e) { /* the parts the engine reports are kept */ }
+    return snap;
+  }
+  function saveSettings() {
+    var text = JSON.stringify(snapshot());
+    try {
+      if (text === defaults) localStorage.removeItem(LEAGUE_KEY);
+      else localStorage.setItem(LEAGUE_KEY, JSON.stringify(Object.assign(JSON.parse(text), {savedAt: Date.now()})));
     } catch (e) { /* the settings still apply for this visit */ }
   }
   function apply(partial) {
@@ -171,6 +191,16 @@
     return {mode: "default"};
   }
   function nameOf(key) { var r = C.getPlayer ? C.getPlayer(Number(key)) : null; return r && r.name ? r.name : (state.names[key] || null); }
+  function mirrorMap() {
+    var byName = {};
+    Object.keys(state.values).forEach(function (k) {
+      var name = nameOf(k), row = cache && cache.byKey.get(k);
+      var entry = state.values[k];
+      var value = typeof entry === "number" ? entry : (row && finite(row.ddf) ? row.ddf : null);
+      if (name && finite(value)) byName[name] = Math.round(value * 10) / 10;
+    });
+    return byName;
+  }
   function mirror() {
     // The redesign's other pages and the header pill read overrides by name ('ddf:overrides'); absolute values only
     // (that store has no adjustments), so an adjustment shows there as the value it produces.
@@ -186,12 +216,25 @@
     try { DDF.overrides.replace(byName); } finally { mirroring = false; }
   }
   var mirroring = false;
+  // Every save is a reader's own change: a shared link's visit-only state ends here and what is on screen becomes the
+  // reader's saved overrides (as v2 overrides.js does once the recipient changes something). The link's value context
+  // leaves the address too, so a reload does not apply the link again over the saved state.
   function save() {
     if (state.session) {
-      writeJSON(sessionStorage, LINK_KEY, Object.assign({}, readJSON(sessionStorage, LINK_KEY) || {}, {basis: state.basis, values: state.values, replace: true}));
-      return;
+      state.session = false;
+      try { sessionStorage.removeItem(LINK_KEY); } catch (e) { /* nothing stored */ }
+      stripLinkContext();
     }
     writeJSON(localStorage, OV_KEY, {v: 2, basis: state.basis, values: state.values, names: state.names});
+  }
+  function stripLinkContext() {
+    var q = location.hash.indexOf("?");
+    if (q < 0) return;
+    var params = new URLSearchParams(location.hash.slice(q + 1));
+    ["valuecontext", "basis", "ov"].forEach(function (k) { params.delete(k); });
+    var rest = params.toString();
+    try { history.replaceState(history.state, "", location.pathname + location.search + location.hash.slice(0, q) + (rest ? "?" + rest : "")); }
+    catch (e) { /* the address keeps the link; the saved state still wins over a reload of it only after this tab closes */ }
   }
   function push() {
     C.setBasis(engineBasis(), false);
@@ -226,28 +269,36 @@
     var link;
     try { link = VL.readValueContext(params); } catch (e) { return false; }
     if (!link || !link.present || (link.complete && link.unread && link.unread.length)) return false;
+    var sig = (link.complete ? "full:" : "") + (link.basisText || "") + "|" + (link.ovText || "");
+    var stored = readJSON(sessionStorage, LINK_KEY);
+    if (stored && stored.sig === sig) return false;   // already applied in this tab (load() restored it)
     state.session = true;
     if (link.complete) state.values = {};
     if (link.basis || link.complete) state.basis = cleanBasis(link.basis || {mode: "default"});
     if (link.overrides) Object.keys(link.overrides).forEach(function (k) { var e = normalizeEntry(link.overrides[k]); if (e !== null) state.values[k] = e; });
-    writeJSON(sessionStorage, LINK_KEY, {sig: (link.basisText || "") + "|" + (link.ovText || ""), basis: state.basis, values: state.values, replace: true});
+    writeJSON(sessionStorage, LINK_KEY, {sig: sig, basis: state.basis, values: state.values, replace: true});
     return true;
   }
-  // Overrides the redesign's own pages saved by name (a chat link) that the live store does not have yet.
-  function importNamed() {
+  // A redesign chat link (#s=...) carries overrides by name; site.js moves them into 'ddf:overrides' when it arrives.
+  // Only then are they read, as that link's visit-only state (replacing what is shown, like a complete live link).
+  // On an ordinary load 'ddf:overrides' is just this page's own mirror, never a source: re-reading it would bring back
+  // overrides the reader removed on the live pages.
+  var LINK_TOKEN = /(^#|&)s=/;
+  function importLinked() {
     var named = DDF.overrides && DDF.overrides.get ? DDF.overrides.get() : {};
     var names = Object.keys(named || {});
-    if (!names.length) return false;
+    if (!names.length || JSON.stringify(named) === JSON.stringify(mirrorMap())) return false;   // only this page's own mirror
     var byName = new Map(C.getAllRows().map(function (r) { return [r.name, String(r.player_key)]; }));
-    var have = new Set(Object.keys(state.values).map(nameOf));
-    var added = false;
+    var values = {}, labels = {};
     names.forEach(function (n) {
       var key = /^\d+$/.test(n) ? n : byName.get(n);
       var e = normalizeEntry(named[n]);
-      if (!key || e === null || have.has(nameOf(key))) return;
-      state.values[key] = e; state.names[key] = nameOf(key) || n; added = true;
+      if (key && e !== null) { values[key] = e; labels[key] = nameOf(key) || n; }
     });
-    return added;
+    if (!Object.keys(values).length) return false;
+    state.values = values; state.names = labels; state.session = true;
+    writeJSON(sessionStorage, LINK_KEY, {sig: "s:" + location.hash.length, basis: state.basis, values: state.values, replace: true});
+    return true;
   }
   var overrides = {
     all: function () { return JSON.parse(JSON.stringify(state.values)); },
@@ -324,19 +375,19 @@
       setTimeout(wait, 60);
     })();
   }).then(function (c) {
-    defaults = JSON.stringify(settings());
+    defaults = JSON.stringify(snapshot());
     applySaved(readJSON(localStorage, LEAGUE_KEY));
     load();
     applyLinkContext();
-    if (importNamed()) save();
+    if (LINK_TOKEN.test(location.hash)) importLinked();
     C.setBasis(engineBasis(), false);
     if (Object.keys(state.values).length) C.setValueOverrides(state.values);
     cache = null;
     window.addEventListener("trade-value-rows-change", function () { cache = null; });
-    document.addEventListener("ddf:overrides", function () { if (!mirroring && importNamed()) { save(); push(); } });
+    document.addEventListener("ddf:link", function () { if (LINK_TOKEN.test(location.hash) && importLinked()) push(); });
     window.addEventListener("storage", function (e) {
       if (e.key === OV_KEY && !state.session) { load(); push(); }
-      if (e.key === LEAGUE_KEY) { applySaved(readJSON(localStorage, LEAGUE_KEY)); changed(); }
+      if (e.key === LEAGUE_KEY) { applySaved(readJSON(localStorage, LEAGUE_KEY) || JSON.parse(defaults)); changed(); }
     });
     build();
     mirror();
