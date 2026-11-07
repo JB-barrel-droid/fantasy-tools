@@ -555,7 +555,7 @@
       const isBest = r === best, isPicked = S.wv.add === r.key, reason = reasonFor(r, drop);
       let meta, hero, act = '';
       if (r.gain === null) {
-        meta = `No DDF Value for ${esc(r.n)} this week, so this add is not evaluated.`;
+        meta = fitBase() ? `No DDF Value for ${esc(r.n)} this week, so this add is not evaluated.` : 'This week\'s bench share is not available yet, so adds are not evaluated.';
         hero = '<span class="wv-gain" aria-hidden="true">—</span><span class="wv-gain-lab">Not evaluated</span>';
       } else {
         meta = (r.pass ? '' : `<strong>${r.gain > 0.05 ? 'Below your ' + minText() + ' filter' : 'No gain over ' + esc(dropShort)}</strong> · `) +

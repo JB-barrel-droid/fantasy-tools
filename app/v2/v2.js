@@ -7137,13 +7137,18 @@
     if (base === "#compare-trade") {
       // An in-page jump (Add to trade, then #compare-trade) carries the trade it built (and a pending carried trade).
       if (!query.length && (TR.give.length || TR.receive.length || carriedTrade) && C) query = [tradeHash().split("?").slice(1).join("?")].filter(Boolean);
-      // A tab that opened a staying link keeps the classic view: its address loses mine/theirs once the view rewrites it.
-      let stays = false;
-      try { stays = sessionStorage.getItem(COMPARE_STAYS_KEY) === "1"; } catch (error) { /* no session storage: decide by the link */ }
-      if (stays || COMPARE_STAYS.some(key => new URLSearchParams(query.join("&")).has(key))) {
-        try { sessionStorage.setItem(COMPARE_STAYS_KEY, "1"); } catch (error) { /* the link itself still stays */ }
+      // A staying link keeps the classic view, also after the view rewrites its address without mine/theirs (a reload):
+      // the tab remembers that trade (give|get) and stays only for it; any other Compare link clears it and leaves.
+      const params = new URLSearchParams(query.join("&"));
+      const trade = `${params.get("give") || ""}|${params.get("get") || ""}`;
+      let remembered = null;
+      try { remembered = sessionStorage.getItem(COMPARE_STAYS_KEY); } catch (error) { /* no session storage: decide by the link */ }
+      if (COMPARE_STAYS.some(key => params.has(key))) {
+        try { sessionStorage.setItem(COMPARE_STAYS_KEY, trade); } catch (error) { /* the link itself still stays */ }
         return false;
       }
+      if (remembered !== null && remembered === trade) return false;
+      try { sessionStorage.removeItem(COMPARE_STAYS_KEY); } catch (error) { /* nothing stored */ }
     }
     const rest = query.length ? "?" + query.join("?") : "";
     const url = new URL(target.includes("#") || !rest ? target : target + "#", document.baseURI);

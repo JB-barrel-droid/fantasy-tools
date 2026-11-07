@@ -145,6 +145,11 @@ class BuildSwapRoutesTest(unittest.TestCase):
         page.reload(wait_until="load")
         page.wait_for_timeout(3000)
         self.assertNotIn("build.html", page.url)
+        page.wait_for_function("() => { const m = document.getElementById('v2Compare'); return m && !m.hidden; }", timeout=30000)
+        # Another Compare link in the same tab is not the staying trade: it leaves for build.html.
+        b = self.players[1]
+        page.evaluate(f"() => {{ location.hash = '#compare-trade?give={b['key']}&get={a['key']}'; }}")
+        page.wait_for_url(re.compile(r"build\.html"), timeout=30000)
 
     def test_next_stub_and_page_links(self):
         page = self.open("/next/build.html?mode=any", wait_live=True)
