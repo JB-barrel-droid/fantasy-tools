@@ -81,7 +81,8 @@ ENGINE = """() => {
     const src = {};
     ['cbs','usatoday','fantasypros','fantasycalc'].forEach(s => {
       const p = ins.players[s] && ins.players[s][k];
-      src[s] = p ? {published: p.native, indexed: ir.indexed ? ir.indexed[s] : null, adjusted: ir.adjusted ? ir.adjusted[s] : null} : null;
+      const num = v => (typeof v === 'number' && isFinite(v) ? v : null);
+      src[s] = {published: p ? num(p.native) : null, indexed: num(ir.indexed && ir.indexed[s]), adjusted: num(ir.adjusted && ir.adjusted[s])};
     });
     rows[k] = {name: r.name, ddf: b.value, src};
   });
@@ -235,14 +236,45 @@ class LearnEngineParity(unittest.TestCase):
 
     def test_guard_catches_a_wrong_number(self):
         reader = (DIST / "learn" / "numbers" / "learn-engine.js").read_text(encoding="utf-8")
-        nudged = reader.replace("var ddf = finite(blended && blended.value);",
-                                "var ddf = finite(blended && blended.value); if (ddf !== null) ddf += 0.2;")
-        self.assertNotEqual(reader, nudged, "the nudge did not apply; update the guard")
+        anchor = "if (ddf === null) return;"
+        self.assertIn(anchor, reader, "the nudge anchor moved; update the guard")
+        nudged = reader.replace(anchor, anchor + " ddf += 0.2;", 1)
         with serve(overrides={"learn/numbers/learn-engine.js": nudged.encode()}) as base, self.sync_playwright() as p:
             browser, page, _ = self._page(p, base)
             errors = compare(page, ("ppr", 12, 0))
             browser.close()
         self.assertTrue(any("DDF Value" in e or "trace" in e for e in errors), errors[:5])
+
+    def test_overrides_and_basis_not_applied(self):
+        """Learn explains the model's own DDF Value: a stored override and a one-chart basis must not change it."""
+        q = "?scoring=ppr&teams=12&roster=" + ROSTER.format(sf=0)
+        with serve() as base, self.sync_playwright() as p:
+            browser, page, _ = self._page(p, base)
+            go(page, "#numbers/pie" + q)
+            page.wait_for_function(SNAP_READY, arg={"scoring": "ppr", "teams": 12, "sf": False}, timeout=60000)
+            top = page.evaluate(ENGINE)
+            key = sorted(top["rows"], key=lambda k: (-top["rows"][k]["ddf"], int(k)))[0]
+            go(page, f"#numbers/trace/{key}{q}")
+            clean = page.evaluate(PAGE_TRACE)
+            browser.close()
+            stored = {"v": 2, "basis": {"mode": "single", "source": "fantasycalc"}, "values": {key: 5}, "names": {}}
+            browser = p.chromium.launch(executable_path=chromium_executable(p), args=_render_env.HERMETIC_ARGS)
+            ctx = browser.new_context(viewport={"width": 1440, "height": 900})
+            ctx.add_init_script("localStorage.setItem('ddf-v2-value-overrides', %s)" % repr(__import__("json").dumps(stored)))
+            page = ctx.new_page()
+            page.goto(base + f"/learn.html#numbers/trace/{key}{q}")
+            page.wait_for_function(SNAP_READY, arg={"scoring": "ppr", "teams": 12, "sf": False}, timeout=90000)
+            page.wait_for_timeout(300)
+            got = page.evaluate(PAGE_TRACE)
+            note = page.inner_text("#nx-settings")
+            ov = page.inner_text("#tr-ov")
+            applied = page.evaluate("() => TradeValueCurveControls.getValueOverrides()")
+            browser.close()
+        self.assertTrue(applied, "the stored override did not reach the engine; the test proves nothing")
+        self.assertEqual(got, clean, "an override or basis changed the numbers Learn explains")
+        self.assertIn("override is not applied", note)
+        self.assertIn("value basis (FantasyCalc only) is not applied", note)
+        self.assertIn("5.0", ov)
 
     def test_manifesto_verbatim_and_one_h1(self):
         want = manifesto_words(MIRROR.read_text(encoding="utf-8"))

@@ -57,29 +57,33 @@
     rows.forEach(function (row) {
       var pk = String(row.player_key);
       var blended = row.ddfByVersion && row.ddfByVersion.blended;
-      var ddf = finite(blended && blended.value);
+      /* The model's own DDF Value: with a reader override, applyDdfOverride keeps it in pipelineValue. */
+      var overridden = row.valueOverride !== undefined && row.valueOverride !== null;
+      var ddf = finite(blended && (overridden && finite(blended.pipelineValue) !== null ? blended.pipelineValue : blended.value));
       if (ddf === null) return;
       var irow = (ins.rows && ins.rows[pk]) || {};
       var sources = {};
       CHARTS.forEach(function (s) {
         var p = ins.players && ins.players[s] && ins.players[s][pk];
-        if (!p) { sources[s] = null; return; }
+        /* Indexed and adjusted come from the engine's row: a chart that does not list a player can still carry a
+           real 0 there, and DDF Value averages it. Only the published value is missing (null) then. */
+        var idx = finite(irow.indexed && irow.indexed[s]), adj = finite(irow.adjusted && irow.adjusted[s]);
+        if (!p && idx === null && adj === null) { sources[s] = null; return; }
         if (factor[s] === undefined) {
           var pm = C.getPublishedMath(row.player_key, s);
           factor[s] = pm ? finite(pm.factor) : null;
         }
         sources[s] = {
-          published: finite(p.native), indexed: finite(irow.indexed && irow.indexed[s]),
-          adjusted: finite(irow.adjusted && irow.adjusted[s]), role: p.role || null,
-          estimated: Boolean(p.estimated), rank: finite(p.rank)
+          published: p ? finite(p.native) : null, indexed: idx, adjusted: adj, role: p ? p.role || null : null,
+          estimated: p ? Boolean(p.estimated) : false, listed: Boolean(p), rank: p ? finite(p.rank) : null
         };
       });
       players.push({
         player_key: row.player_key, name: row.name, pos: row.pos, team: row.team || '',
         ddf: ddf, tier: row.ddfTier || null,
         ddfSources: (blended.sources || []).slice(),
-        override: row.valueOverride !== undefined && row.valueOverride !== null ? finite(row.values && row.values.ddf_value) : null,
-        overrideSet: row.valueOverride !== undefined && row.valueOverride !== null,
+        override: overridden ? finite(row.values && row.values.ddf_value) : null,
+        overrideSet: overridden,
         sources: sources
       });
     });
@@ -165,10 +169,29 @@
     if (s.teams) C.setTeams(Number(s.teams), false);
     if (s.roster) Object.keys(s.roster).forEach(function (k) { C.setRosterSpot(k, s.roster[k], false); });
   }
+  /* Learn explains the default DDF Value (the four-chart mean), so a reader's own value basis is set aside on this
+     page only (publish off; ddf-engine.js keeps it saved) and named in the page's notes. */
+  function readerBasisLabel(E) {
+    var rec = E.basis ? E.basis() : null;
+    if (!rec || !rec.mode || rec.mode === 'default') return null;
+    if (rec.mode === 'single') return (LABELS[rec.source] || rec.source) + ' only';
+    return 'a blend of ' + (rec.sources || []).map(function (s) { return LABELS[s] || s; }).join(', ');
+  }
+  function pinDefaultBasis(C) {
+    var b = C.getBasis ? C.getBasis() : null;
+    if (b && b.isDefault === false) C.setBasis(null, false);
+  }
   function load(settings) {
     var E = engine();
     if (!E) return Promise.reject(new Error('engine missing'));
-    return E.ready.then(function (C) { if (settings) applyHere(E.controls() || C, settings); return snapshot(); });
+    return E.ready.then(function (C) {
+      C = E.controls() || C;
+      pinDefaultBasis(C);
+      if (settings) applyHere(C, settings);
+      var snap = snapshot();
+      snap.readerBasis = readerBasisLabel(E);
+      return snap;
+    });
   }
 
   window.DDFLearnEngine = {

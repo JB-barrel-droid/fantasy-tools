@@ -77,7 +77,7 @@
   function tiesOut(p) { return f1(shownMean(p)) === f1(p.ddf); }
   function inDdf(p) { return snap.charts.every(function (s) { return p.sources[s] && num(p.sources[s].adjusted); }) && snap.basis.isDefault; }
   function formula(p) {
-    if (!inDdf(p)) return 'DDF Value ' + f1(p.ddf) + ' (' + basisNote(p) + ')';
+    if (!inDdf(p)) return f1(p.ddf) + ' (' + basisNote(p) + ')';
     var parts = snap.charts.map(function (s) { return f1(p.sources[s].adjusted); });
     var m = trim(shownMean(p).toFixed(3));
     return '(' + parts.join(' + ') + ') ÷ ' + snap.charts.length + ' = ' + m + (tiesOut(p) ? ' → ' + f1(p.ddf) : '; DDF Value ' + f1(p.ddf));
@@ -97,8 +97,12 @@
     var m = snap.meta;
     return [m.week ? 'Week ' + m.week : null, m.asOf ? 'as of ' + m.asOf : null, m.build ? 'build ' + m.build : null].filter(Boolean).join(' · ');
   }
+  /* Learn shows the model's own DDF Value at the default basis; the reader's overrides and basis apply on the other pages. */
   function overridesLine() {
-    return snap.overrides ? 'your ' + snap.overrides + ' override' + (snap.overrides === 1 ? ' is' : 's are') + ' not applied here (the model’s own value)' : 'no overrides (the model’s own value)';
+    var notes = [];
+    if (snap.overrides) notes.push('your ' + snap.overrides + ' override' + (snap.overrides === 1 ? ' is' : 's are') + ' not applied here');
+    if (snap.readerBasis) notes.push('your value basis (' + snap.readerBasis + ') is not applied here');
+    return notes.length ? notes.join('; ') + ' (the model’s own value, four-chart average)' : 'no overrides (the model’s own value)';
   }
   function permalink(view, arg) {
     return location.href.split('#')[0] + '#numbers/' + view + (arg !== undefined && arg !== '' ? '/' + arg : '') + settingsQuery(snap.settings);
@@ -114,7 +118,7 @@
     return 'DDF Value, ' + p.name + ' (' + p.pos + '), ' + settingsLine(snap.settings) + ', ' + snapshotLine() + '.\n' +
       'Inputs: ' + inputs + '.\n' +
       'Rule: DDF Value = mean of the ' + chartWord() + ' adjusted trade charts = ' + formula(p) +
-      (inDdf(p) && !tiesOut(p) ? ' (the tool averages the unrounded adjusted values)' : '') + '. Overrides: none.\n' +
+      (inDdf(p) && !tiesOut(p) ? ' (the tool averages the unrounded adjusted values)' : '') + '. Overrides and value basis: not applied (the model’s own value).\n' +
       'Indexed = published x one factor per chart: ' + snap.charts.map(function (s) { return label(s) + ' ' + fFactor(snap.sources[s].factor); }).join(', ') + '.\n' +
       'Adjusted totals per chart = value pie ' + pieText() + '.\n' +
       'Trace: ' + permalink('trace', p.player_key);
@@ -126,7 +130,7 @@
       srcMeta[s] = { label: m.label, players_listed: m.listed, filled_in: m.filledIn, totals: m.totals, index_factor: m.factor };
     });
     return JSON.stringify({
-      snapshot: { week: snap.meta.week, as_of: snap.meta.asOf, build: snap.meta.build, settings: snap.settings, overrides: 'none',
+      snapshot: { week: snap.meta.week, as_of: snap.meta.asOf, build: snap.meta.build, settings: snap.settings, overrides: 'not applied (model value)', basis: 'default (four trade charts, equal weight)',
         rule: 'DDF Value = mean of the adjusted trade charts that price the player', value_pie: snap.pie },
       player: { player_key: p.player_key, name: p.name, pos: p.pos, ddf_value: p.ddf, ddf_rank: p.rank, sources: p.sources },
       sources: srcMeta, permalink: permalink('trace', p.player_key)
@@ -205,7 +209,7 @@
     $('pie-title').textContent = 'What makes up ' + p.name + '’s ' + f1(p.ddf);
     $('pie-chart').innerHTML = '<svg viewBox="0 0 200 200" class="nx-donut" role="img" aria-labelledby="pie-svg-title pie-svg-desc">' +
       '<title id="pie-svg-title">Each chart’s share of ' + esc(p.name) + '’s DDF Value</title>' +
-      '<desc id="pie-svg-desc">' + esc(segs.map(function (g) { return label(g.s) + ' ' + (num(g.v) ? trim((g.v / n).toFixed(3)) : 'not priced') + ' (' + pct(g.share) + ')'; }).join(', ')) + '. Total ' + f1(p.ddf) + '.</desc>' +
+      '<desc id="pie-svg-desc">' + esc(segs.map(function (g) { return label(g.s) + ' ' + (num(g.v) ? trim((tenths(g.v) / (10 * n)).toFixed(3)) : 'not priced') + ' (' + pct(g.share) + ')'; }).join(', ')) + '. Total ' + f1(p.ddf) + '.</desc>' +
       '<g transform="rotate(-90 100 100)">' + segs.filter(function (g) { return g.share > 0; }).map(function (g) {
         return '<circle cx="100" cy="100" r="' + R + '" fill="none" stroke="' + COLORS[g.i % COLORS.length] + '" stroke-width="36" data-len="' + g.len.toFixed(2) + '"' +
           ' stroke-dasharray="' + (animate ? '0 ' + C.toFixed(2) : g.len.toFixed(2) + ' ' + C.toFixed(2)) + '" stroke-dashoffset="' + g.off.toFixed(2) + '"></circle>';
@@ -319,6 +323,7 @@
     if (!model || !model.hasData) {
       $('bu-explain').innerHTML = '';
       $('bu-curve').innerHTML = '';
+      $('bu-worked').innerHTML = '';
       $('bu-table').innerHTML = '';
       $('bu-meta').textContent = name + ' has no values at these settings this week' + (model && model.status ? ' (' + model.status + ')' : '') + '.';
       $('bu-more').hidden = true;
@@ -338,6 +343,7 @@
       : '<li><b>DDF Value</b><span>Projections are an alternate view: they are not in DDF Value, which averages the ' + chartWord() + ' trade charts.</span></li>';
     $('bu-explain').innerHTML = explain;
     $('bu-curve').innerHTML = curveSvg(model);
+    renderWorked(model);
     var rows = model.rows.slice(0, state.limit);
     var others = snap.charts.filter(function (s) { return s !== src; });
     var head = '<tr><th scope="col">#</th><th scope="col">Player</th><th scope="col">Pos</th><th scope="col">Role</th>' +
@@ -365,6 +371,33 @@
     more.hidden = model.shown <= state.limit;
     more.textContent = 'Show ' + Math.min(PAGE, model.shown - state.limit) + ' more';
   }
+  /* Projection sources: the worked path from projected points to the adjusted value, from the engine's own
+     readouts (DDFAuditSource row.trace), as the old Source build-up showed it. */
+  function renderWorked(model) {
+    var host = $('bu-worked');
+    if (!model || model.family !== 'projection' || !model.rows.length) { host.innerHTML = ''; return; }
+    var r = model.rows.filter(function (x) { return x.key === state.worked; })[0] || model.rows[0];
+    var t = r.trace || {};
+    var v = function (n, kind) {
+      if (!num(n)) return DASH;
+      return kind === 'pct' ? (n * 100).toFixed(1) + '%' : kind === 'rate' ? n.toFixed(4) : kind === 'ppg' ? n.toFixed(2) + ' points a game' : f1(n);
+    };
+    var row = function (labelText, n, kind) { return '<tr><th scope="row">' + esc(labelText) + '</th><td class="nx-n">' + v(n, kind) + '</td></tr>'; };
+    host.innerHTML = '<details class="nx-details" open><summary>From projection to adjusted value, one player</summary>' +
+      '<div class="nx-pick"><label for="bu-worked-pick">Player</label><select id="bu-worked-pick" class="nx-select">' +
+      model.rows.map(function (x) { return '<option value="' + esc(x.key) + '"' + (x.key === r.key ? ' selected' : '') + '>' + esc(x.name + ' (' + x.pos + ')') + '</option>'; }).join('') + '</select></div>' +
+      '<div class="nx-scroll"><table class="nx-table nx-worked"><caption class="nx-sr">' + esc(r.name) + ': projection to adjusted value</caption><tbody>' +
+      row('Projected points', r.published, 'ppg') +
+      row(r.pos + ' waiver line', t.waiver, 'ppg') + row(r.pos + ' starter line', t.starterLine, 'ppg') +
+      row('Value above waivers', t.aboveWaivers, 'ppg') +
+      row('Availability', t.availability, 'pct') + row('Chance above the starter line', t.startWorthy, 'pct') + row('Expected lineup share', t.lineupShare, 'pct') +
+      row('Starter part', t.starterPart) + row('Fill-in part', t.fillInPart) +
+      row('Starter rate', t.starterRate, 'rate') + row('Fill-in rate', t.fillInRate, 'rate') +
+      row('Adjusted = starter part × starter rate + fill-in part × fill-in rate', r.adjusted) +
+      '</tbody></table></div><p class="nx-hint">The league’s roster sets the waiver line and the starter line at his position. The rates fund each position’s starter and fill-in budget from the value pie (' + esc(pieText()) + '). A dash means the engine does not expose that readout.</p></details>';
+    $('bu-worked-pick').addEventListener('change', function () { state.worked = this.value; renderWorked(model); $('bu-worked-pick').focus(); });
+  }
+
   function sumListed(model) {
     return model.rows.reduce(function (t, r) { return t + (!r.estimated && num(r.published) ? r.published : 0); }, 0);
   }
@@ -471,7 +504,7 @@
     $('nx-snapshot').textContent = snapshotLine();
     $('nx-settings').textContent = settingsLine(st) + ' · ' + overridesLine();
     $('nx-method').textContent = 'DDF Value is the average of the ' + chartWord() + ' published trade charts (' + snap.charts.map(label).join(', ') + '), each adjusted to your league: how much more a player is worth than a freely available one at his position, valued at starter or bench level by where he ranks across the league.';
-    $('nx-sources').textContent = 'The analyst charts are CBS Sports, USA Today and FantasyPros; the live market is FantasyCalc. A held or missing chart is left out of the average, never counted as zero.';
+    $('nx-sources').textContent = 'The analyst charts are CBS Sports, USA Today and FantasyPros; the live market is FantasyCalc. A chart that is held this week is left out of the average, never counted as zero.';
     $('set-scoring').value = st.scoring;
     $('set-teams').value = String(st.teams);
     $('set-sf').checked = st.superflex;
@@ -497,12 +530,12 @@
     var prev = { view: lastView, player: state.player, source: state.source, position: state.position };
     if ((r.view === 'pie' || r.view === 'trace') && r.arg) {
       if (byKey[r.arg]) state.player = +r.arg;
-      else if (state.player) { $('nx-live').textContent = 'That player has no DDF Value at these settings. Showing ' + byKey[state.player].name + '.'; history.replaceState(null, '', link(r.view, state.player)); }
+      else if (state.player) { $('nx-live').textContent = 'That player has no DDF Value at these settings. Showing ' + byKey[state.player].name + '.'; history.replaceState(null, '', link(r.view, state.player)); r = parse(); }
     }
     if (r.view === 'build-up') {
       var known = LE().buildUpSources().map(function (s) { return s.key; });
       if (r.arg && known.indexOf(r.arg) >= 0) state.source = r.arg;
-      else if (r.arg) history.replaceState(null, '', link('build-up', state.source));
+      else if (r.arg) { history.replaceState(null, '', link('build-up', state.source)); r = parse(); }
       var pos = r.arg2 && POSITIONS.indexOf(r.arg2.toUpperCase()) >= 0 ? r.arg2.toUpperCase() : 'ALL';
       if (pos !== state.position || state.source !== prev.source) state.limit = PAGE;
       state.position = pos;
