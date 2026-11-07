@@ -9,6 +9,9 @@ This test loads each page of the built dist/ and requires zero 4xx/5xx
 responses. Discrimination (test_guard_catches_the_probe): with the pre-fix
 consolidation-index.js (dac0ff2, read from git; skipped when absent) the same
 check sees the 404.
+
+JEG-1539: dist/index.html is the redesigned front door (no engine); dist/v2/ is a redirect stub.
+The v2 shell is served at /v2-app.html. PAGES covers the new front door and /v2-app.html.
 """
 from __future__ import annotations
 
@@ -26,7 +29,16 @@ def setUpModule():
 
 
 PRE_FIX_COMMIT = "dac0ff2"
-PAGES = ("/", "/classic/", "/v2/")
+# JEG-1539: / is the redesigned front door (no engine); /v2-app.html is the v2 shell.
+# _dist_server.serve() maps /v2-app.html -> build/v2/index.html and /classic/ -> the engine page.
+PAGES = ("/", "/classic/", "/v2-app.html")
+# Per-page ready check: pages with the engine wait for TradeValueCurveDiagnostics; the
+# front door (site.js, no engine) waits for window.DDF.state which site.js sets inline.
+_READY = {
+    "/": "() => window.DDF && window.DDF.state",
+    "/classic/": "() => window.TradeValueCurveDiagnostics",
+    "/v2-app.html": "() => window.TradeValueCurveDiagnostics",
+}
 
 
 def failed_requests(overrides=None):
@@ -47,7 +59,7 @@ def failed_requests(overrides=None):
                     page.on("response", lambda r, path=path: r.status >= 400
                             and bad.append((path, r.status, r.url.replace(base, ""))))
                     page.goto(base + path, wait_until="networkidle")
-                    page.wait_for_function("() => window.TradeValueCurveDiagnostics", timeout=30000)
+                    page.wait_for_function(_READY[path], timeout=30000)
                     page.wait_for_timeout(500)
                     page.close()
         finally:

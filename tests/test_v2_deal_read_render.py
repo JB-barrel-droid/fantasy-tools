@@ -102,15 +102,21 @@ def _served():
         dist = Path(tmp) / "dist"
         shutil.copytree(DIST, dist)
 
+        from tests._dist_server import engine_path as _engine_path
+
         class Quiet(http.server.SimpleHTTPRequestHandler):
             def log_message(self, format, *args):
                 pass
+
+            def translate_path(self, path):  # JEG-1539: v2 shell is at /v2-app.html
+                return _engine_path(path) or super().translate_path(path)
+
         handler = functools.partial(Quiet, directory=str(dist))
         with socketserver.ThreadingTCPServer(("127.0.0.1", 0), handler) as server:
             server.daemon_threads = True
             threading.Thread(target=server.serve_forever, daemon=True).start()
             try:
-                yield f"http://127.0.0.1:{server.server_address[1]}/v2/"
+                yield f"http://127.0.0.1:{server.server_address[1]}/v2-app.html"  # JEG-1539
             finally:
                 server.shutdown()
 
