@@ -112,6 +112,26 @@ class MobileConnectTest(_RenderBase):
         self.assertEqual(page.eval_on_selector("#scoring", "e => e.value.toLowerCase()"), "ppr")
         self.assertEqual([page.input_value(f"#lineup-{k}") for k in ("qb", "rb", "wr", "te", "flex", "bench")], ["1", "2", "2", "1", "1", "7"])
 
+    def test_setup_shows_one_next_button_and_it_enables_after_a_team_is_picked(self):
+        for width in (1440, 390, 360):
+            with self.subTest(width=width):
+                page = self.page(width, 900 if width > 760 else 800)
+                self.go(page, "connect.html", engine=True)
+                page.fill("#rosters", (FIXTURES / "02-yahoo-markdown.txt").read_text(encoding="utf-8"))
+                page.click("#recognize-button")
+                page.wait_for_selector("#recognized:not([hidden])", timeout=20000)
+                self.go(page, "setup.html")
+                count = "() => [...document.querySelectorAll('a.button.primary, button.primary')].filter(e => e.textContent.includes('Next') && e.getBoundingClientRect().width > 0).length"
+                self.assertEqual(page.evaluate(count), 1, "only the sticky bar's Next shows")
+                nxt = page.locator(".ddf-actionbar__next")
+                self.assertEqual(nxt.get_attribute("aria-disabled"), "true")
+                self.assertIn("Confirm your team first", page.inner_text(".ddf-actionbar__sum"))
+                page.locator("input[name=team]").first.check(force=True)
+                page.wait_for_timeout(300)
+                self.assertEqual(nxt.get_attribute("aria-disabled"), "false")
+                self.assertTrue(page.inner_text(".ddf-actionbar__sum").startswith("Team: "))
+                self.assertEqual(page.evaluate(count), 1)
+
     # ---- 3 ----
     def test_info_icon_stays_a_circle(self):
         page = self.page(390)
