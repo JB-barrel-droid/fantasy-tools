@@ -403,8 +403,14 @@ def v2_redirect_html(tag: str | None = None) -> str:
 
 
 def build(dist: Path = DIST, engine_page: Path = ENGINE_PAGE, research_dir: Path = RESEARCH_DIR,
-          shell_page: Path = V2_SHELL_PAGE) -> Path:
-    """Write the build-only v2 shell (shell_page), the dist/v2/ redirect stub and the v2 modules; return the shell."""
+          shell_page: Path = V2_SHELL_PAGE, site: bool = False) -> Path:
+    """Write the build-only v2 shell (shell_page) and the v2 modules into dist/v2/.
+
+    Returns the build-only shell (site=True) or the harness copy's /v2/ page (site=False), as before JEG-1539.
+
+    site=True (make sync, the published dist): dist/v2/index.html is the redirect stub and dist/index.html is left to
+    build_root_pages (the redesigned front door). site=False (a render harness's own copy of dist/, as the v2 suites
+    build it): the copy keeps the v2 shell at dist/index.html and dist/v2/index.html, so those suites run unchanged."""
     index_html = engine_page.read_text(encoding="utf-8")
     shell_html = (APP_V2 / "shell.html").read_text(encoding="utf-8")
     out_dir = dist / "v2"
@@ -412,8 +418,12 @@ def build(dist: Path = DIST, engine_page: Path = ENGINE_PAGE, research_dir: Path
     posts = load_posts(research_dir)
     shell_page.parent.mkdir(parents=True, exist_ok=True)
     shell_page.write_text(build_v2_html(index_html, shell_html, at_root=True, posts=posts), encoding="utf-8")
-    tag = re.search(r'<meta name="trade-chart-build" content="([^"]*)">', index_html)
-    (out_dir / "index.html").write_text(v2_redirect_html(tag.group(1) if tag else None), encoding="utf-8")
+    if site:
+        tag = re.search(r'<meta name="trade-chart-build" content="([^"]*)">', index_html)
+        (out_dir / "index.html").write_text(v2_redirect_html(tag.group(1) if tag else None), encoding="utf-8")
+    else:
+        (out_dir / "index.html").write_text(build_v2_html(index_html, shell_html, posts=posts), encoding="utf-8")
+        (dist / "index.html").write_text(build_v2_html(index_html, shell_html, at_root=True, posts=posts), encoding="utf-8")
     (out_dir / "kdef-names.js").write_text(kdef_names_js(), encoding="utf-8")
     (out_dir / "nfl-byes.js").write_text(nfl_byes_js(), encoding="utf-8")
     (out_dir / "player-status.js").write_text(player_status_js(), encoding="utf-8")
@@ -424,9 +434,9 @@ def build(dist: Path = DIST, engine_page: Path = ENGINE_PAGE, research_dir: Path
     (out_dir / "fonts").mkdir(exist_ok=True)
     for name in ("fraunces.woff2", "FONT-LICENSE.txt"):
         shutil.copy2(APP_V2 / "fonts" / name, out_dir / "fonts" / name)
-    return shell_page
+    return shell_page if site else out_dir / "index.html"
 
 
 if __name__ == "__main__":
-    print(f"Wrote {build()}")
+    print(f"Wrote {build(site=True)}")
     sys.exit(0)

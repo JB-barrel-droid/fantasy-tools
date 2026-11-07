@@ -543,7 +543,7 @@ def main() -> int:
     # It is the site's front door: written to dist/index.html (root) and
     # dist/v2/index.html (old links), both from the build-only engine page.
     from build_v2_page import build as build_v2_page
-    build_v2_page(DIST)
+    build_v2_page(DIST, site=True)   # JEG-1539: v2 retired from the site (stub at /v2/, build-only shell)
 
     # Internal math inspector (noindex, linked from no public page): the same
     # engine off-screen, every input and intermediate of the value math shown.

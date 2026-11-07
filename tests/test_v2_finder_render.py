@@ -53,19 +53,15 @@ def _built_dist():
         pin_holds_in_dist(dist)
         build_v2_page.build(dist)
 
-        # JEG-1539: v2 shell is at /v2-app.html (build/v2/index.html), not /v2/.
-        from tests._dist_server import engine_path as _engine_path
         class Quiet(http.server.SimpleHTTPRequestHandler):
             def log_message(self, format, *args):
                 pass
-            def translate_path(self, path):
-                return _engine_path(path) or super().translate_path(path)
 
         with socketserver.ThreadingTCPServer(("127.0.0.1", 0), functools.partial(Quiet, directory=str(dist))) as server:
             server.daemon_threads = True
             threading.Thread(target=server.serve_forever, daemon=True).start()
             try:
-                yield f"http://127.0.0.1:{server.server_address[1]}/v2-app.html"
+                yield f"http://127.0.0.1:{server.server_address[1]}/v2/"
             finally:
                 server.shutdown()
 

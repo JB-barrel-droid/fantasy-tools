@@ -214,7 +214,7 @@ def _served():
         with Server(("127.0.0.1", 0), handler) as server:
             threading.Thread(target=server.serve_forever, daemon=True).start()
             try:
-                yield f"http://127.0.0.1:{server.server_address[1]}/v2-app.html", dist  # JEG-1539
+                yield f"http://127.0.0.1:{server.server_address[1]}/v2/", dist
             finally:
                 server.shutdown()
 
@@ -314,17 +314,14 @@ class Session:
                                                    body=_freshness(page.freshness["kind"])))
         ov = self.overrides
         if "shell" in ov:
-            # JEG-1539: the shell is build/v2/index.html (not dist/v2/index.html, which is now a redirect stub).
-            built = build_v2_page.V2_SHELL_PAGE.read_text(encoding="utf-8")
+            built = (self.dist / "v2" / "index.html").read_text(encoding="utf-8")
             posts = build_v2_page.load_posts()
             # The build places the Research page inside #v2App (JEG-543), so the embedded
             # shell is compose_shell(shell.html, posts), not shell.html itself.
-            # The build-only shell is the root variant, whose "v2/#view" links read "#view" (build_v2_html at_root).
-            at_root = lambda text: text.replace('href="v2/#', 'href="#')
-            original = build_v2_page.compose_shell(at_root(SHELL.read_text(encoding="utf-8")), posts)
+            original = build_v2_page.compose_shell(SHELL.read_text(encoding="utf-8"), posts)
             assert original in built, "the built page no longer embeds shell.html verbatim"
-            html = built.replace(original, build_v2_page.compose_shell(at_root(ov["shell"]), posts), 1)
-            page.route(lambda u: urlparse(u).path in ("/v2/", "/v2/index.html", "/v2-app.html"),
+            html = built.replace(original, build_v2_page.compose_shell(ov["shell"], posts), 1)
+            page.route(lambda u: urlparse(u).path in ("/v2/", "/v2/index.html"),
                        functools.partial(_fulfill, html, "text/html"))
         if "v2.js" in ov:
             page.route("**/v2/v2.js*", functools.partial(_fulfill, ov["v2.js"], "text/javascript"))
