@@ -7100,12 +7100,49 @@
   // JEG-913: a hash no route claims (viewFor() gives null) lands on the default route and the address says so
   // (replaceState, so Back still works); its query goes with it. An empty hash is the landing page, not unknown.
   const DEFAULT_ROUTE = "#player-values";   // JEG-1106: new visitors land on the value chart (Jeremy, 2026-10-25)
+  // JEG-1534 swap steps: a route whose job moved to a redesigned page at the site root leaves for that page
+  // (location.replace, so Back skips the old route). The route's query goes along after the target's own hash, so a
+  // shared value context (?valuecontext=1&basis=..&ov=..) still applies. "#base/*" matches everything under #base/.
+  // The exact key wins over a "/*" key. Each swap step adds its own lines here.
+  const SWAPPED_ROUTES = {
+    "#player-values": "values.html",   // JEG-1535
+    "#value-overrides": "values.html#overrides",   // JEG-1535
+    "#writing/manifesto": "learn.html#manifesto",   // JEG-1536
+    "#writing/how-values": "learn.html#numbers/logic",   // JEG-1536: the framed value logic moves with it
+    "#writing/*": "learn.html",   // JEG-1536: Research (no published posts) and any other Writing route
+    "#values-auditing/health-check": "learn.html#numbers/pie",   // JEG-1536
+    "#values-auditing/single-source": "learn.html#numbers/build-up",   // JEG-1536
+    "#values-auditing/*": "learn.html#numbers/pie",   // JEG-1536
+  };
+  function swappedTarget(base) {
+    if (Object.prototype.hasOwnProperty.call(SWAPPED_ROUTES, base)) return SWAPPED_ROUTES[base];
+    const prefix = Object.keys(SWAPPED_ROUTES).filter(key => key.endsWith("/*") && (base === key.slice(0, -2) || base.startsWith(key.slice(0, -1))))
+      .sort((a, b) => b.length - a.length)[0];
+    return prefix ? SWAPPED_ROUTES[prefix] : null;
+  }
+  // Automated browsers (navigator.webdriver) stay on the classic views unless the page URL has ?swapped=1, so the v2
+  // render suites keep covering those views until step 5 retires them (JEG-1539 removes this escape); the redirect
+  // tests pass ?swapped=1.
+  const stayForAutomation = () => navigator.webdriver === true && !/[?&]swapped=1(&|$)/.test(location.search);
+  function leaveForSwappedPage(base, query) {
+    const target = swappedTarget(base);
+    if (!target || stayForAutomation()) return false;
+    const rest = query.length ? "?" + query.join("?") : "";
+    const url = new URL(target.includes("#") || !rest ? target : target + "#", document.baseURI);
+    try { location.replace(url.href + rest); } catch (error) { return false; }
+    return true;
+  }
   function canonicalizeHash() {
     const [base, ...query] = location.hash.split("?");
     // JEG-1094: a league share link (#find-trade?workspace=) now belongs to the league-wide screen.
     const legacy = base === "#find-trade" && /^workspace=/.test(query[0] || "") ? "#find-league" : canonicalBase(base);
     const unknown = base !== "" && viewFor(legacy) === null;
     const next = unknown ? DEFAULT_ROUTE : legacy;
+    // A redesign chat-link token (#s=...) has no v2 route: it goes to the Values page whole, where site.js reads it.
+    if (unknown && base.startsWith("#s=") && swappedTarget(DEFAULT_ROUTE) && !stayForAutomation()) {
+      try { location.replace(new URL(swappedTarget(DEFAULT_ROUTE).split("#")[0], document.baseURI).href + location.hash); return; } catch (error) { /* falls through */ }
+    }
+    if (leaveForSwappedPage(next, unknown ? [] : query)) return;
     if (next === base) return;
     try { history.replaceState(history.state, "", location.pathname + location.search + next + (query.length && !unknown ? "?" + query.join("?") : "")); }
     catch (error) { /* the route still works through hashBase() */ }

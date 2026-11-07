@@ -555,6 +555,11 @@ def main() -> int:
     from build_next_preview import build as build_next_preview
     build_next_preview(DIST, tag)
 
+    # JEG-1535: redesign pages that have swapped in, at the root beside the v2 front door (the live engine injected,
+    # links to pages not live yet pointed at their live routes); their /next/ copies redirect to the root.
+    from build_root_pages import build as build_root_pages
+    build_root_pages(DIST, tag)
+
     # DDF Value Logic (JEG-1086, JEG-1107): the values explainer, shown inside
     # Writing > How values work (a frame of this page; opened alone it redirects there). It reads the engine headless from the dist/ built above,
     # so it needs Playwright; without a browser it is skipped locally and a

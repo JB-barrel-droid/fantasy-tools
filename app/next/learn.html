@@ -148,11 +148,39 @@ main a:focus-visible,main button:focus-visible{outline:3px solid #176c4d;outline
 .learn .nx-term dd a{color:#176c4d;font-weight:600}
 .learn .nx-foot{margin:26px 0 0;gap:4px 22px}
 .learn .nx-foot a{color:#176c4d;display:inline-flex;align-items:center;min-height:44px}
+.learn .nx-settings{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px 16px;margin:4px 0 22px;padding:14px 16px;border:1px solid #dbe0dc;border-radius:12px;background:#fff}
+.learn .nx-settings label{display:flex;flex-direction:column;gap:4px;font:600 12px 'IBM Plex Mono',monospace;letter-spacing:.1em;text-transform:uppercase;color:#5c6a76}
+.learn .nx-settings select{min-height:44px;padding:8px 10px;border:1px solid #c9d1cb;border-radius:9px;background:#fff;font:16px Archivo,system-ui,sans-serif;color:#142b25;text-transform:none;letter-spacing:0}
+.learn .nx-settings .nx-check-label{flex-direction:row;align-items:center;gap:8px;min-height:44px}
+.learn .nx-settings input[type=checkbox]{width:20px;height:20px;accent-color:#176c4d}
+.learn .nx-settings p{flex-basis:100%;margin:0;font-size:14px;color:#5c6a76}
+.learn .nx-loading{font-size:14px;color:#5c6a76;margin:0 0 12px}
+.learn .nx-h3{font-family:var(--serif);font-size:20px;margin:26px 0 6px}
+.learn .nx-h4{font:600 13px 'IBM Plex Mono',monospace;letter-spacing:.08em;color:#39413b;margin:18px 0 6px}
+.learn .nx-checks{list-style:none;margin:0 0 8px;padding:0;border-top:1px solid #e6e9e6}
+.learn .nx-check{display:grid;grid-template-columns:64px minmax(0,190px) minmax(0,1fr);gap:6px 14px;align-items:baseline;padding:11px 4px;border-bottom:1px solid #e6e9e6;font-size:15px;line-height:1.45}
+.learn .nx-check b{font-weight:600}
+.learn .nx-pill{display:inline-block;text-align:center;padding:2px 8px;border-radius:99px;font:600 11px 'IBM Plex Mono',monospace;letter-spacing:.06em;text-transform:uppercase;background:#e8f5ee;color:#0f5139}
+.learn .nx-check.is-flag{background:#fff6dc}
+.learn .nx-check.is-flag .nx-pill{background:#f3d27a;color:#4d3600}
+.learn .nx-check.is-info .nx-pill{background:#e7ecf3;color:#2f4a6b}
+.learn .nx-off{background:#fff0d6!important;font-weight:700}
+.learn .nx-curve{width:100%;height:auto;display:block;margin:0 0 4px}
+.learn .nx-ax{font:11px 'IBM Plex Mono',monospace;fill:#5c6a76}
+.learn .nx-legend-line{display:flex;gap:18px;font-size:13px;color:#5c6a76;margin:0 0 16px}
+.learn .nx-legend-line span{display:inline-flex;align-items:center;gap:6px}
+.learn .nx-key{display:inline-block;width:22px;border-top:2px solid #0f5139}
+.learn .nx-key-dash{border-top:2px dashed #8fb9a3}
+.learn .nx-health{margin-top:22px}
+.learn .nx-select{min-height:44px;max-width:100%;padding:8px 10px;border:1px solid #c9d1cb;border-radius:9px;background:#fff;font:16px Archivo,system-ui,sans-serif}
+.learn .nx-worked th{white-space:normal;font-weight:500}
+.learn .nx-logic-frame{width:100%;min-height:600px;border:1px solid #dbe0dc;border-radius:12px;background:#fff;display:block}
+@media(max-width:560px){.learn .nx-check{grid-template-columns:56px minmax(0,1fr)}.learn .nx-check>span:last-child{grid-column:1/-1}}
 @media(max-width:560px){.learn .nx-fac{display:none}.learn .nx-table thead th{white-space:normal}.learn .nx-table th,.learn .nx-table td{padding:9px 6px}.learn .nx-bu tr>:nth-child(1),.learn .nx-bu tr>:nth-child(3),.learn .nx-bu tr>:nth-child(4),.learn .nx-bu tr>:nth-child(8){display:none}.learn .nx-bu{font-size:13px}.learn .nx-bu tbody th,.learn .nx-bu tfoot th{white-space:normal;min-width:84px}.learn .nx-bu thead th{letter-spacing:0}.learn .nx-bu th,.learn .nx-bu td{padding:8px 4px}.learn .nx-bu .nx-explain-row td{font-size:11px}.learn .nx-bu tbody th,.learn .nx-bu tfoot th{min-width:72px}.learn .nx-card:has(.nx-bu){padding:16px 10px}}
 @media(max-width:760px){.learn .nx-area-tabs{margin:-8px 0 24px}.learn .nx-area-tabs a,.learn .nx-tabs a{padding:10px 10px;font-size:14px}.learn .nx-card{padding:18px 16px}.learn .nx-pie-grid{grid-template-columns:1fr;gap:18px}.learn .nx-donut{max-width:220px}.learn .nx-legend{grid-template-columns:1fr}.learn .nx-big{font-size:46px}.learn .nx-steps>li{padding-left:38px}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}.learn .feature-card:hover{transform:none}}
 @media(max-width:760px){.learn main{padding-top:28px}.learn .feature-card{padding:22px 20px}.learn .post-list a{grid-template-columns:1fr}.learn .post-body{font-size:18px}.learn .post-body h2{font-size:23px}.learn .post-pager{grid-template-columns:1fr}.learn .post-pager .next{grid-column:1}.learn .sitemap .in{grid-template-columns:repeat(2,minmax(0,1fr))}.learn nav a,.learn .morewrap>button{font-size:12px;padding:8px}}
-</style><script src="site.js" defer></script><script src="learn/render.js" defer></script><script src="learn/numbers/numbers.js" defer></script></head><body class="learn">
+</style><script src="site.js" defer></script><script src="learn/render.js" defer></script><script src="ddf-engine.js" defer></script><script src="v2/audit-pie.js" defer></script><script src="v2/audit-source.js" defer></script><script src="learn/numbers/learn-engine.js" defer></script><script src="learn/numbers/numbers.js" defer></script></head><body class="learn">
 <header><div class="header-inner"><div class="brand">DDF<small>DATA DRIVEN FOOTBALL</small></div><nav aria-label="Main navigation"><a href="index.html">Home</a><a href="build.html">Build a Trade</a><a href="find.html">Trade &amp; Waiver Recommendations</a><a href="values.html">Values</a><div class="morewrap"><button type="button" aria-expanded="false" aria-controls="learn-more">More ▾</button><div class="menu" id="learn-more"><a href="build.html">Build a Trade</a><a href="find.html">Trade &amp; Waiver Recommendations</a><a href="waivers.html">Waivers</a><a href="team.html">Team assessment</a><a href="explore.html">Pick players</a><a href="partners.html">Pick trading partners</a><a href="values.html">Values</a><a href="values.html#buy-sell">Buy / Sell</a><a href="values.html#overrides">Overrides</a><a href="learn.html" aria-current="page">Learn</a><a href="learn.html#numbers/pie">How we get our numbers</a><a href="ai.html">Use DDF with AI</a><a href="connect.html">Paste my league</a><a href="setup.html">Your team</a><a href="settings.html">League settings</a></div></div></nav></div></header>
 <main id="learn-main">
   <div class="nx-area-tabs" role="tablist" aria-label="Learn" id="learn-area-tabs">
@@ -184,14 +212,22 @@ main a:focus-visible,main button:focus-visible{outline:3px solid #176c4d;outline
       <p class="nx-method nx-muted" id="nx-sources"></p>
       <p class="meta nx-snap"><span id="nx-snapshot"></span><span id="nx-settings"></span></p>
     </div>
+    <form class="nx-settings" id="nx-settings-wrap" aria-label="League settings for these numbers" onsubmit="return false">
+      <label for="set-scoring">Scoring<select id="set-scoring"><option value="standard">Standard</option><option value="half_ppr">Half PPR</option><option value="ppr">Full PPR</option></select></label>
+      <label for="set-teams">Teams<select id="set-teams"><option value="8">8</option><option value="10">10</option><option value="12">12</option><option value="14">14</option></select></label>
+      <label class="nx-check-label" for="set-sf"><input type="checkbox" id="set-sf">Superflex</label>
+      <p>The numbers start from your league settings saved in this browser. Check another setting here; it applies to this page only and is not saved.</p>
+    </form>
     <div class="nx-tabs" role="tablist" aria-label="How we get our numbers" id="nx-tabs">
       <a role="tab" id="nx-tab-pie" href="#numbers/pie" aria-controls="nx-view-pie" aria-selected="true">Value pie</a>
       <a role="tab" id="nx-tab-build-up" href="#numbers/build-up" aria-controls="nx-view-build-up" aria-selected="false" tabindex="-1">Source build-up</a>
       <a role="tab" id="nx-tab-trace" href="#numbers/trace" aria-controls="nx-view-trace" aria-selected="false" tabindex="-1">Trace any number</a>
       <a role="tab" id="nx-tab-glossary" href="#numbers/glossary" aria-controls="nx-view-glossary" aria-selected="false" tabindex="-1">Glossary</a>
+      <a role="tab" id="nx-tab-logic" href="#numbers/logic" aria-controls="nx-view-logic" aria-selected="false" tabindex="-1">Full value logic</a>
     </div>
     <p class="nx-sr" id="nx-live" aria-live="polite"></p>
-    <p id="nx-error" class="empty-note" hidden role="alert">The week 9 numbers could not be loaded.</p>
+    <p id="nx-loading" class="nx-loading" role="status" hidden>Working out the numbers for these settings…</p>
+    <p id="nx-error" class="empty-note" hidden role="alert">The live numbers could not be loaded. Reload the page to try again.</p>
 
     <div id="nx-view-pie" role="tabpanel" aria-labelledby="nx-tab-pie" class="nx-view">
       <div class="nx-pick">
@@ -210,18 +246,28 @@ main a:focus-visible,main button:focus-visible{outline:3px solid #176c4d;outline
         </div>
         <p class="nx-formula nx-n" id="pie-formula"></p>
         <p class="nx-hint" id="pie-round" hidden></p>
+        <p class="nx-hint" id="pie-dd"></p>
         <p><a class="nx-link" id="pie-trace" href="#numbers/trace">Trace this number step by step →</a></p>
       </div>
+      <section class="nx-card nx-health" aria-labelledby="hc-title">
+        <h2 id="hc-title">Does every source add up to the value pie?</h2>
+        <p class="nx-hint">Every source’s adjusted values add up to the league’s value pie. These checks catch a source that prices players very differently from the rest. <span id="hc-sum"></span></p>
+        <div id="hc-body"></div>
+      </section>
     </div>
 
     <div id="nx-view-build-up" role="tabpanel" aria-labelledby="nx-tab-build-up" class="nx-view" hidden>
       <div class="nx-pick"><span class="nx-label" id="bu-src-label">Source</span><div class="nx-quick" id="bu-sources" role="group" aria-labelledby="bu-src-label"></div></div>
+      <div class="nx-pick"><span class="nx-label" id="bu-pos-label">Position</span><div class="nx-quick" id="bu-positions" role="group" aria-labelledby="bu-pos-label"></div></div>
       <div class="nx-card">
         <h2 id="bu-title"></h2>
         <ul class="nx-explain" id="bu-explain"></ul>
+        <div id="bu-curve"></div>
+        <div id="bu-worked"></div>
         <div class="nx-scroll" tabindex="0" role="region" aria-labelledby="bu-title"><table class="nx-table nx-bu" id="bu-table"></table></div>
         <p class="nx-hint" id="bu-meta"></p>
-        <button type="button" class="nx-btn" id="bu-more" aria-controls="bu-table" aria-expanded="false" hidden></button>
+        <button type="button" class="nx-btn" id="bu-more" aria-controls="bu-table" hidden></button>
+        <p id="bu-link"></p>
       </div>
     </div>
 
@@ -236,10 +282,11 @@ main a:focus-visible,main button:focus-visible{outline:3px solid #176c4d;outline
         <h2 id="tr-name"></h2>
         <div class="nx-big nx-n" id="tr-big"></div>
         <p class="nx-hint" id="tr-sub"></p>
+        <p class="nx-hint" id="tr-ov" hidden></p>
         <ol class="nx-steps">
-          <li><b>Four charts publish a value, it is indexed onto one scale, then adjusted for your league</b>
+          <li><b id="tr-step1">Four charts publish a value, it is indexed onto one scale, then adjusted for your league</b>
             <div class="nx-scroll"><table class="nx-table" id="tr-pub"></table></div></li>
-          <li><b>Average of the four adjusted values</b><p class="nx-formula nx-n" id="tr-avg"></p><p class="nx-hint" id="tr-round" hidden></p></li>
+          <li><b id="tr-step2">Average of the four adjusted values</b><p class="nx-formula nx-n" id="tr-avg"></p><p class="nx-hint" id="tr-round" hidden></p></li>
           <li><b>Pinned to</b><p class="nx-hint" id="tr-pin"></p></li>
         </ol>
         <div class="nx-actions">
@@ -256,23 +303,29 @@ main a:focus-visible,main button:focus-visible{outline:3px solid #176c4d;outline
         <h2 id="gl-title">Glossary</h2>
         <p class="nx-hint nx-gl-intro">The terms this site uses for its numbers. Each term name is a link you can copy.</p>
         <dl class="nx-gl" aria-labelledby="gl-title">
-          <div class="nx-term" id="g-published" tabindex="-1"><dt><a href="#numbers/glossary/published">Published</a></dt><dd>A trade chart’s own number for a player, in that chart’s own units. In week 9, CBS Sports lists Jahmyr Gibbs at 56.5 and FantasyCalc lists him at 10,685.</dd></div>
+          <div class="nx-term" id="g-published" tabindex="-1"><dt><a href="#numbers/glossary/published">Published</a></dt><dd>A trade chart’s own number for a player, in that chart’s own units.<span data-gl="published"></span></dd></div>
           <div class="nx-term" id="g-indexed" tabindex="-1"><dt><a href="#numbers/glossary/indexed">Indexed</a></dt><dd>Published × one factor for the chart (indexed total ÷ published total), so all four charts sit on one scale. One factor per chart means indexing never changes that chart’s player order.</dd></div>
-          <div class="nx-term" id="g-adjusted" tabindex="-1"><dt><a href="#numbers/glossary/adjusted">Adjusted</a></dt><dd>The indexed value fitted to your league settings: each chart’s value above waivers, weighted at starter or bench level by where the player ranks at his position for your league’s roster sizes and team count, then rescaled so each chart’s total equals the league’s value pie (2,688 points in the week 9 example: 28 × 12 teams × 8 starting slots).</dd></div>
+          <div class="nx-term" id="g-adjusted" tabindex="-1"><dt><a href="#numbers/glossary/adjusted">Adjusted</a></dt><dd>The indexed value fitted to your league settings: each chart’s value above waivers, weighted at starter or bench level by where the player ranks at his position for your league’s roster sizes and team count, then rescaled so each chart’s total equals the league’s value pie<span data-gl="pie"></span>.</dd></div>
           <div class="nx-term" id="g-ddf-value" tabindex="-1"><dt><a href="#numbers/glossary/ddf-value">DDF Value</a></dt><dd>The mean of the four adjusted charts: the three analyst charts (CBS Sports, USA Today, FantasyPros) and the live market (FantasyCalc). A player your league leaves on the waiver wire is worth about 0.</dd></div>
           <div class="nx-term" id="g-ddf-projection" tabindex="-1"><dt><a href="#numbers/glossary/ddf-projection">DDF (Projection based)</a></dt><dd>An alternate version of DDF Value built from projected points (ESPN, CBS rest of season, Razzball) instead of trade charts.</dd></div>
           <div class="nx-term" id="g-analyst-charts" tabindex="-1"><dt><a href="#numbers/glossary/analyst-charts">Analyst charts</a></dt><dd>The average of the CBS Sports, USA Today and FantasyPros published values, with no adjustment for your league. These three are analysts’ trade charts: opinions of what players are worth, not trades. Trade &amp; Waiver Recommendations and Build a Trade use it as the default Their valuation.</dd></div>
           <div class="nx-term" id="g-live-market" tabindex="-1"><dt><a href="#numbers/glossary/live-market">Live market</a></dt><dd>FantasyCalc, shown as Live market (FantasyCalc): live market activity, what people actually pay in trades. It is one of the four charts in DDF Value and is never averaged into Analyst charts.</dd></div>
           <div class="nx-term" id="g-roles" tabindex="-1"><dt><a href="#numbers/glossary/roles">Starter / Bench / Waiver</a></dt><dd>Where a player ranks at his position across the whole league, given its roster sizes and team count: starters are the players good enough to fill the league’s starting slots, bench players are the next ones expected to sit on benches, and waiver players are the available players left over. It does not depend on whose team he is on or on your own lineup. DDF Value values starters at starter level and bench players at bench level. Source build-up shows it in the Role column.</dd></div>
-          <div class="nx-term" id="g-override" tabindex="-1"><dt><a href="#numbers/glossary/override">Override</a></dt><dd>Your own value for a player. It replaces DDF Value on every tab, is applied after DDF’s numbers, and leaves the analyst charts and the live market unchanged. <a href="values.html#overrides">Set one on Values</a>.</dd></div>
-          <div class="nx-term" id="g-basis" tabindex="-1"><dt><a href="#numbers/glossary/basis">Basis</a></dt><dd>Which sources DDF Value is built from. The default is the four trade charts, weighted equally; the week 9 numbers here use it.</dd></div>
-          <div class="nx-term" id="g-position-weights" tabindex="-1"><dt><a href="#numbers/glossary/position-weights">Position weights</a></dt><dd>How much each position counts toward player value: a relative weight for each position’s starters (1 is the default) and each position’s bench share of value. Change them under Advanced in <a href="find.html">Trade &amp; Waiver Recommendations</a> or <a href="build.html">Build a Trade</a>.</dd></div>
-          <div class="nx-term" id="g-value-above-waivers" tabindex="-1"><dt><a href="#numbers/glossary/value-above-waivers">Value above waivers</a></dt><dd>How much better a player is than the best one you could pick up for free at his position, counting all his points: each trade chart’s value minus that chart’s waiver line at the position (never below 0), on the same value-pie scale as DDF Value, averaged over the four charts. It comes before DDF’s starter and bench weighting. DDF Value starts from this and adjusts it for where he ranks in your league: players good enough to start at their position, given roster sizes and team count, are valued at starter level, and players expected to sit on benches at bench level. So top starters have a higher DDF Value than value above waivers, and bench players a lower one (week 9: Jahmyr Gibbs 71.9 above waivers, DDF Value 84.3). <a href="values.html">Turn it on in Values</a> (Customize, Advanced).</dd></div>
+          <div class="nx-term" id="g-override" tabindex="-1"><dt><a href="#numbers/glossary/override">Override</a></dt><dd>Your own value for a player. It replaces DDF Value on every tab, is applied after DDF’s numbers, and leaves the analyst charts and the live market unchanged. <a href="values.html#overrides">Add one on Values</a>.</dd></div>
+          <div class="nx-term" id="g-basis" tabindex="-1"><dt><a href="#numbers/glossary/basis">Basis</a></dt><dd>Which sources DDF Value is built from. The default is the four trade charts, weighted equally; the numbers on this page use it.</dd></div>
+          <div class="nx-term" id="g-position-weights" tabindex="-1"><dt><a href="#numbers/glossary/position-weights">Position weights</a></dt><dd>How much each position counts toward player value: a relative weight for each position’s starters (1 is the default) and each position’s bench share of value.</dd></div>
+          <div class="nx-term" id="g-value-above-waivers" tabindex="-1"><dt><a href="#numbers/glossary/value-above-waivers">Value above waivers</a></dt><dd>How much better a player is than the best one you could pick up for free at his position, counting all his points: each trade chart’s value minus that chart’s waiver line at the position (never below 0), on the same value-pie scale as DDF Value, averaged over the four charts. It comes before DDF’s starter and bench weighting. DDF Value starts from this and adjusts it for where he ranks in your league: players good enough to start at their position, given roster sizes and team count, are valued at starter level, and players expected to sit on benches at bench level. So top starters have a higher DDF Value than value above waivers, and bench players a lower one<span data-gl="vaw"></span>.</dd></div>
+
+          <div class="nx-term" id="g-missing" tabindex="-1"><dt><a href="#numbers/glossary/missing">Missing (—)</a></dt><dd>A dash means a source has no value there: it is unavailable, never zero. A chart that is held this week is left out of DDF Value, not counted as zero. A chart that does not list a player can still adjust him to 0 (at or below its waiver line), and that 0 counts.</dd></div>
+          <div class="nx-term" id="g-zero" tabindex="-1"><dt><a href="#numbers/glossary/zero">Zero</a></dt><dd>A value of zero is real: the player sits at or below that source’s waiver line for your league.</dd></div>
         </dl>
       </div>
     </div>
+    <div id="nx-view-logic" role="tabpanel" aria-labelledby="nx-tab-logic" class="nx-view" hidden>
+      <p class="nx-hint">Every step from a source’s own numbers to a DDF Value, with the engine’s own figures: the checks, the curves, the weights, each source’s recipe, and a player traced through every source. Rebuilt on every deploy.</p>
+      <iframe class="nx-logic-frame" id="logic-frame" title="DDF Value Logic" data-src="value-logic/" scrolling="no"></iframe>
+    </div>
     <datalist id="nx-players"></datalist>
-    <p class="nx-foot meta"><a href="learn/data/lineage-week9.json">Snapshot data (JSON)</a></p>
   </section>
 </main>
 <footer class="sitemap"><div class="in"><div><h2>TRADE</h2><a href="index.html">Home</a><a href="build.html">Build a Trade</a><a href="find.html">Trade &amp; Waiver Recommendations</a><a href="waivers.html">Waivers</a></div><div><h2>VALUES</h2><a href="values.html">Values</a><a href="values.html#buy-sell">Buy / Sell</a><a href="values.html#overrides">Overrides</a></div><div><h2>YOUR LEAGUE</h2><a href="connect.html">Paste my league</a><a href="setup.html">Your team</a><a href="settings.html">League settings</a><a href="team.html">Team assessment</a><a href="explore.html">Pick players</a><a href="partners.html">Pick trading partners</a></div><div><h2>LEARN</h2><a href="learn.html">Learn</a><a href="learn.html#numbers/pie">How we get our numbers</a><a href="ai.html">Use DDF with AI</a></div></div><div class="footer">Data Driven Football</div></footer>
@@ -372,7 +425,7 @@ window.addEventListener('DOMContentLoaded', () => {
   let first = true;
   async function route() {
     if (window.DDFNumbers && window.DDFNumbers.isNumbersHash()) { first = false; return; }
-    const slug = decodeURIComponent(location.hash.replace(/^#\/?/, '')).trim();
+    const slug = decodeURIComponent(location.hash.replace(/^#\/?/, '').split('?')[0]).trim();
     let focusEl;
     if (!slug) {
       show('learn-index');
@@ -421,4 +474,5 @@ window.addEventListener('DOMContentLoaded', () => {
     $('learn-error').hidden = false;
   });
 });
-</script></body></html>
+</script><!-- ddf-engine -->
+</body></html>
