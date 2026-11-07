@@ -20,8 +20,8 @@ from pathlib import Path
 SITE_NOINDEX = True
 
 ROBOTS = '<meta name="robots" content="noindex, nofollow">'
-_ROBOTS_TAG = re.compile(r'<meta\s+name=["\']robots["\'][^>]*>', re.I)
-_ANCHOR = re.compile(r'<head[^>]*>|<meta\s+charset=[^>]*>', re.I)
+_ROBOTS_TAG = re.compile(r'<meta\b(?=[^>]*\bname=["\']robots["\'])[^>]*>', re.I)
+_ANCHOR = re.compile(r'<head(?:\s[^>]*)?>|<meta\s+charset=[^>]*>', re.I)
 
 
 def noindex_html(html: str, name: str = "page") -> str:

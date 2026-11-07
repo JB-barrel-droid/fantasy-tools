@@ -2,7 +2,7 @@
 
 Unit tests cover the injector and that SITE_NOINDEX is the only switch. The
 built-tree test runs against dist/ when `make sync` has been run (CI runs it
-before the tests; locally it skips when dist/ is missing).
+before the tests; locally it skips unless dist/values.html, which only sync writes, exists).
 """
 import re
 import sys
@@ -35,6 +35,12 @@ class InjectorTest(unittest.TestCase):
         self.assertEqual(1, len(re.findall(r'name="robots"', out)))
         self.assertIn("noindex", out)
 
+    def test_header_tag_is_not_a_head_and_reversed_attrs_are_found(self):
+        out = sn.noindex_html('<header></header><head><meta charset="utf-8"></head>')
+        self.assertTrue(out.startswith("<header></header><head>" + sn.ROBOTS))
+        page = PAGE.replace("<title>", '<meta content="noindex" name="robots"><title>')
+        self.assertEqual(page, sn.noindex_html(page))
+
     def test_no_head_fails_loudly(self):
         with self.assertRaises(ValueError):
             sn.noindex_html("<html><body>x</body></html>")
@@ -63,12 +69,13 @@ class InjectorTest(unittest.TestCase):
         sync = (ROOT / "pipelines" / "sync_dashboard_artifacts.py").read_text()
         self.assertIn("apply_site_noindex(DIST)", sync)
         self.assertNotIn("SITE_NOINDEX =", sync)
+        self.assertGreater(sync.index("apply_site_noindex(DIST)"), sync.index("build_values_explainer(["))
         hits = [p.name for p in (ROOT / "pipelines").glob("*.py")
                 if "SITE_NOINDEX =" in p.read_text() and p.name != "site_noindex.py"]
         self.assertEqual([], hits)
 
 
-@unittest.skipUnless(DIST.joinpath("index.html").exists(), "dist/ not built (run make sync)")
+@unittest.skipUnless(DIST.joinpath("values.html").exists(), "dist/ not built (run make sync)")
 class BuiltSiteTest(unittest.TestCase):
     def test_every_published_html_is_noindex(self):
         self.assertTrue(sn.SITE_NOINDEX)
